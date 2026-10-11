@@ -17,6 +17,12 @@ __pycache__/
 /benchmarks/pdf/corpus/
 /benchmarks/pdf/runs/
 /docs/pdfs/*.pdf
+/apps/extension/tests/fixtures/*.html
+/benchmarks/pdf/fixtures/*.pdf
+/benchmarks/pdf/first-run-report.md
+/benchmarks/pdf/first-run-summary.json
+/benchmarks/pdf/*validation*.json
+/benchmarks/pdf/smoke-observations.json
 
 .superpowers/
 /releases/
