@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "pagelingo-paged-preview-browser-validation/1",
+  "browser": "Chromium 153.0.8010.12, file://, offline=true",
+  "scope": "All exported pages, local resources, font/image loading, navigation and scroll smoke test; not parser accuracy acceptance",
+  "bundles": [
+    {
+      "name": "llm-foundations-basic-paged-v3",
+      "sourceRunId": "abf0e25e-e9f9-4061-a90d-8f39bd3ce3de",
+      "filesVerified": 505,
+      "pagesOpened": 317,
+      "math": 1593,
+      "images": 181,
+      "originalVisuals": 181,
+      "maxDomElements": 3612,
+      "maxLoadMs": 113.06568700000003,
+      "callouts": 91,
+      "algorithmImages": 2,
+      "protectedSourceImages": 1,
+      "listItems": 223,
+      "notationRows": 23,
+      "completionSlots": 23,
+      "coloredSpans": 2369,
+      "scroll": {
+        "frames": 100,
+        "maxFrameMs": 16.800000000000182,
+        "meanFrameMs": 16.423000000029802,
+        "domElements": 3612
+      },
+      "navigation": "passed",
+      "errors": [],
+      "failedRequests": [],
+      "remoteRequests": []
+    }
+  ]
+}

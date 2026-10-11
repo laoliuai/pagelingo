@@ -1,0 +1,94 @@
+{
+  "schemaVersion": "pagelingo-smoke-observations/1",
+  "reviewScope": "Manual spot checks, not full golden annotation",
+  "observations": [
+    {
+      "sampleId": "llm-foundations",
+      "pageIndices": [
+        19
+      ],
+      "topic": "Figure labels",
+      "docling": "Raw picture.children correctly identifies diagram text. P0 projection initially lost parentId; fixed and reprojected.",
+      "mineru": "Image-body and caption hierarchy retained; label text is not ordinary body paragraphs.",
+      "evidence": [
+        "docling-projected/docling-llm-smoke/normalized.json",
+        "mineru-smoke/mineru-llm-foundations/normalized.json"
+      ]
+    },
+    {
+      "sampleId": "llm-foundations",
+      "pageIndices": [
+        48,
+        49
+      ],
+      "topic": "Cross-page continuation",
+      "docling": "Native merged paragraph has sourceRefs on both pages.",
+      "mineru": "Page 50 starts a separate paragraph with continues_prev=true; semantic merge remains P2 work.",
+      "evidence": [
+        "docling-projected/docling-llm-foundations/normalized.json",
+        "mineru-smoke/mineru-llm-foundations/normalized.json"
+      ]
+    },
+    {
+      "sampleId": "llm-foundations",
+      "pageIndices": [
+        49,
+        189
+      ],
+      "topic": "Math structure",
+      "docling": "Current low-resource profile preserves display formulas via original crops; paragraph math becomes plain text. Formula/code enrichment disabled.",
+      "mineru": "Display LaTeX plus typed equation_inline spans retained. Latex may contain OCR errors and remains accompanied by original crop/page.",
+      "evidence": [
+        "docling-projected/docling-llm-foundations/normalized.json",
+        "mineru-smoke/mineru-llm-foundations/normalized.json"
+      ]
+    },
+    {
+      "sampleId": "bert",
+      "pageIndices": [
+        0,
+        1
+      ],
+      "topic": "Two-column reading order",
+      "docling": "First page: metadata, left abstract and intro, then right column; checked order correct.",
+      "mineru": "First page follows the same column order; no row-by-row column interleaving observed.",
+      "evidence": [
+        "docling-projected/docling-bert/normalized.json",
+        "mineru-smoke/mineru-bert/normalized.json"
+      ]
+    },
+    {
+      "sampleId": "rl-little-book",
+      "pageIndices": [
+        44,
+        74,
+        89,
+        109,
+        134
+      ],
+      "topic": "Boxed note, chart captions, policy-gradient formula",
+      "docling": "Original visual regions retained. Caption/note associations need semantic Reader representation.",
+      "mineru": "Figure/table/code relationships and inline math retained. Scientific correctness of every formula not fully annotated.",
+      "evidence": [
+        "docling-projected/docling-rl-little-book/normalized.json",
+        "mineru-smoke/mineru-rl-little-book/normalized.json"
+      ]
+    },
+    {
+      "sampleId": "crop-rotation-challenge",
+      "pageIndices": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "topic": "Nonzero CropBox and rotation",
+      "docling": "All four pages have text, but source bbox degrades to page precision; rotated line grouping/order is not accepted.",
+      "mineru": "Pages rotated 90 and 270 degrees have native text but no content blocks. Added source_text_without_blocks diagnostic and verified actual rerun returns partial.",
+      "evidence": [
+        "docling-coordinates/normalized.json",
+        "mineru-coordinates-checked/normalized.json"
+      ]
+    }
+  ]
+}

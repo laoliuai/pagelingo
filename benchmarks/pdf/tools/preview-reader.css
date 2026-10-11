@@ -1,0 +1,68 @@
+body.docvortex-html-body{margin:0;background:#f5f7fa;color:#243041}
+a{color:#175ba1}
+.pl-toolbar,.pl-home,.pl-bottom{box-sizing:border-box;max-width:940px;margin:auto;
+  font:15px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}
+.pl-toolbar{position:sticky;top:0;z-index:10;padding:10px 20px;background:#fff;
+  border-bottom:1px solid #dce3ec;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.pl-book-title{width:100%;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;
+  font-size:14px;color:#536178}
+.pl-toolbar a,.pl-bottom a,.pl-start{display:inline-block;text-decoration:none;
+  border:1px solid #dce3ec;border-radius:6px;padding:5px 12px;background:#fff}
+.pl-toolbar a:hover,.pl-bottom a:hover{background:#eef4fc}
+.pl-jump{display:flex;align-items:center;gap:6px;margin:0 auto 0 0}
+.pl-jump select,.pl-jump button{font:inherit;padding:4px;border:1px solid #c7d2e2;
+  border-radius:5px;background:white;color:inherit}
+.pl-jump select{max-width:110px}
+.pl-book-page{font-size:13px;color:#617189;white-space:nowrap}
+.pl-home{padding:28px;background:#fff;border:1px solid #dce3ec;border-radius:10px;
+  margin:28px auto}
+.pl-home h1{font-size:26px;line-height:1.4;overflow-wrap:anywhere}
+.pl-home .pl-start{background:#175ba1;color:white;padding:8px 20px}
+.pl-toc{padding-left:24px}.pl-toc li{margin:8px 0;overflow-wrap:anywhere}
+.pl-toc a{text-decoration:none}.pl-toc a:hover{text-decoration:underline}
+.pl-page-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));
+  gap:8px;padding:16px 0}.pl-page-list a{padding:4px;text-align:center}
+.pl-bottom{padding:22px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.pl-note{font:14px/1.7 system-ui;color:#617189;max-width:900px;margin:18px auto}
+.pl-warning{padding:12px;background:#fff3e4;color:#804815;border-radius:6px}
+.docvortex-document{box-sizing:border-box;max-width:940px!important;
+  padding:24px!important;margin:0 auto!important;background:white}
+.docvortex-document .docvortex-page{box-shadow:none!important;border:0!important;
+  padding:0!important;margin:0!important}
+.docvortex-math--block{overflow-x:auto}.pl-math-fallback{color:#9a420e}
+.docvortex-heading{scroll-margin-top:140px}
+.pl-original-link{display:block;text-align:center}
+.pl-original-link img{max-width:100%;height:auto;display:block;margin:0 auto;
+  background:white}
+.pl-original-link:focus-visible{outline:2px solid #175ba1}
+.pl-source-note{font:13px/1.6 system-ui;color:#80572d;text-align:center;margin:8px 0}
+.pl-callout{border:1px solid;margin:20px 0;overflow:hidden}
+.pl-callout-body{padding:14px 20px}
+.pl-callout-body>.docvortex-block:last-child>p:last-child{margin-bottom:0}
+.pl-callout-title{padding:8px 20px!important;margin:0!important}
+.pl-callout-title .docvortex-heading{color:inherit!important;font-size:18px!important;
+  line-height:1.5!important;margin:0!important;font-weight:600!important}
+.pl-source-list{list-style-position:outside;padding-left:2.4em;margin:16px 0}
+.pl-source-list>li{padding-left:.25em;margin:10px 0}
+.pl-source-list>li>p{margin:0}
+.pl-source-list .pl-source-list{padding-left:1.8em;margin:8px 0}
+.pl-source-index ul{list-style:none;padding:0}
+.pl-source-index li,.pl-toc>li{margin-left:calc(var(--pl-depth,0)*1.25em)}
+.pl-source-index li{margin-top:7px;margin-bottom:7px}
+.pl-source-centered{text-align:center}
+.pl-completion-slot{display:inline-block;width:var(--pl-slot-width,3em);
+  margin:0 .22em;color:transparent;border-bottom:1px solid #333;line-height:1}
+.pl-notation{margin:20px 0}
+.pl-notation-entry{display:grid;grid-template-columns:180px minmax(0,1fr);
+  gap:16px;align-items:center;padding:9px 0}
+.pl-notation dt{margin:0;text-align:right}
+.pl-notation dt .pl-original-link img{margin:0 0 0 auto;max-height:48px;object-fit:contain}
+.pl-notation dd{margin:0;line-height:1.6}
+.pl-footnote-rule{margin:26px auto 10px 0;width:40%;border:0;border-top:1px solid #667085}
+.pl-reader-footnote{font-size:13px;line-height:1.6}
+.pl-reader-footnote p{font-size:inherit!important;line-height:inherit!important}
+pre,code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+@media(max-width:600px){.pl-home{margin:12px;padding:18px}
+  .pl-toolbar{padding:8px 12px;gap:8px}.pl-toolbar a{padding:4px 8px}
+  .docvortex-document{padding:18px!important}.pl-jump{order:2;width:100%}
+  .pl-notation-entry{grid-template-columns:105px minmax(0,1fr);gap:12px}}

@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "pagelingo-static-preview-validation/1",
+  "date": "2026-10-07",
+  "scope": "Re-rendered existing basic CPU outputs; no new parsing or translation; not formal Reader/quality acceptance",
+  "browser": "Chromium, extracted ZIP, offline=true",
+  "archives": [
+    {
+      "path": "releases/pdf-previews/llm-foundations-basic-static.zip",
+      "bytes": 9833389,
+      "sha256": "0d45d9eb1428ccb80659dd6835a07ab59873def41eda2e5432d2480e6d14dea1",
+      "name": "llm-foundations-basic-static",
+      "math": 1663,
+      "mathFallbacks": 6,
+      "images": 124,
+      "visibleImages": [],
+      "tables": 31,
+      "codeBlocks": 27,
+      "scripts": 0,
+      "fonts": "loaded",
+      "failures": [],
+      "errors": [],
+      "remoteRequests": []
+    },
+    {
+      "path": "releases/pdf-previews/rl-little-book-basic-static.zip",
+      "bytes": 22536174,
+      "sha256": "974bee29a06c41dac45e231622c8c2466541da7d4e60d65f2a4af623a9cbd5f7",
+      "name": "rl-little-book-basic-static",
+      "math": 475,
+      "mathFallbacks": 0,
+      "images": 59,
+      "visibleImages": [
+        {
+          "src": "assets/images/page_47_image_0.jpg",
+          "loaded": true
+        }
+      ],
+      "tables": 1,
+      "codeBlocks": 1,
+      "scripts": 0,
+      "fonts": "loaded",
+      "failures": [],
+      "errors": [],
+      "remoteRequests": []
+    }
+  ]
+}

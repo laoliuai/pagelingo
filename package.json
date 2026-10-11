@@ -1,0 +1,48 @@
+{
+  "name": "pagelingo",
+  "version": "0.4.2",
+  "private": true,
+  "type": "module",
+  "description": "Shared translation SDK and applications for technical reading.",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev:extension",
+    "dev:extension": "npm run build:sdk && npm run dev --workspace @pagelingo/extension",
+    "build:sdk": "npm run build --workspace @pagelingo/translation-core && npm run build --workspace @pagelingo/assistant-core",
+    "dev:sdk": "npm run build --workspace @pagelingo/translation-core -- --watch",
+    "build": "npm run build:extension",
+    "build:extension": "npm run build:sdk && npm run build --workspace @pagelingo/extension",
+    "package:extension": "npm run build && node scripts/package-extension.mjs",
+    "typecheck": "npm run build:sdk && npm run typecheck --workspaces --if-present",
+    "test": "npm run build:sdk && npm run test --workspaces --if-present",
+    "test:sdk": "npm run build:sdk && npm run test --workspace @pagelingo/translation-core",
+    "test:extension": "npm run build:sdk && npm run test --workspace @pagelingo/extension",
+    "test:watch": "npm run build:sdk && npm run test:watch --workspace @pagelingo/extension",
+    "test:package": "npm run build:sdk && node --test tests/package/*.test.mjs",
+    "example:sdk": "npm run build:sdk && node examples/translate-document.mjs",
+    "test:llm": "npm run build:sdk && node scripts/check-llm.mjs",
+    "test:llm:assistant": "npm run build:sdk && node scripts/check-assistant-llm.mjs",
+    "test:llm:extension": "npm run build && node apps/extension/tests/live/run.mjs",
+    "test:e2e": "npm run build:sdk && npm run test:e2e --workspace @pagelingo/extension",
+    "check": "npm run typecheck && npm test && npm run test:package && npm run test:e2e",
+    "build:assistant": "npm run build --workspace @pagelingo/assistant-core",
+    "test:assistant": "npm run test --workspace @pagelingo/assistant-core",
+    "pdf:setup": "uv sync --directory services/document-parser --locked",
+    "pdf:cli": "uv run --directory services/document-parser --locked --no-sync pagelingo-parser",
+    "pdf:lint": "uv run --directory services/document-parser --locked --no-sync ruff check src tests",
+    "pdf:test": "uv run --directory services/document-parser --locked --no-sync pytest -q"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "dependencies": {
+    "@pagelingo/translation-core": "0.3.0",
+    "@pagelingo/assistant-core": "0.2.0"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2"
+  }
+}

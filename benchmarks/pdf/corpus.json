@@ -1,0 +1,108 @@
+{
+  "schemaVersion": "pagelingo-pdf-corpus/1",
+  "samples": [
+    {
+      "id": "llm-foundations",
+      "path": "docs/pdfs/2501.09223v3-Foundations of Large Language Models.pdf",
+      "title": "Foundations of Large Language Models",
+      "version": "arXiv:2501.09223v3 (user-provided bytes)",
+      "pageCount": 317,
+      "sha256": "fade965b64edd8a30cde4f69c084942df2a4758aaeee9f918b49f39b323210be",
+      "acquisition": "user supplied in docs/pdfs",
+      "sourceUrl": "https://arxiv.org/abs/2501.09223v3",
+      "redistribution": "PDF bytes excluded from source; metadata only",
+      "smokePages": "1,7,19-20,49-50,170-171,190,245,280,315",
+      "tags": [
+        "long-book",
+        "single-column",
+        "math",
+        "figures",
+        "lists",
+        "cross-page",
+        "two-column-index"
+      ]
+    },
+    {
+      "id": "rl-little-book",
+      "path": "docs/pdfs/The Little Book of Reinforcement Learning.pdf",
+      "title": "The Little Book of Reinforcement Learning",
+      "version": "user-provided PDF, metadata dated 2026-05-18",
+      "pageCount": 154,
+      "sha256": "10289a4e879c7738b89a52525d464d95dc7c222c0f26ed32d2f3b076264515b2",
+      "acquisition": "user supplied in docs/pdfs",
+      "sourceUrl": null,
+      "redistribution": "PDF bytes excluded from source; PDF last page states CC BY-SA 4.0",
+      "smokePages": "1,5,12,18,44-45,59-60,75,90,110,135",
+      "tags": [
+        "long-book",
+        "single-column",
+        "math",
+        "figures",
+        "boxed-remarks",
+        "cross-page",
+        "empty-pages"
+      ]
+    },
+    {
+      "id": "attention",
+      "path": "benchmarks/pdf/corpus/attention-1706.03762v7.pdf",
+      "title": "Attention Is All You Need",
+      "version": "arXiv:1706.03762v7",
+      "pageCount": 15,
+      "sha256": "bdfaa68d8984f0dc02beaca527b76f207d99b666d31d1da728ee0728182df697",
+      "acquisition": "explicit download from arXiv",
+      "sourceUrl": "https://arxiv.org/abs/1706.03762v7",
+      "downloadUrl": "https://arxiv.org/pdf/1706.03762v7",
+      "redistribution": "PDF bytes excluded from source",
+      "smokePages": "all",
+      "tags": [
+        "single-column",
+        "math",
+        "tables",
+        "figures",
+        "references"
+      ]
+    },
+    {
+      "id": "mamba",
+      "path": "benchmarks/pdf/corpus/mamba-2312.00752v2.pdf",
+      "title": "Mamba: Linear-Time Sequence Modeling with Selective State Spaces",
+      "version": "arXiv:2312.00752v2",
+      "pageCount": 36,
+      "sha256": "adf70ed1803c85b1899dec3e21f3af0b124411439e8654b840ea65f7b9f52b2e",
+      "acquisition": "explicit download from arXiv",
+      "sourceUrl": "https://arxiv.org/abs/2312.00752v2",
+      "downloadUrl": "https://arxiv.org/pdf/2312.00752v2",
+      "redistribution": "PDF bytes excluded from source",
+      "smokePages": "all",
+      "tags": [
+        "single-column",
+        "math",
+        "tables",
+        "figures",
+        "algorithm",
+        "references"
+      ]
+    },
+    {
+      "id": "bert",
+      "path": "benchmarks/pdf/corpus/bert-1810.04805v2.pdf",
+      "title": "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding",
+      "version": "arXiv:1810.04805v2",
+      "pageCount": 16,
+      "sha256": "5692a5514787a8c6727b4ff3b726a3385798bc68e12138d1d4af83947e2acf6e",
+      "acquisition": "explicit download from arXiv",
+      "sourceUrl": "https://arxiv.org/abs/1810.04805v2",
+      "downloadUrl": "https://arxiv.org/pdf/1810.04805v2",
+      "redistribution": "PDF bytes excluded from source",
+      "smokePages": "all",
+      "tags": [
+        "two-column",
+        "tables",
+        "figures",
+        "cross-page",
+        "references"
+      ]
+    }
+  ]
+}

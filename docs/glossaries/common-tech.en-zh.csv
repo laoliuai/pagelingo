@@ -1,0 +1,368 @@
+﻿topic,source,target,policy,domain,notes
+通用技术,algorithm,算法,translate,all,
+通用技术,latency,延迟,translate,all,
+通用技术,throughput,吞吐量,translate,all,
+通用技术,bandwidth,带宽,translate,all,
+通用技术,scalability,可扩展性,translate,all,
+通用技术,reliability,可靠性,translate,all,
+通用技术,availability,可用性,translate,all,
+通用技术,fault tolerance,容错性,translate,all,
+通用技术,bottleneck,瓶颈,translate,all,
+通用技术,benchmark,基准测试,translate,all,可指测试本身或基准数据集；按上下文调整。
+通用技术,baseline,基线,translate,all,通常是对照方法或起点；RL 中也可指降低方差的基线。
+通用技术,trade-off,权衡,translate,all,
+通用技术,constraint,约束,translate,all,
+通用技术,heuristic,启发式方法,first-bilingual,all,作形容词时可译为启发式的。
+通用技术,deterministic,确定性的,translate,all,
+通用技术,stochastic,随机的,translate,all,
+通用技术,nondeterministic,非确定性的,translate,all,不一定涉及概率随机性；例如并发调度顺序不确定。
+通用技术,approximation,近似,translate,all,
+通用技术,performance,性能,translate,all,讨论评测结果时也可能指模型表现。
+通用技术,GPU,图形处理器,keep,all,缩写保留；译文栏用于释义。
+通用技术,CPU,中央处理器,keep,all,缩写保留；译文栏用于释义。
+通用技术,API,应用程序编程接口,keep,all,缩写保留；译文栏用于释义。
+通用技术,SDK,软件开发工具包,keep,all,缩写保留；译文栏用于释义。
+通用技术,JSON,JSON,keep,all,数据格式名称保留。
+编程与运行时,source code,源代码,translate,software-engineering,
+编程与运行时,variable,变量,translate,software-engineering,
+编程与运行时,constant,常量,translate,software-engineering,
+编程与运行时,data type,数据类型,translate,software-engineering,
+编程与运行时,type inference,类型推断,translate,software-engineering,
+编程与运行时,type safety,类型安全,translate,software-engineering,
+编程与运行时,type checking,类型检查,translate,software-engineering,
+编程与运行时,type system,类型系统,translate,software-engineering,
+编程与运行时,function,函数,translate,software-engineering,
+编程与运行时,method,方法,translate,software-engineering,指对象或类上的方法；普通叙述中也可能指研究方法。
+编程与运行时,class,类,translate,software-engineering,编程语境；机器学习分类语境通常译为类别。
+编程与运行时,object,对象,translate,software-engineering,
+编程与运行时,interface,接口,translate,software-engineering,
+编程与运行时,implementation,实现,translate,software-engineering,
+编程与运行时,inheritance,继承,translate,software-engineering,
+编程与运行时,polymorphism,多态,translate,software-engineering,
+编程与运行时,encapsulation,封装,translate,software-engineering,
+编程与运行时,generic,泛型,prefer-source,software-engineering,指泛型编程；作普通形容词时可能应译为通用的。
+编程与运行时,closure,闭包,first-bilingual,software-engineering,
+编程与运行时,callback,回调,translate,software-engineering,
+编程与运行时,recursion,递归,translate,software-engineering,
+编程与运行时,iteration,迭代,translate,software-engineering,
+编程与运行时,iterator,迭代器,translate,software-engineering,
+编程与运行时,generator,生成器,translate,software-engineering,
+编程与运行时,coroutine,协程,first-bilingual,software-engineering,
+编程与运行时,async,异步,prefer-source,software-engineering,代码关键字和 API 标识符保留英文；正文可用异步。
+编程与运行时,asynchronous,异步的,translate,software-engineering,
+编程与运行时,synchronous,同步的,translate,software-engineering,
+编程与运行时,concurrency,并发,translate,software-engineering,多个任务在重叠时间段推进；不等于同时执行。
+编程与运行时,parallelism,并行,translate,software-engineering,多个任务同时执行；与并发区分。
+编程与运行时,thread,线程,translate,software-engineering,
+编程与运行时,process,进程,prefer-source,software-engineering,操作系统语境；一般叙述中可能是过程或处理。
+编程与运行时,event loop,事件循环,first-bilingual,software-engineering,
+编程与运行时,race condition,竞态条件,first-bilingual,software-engineering,不等同于 data race；后者是数据竞争。
+编程与运行时,data race,数据竞争,first-bilingual,software-engineering,
+编程与运行时,deadlock,死锁,translate,software-engineering,
+编程与运行时,mutex,互斥锁,first-bilingual,software-engineering,
+编程与运行时,semaphore,信号量,first-bilingual,software-engineering,
+编程与运行时,atomic operation,原子操作,translate,software-engineering,
+编程与运行时,memory leak,内存泄漏,translate,software-engineering,
+编程与运行时,garbage collection,垃圾回收,translate,software-engineering,
+编程与运行时,stack,栈,translate,software-engineering,数据结构或运行时语境；technology stack 应译为技术栈。
+编程与运行时,heap,堆,translate,software-engineering,区分内存堆与堆数据结构；两者中文都用堆。
+编程与运行时,pointer,指针,translate,software-engineering,
+编程与运行时,reference,引用,translate,software-engineering,语言语义语境；论文参考文献不采用此义。
+编程与运行时,ownership,所有权,first-bilingual,software-engineering,
+编程与运行时,borrow checker,借用检查器,first-bilingual,software-engineering,
+编程与运行时,runtime,运行时,translate,software-engineering,
+编程与运行时,compile time,编译期,translate,software-engineering,
+编程与运行时,compiler,编译器,translate,software-engineering,
+编程与运行时,interpreter,解释器,translate,software-engineering,
+编程与运行时,abstract syntax tree,抽象语法树,first-bilingual,software-engineering,
+编程与运行时,AST,抽象语法树,keep,software-engineering,
+编程与运行时,lexical token,词法单元,first-bilingual,software-engineering,编译器语境；不是访问令牌或大模型词元。
+编程与运行时,serialization,序列化,translate,software-engineering,
+编程与运行时,deserialization,反序列化,translate,software-engineering,
+编程与运行时,exception,异常,translate,software-engineering,
+编程与运行时,undefined behavior,未定义行为,first-bilingual,software-engineering,
+编程与运行时,data structure,数据结构,translate,software-engineering,
+编程与运行时,time complexity,时间复杂度,translate,software-engineering,
+编程与运行时,space complexity,空间复杂度,translate,software-engineering,
+软件工程与系统,software architecture,软件架构,translate,software-engineering,
+软件工程与系统,design pattern,设计模式,translate,software-engineering,
+软件工程与系统,dependency injection,依赖注入,first-bilingual,software-engineering,
+软件工程与系统,inversion of control,控制反转,first-bilingual,software-engineering,
+软件工程与系统,dependency,依赖,translate,software-engineering,
+软件工程与系统,coupling,耦合,translate,software-engineering,
+软件工程与系统,cohesion,内聚,translate,software-engineering,
+软件工程与系统,abstraction,抽象,translate,software-engineering,
+软件工程与系统,refactoring,重构,translate,software-engineering,
+软件工程与系统,technical debt,技术债务,translate,software-engineering,
+软件工程与系统,backward compatibility,向后兼容性,translate,software-engineering,
+软件工程与系统,breaking change,不兼容变更,first-bilingual,software-engineering,也常称破坏性变更；这里强调兼容性受影响。
+软件工程与系统,semantic versioning,语义化版本,first-bilingual,software-engineering,
+软件工程与系统,unit test,单元测试,translate,software-engineering,
+软件工程与系统,integration test,集成测试,translate,software-engineering,
+软件工程与系统,end-to-end test,端到端测试,translate,software-engineering,
+软件工程与系统,regression test,回归测试,translate,software-engineering,
+软件工程与系统,test coverage,测试覆盖率,translate,software-engineering,
+软件工程与系统,mock,模拟对象,prefer-source,software-engineering,可指模拟行为或对象；测试工具名称及标识符保留英文。
+软件工程与系统,test fixture,测试夹具,first-bilingual,software-engineering,指测试所需的数据与环境设置；也常简称测试样本或固定数据。
+软件工程与系统,test-driven development,测试驱动开发,first-bilingual,software-engineering,
+软件工程与系统,TDD,测试驱动开发,keep,software-engineering,
+软件工程与系统,continuous integration,持续集成,translate,software-engineering,
+软件工程与系统,continuous delivery,持续交付,translate,software-engineering,与 continuous deployment 的持续部署区分。
+软件工程与系统,continuous deployment,持续部署,translate,software-engineering,
+软件工程与系统,CI/CD,持续集成与持续交付或部署,keep,software-engineering,CD 的展开含义取决于原文。
+软件工程与系统,pull request,拉取请求,first-bilingual,software-engineering,合并评审语境；PR 缩写可保留。
+软件工程与系统,code review,代码审查,translate,software-engineering,
+软件工程与系统,repository,代码仓库,translate,software-engineering,此处针对源码仓库；其他数据仓库应按上下文调整。
+软件工程与系统,monorepo,单体代码仓库,first-bilingual,software-engineering,多个项目共用一个仓库；不等同于单体应用架构。
+软件工程与系统,distributed system,分布式系统,translate,software-engineering,
+软件工程与系统,microservice,微服务,translate,software-engineering,
+软件工程与系统,RPC,远程过程调用,keep,software-engineering,
+软件工程与系统,idempotency,幂等性,first-bilingual,software-engineering,
+软件工程与系统,eventual consistency,最终一致性,translate,software-engineering,
+软件工程与系统,strong consistency,强一致性,translate,software-engineering,不同系统文档对具体一致性模型的定义可能不同。
+软件工程与系统,transaction,事务,translate,software-engineering,
+软件工程与系统,rollback,回滚,translate,software-engineering,
+软件工程与系统,checkpoint,检查点,translate,software-engineering,用于保存执行状态；ML 中同样称检查点。
+软件工程与系统,caching,缓存,translate,software-engineering,
+软件工程与系统,cache invalidation,缓存失效,translate,software-engineering,
+软件工程与系统,rate limiting,限流,translate,software-engineering,
+软件工程与系统,backpressure,背压,first-bilingual,software-engineering,
+软件工程与系统,exponential backoff,指数退避,first-bilingual,software-engineering,
+软件工程与系统,circuit breaker,熔断器,first-bilingual,software-engineering,分布式调用语境；不是电路硬件。
+软件工程与系统,load balancing,负载均衡,translate,software-engineering,
+软件工程与系统,observability,可观测性,first-bilingual,software-engineering,
+软件工程与系统,telemetry,遥测,first-bilingual,software-engineering,
+软件工程与系统,authentication,身份验证,translate,software-engineering,确认是谁；与 authorization 授权区分。
+软件工程与系统,authorization,授权,translate,software-engineering,决定允许做什么；与 authentication 身份验证区分。
+软件工程与系统,access token,访问令牌,translate,software-engineering,鉴权语境；不要译为词元。
+软件工程与系统,access control,访问控制,translate,software-engineering,
+软件工程与系统,least privilege,最小权限,translate,software-engineering,
+软件工程与系统,attack surface,攻击面,translate,software-engineering,
+软件工程与系统,sandbox,沙箱,first-bilingual,software-engineering,
+软件工程与系统,service worker,Service Worker,keep,software-engineering,Web 平台专用名称保留；不是普通服务端 worker。
+软件工程与系统,rolling deployment,滚动部署,translate,software-engineering,发布语境；区别于 RL rollout。
+软件工程与系统,canary deployment,金丝雀部署,first-bilingual,software-engineering,
+软件工程与系统,feature flag,功能开关,first-bilingual,software-engineering,
+软件工程与系统,SQL,结构化查询语言,keep,software-engineering,
+机器学习基础,machine learning,机器学习,translate,machine-learning,
+机器学习基础,deep learning,深度学习,translate,machine-learning,
+机器学习基础,supervised learning,监督学习,translate,machine-learning,
+机器学习基础,unsupervised learning,无监督学习,translate,machine-learning,
+机器学习基础,self-supervised learning,自监督学习,translate,machine-learning,
+机器学习基础,neural network,神经网络,translate,machine-learning,
+机器学习基础,parameter,参数,translate,machine-learning,
+机器学习基础,hyperparameter,超参数,translate,machine-learning,
+机器学习基础,weight,权重,translate,machine-learning,
+机器学习基础,bias,偏置,prefer-source,machine-learning,网络参数为偏置；统计估计可能是偏差；公平性语境可能是偏见。
+机器学习基础,tensor,张量,translate,machine-learning,
+机器学习基础,embedding,嵌入,first-bilingual,machine-learning,可指表示或映射；具体向量可称嵌入向量。
+机器学习基础,latent space,潜在空间,first-bilingual,machine-learning,
+机器学习基础,feature,特征,translate,machine-learning,ML 特征；软件功能应按软件工程语境翻译。
+机器学习基础,label,标签,translate,machine-learning,
+机器学习基础,training set,训练集,translate,machine-learning,
+机器学习基础,validation set,验证集,translate,machine-learning,
+机器学习基础,test set,测试集,translate,machine-learning,
+机器学习基础,data augmentation,数据增强,translate,machine-learning,
+机器学习基础,data leakage,数据泄漏,translate,machine-learning,训练或选择模型时使用了本不应可用的信息。
+机器学习基础,overfitting,过拟合,translate,machine-learning,
+机器学习基础,underfitting,欠拟合,translate,machine-learning,
+机器学习基础,generalization,泛化,translate,machine-learning,
+机器学习基础,regularization,正则化,translate,machine-learning,
+机器学习基础,loss function,损失函数,translate,machine-learning,
+机器学习基础,objective function,目标函数,translate,machine-learning,
+机器学习基础,gradient descent,梯度下降,translate,machine-learning,
+机器学习基础,stochastic gradient descent,随机梯度下降,translate,machine-learning,
+机器学习基础,SGD,随机梯度下降,keep,machine-learning,
+机器学习基础,backpropagation,反向传播,translate,machine-learning,
+机器学习基础,forward pass,前向传播,translate,machine-learning,
+机器学习基础,learning rate,学习率,translate,machine-learning,
+机器学习基础,batch size,批大小,translate,machine-learning,
+机器学习基础,mini-batch,小批量,first-bilingual,machine-learning,
+机器学习基础,epoch,训练轮次,first-bilingual,machine-learning,完整遍历训练集一次；不等同于一个优化器更新步骤。
+机器学习基础,training step,训练步,translate,machine-learning,
+机器学习基础,optimizer,优化器,translate,machine-learning,
+机器学习基础,gradient clipping,梯度裁剪,translate,machine-learning,
+机器学习基础,gradient accumulation,梯度累积,translate,machine-learning,
+机器学习基础,checkpoint,检查点,translate,machine-learning,可含模型与优化器状态；区别于泛指权重文件。
+机器学习基础,inference,推理,translate,machine-learning,指运行模型得到输出；与 reasoning 推理过程区分。
+机器学习基础,distillation,蒸馏,translate,machine-learning,
+机器学习基础,quantization,量化,translate,machine-learning,
+机器学习基础,pruning,剪枝,translate,machine-learning,
+机器学习基础,mixed precision,混合精度,translate,machine-learning,
+机器学习基础,accuracy,准确率,translate,machine-learning,分类评测指标语境；一般叙述中的 accuracy 可指准确性。
+机器学习基础,precision,查准率,prefer-source,machine-learning,分类指标为查准率；数值格式语境为精度；不要全局强制单一译法。
+机器学习基础,recall,召回率,translate,machine-learning,也常译为查全率；此词表统一采用召回率。
+机器学习基础,F1 score,F1 分数,translate,machine-learning,
+机器学习基础,ablation study,消融实验,translate,machine-learning,
+机器学习基础,out-of-distribution,分布外,first-bilingual,machine-learning,
+机器学习基础,OOD,分布外,keep,machine-learning,
+机器学习基础,PyTorch,PyTorch,keep,machine-learning,框架名称保留。
+大模型与生成,harness,智能体运行系统,keep,machine-learning,智能体工具调用、上下文与执行流程的系统层；在该语境保留英文，普通英语另议。
+大模型与生成,harness engineering,harness 工程,translate,machine-learning,个人偏好保留 harness；如偏好全英文，可改为 keep。
+大模型与生成,recursive self-improvement,递归自我改进,first-bilingual,machine-learning,AI 自我改进的反馈循环；缩写 RSI 保留。
+大模型与生成,RSI,递归自我改进,keep,machine-learning,recursive self-improvement 的缩写；该规则限于机器学习语境。
+大模型与生成,large language model,大语言模型,translate,machine-learning,
+大模型与生成,LLM,大语言模型,keep,machine-learning,
+大模型与生成,foundation model,基础模型,first-bilingual,machine-learning,
+大模型与生成,pretraining,预训练,translate,machine-learning,
+大模型与生成,pre-training,预训练,translate,machine-learning,常见拼写变体。
+大模型与生成,post-training,后训练,translate,machine-learning,
+大模型与生成,fine-tuning,微调,translate,machine-learning,
+大模型与生成,supervised fine-tuning,监督微调,translate,machine-learning,
+大模型与生成,SFT,监督微调,keep,machine-learning,
+大模型与生成,instruction tuning,指令微调,translate,machine-learning,
+大模型与生成,instruction following,指令遵循,translate,machine-learning,
+大模型与生成,alignment,对齐,first-bilingual,machine-learning,LLM 行为与目标或偏好对齐；其他领域可能指文本或几何对齐。
+大模型与生成,preference optimization,偏好优化,translate,machine-learning,
+大模型与生成,prompt,提示词,translate,machine-learning,全文输入或输入模板也常称提示；代码标识符不翻译。
+大模型与生成,prompt engineering,提示词工程,translate,machine-learning,
+大模型与生成,system prompt,系统提示词,translate,machine-learning,
+大模型与生成,prompt injection,提示词注入,translate,machine-learning,
+大模型与生成,context window,上下文窗口,translate,machine-learning,
+大模型与生成,token,词元,first-bilingual,machine-learning,LLM 语境；编译器词法单元和鉴权令牌不能套用此译法。
+大模型与生成,tokenizer,分词器,first-bilingual,machine-learning,输出的单元不一定是完整词；也存在字符和字节级分词。
+大模型与生成,tokenization,词元化,first-bilingual,machine-learning,中文资料也常称分词；此处不暗示按完整单词切分。
+大模型与生成,vocabulary,词表,translate,machine-learning,
+大模型与生成,subword,子词,translate,machine-learning,
+大模型与生成,byte pair encoding,字节对编码,first-bilingual,machine-learning,
+大模型与生成,BPE,字节对编码,keep,machine-learning,
+大模型与生成,autoregressive,自回归的,translate,machine-learning,
+大模型与生成,next-token prediction,下一词元预测,translate,machine-learning,
+大模型与生成,causal language model,因果语言模型,first-bilingual,machine-learning,因果掩码建模语境；不等同于因果推断模型。
+大模型与生成,Transformer,Transformer,keep,machine-learning,模型架构名称保留；电气语境的 transformer 是变压器。
+大模型与生成,attention,注意力,translate,machine-learning,
+大模型与生成,self-attention,自注意力,translate,machine-learning,
+大模型与生成,cross-attention,交叉注意力,translate,machine-learning,
+大模型与生成,multi-head attention,多头注意力,translate,machine-learning,
+大模型与生成,positional encoding,位置编码,translate,machine-learning,
+大模型与生成,rotary position embedding,旋转位置嵌入,first-bilingual,machine-learning,
+大模型与生成,RoPE,旋转位置嵌入,keep,machine-learning,
+大模型与生成,KV cache,键值缓存,first-bilingual,machine-learning,注意力机制的 key/value 缓存；不同于一般应用缓存。
+大模型与生成,prefill,预填充,first-bilingual,machine-learning,处理提示词输入的推理阶段；与逐词元解码阶段区分。
+大模型与生成,decoding,解码,translate,machine-learning,
+大模型与生成,greedy decoding,贪心解码,translate,machine-learning,
+大模型与生成,beam search,束搜索,first-bilingual,machine-learning,
+大模型与生成,top-k sampling,top-k 采样,translate,machine-learning,
+大模型与生成,top-p sampling,top-p 采样,translate,machine-learning,也称 nucleus sampling 核采样。
+大模型与生成,temperature,温度,first-bilingual,machine-learning,控制采样分布的参数；不是硬件温度。
+大模型与生成,logit,logit,prefer-source,machine-learning,模型输出未归一化分数；统计语境可指对数几率。
+大模型与生成,log probability,对数概率,translate,machine-learning,
+大模型与生成,perplexity,困惑度,first-bilingual,machine-learning,
+大模型与生成,chain of thought,思维链,first-bilingual,machine-learning,
+大模型与生成,CoT,思维链,keep,machine-learning,
+大模型与生成,reasoning,推理过程,prefer-source,machine-learning,与运行模型的 inference 区分；不意味着输出一定正确。
+大模型与生成,test-time compute,测试时计算,first-bilingual,machine-learning,也常称推理时计算；注意与训练计算区分。
+大模型与生成,in-context learning,上下文学习,first-bilingual,machine-learning,
+大模型与生成,few-shot learning,少样本学习,translate,machine-learning,
+大模型与生成,zero-shot learning,零样本学习,translate,machine-learning,
+大模型与生成,retrieval-augmented generation,检索增强生成,translate,machine-learning,
+大模型与生成,RAG,检索增强生成,keep,machine-learning,
+大模型与生成,vector database,向量数据库,translate,machine-learning,
+大模型与生成,reranking,重排序,translate,machine-learning,
+大模型与生成,hallucination,幻觉,first-bilingual,machine-learning,模型生成不受事实或给定上下文支持的内容。
+大模型与生成,tool calling,工具调用,translate,machine-learning,
+大模型与生成,function calling,函数调用,translate,machine-learning,LLM 调用工具接口的语境；普通编程中也使用函数调用。
+大模型与生成,AI agent,AI 智能体,translate,machine-learning,
+大模型与生成,agent,智能体,first-bilingual,machine-learning,ML/RL 语境；网络代理或软件代理应按相应语境处理。
+大模型与生成,agentic workflow,智能体工作流,first-bilingual,machine-learning,
+大模型与生成,multimodal,多模态的,translate,machine-learning,
+大模型与生成,mixture of experts,混合专家,first-bilingual,machine-learning,
+大模型与生成,MoE,混合专家,keep,machine-learning,
+大模型与生成,parameter-efficient fine-tuning,参数高效微调,translate,machine-learning,
+大模型与生成,PEFT,参数高效微调,keep,machine-learning,
+大模型与生成,LoRA,低秩适配,keep,machine-learning,
+大模型与生成,QLoRA,量化低秩适配,keep,machine-learning,保留方法名；并非任意量化后使用 LoRA 的统称。
+大模型与生成,speculative decoding,推测解码,first-bilingual,machine-learning,
+大模型与生成,continuous batching,连续批处理,first-bilingual,machine-learning,
+大模型与生成,time to first token,首词元延迟,translate,machine-learning,
+大模型与生成,TTFT,首词元延迟,keep,machine-learning,
+强化学习与对齐,reinforcement learning,强化学习,translate,machine-learning,
+强化学习与对齐,RL,强化学习,keep,machine-learning,
+强化学习与对齐,deep reinforcement learning,深度强化学习,translate,machine-learning,
+强化学习与对齐,environment,环境,translate,machine-learning,智能体交互的环境；软件开发环境不采用 RL 含义。
+强化学习与对齐,state,状态,translate,machine-learning,
+强化学习与对齐,observation,观测,translate,machine-learning,观测与完整状态不一定相同。
+强化学习与对齐,action,动作,translate,machine-learning,
+强化学习与对齐,state space,状态空间,translate,machine-learning,
+强化学习与对齐,action space,动作空间,translate,machine-learning,
+强化学习与对齐,reward,奖励,translate,machine-learning,通常是某一步的反馈；与 return 累积回报区分。
+强化学习与对齐,reward function,奖励函数,translate,machine-learning,
+强化学习与对齐,return,回报,prefer-source,machine-learning,仅 RL 中通常表示累积奖励；普通叙述与代码 return 不强制套用。
+强化学习与对齐,expected return,期望回报,translate,machine-learning,
+强化学习与对齐,discounted return,折扣回报,translate,machine-learning,
+强化学习与对齐,discount factor,折扣因子,translate,machine-learning,常记为 gamma；符号保持原样。
+强化学习与对齐,episode,回合,first-bilingual,machine-learning,从开始到终止的交互回合；不等同于训练 epoch。
+强化学习与对齐,trajectory,轨迹,translate,machine-learning,
+强化学习与对齐,rollout,轨迹采样,prefer-source,machine-learning,可指执行过程或采样结果；可能是完整回合或截断片段；不是滚动发布。
+强化学习与对齐,horizon,时域长度,first-bilingual,machine-learning,指决策时间跨度；具体语境也可称规划时域。
+强化学习与对齐,policy,策略,translate,machine-learning,RL 中从状态或观测到动作的规则或分布；软件安全语境不是此义。
+强化学习与对齐,policy network,策略网络,translate,machine-learning,
+强化学习与对齐,policy gradient,策略梯度,translate,machine-learning,
+强化学习与对齐,policy optimization,策略优化,translate,machine-learning,
+强化学习与对齐,value function,价值函数,translate,machine-learning,
+强化学习与对齐,state-value function,状态价值函数,translate,machine-learning,
+强化学习与对齐,action-value function,动作价值函数,translate,machine-learning,
+强化学习与对齐,Q-function,Q 函数,translate,machine-learning,
+强化学习与对齐,advantage function,优势函数,translate,machine-learning,
+强化学习与对齐,actor,策略网络,prefer-source,machine-learning,Actor-Critic 中通常为策略部分；不硬译为演员；其他智能体架构可能含义不同。
+强化学习与对齐,critic,价值评估器,prefer-source,machine-learning,Actor-Critic 中用于价值估计；可具体称价值网络；其他 LLM 评审器语境另议。
+强化学习与对齐,actor-critic,Actor-Critic,keep,machine-learning,保留算法族名称；正文解释为结合策略学习和价值估计。
+强化学习与对齐,exploration,探索,translate,machine-learning,
+强化学习与对齐,exploitation,利用,first-bilingual,machine-learning,利用已有知识选择动作；不要在 RL 中译为剥削。
+强化学习与对齐,exploration-exploitation trade-off,探索与利用的权衡,translate,machine-learning,
+强化学习与对齐,on-policy,同策略,first-bilingual,machine-learning,也常译为在策略；描述采样与学习策略的关系。
+强化学习与对齐,off-policy,异策略,first-bilingual,machine-learning,也常译为离策略；与离线学习 offline 区分。
+强化学习与对齐,online reinforcement learning,在线强化学习,translate,machine-learning,
+强化学习与对齐,offline reinforcement learning,离线强化学习,translate,machine-learning,通常从固定数据集学习；不是 off-policy 的同义词。
+强化学习与对齐,model-based,基于模型的,first-bilingual,machine-learning,RL 中的模型通常指环境动力学模型；不是泛指使用神经网络。
+强化学习与对齐,model-free,无模型的,first-bilingual,machine-learning,不显式依赖环境动力学模型；可以使用神经网络。
+强化学习与对齐,Markov decision process,马尔可夫决策过程,translate,machine-learning,
+强化学习与对齐,MDP,马尔可夫决策过程,keep,machine-learning,
+强化学习与对齐,POMDP,部分可观测马尔可夫决策过程,keep,machine-learning,
+强化学习与对齐,Bellman equation,贝尔曼方程,translate,machine-learning,
+强化学习与对齐,temporal difference,时序差分,first-bilingual,machine-learning,
+强化学习与对齐,TD error,时序差分误差,first-bilingual,machine-learning,
+强化学习与对齐,bootstrapping,自举估计,prefer-source,machine-learning,TD 学习中利用已有估计更新估计；统计学自助采样和软件引导需另行判断。
+强化学习与对齐,Monte Carlo,蒙特卡洛,translate,machine-learning,
+强化学习与对齐,replay buffer,经验回放缓冲区,translate,machine-learning,
+强化学习与对齐,experience replay,经验回放,translate,machine-learning,
+强化学习与对齐,target network,目标网络,translate,machine-learning,
+强化学习与对齐,behavior policy,行为策略,translate,machine-learning,
+强化学习与对齐,target policy,目标策略,translate,machine-learning,
+强化学习与对齐,importance sampling,重要性采样,translate,machine-learning,
+强化学习与对齐,entropy bonus,熵奖励项,first-bilingual,machine-learning,鼓励策略保持一定随机性的正则项。
+强化学习与对齐,credit assignment,信用分配,first-bilingual,machine-learning,也常称贡献归因；确定哪些状态或动作促成了结果。
+强化学习与对齐,reward shaping,奖励塑形,first-bilingual,machine-learning,
+强化学习与对齐,reward hacking,奖励投机,first-bilingual,machine-learning,利用奖励机制漏洞；奖励高不代表实现了真正目标。
+强化学习与对齐,sparse reward,稀疏奖励,translate,machine-learning,
+强化学习与对齐,sample efficiency,样本效率,translate,machine-learning,
+强化学习与对齐,imitation learning,模仿学习,translate,machine-learning,
+强化学习与对齐,behavior cloning,行为克隆,translate,machine-learning,
+强化学习与对齐,inverse reinforcement learning,逆强化学习,translate,machine-learning,
+强化学习与对齐,Q-learning,Q 学习,first-bilingual,machine-learning,
+强化学习与对齐,DQN,深度 Q 网络,keep,machine-learning,
+强化学习与对齐,REINFORCE,REINFORCE,keep,machine-learning,算法名称保留；不按普通动词翻译。
+强化学习与对齐,proximal policy optimization,近端策略优化,translate,machine-learning,
+强化学习与对齐,PPO,近端策略优化,keep,machine-learning,
+强化学习与对齐,trust region policy optimization,信赖域策略优化,translate,machine-learning,
+强化学习与对齐,TRPO,信赖域策略优化,keep,machine-learning,
+强化学习与对齐,SAC,Soft Actor-Critic,keep,machine-learning,保留缩写与方法名；soft 指熵正则化目标。
+强化学习与对齐,generalized advantage estimation,广义优势估计,translate,machine-learning,
+强化学习与对齐,GAE,广义优势估计,keep,machine-learning,
+强化学习与对齐,reinforcement learning from human feedback,基于人类反馈的强化学习,translate,machine-learning,
+强化学习与对齐,RLHF,基于人类反馈的强化学习,keep,machine-learning,
+强化学习与对齐,RLAIF,基于 AI 反馈的强化学习,keep,machine-learning,
+强化学习与对齐,reward model,奖励模型,translate,machine-learning,
+强化学习与对齐,preference data,偏好数据,translate,machine-learning,
+强化学习与对齐,reference model,参考模型,translate,machine-learning,
+强化学习与对齐,KL divergence,KL 散度,first-bilingual,machine-learning,
+强化学习与对齐,KL penalty,KL 惩罚项,translate,machine-learning,
+强化学习与对齐,direct preference optimization,直接偏好优化,translate,machine-learning,偏好优化方法；不要求在线 RL 采样循环。
+强化学习与对齐,DPO,直接偏好优化,keep,machine-learning,
+强化学习与对齐,group relative policy optimization,组相对策略优化,translate,machine-learning,方法名；不要与 DPO 混淆。
+强化学习与对齐,GRPO,组相对策略优化,keep,machine-learning,
+强化学习与对齐,verifiable reward,可验证奖励,translate,machine-learning,例如基于可执行测试或答案校验获得的奖励；仍取决于校验器质量。
+强化学习与对齐,RLVR,基于可验证奖励的强化学习,keep,machine-learning,
+强化学习与对齐,process reward model,过程奖励模型,translate,machine-learning,
+强化学习与对齐,PRM,过程奖励模型,keep,machine-learning,
+强化学习与对齐,outcome reward model,结果奖励模型,translate,machine-learning,

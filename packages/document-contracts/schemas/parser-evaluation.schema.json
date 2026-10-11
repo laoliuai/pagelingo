@@ -1,0 +1,318 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pagelingo.local/schemas/parser-evaluation/0.1",
+  "title": "P0 parser evaluation output (not public Reader IR)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "stage",
+    "sourceSha256",
+    "sourcePageCount",
+    "requestedPageIndices",
+    "parsedPageIndices",
+    "coverage",
+    "status",
+    "coordinateSystem",
+    "blocks",
+    "assets",
+    "pages",
+    "warnings",
+    "limitations"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "pagelingo-parse/0.1"
+    },
+    "stage": {
+      "const": "P0-provisional"
+    },
+    "sourceSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "sourcePageCount": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "requestedPageIndices": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "parsedPageIndices": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "coverage": {
+      "enum": [
+        "full",
+        "sample"
+      ]
+    },
+    "status": {
+      "enum": [
+        "complete",
+        "partial"
+      ]
+    },
+    "coordinateSystem": {
+      "const": "rotated-cropbox-top-left-0-1"
+    },
+    "blocks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "order",
+          "rawRef",
+          "kind",
+          "parserLabel",
+          "text",
+          "payload",
+          "sourceRefs",
+          "scope",
+          "parentId",
+          "confidence",
+          "assetIds"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "order": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "rawRef": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "paragraph",
+              "title",
+              "heading",
+              "list",
+              "index",
+              "figure",
+              "table",
+              "equation",
+              "code",
+              "algorithm",
+              "caption",
+              "footnote",
+              "header",
+              "footer",
+              "page_number",
+              "reference",
+              "unknown"
+            ]
+          },
+          "parserLabel": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "payload": {
+            "type": "object"
+          },
+          "sourceRefs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "pageIndex",
+                "precision",
+                "bbox"
+              ],
+              "properties": {
+                "pageIndex": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "precision": {
+                  "enum": [
+                    "page",
+                    "bbox"
+                  ]
+                },
+                "bbox": {
+                  "type": [
+                    "array",
+                    "null"
+                  ],
+                  "items": {
+                    "type": "number"
+                  },
+                  "minItems": 4,
+                  "maxItems": 4
+                }
+              }
+            }
+          },
+          "scope": {
+            "enum": [
+              "body",
+              "furniture",
+              "orphan"
+            ]
+          },
+          "parentId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "confidence": {
+            "type": "null"
+          },
+          "assetIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "assets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "kind",
+          "path",
+          "pageIndex",
+          "bbox",
+          "mediaType",
+          "sha256"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "page",
+              "crop"
+            ]
+          },
+          "path": {
+            "type": "string",
+            "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+          },
+          "pageIndex": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "bbox": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "number"
+            },
+            "minItems": 4,
+            "maxItems": 4
+          },
+          "mediaType": {
+            "const": "image/png"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        }
+      }
+    },
+    "pages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "pageIndex",
+          "mediaBox",
+          "cropBox",
+          "displayCropBox",
+          "rotation",
+          "displayWidth",
+          "displayHeight"
+        ],
+        "properties": {
+          "pageIndex": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "mediaBox": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "minItems": 4,
+            "maxItems": 4
+          },
+          "cropBox": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "minItems": 4,
+            "maxItems": 4
+          },
+          "displayCropBox": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "minItems": 4,
+            "maxItems": 4
+          },
+          "rotation": {
+            "enum": [
+              0,
+              90,
+              180,
+              270
+            ]
+          },
+          "displayWidth": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "displayHeight": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

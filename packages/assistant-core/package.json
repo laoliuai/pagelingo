@@ -1,0 +1,21 @@
+{
+  "name": "@pagelingo/assistant-core",
+  "version": "0.2.0",
+  "description": "Portable document conversations, context budgeting and Pi runtime for technical reading.",
+  "type": "module",
+  "sideEffects": false,
+  "files": ["dist", "README.md"],
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.test.json",
+    "test": "vitest run",
+    "prepack": "npm run build"
+  },
+  "dependencies": {
+    "@earendil-works/pi-agent-core": "1.0.4",
+    "@earendil-works/pi-ai": "1.0.4",
+    "zod": "4.6.5"
+  },
+  "devDependencies": { "@types/node": "26.6.4", "typescript": "7.0.2", "vitest": "5.0.3" }
+}

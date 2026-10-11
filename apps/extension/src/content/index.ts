@@ -1,0 +1,90 @@
+import { errorMessage, type Result, type PageStatus } from '../shared/types';
+import { contentCommandSchema, isTrustedExtensionSender } from '../shared/translation';
+import { PageController } from './page-controller';
+import { showSelectionPreview } from './selection';
+import { wakeTranslation } from './background-translation';
+import { contentAssistantSchema } from '../shared/assistant';
+import { readArticle, revealArticleBlock } from '../assistant/article';
+
+const scope = globalThis as typeof globalThis & { __pagelingo?: { dispose(): void } };
+
+if (!scope.__pagelingo) {
+  const controller = new PageController(document);
+  let closeSelection: (() => void) | undefined;
+  const listener = (
+    message: unknown,
+    sender: chrome.runtime.MessageSender,
+    reply: (response: Result<PageStatus>) => void,
+  ) => {
+    if (!isTrustedExtensionSender(sender)) return;
+    const assistant = contentAssistantSchema.safeParse(message);
+    if (assistant.success) {
+      try {
+        const request = assistant.data;
+        if (request.type === 'assistant:reveal') {
+          revealArticleBlock(document, request.blockId, request.revision);
+          (reply as (r: unknown) => void)({ ok: true, value: null });
+        } else {
+          const value = readArticle(document, request.includeSelection ? request.selectionText : '');
+          (reply as (r: unknown) => void)({
+            ok: true,
+            value: { document: value.document, quote: request.includeSelection ? value.quote : undefined },
+          });
+        }
+      } catch (error) {
+        (reply as (r: unknown) => void)({ ok: false, error: errorMessage(error) });
+      }
+      return;
+    }
+    const wake = message as { type?: unknown; sessionId?: unknown } | null;
+    if (wake?.type === 'translation:wakeup' && typeof wake.sessionId === 'string') {
+      (reply as (r: unknown) => void)({ active: wakeTranslation(wake.sessionId) });
+      return;
+    }
+    const parsed = contentCommandSchema.safeParse(message);
+    if (!parsed.success) return;
+    try {
+      const { command, translationSessionId } = parsed.data;
+      switch (command.type) {
+        case 'page:preview':
+          controller.start(command.mode);
+          break;
+        case 'page:translate':
+          if (!translationSessionId) throw new Error('翻译任务缺少授权，请重新开始。');
+          controller.start(command.mode, translationSessionId);
+          break;
+        case 'page:mode':
+          controller.setMode(command.mode);
+          break;
+        case 'page:stop':
+          controller.stop();
+          break;
+        case 'page:restore':
+          controller.restore();
+          closeSelection?.();
+          break;
+        case 'page:selection':
+          if (!translationSessionId) throw new Error('翻译任务缺少授权，请重新开始。');
+          closeSelection?.();
+          closeSelection = showSelectionPreview(document, command.text, translationSessionId);
+          break;
+        case 'page:selection-preview':
+          closeSelection?.();
+          closeSelection = showSelectionPreview(document, command.text);
+          break;
+      }
+      reply({ ok: true, value: controller.status });
+    } catch (error) {
+      reply({ ok: false, error: errorMessage(error) });
+    }
+  };
+  chrome.runtime.onMessage.addListener(listener);
+  scope.__pagelingo = {
+    dispose() {
+      controller.dispose();
+      closeSelection?.();
+      chrome.runtime.onMessage.removeListener(listener);
+      delete scope.__pagelingo;
+    },
+  };
+}

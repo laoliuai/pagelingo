@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Post about agents / X</title>
+<style>
+body { margin:0; font:16px/1.5 system-ui; background:#15202b; color:#f2f2f2; }
+main { max-width:680px; margin:24px auto; } article { border:1px solid #536471; padding:20px; margin-bottom:20px; }
+[data-testid="tweetText"] { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; font-size:20px; }
+.text-parent { display:flex; flex-direction:column; min-width:0; } a { color:#1d9bf0; }
+aside { position:absolute; left:10000px; width:300px; }
+</style></head><body>
+<nav><h2>Home navigation</h2></nav>
+<main><div data-testid="primaryColumn">
+<h2>Post</h2>
+<article data-testid="tweet" id="main-post">
+  <div data-testid="User-Name">Pramod Goyal <span>@goyal__pramod</span></div>
+  <a href="/goyal__pramod/status/2106244243727507733"><time>October 6</time></a>
+  <div class="text-parent"><div data-testid="tweetText" lang="en" id="post-text"><span>Language models can use </span><a id="post-link" href="https://example.com/agents">tools</a><span> to solve difficult tasks. A policy chooses the next action. Evaluate the agent with reliable tests before deploying it. Long posts should retain their original text and show the translated text below it.</span></div></div>
+  <div role="group"><button>Like <span id="like-count">12</span></button><button>Reply</button></div>
+</article>
+<article data-testid="tweet" id="long-reply">
+  <div data-testid="User-Name">Another author</div>
+  <a href="/someone/status/2106244243727507999"><time>Later</time></a>
+  <div data-testid="tweetText"><p>This reply is deliberately longer than the original post to catch selection by text length.</p><p>Replies should not replace the main post as the translation target.</p><p>Repeating the reply makes its article the largest generic article on this fixture page.</p><p>More unrelated reply text for testing which article the extension chooses.</p><p>Even more unrelated reply text; this is not the requested post.</p><p>Only the main post permalink identifies the correct article.</p></div>
+</article>
+</div></main>
+<aside><h2>Trending topics</h2><p>Recommended account content should not be translated.</p></aside>
+<script>window.postLinkClicks = 0; document.getElementById('post-link').addEventListener('click', event => { event.preventDefault(); window.postLinkClicks++; });</script>
+</body></html>

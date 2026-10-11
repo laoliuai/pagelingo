@@ -1,0 +1,21 @@
+{
+  "id": "example-paper",
+  "title": "An example research paragraph",
+  "sourceLanguage": "en",
+  "blocks": [
+    {
+      "id": "methods-p1",
+      "kind": "paragraph",
+      "sectionPath": ["Methods", "Optimization"],
+      "content": [
+        { "type": "text", "text": "We minimize " },
+        { "type": "protected", "id": "loss", "kind": "math", "source": "\\mathcal{L}(\\theta)" },
+        { "type": "text", "text": " using " },
+        { "type": "format", "id": "method", "kind": "emphasis", "children": [{ "type": "text", "text": "gradient descent" }] },
+        { "type": "text", "text": ", following " },
+        { "type": "protected", "id": "reference", "kind": "citation", "source": "\\cite{example}" },
+        { "type": "text", "text": "." }
+      ]
+    }
+  ]
+}

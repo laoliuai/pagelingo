@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "pagelingo-paged-preview-browser-validation/1",
+  "browser": "Chromium 153.0.8010.12, file://, offline=true",
+  "scope": "All exported pages, local resources, font/image loading, navigation and scroll smoke test; not parser accuracy acceptance",
+  "bundles": [
+    {
+      "name": "rl-little-book-basic-paged-v3",
+      "sourceRunId": "49bd0fa6-9fac-4126-b4ac-880ba0fd4872",
+      "filesVerified": 229,
+      "pagesOpened": 154,
+      "math": 428,
+      "images": 68,
+      "originalVisuals": 68,
+      "maxDomElements": 1451,
+      "maxLoadMs": 50.917185000000245,
+      "callouts": 30,
+      "algorithmImages": 7,
+      "protectedSourceImages": 1,
+      "scroll": {
+        "frames": 100,
+        "maxFrameMs": 16.80000000000001,
+        "meanFrameMs": 16.63599999999255,
+        "domElements": 1451
+      },
+      "navigation": "passed",
+      "errors": [],
+      "failedRequests": [],
+      "remoteRequests": []
+    }
+  ]
+}

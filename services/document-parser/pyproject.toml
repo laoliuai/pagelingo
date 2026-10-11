@@ -1,0 +1,51 @@
+[project]
+name = "pagelingo-document-parser"
+version = "0.1.0"
+description = "Local, reproducible PDF parser evaluation for PageLingo"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "pypdfium2==5.14.0",
+  "pypdf==6.19.0",
+  "pillow==12.3.0",
+  "psutil==7.2.2",
+  "jsonschema==4.26.0",
+]
+
+[project.optional-dependencies]
+docling = ["docling==2.134.0", "torch==2.8.0", "torchvision==0.23.0"]
+mineru = ["mineru==4.0.10"]
+
+[dependency-groups]
+dev = ["pytest==9.1.1", "ruff==0.16.10"]
+
+[project.scripts]
+pagelingo-parser = "pagelingo_parser.cli:main"
+
+[build-system]
+requires = ["hatchling==1.29.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pagelingo_parser"]
+
+[tool.uv]
+conflicts = [[{extra = "docling"}, {extra = "mineru"}]]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = {index = "pytorch-cpu"}
+torchvision = {index = "pytorch-cpu"}
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

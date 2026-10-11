@@ -1,0 +1,2204 @@
+[
+  {
+    "source": "algorithm",
+    "target": "算法",
+    "policy": "translate",
+    "domain": "all"
+  },
+  {
+    "source": "latency",
+    "target": "延迟",
+    "policy": "translate",
+    "domain": "all"
+  },
+  {
+    "source": "throughput",
+    "target": "吞吐量",
+    "policy": "translate",
+    "domain": "all"
+  },
+  {
+    "source": "bandwidth",
+    "target": "带宽",
+    "policy": "translate",
+    "domain": "all"
+  },
+  {
+    "source": "scalability",
+    "target": "可扩展性",
+    "policy": "translate",
+    "domain": "all"
+  },
+  {
+    "source": "reliability",
+    "target": "可靠性",
+    "policy": "translate",
+    "domain": "all"
+  },
+  {
+    "source": "availability",
+    "target": "可用性",
+    "policy": "translate",
+    "domain": "all"
+  },
+  {
+    "source": "fault tolerance",
+    "target": "容错性",
+    "policy": "translate",
+    "domain": "all"
+  },
+  {
+    "source": "bottleneck",
+    "target": "瓶颈",
+    "policy": "translate",
+    "domain": "all"
+  },
+  {
+    "source": "benchmark",
+    "target": "基准测试",
+    "policy": "translate",
+    "domain": "all"
+  },
+  {
+    "source": "baseline",
+    "target": "基线",
+    "policy": "translate",
+    "domain": "all"
+  },
+  {
+    "source": "trade-off",
+    "target": "权衡",
+    "policy": "translate",
+    "domain": "all"
+  },
+  {
+    "source": "constraint",
+    "target": "约束",
+    "policy": "translate",
+    "domain": "all"
+  },
+  {
+    "source": "heuristic",
+    "target": "启发式方法",
+    "policy": "first-bilingual",
+    "domain": "all"
+  },
+  {
+    "source": "deterministic",
+    "target": "确定性的",
+    "policy": "translate",
+    "domain": "all"
+  },
+  {
+    "source": "stochastic",
+    "target": "随机的",
+    "policy": "translate",
+    "domain": "all"
+  },
+  {
+    "source": "nondeterministic",
+    "target": "非确定性的",
+    "policy": "translate",
+    "domain": "all"
+  },
+  {
+    "source": "approximation",
+    "target": "近似",
+    "policy": "translate",
+    "domain": "all"
+  },
+  {
+    "source": "performance",
+    "target": "性能",
+    "policy": "translate",
+    "domain": "all"
+  },
+  {
+    "source": "GPU",
+    "target": "图形处理器",
+    "policy": "keep",
+    "domain": "all"
+  },
+  {
+    "source": "CPU",
+    "target": "中央处理器",
+    "policy": "keep",
+    "domain": "all"
+  },
+  {
+    "source": "API",
+    "target": "应用程序编程接口",
+    "policy": "keep",
+    "domain": "all"
+  },
+  {
+    "source": "SDK",
+    "target": "软件开发工具包",
+    "policy": "keep",
+    "domain": "all"
+  },
+  {
+    "source": "JSON",
+    "target": "JSON",
+    "policy": "keep",
+    "domain": "all"
+  },
+  {
+    "source": "source code",
+    "target": "源代码",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "variable",
+    "target": "变量",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "constant",
+    "target": "常量",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "data type",
+    "target": "数据类型",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "type inference",
+    "target": "类型推断",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "type safety",
+    "target": "类型安全",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "type checking",
+    "target": "类型检查",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "type system",
+    "target": "类型系统",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "function",
+    "target": "函数",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "method",
+    "target": "方法",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "class",
+    "target": "类",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "object",
+    "target": "对象",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "interface",
+    "target": "接口",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "implementation",
+    "target": "实现",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "inheritance",
+    "target": "继承",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "polymorphism",
+    "target": "多态",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "encapsulation",
+    "target": "封装",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "generic",
+    "target": "泛型",
+    "policy": "prefer-source",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "closure",
+    "target": "闭包",
+    "policy": "first-bilingual",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "callback",
+    "target": "回调",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "recursion",
+    "target": "递归",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "iteration",
+    "target": "迭代",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "iterator",
+    "target": "迭代器",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "generator",
+    "target": "生成器",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "coroutine",
+    "target": "协程",
+    "policy": "first-bilingual",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "async",
+    "target": "异步",
+    "policy": "prefer-source",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "asynchronous",
+    "target": "异步的",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "synchronous",
+    "target": "同步的",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "concurrency",
+    "target": "并发",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "parallelism",
+    "target": "并行",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "thread",
+    "target": "线程",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "process",
+    "target": "进程",
+    "policy": "prefer-source",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "event loop",
+    "target": "事件循环",
+    "policy": "first-bilingual",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "race condition",
+    "target": "竞态条件",
+    "policy": "first-bilingual",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "data race",
+    "target": "数据竞争",
+    "policy": "first-bilingual",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "deadlock",
+    "target": "死锁",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "mutex",
+    "target": "互斥锁",
+    "policy": "first-bilingual",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "semaphore",
+    "target": "信号量",
+    "policy": "first-bilingual",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "atomic operation",
+    "target": "原子操作",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "memory leak",
+    "target": "内存泄漏",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "garbage collection",
+    "target": "垃圾回收",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "stack",
+    "target": "栈",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "heap",
+    "target": "堆",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "pointer",
+    "target": "指针",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "reference",
+    "target": "引用",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "ownership",
+    "target": "所有权",
+    "policy": "first-bilingual",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "borrow checker",
+    "target": "借用检查器",
+    "policy": "first-bilingual",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "runtime",
+    "target": "运行时",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "compile time",
+    "target": "编译期",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "compiler",
+    "target": "编译器",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "interpreter",
+    "target": "解释器",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "abstract syntax tree",
+    "target": "抽象语法树",
+    "policy": "first-bilingual",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "AST",
+    "target": "抽象语法树",
+    "policy": "keep",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "lexical token",
+    "target": "词法单元",
+    "policy": "first-bilingual",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "serialization",
+    "target": "序列化",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "deserialization",
+    "target": "反序列化",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "exception",
+    "target": "异常",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "undefined behavior",
+    "target": "未定义行为",
+    "policy": "first-bilingual",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "data structure",
+    "target": "数据结构",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "time complexity",
+    "target": "时间复杂度",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "space complexity",
+    "target": "空间复杂度",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "software architecture",
+    "target": "软件架构",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "design pattern",
+    "target": "设计模式",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "dependency injection",
+    "target": "依赖注入",
+    "policy": "first-bilingual",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "inversion of control",
+    "target": "控制反转",
+    "policy": "first-bilingual",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "dependency",
+    "target": "依赖",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "coupling",
+    "target": "耦合",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "cohesion",
+    "target": "内聚",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "abstraction",
+    "target": "抽象",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "refactoring",
+    "target": "重构",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "technical debt",
+    "target": "技术债务",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "backward compatibility",
+    "target": "向后兼容性",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "breaking change",
+    "target": "不兼容变更",
+    "policy": "first-bilingual",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "semantic versioning",
+    "target": "语义化版本",
+    "policy": "first-bilingual",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "unit test",
+    "target": "单元测试",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "integration test",
+    "target": "集成测试",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "end-to-end test",
+    "target": "端到端测试",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "regression test",
+    "target": "回归测试",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "test coverage",
+    "target": "测试覆盖率",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "mock",
+    "target": "模拟对象",
+    "policy": "prefer-source",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "test fixture",
+    "target": "测试夹具",
+    "policy": "first-bilingual",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "test-driven development",
+    "target": "测试驱动开发",
+    "policy": "first-bilingual",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "TDD",
+    "target": "测试驱动开发",
+    "policy": "keep",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "continuous integration",
+    "target": "持续集成",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "continuous delivery",
+    "target": "持续交付",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "continuous deployment",
+    "target": "持续部署",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "CI/CD",
+    "target": "持续集成与持续交付或部署",
+    "policy": "keep",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "pull request",
+    "target": "拉取请求",
+    "policy": "first-bilingual",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "code review",
+    "target": "代码审查",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "repository",
+    "target": "代码仓库",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "monorepo",
+    "target": "单体代码仓库",
+    "policy": "first-bilingual",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "distributed system",
+    "target": "分布式系统",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "microservice",
+    "target": "微服务",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "RPC",
+    "target": "远程过程调用",
+    "policy": "keep",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "idempotency",
+    "target": "幂等性",
+    "policy": "first-bilingual",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "eventual consistency",
+    "target": "最终一致性",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "strong consistency",
+    "target": "强一致性",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "transaction",
+    "target": "事务",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "rollback",
+    "target": "回滚",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "checkpoint",
+    "target": "检查点",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "caching",
+    "target": "缓存",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "cache invalidation",
+    "target": "缓存失效",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "rate limiting",
+    "target": "限流",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "backpressure",
+    "target": "背压",
+    "policy": "first-bilingual",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "exponential backoff",
+    "target": "指数退避",
+    "policy": "first-bilingual",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "circuit breaker",
+    "target": "熔断器",
+    "policy": "first-bilingual",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "load balancing",
+    "target": "负载均衡",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "observability",
+    "target": "可观测性",
+    "policy": "first-bilingual",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "telemetry",
+    "target": "遥测",
+    "policy": "first-bilingual",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "authentication",
+    "target": "身份验证",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "authorization",
+    "target": "授权",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "access token",
+    "target": "访问令牌",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "access control",
+    "target": "访问控制",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "least privilege",
+    "target": "最小权限",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "attack surface",
+    "target": "攻击面",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "sandbox",
+    "target": "沙箱",
+    "policy": "first-bilingual",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "service worker",
+    "target": "Service Worker",
+    "policy": "keep",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "rolling deployment",
+    "target": "滚动部署",
+    "policy": "translate",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "canary deployment",
+    "target": "金丝雀部署",
+    "policy": "first-bilingual",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "feature flag",
+    "target": "功能开关",
+    "policy": "first-bilingual",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "SQL",
+    "target": "结构化查询语言",
+    "policy": "keep",
+    "domain": "software-engineering"
+  },
+  {
+    "source": "machine learning",
+    "target": "机器学习",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "deep learning",
+    "target": "深度学习",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "supervised learning",
+    "target": "监督学习",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "unsupervised learning",
+    "target": "无监督学习",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "self-supervised learning",
+    "target": "自监督学习",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "neural network",
+    "target": "神经网络",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "parameter",
+    "target": "参数",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "hyperparameter",
+    "target": "超参数",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "weight",
+    "target": "权重",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "bias",
+    "target": "偏置",
+    "policy": "prefer-source",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "tensor",
+    "target": "张量",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "embedding",
+    "target": "嵌入",
+    "policy": "first-bilingual",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "latent space",
+    "target": "潜在空间",
+    "policy": "first-bilingual",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "feature",
+    "target": "特征",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "label",
+    "target": "标签",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "training set",
+    "target": "训练集",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "validation set",
+    "target": "验证集",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "test set",
+    "target": "测试集",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "data augmentation",
+    "target": "数据增强",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "data leakage",
+    "target": "数据泄漏",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "overfitting",
+    "target": "过拟合",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "underfitting",
+    "target": "欠拟合",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "generalization",
+    "target": "泛化",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "regularization",
+    "target": "正则化",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "loss function",
+    "target": "损失函数",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "objective function",
+    "target": "目标函数",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "gradient descent",
+    "target": "梯度下降",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "stochastic gradient descent",
+    "target": "随机梯度下降",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "SGD",
+    "target": "随机梯度下降",
+    "policy": "keep",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "backpropagation",
+    "target": "反向传播",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "forward pass",
+    "target": "前向传播",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "learning rate",
+    "target": "学习率",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "batch size",
+    "target": "批大小",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "mini-batch",
+    "target": "小批量",
+    "policy": "first-bilingual",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "epoch",
+    "target": "训练轮次",
+    "policy": "first-bilingual",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "training step",
+    "target": "训练步",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "optimizer",
+    "target": "优化器",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "gradient clipping",
+    "target": "梯度裁剪",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "gradient accumulation",
+    "target": "梯度累积",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "checkpoint",
+    "target": "检查点",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "inference",
+    "target": "推理",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "distillation",
+    "target": "蒸馏",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "quantization",
+    "target": "量化",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "pruning",
+    "target": "剪枝",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "mixed precision",
+    "target": "混合精度",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "accuracy",
+    "target": "准确率",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "precision",
+    "target": "查准率",
+    "policy": "prefer-source",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "recall",
+    "target": "召回率",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "F1 score",
+    "target": "F1 分数",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "ablation study",
+    "target": "消融实验",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "out-of-distribution",
+    "target": "分布外",
+    "policy": "first-bilingual",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "OOD",
+    "target": "分布外",
+    "policy": "keep",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "PyTorch",
+    "target": "PyTorch",
+    "policy": "keep",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "harness",
+    "target": "智能体运行系统",
+    "policy": "keep",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "harness engineering",
+    "target": "harness 工程",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "recursive self-improvement",
+    "target": "递归自我改进",
+    "policy": "first-bilingual",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "RSI",
+    "target": "递归自我改进",
+    "policy": "keep",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "large language model",
+    "target": "大语言模型",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "LLM",
+    "target": "大语言模型",
+    "policy": "keep",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "foundation model",
+    "target": "基础模型",
+    "policy": "first-bilingual",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "pretraining",
+    "target": "预训练",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "pre-training",
+    "target": "预训练",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "post-training",
+    "target": "后训练",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "fine-tuning",
+    "target": "微调",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "supervised fine-tuning",
+    "target": "监督微调",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "SFT",
+    "target": "监督微调",
+    "policy": "keep",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "instruction tuning",
+    "target": "指令微调",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "instruction following",
+    "target": "指令遵循",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "alignment",
+    "target": "对齐",
+    "policy": "first-bilingual",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "preference optimization",
+    "target": "偏好优化",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "prompt",
+    "target": "提示词",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "prompt engineering",
+    "target": "提示词工程",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "system prompt",
+    "target": "系统提示词",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "prompt injection",
+    "target": "提示词注入",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "context window",
+    "target": "上下文窗口",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "token",
+    "target": "词元",
+    "policy": "first-bilingual",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "tokenizer",
+    "target": "分词器",
+    "policy": "first-bilingual",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "tokenization",
+    "target": "词元化",
+    "policy": "first-bilingual",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "vocabulary",
+    "target": "词表",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "subword",
+    "target": "子词",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "byte pair encoding",
+    "target": "字节对编码",
+    "policy": "first-bilingual",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "BPE",
+    "target": "字节对编码",
+    "policy": "keep",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "autoregressive",
+    "target": "自回归的",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "next-token prediction",
+    "target": "下一词元预测",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "causal language model",
+    "target": "因果语言模型",
+    "policy": "first-bilingual",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "Transformer",
+    "target": "Transformer",
+    "policy": "keep",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "attention",
+    "target": "注意力",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "self-attention",
+    "target": "自注意力",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "cross-attention",
+    "target": "交叉注意力",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "multi-head attention",
+    "target": "多头注意力",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "positional encoding",
+    "target": "位置编码",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "rotary position embedding",
+    "target": "旋转位置嵌入",
+    "policy": "first-bilingual",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "RoPE",
+    "target": "旋转位置嵌入",
+    "policy": "keep",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "KV cache",
+    "target": "键值缓存",
+    "policy": "first-bilingual",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "prefill",
+    "target": "预填充",
+    "policy": "first-bilingual",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "decoding",
+    "target": "解码",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "greedy decoding",
+    "target": "贪心解码",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "beam search",
+    "target": "束搜索",
+    "policy": "first-bilingual",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "top-k sampling",
+    "target": "top-k 采样",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "top-p sampling",
+    "target": "top-p 采样",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "temperature",
+    "target": "温度",
+    "policy": "first-bilingual",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "logit",
+    "target": "logit",
+    "policy": "prefer-source",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "log probability",
+    "target": "对数概率",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "perplexity",
+    "target": "困惑度",
+    "policy": "first-bilingual",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "chain of thought",
+    "target": "思维链",
+    "policy": "first-bilingual",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "CoT",
+    "target": "思维链",
+    "policy": "keep",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "reasoning",
+    "target": "推理过程",
+    "policy": "prefer-source",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "test-time compute",
+    "target": "测试时计算",
+    "policy": "first-bilingual",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "in-context learning",
+    "target": "上下文学习",
+    "policy": "first-bilingual",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "few-shot learning",
+    "target": "少样本学习",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "zero-shot learning",
+    "target": "零样本学习",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "retrieval-augmented generation",
+    "target": "检索增强生成",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "RAG",
+    "target": "检索增强生成",
+    "policy": "keep",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "vector database",
+    "target": "向量数据库",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "reranking",
+    "target": "重排序",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "hallucination",
+    "target": "幻觉",
+    "policy": "first-bilingual",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "tool calling",
+    "target": "工具调用",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "function calling",
+    "target": "函数调用",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "AI agent",
+    "target": "AI 智能体",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "agent",
+    "target": "智能体",
+    "policy": "first-bilingual",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "agentic workflow",
+    "target": "智能体工作流",
+    "policy": "first-bilingual",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "multimodal",
+    "target": "多模态的",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "mixture of experts",
+    "target": "混合专家",
+    "policy": "first-bilingual",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "MoE",
+    "target": "混合专家",
+    "policy": "keep",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "parameter-efficient fine-tuning",
+    "target": "参数高效微调",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "PEFT",
+    "target": "参数高效微调",
+    "policy": "keep",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "LoRA",
+    "target": "低秩适配",
+    "policy": "keep",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "QLoRA",
+    "target": "量化低秩适配",
+    "policy": "keep",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "speculative decoding",
+    "target": "推测解码",
+    "policy": "first-bilingual",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "continuous batching",
+    "target": "连续批处理",
+    "policy": "first-bilingual",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "time to first token",
+    "target": "首词元延迟",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "TTFT",
+    "target": "首词元延迟",
+    "policy": "keep",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "reinforcement learning",
+    "target": "强化学习",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "RL",
+    "target": "强化学习",
+    "policy": "keep",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "deep reinforcement learning",
+    "target": "深度强化学习",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "environment",
+    "target": "环境",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "state",
+    "target": "状态",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "observation",
+    "target": "观测",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "action",
+    "target": "动作",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "state space",
+    "target": "状态空间",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "action space",
+    "target": "动作空间",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "reward",
+    "target": "奖励",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "reward function",
+    "target": "奖励函数",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "return",
+    "target": "回报",
+    "policy": "prefer-source",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "expected return",
+    "target": "期望回报",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "discounted return",
+    "target": "折扣回报",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "discount factor",
+    "target": "折扣因子",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "episode",
+    "target": "回合",
+    "policy": "first-bilingual",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "trajectory",
+    "target": "轨迹",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "rollout",
+    "target": "轨迹采样",
+    "policy": "prefer-source",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "horizon",
+    "target": "时域长度",
+    "policy": "first-bilingual",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "policy",
+    "target": "策略",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "policy network",
+    "target": "策略网络",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "policy gradient",
+    "target": "策略梯度",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "policy optimization",
+    "target": "策略优化",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "value function",
+    "target": "价值函数",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "state-value function",
+    "target": "状态价值函数",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "action-value function",
+    "target": "动作价值函数",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "Q-function",
+    "target": "Q 函数",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "advantage function",
+    "target": "优势函数",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "actor",
+    "target": "策略网络",
+    "policy": "prefer-source",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "critic",
+    "target": "价值评估器",
+    "policy": "prefer-source",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "actor-critic",
+    "target": "Actor-Critic",
+    "policy": "keep",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "exploration",
+    "target": "探索",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "exploitation",
+    "target": "利用",
+    "policy": "first-bilingual",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "exploration-exploitation trade-off",
+    "target": "探索与利用的权衡",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "on-policy",
+    "target": "同策略",
+    "policy": "first-bilingual",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "off-policy",
+    "target": "异策略",
+    "policy": "first-bilingual",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "online reinforcement learning",
+    "target": "在线强化学习",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "offline reinforcement learning",
+    "target": "离线强化学习",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "model-based",
+    "target": "基于模型的",
+    "policy": "first-bilingual",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "model-free",
+    "target": "无模型的",
+    "policy": "first-bilingual",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "Markov decision process",
+    "target": "马尔可夫决策过程",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "MDP",
+    "target": "马尔可夫决策过程",
+    "policy": "keep",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "POMDP",
+    "target": "部分可观测马尔可夫决策过程",
+    "policy": "keep",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "Bellman equation",
+    "target": "贝尔曼方程",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "temporal difference",
+    "target": "时序差分",
+    "policy": "first-bilingual",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "TD error",
+    "target": "时序差分误差",
+    "policy": "first-bilingual",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "bootstrapping",
+    "target": "自举估计",
+    "policy": "prefer-source",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "Monte Carlo",
+    "target": "蒙特卡洛",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "replay buffer",
+    "target": "经验回放缓冲区",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "experience replay",
+    "target": "经验回放",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "target network",
+    "target": "目标网络",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "behavior policy",
+    "target": "行为策略",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "target policy",
+    "target": "目标策略",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "importance sampling",
+    "target": "重要性采样",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "entropy bonus",
+    "target": "熵奖励项",
+    "policy": "first-bilingual",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "credit assignment",
+    "target": "信用分配",
+    "policy": "first-bilingual",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "reward shaping",
+    "target": "奖励塑形",
+    "policy": "first-bilingual",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "reward hacking",
+    "target": "奖励投机",
+    "policy": "first-bilingual",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "sparse reward",
+    "target": "稀疏奖励",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "sample efficiency",
+    "target": "样本效率",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "imitation learning",
+    "target": "模仿学习",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "behavior cloning",
+    "target": "行为克隆",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "inverse reinforcement learning",
+    "target": "逆强化学习",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "Q-learning",
+    "target": "Q 学习",
+    "policy": "first-bilingual",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "DQN",
+    "target": "深度 Q 网络",
+    "policy": "keep",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "REINFORCE",
+    "target": "REINFORCE",
+    "policy": "keep",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "proximal policy optimization",
+    "target": "近端策略优化",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "PPO",
+    "target": "近端策略优化",
+    "policy": "keep",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "trust region policy optimization",
+    "target": "信赖域策略优化",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "TRPO",
+    "target": "信赖域策略优化",
+    "policy": "keep",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "SAC",
+    "target": "Soft Actor-Critic",
+    "policy": "keep",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "generalized advantage estimation",
+    "target": "广义优势估计",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "GAE",
+    "target": "广义优势估计",
+    "policy": "keep",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "reinforcement learning from human feedback",
+    "target": "基于人类反馈的强化学习",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "RLHF",
+    "target": "基于人类反馈的强化学习",
+    "policy": "keep",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "RLAIF",
+    "target": "基于 AI 反馈的强化学习",
+    "policy": "keep",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "reward model",
+    "target": "奖励模型",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "preference data",
+    "target": "偏好数据",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "reference model",
+    "target": "参考模型",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "KL divergence",
+    "target": "KL 散度",
+    "policy": "first-bilingual",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "KL penalty",
+    "target": "KL 惩罚项",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "direct preference optimization",
+    "target": "直接偏好优化",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "DPO",
+    "target": "直接偏好优化",
+    "policy": "keep",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "group relative policy optimization",
+    "target": "组相对策略优化",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "GRPO",
+    "target": "组相对策略优化",
+    "policy": "keep",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "verifiable reward",
+    "target": "可验证奖励",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "RLVR",
+    "target": "基于可验证奖励的强化学习",
+    "policy": "keep",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "process reward model",
+    "target": "过程奖励模型",
+    "policy": "translate",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "PRM",
+    "target": "过程奖励模型",
+    "policy": "keep",
+    "domain": "machine-learning"
+  },
+  {
+    "source": "outcome reward model",
+    "target": "结果奖励模型",
+    "policy": "translate",
+    "domain": "machine-learning"
+  }
+]

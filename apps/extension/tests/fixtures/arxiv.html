@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Attention and efficient inference — research fixture</title>
+<style>body{font:16px/1.7 Georgia,serif;margin:0;background:#fff;color:#252525}nav{padding:12px;background:#eee}.ltx_document{max-width:760px;margin:40px auto;padding:0 22px}h1{line-height:1.2}code,pre{font-family:monospace;background:#f4f4f4}pre{padding:14px;overflow:auto}table{border-collapse:collapse;width:100%}td,th{border:1px solid #bbb;padding:8px}.hidden{display:none}@media(prefers-color-scheme:dark){body{background:#171b1a;color:#eee}nav,code,pre{background:#292f2b}}</style>
+</head><body>
+<nav><p>This navigation should never be translated.</p></nav>
+<article class="ltx_document">
+  <h1 id="title">Attention and efficient inference</h1>
+  <section><h2 id="abstract">Abstract</h2><p id="abstract-text">A <strong>Transformer</strong> uses <a href="/attention" target="_blank" id="paper-link">self-attention</a> to process sequences.</p></section>
+  <section><h2 id="method">Method</h2>
+    <p id="code-paragraph">Enable <code id="inline-code">torch.compile(model)</code> before running inference.</p>
+    <p id="math-paragraph">The loss is <math id="original-math"><mi>L</mi><mo>=</mo><mi>x</mi><msup><mi>y</mi><mn>2</mn></msup></math> under the stated assumptions.</p>
+    <pre id="code-block"><code>import torch
+model = torch.compile(model)
+print("Do not translate this code")</code></pre>
+    <blockquote id="quote"><p>Scaling does not guarantee better reasoning.</p><p>Results depend on the evaluation conditions.</p></blockquote>
+    <ol id="steps"><li>Prepare the dataset.<ul><li>Remove invalid records.</li><li>Keep the <em>validation split</em> unchanged.</li></ul>Then verify the sample count.</li><li><p>Train with a fixed learning rate.</p></li></ol>
+    <table id="results"><caption>Evaluation</caption><thead><tr><th>Method</th><th>Accuracy</th></tr></thead><tbody><tr><td><p>Our approach</p></td><td>92.5%</td></tr><tr><td>Baseline model</td><td>88.2%</td></tr></tbody></table>
+    <figure><img id="diagram" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='20'%3E%3C/svg%3E" alt="Architecture diagram"><figcaption>Figure 1: The model architecture.</figcaption></figure>
+    <p translate="no">Leave this publisher annotation unchanged.</p>
+    <p class="hidden">Invisible metadata is not article content.</p>
+    <p contenteditable="true">User editing area.</p>
+  </section>
+</article>
+<footer><p>Publisher footer.</p></footer>
+<script>window.originalLinkClicks=0;document.getElementById('paper-link').addEventListener('click',function(event){event.preventDefault();window.originalLinkClicks++});</script>
+</body></html>
