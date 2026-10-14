@@ -2,10 +2,11 @@ import { encodeBlock, type BlockKind, type FormatKind, type InlineContent, type 
 import { CODE_SELECTOR, EXCLUDED_SELECTOR, MATH_SELECTOR } from './selectors';
 import { headingLevel } from './content-scope';
 import { snapshotSourceNodes } from './source-snapshot';
+import { captureAppearance, type InlineAppearance } from './inline-appearance';
 
 export type DomSlot =
-  | { kind: 'atom'; node: Node; category: 'code' | 'math' | 'literal' }
-  | { kind: 'open'; element: Element }
+  | { kind: 'atom'; node: Node; category: 'code' | 'math' | 'literal' | 'visual-literal' }
+  | { kind: 'open'; element: Element; appearance?: InlineAppearance }
   | { kind: 'close' };
 
 export interface ProtectedBlock {
@@ -22,6 +23,7 @@ export interface ProtectedBlock {
 const FORMAT_TAGS: Record<string, FormatKind | undefined> = {
   A: 'link', STRONG: 'strong', B: 'strong', EM: 'emphasis', I: 'emphasis', S: 'deletion', DEL: 'deletion',
   SUB: 'subscript', SUP: 'superscript', SMALL: 'small', MARK: 'mark',
+  U: 'underline',
 };
 
 function hasVisibleContent(content: InlineContent[]): boolean {
@@ -49,10 +51,10 @@ export function protectNodes(parent: HTMLElement, nodes: Node[], id: string, sec
   let counter = 0;
   let canHideSource = true;
 
-  function atom(node: Node, category: 'code' | 'math'): InlineContent[] {
+  function atom(node: Node, category: 'code' | 'math' | 'visual-literal'): InlineContent[] {
     const id = `i${counter++}`;
     sourceMap.set(id, { kind: 'atom', node, category });
-    return [{ type: 'protected', id, kind: category, source: node.textContent ?? '' }];
+    return [{ type: 'protected', id, kind: category === 'visual-literal' ? 'literal' : category, source: node.textContent ?? '' }];
   }
 
   function visit(node: Node): InlineContent[] {
@@ -77,6 +79,9 @@ export function protectNodes(parent: HTMLElement, nodes: Node[], id: string, sec
       canHideSource = false;
       return atom(element, 'math');
     }
+    if (element.matches('span.pl-completion-slot,span[data-pl-preserve="placeholder"]')) {
+      return atom(element, 'visual-literal');
+    }
     if (element.matches(CODE_SELECTOR)) {
       return atom(element, 'code');
     }
@@ -95,7 +100,11 @@ export function protectNodes(parent: HTMLElement, nodes: Node[], id: string, sec
         canHideSource = false;
       }
     }
-    const kind = FORMAT_TAGS[element.tagName];
+    const styled = element.tagName === 'SPAN' && (
+      element.matches('.pl-source-color,.pl-source-highlight,[data-pl-format="style"]')
+      || Boolean((element as HTMLElement).style.color || (element as HTMLElement).style.backgroundColor)
+    );
+    const kind = styled ? 'style' : FORMAT_TAGS[element.tagName];
     if (!kind) return Array.from(element.childNodes).flatMap(visit);
     const reserved = counter;
     const id = `i${counter++}`;
@@ -107,7 +116,7 @@ export function protectNodes(parent: HTMLElement, nodes: Node[], id: string, sec
       counter = reserved;
       return [];
     }
-    sourceMap.set(id, { kind: 'open', element });
+    sourceMap.set(id, { kind: 'open', element, ...(styled ? { appearance: captureAppearance(element) } : {}) });
     return [{ type: 'format', id, kind, children }];
   }
 

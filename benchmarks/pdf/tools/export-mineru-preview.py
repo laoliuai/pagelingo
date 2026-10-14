@@ -23,7 +23,10 @@ from docvortex.schema import MiddleJson
 from pagelingo_parser.files import digest, read_json, relative_file, write_json
 from pagelingo_parser.normalize import content_text
 from PIL import Image
+from preview_evidence import SCHEMA as SOURCE_LAYOUT_SCHEMA
+from preview_evidence import source_layout
 from preview_layout import apply_layout, collect_layout, toc_depth
+from preview_prompts import apply_prompts, ensure_prompt_callouts, prepare_prompts
 from preview_source import apply_callouts, project_source
 
 TOOLS = Path(__file__).parent
@@ -351,8 +354,16 @@ def export(run_dir: Path, output: Path, katex: Path, archive: Path, scale: float
         raise ValueError("Parser page index is outside the requested-page mapping")
     title = run["input"].removesuffix(".pdf")
     output.mkdir(parents=True)
-    layout, source_regions = collect_layout(raw, run, run_dir / "source.pdf")
+    prompt_layout = prepare_prompts(raw, run, run_dir / "source.pdf")
     callouts, protected = project_source(raw, run, run_dir / "source.pdf")
+    ensure_prompt_callouts(callouts, prompt_layout["prompts"])
+    prompt_blocks = {
+        (r["parsedPageIndex"], i) for r in prompt_layout["prompts"] for i in r["blockIndices"]
+    }
+    layout, source_regions = collect_layout(
+        raw, run, run_dir / "source.pdf", callouts, prompt_blocks
+    )
+    layout.update(prompt_layout)
     visuals = original_visuals(raw, run, run_dir, output, scale, protected, source_regions)
     # FULL prevents cross-page continuation merging and provides global anchors.
     # Page furniture is omitted from reading, as in the previous DEFAULT preview.
@@ -372,6 +383,7 @@ def export(run_dir: Path, output: Path, katex: Path, archive: Path, scale: float
             block.decompose()
     apply_callouts(soup, callouts)
     apply_layout(soup, layout)
+    apply_prompts(soup, prompt_layout)
     failures = render_math(soup, katex)
     assets = output / "assets"
     assets.mkdir(exist_ok=True)
@@ -437,6 +449,18 @@ def export(run_dir: Path, output: Path, katex: Path, archive: Path, scale: float
         info["notationRowCount"] = len(section.select(".pl-notation-entry"))
         info["completionSlotCount"] = len(section.select(".pl-completion-slot"))
         info["coloredSpanCount"] = len(section.select(".pl-source-color"))
+        info["sourceParagraphCount"] = len(section.select(".pl-source-paragraph"))
+        info["sourceExampleCount"] = len(section.select(".pl-source-example"))
+        info["labelRowCount"] = len(section.select(".pl-label-row"))
+        info["promptCount"] = len(section.select(".pl-prompt"))
+        info["promptRoleCount"] = len(section.select(".pl-prompt-role"))
+        info["highlightSpanCount"] = len(
+            section.select('.pl-source-highlight,.pl-prompt-placeholder[style*="background-color"]')
+        )
+        info["nativePromptRecoveryCount"] = sum(
+            r["parsedPageIndex"] == info["parsedPageIndex"] and bool(r.get("nativeCoverageRepair"))
+            for r in prompt_layout["prompts"]
+        )
         if not section.get_text(strip=True) and not section.find("img"):
             info["contentStatus"] = "no-reader-content"
             section.append(
@@ -501,10 +525,12 @@ def export(run_dir: Path, output: Path, katex: Path, archive: Path, scale: float
     else:
         raise ValueError("DocVortex license file is required for the preview")
     rendered_count = sum(p["renderedMathCount"] for p in pages)
+    write_json(output / "source-layout.json", source_layout(run, layout, callouts))
+    shutil.copyfile(SOURCE_LAYOUT_SCHEMA, output / "source-layout.schema.json")
     write_json(
         output / "preview.json",
         {
-            "schemaVersion": "pagelingo-static-preview/0.4",
+            "schemaVersion": "pagelingo-static-preview/0.6",
             "sourceRunId": run["runId"],
             "sourceSha256": run["sourceSha256"],
             "sourceManifestSha256": digest(run_dir / "manifest.json"),
@@ -526,6 +552,10 @@ def export(run_dir: Path, output: Path, katex: Path, archive: Path, scale: float
                 "navigationSha256": digest(TOOLS / "preview-navigation.js"),
                 "sourceProjectionSha256": digest(TOOLS / "preview_source.py"),
                 "layoutProjectionSha256": digest(TOOLS / "preview_layout.py"),
+                "paragraphProjectionSha256": digest(TOOLS / "preview_paragraphs.py"),
+                "sourceEvidenceSha256": digest(TOOLS / "preview_evidence.py"),
+                "sourceEvidenceSchemaSha256": digest(SOURCE_LAYOUT_SCHEMA),
+                "promptProjectionSha256": digest(TOOLS / "preview_prompts.py"),
                 "katexPackage": read_json(katex.parent / "integrity.json"),
             },
             "loading": {
@@ -550,6 +580,11 @@ def export(run_dir: Path, output: Path, katex: Path, archive: Path, scale: float
                 "nestedForms": "not-projected",
             },
             "sourceLayout": layout,
+            "sourceEvidence": {
+                "path": "source-layout.json",
+                "schema": "source-layout.schema.json",
+                "status": "experimental-supplement",
+            },
             "pages": [{k: v for k, v in p.items() if k != "filename"} for p in pages],
         },
     )

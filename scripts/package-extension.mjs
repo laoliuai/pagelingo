@@ -30,7 +30,9 @@ for (const extension of ['json', 'csv', 'md']) {
   files.push({ name, data: readFileSync(path.join(root, 'docs', name)) });
 }
 let local = {};
-try { local = parseEnv(readFileSync(path.join(root, '.env.local'), 'utf8')); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+if (!process.argv.includes('--artifact-only')) {
+  try { local = parseEnv(readFileSync(path.join(root, '.env.local'), 'utf8')); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+}
 const secret = process.env.PAGELINGO_LLM_API_KEY?.trim() || local.PAGELINGO_LLM_API_KEY?.trim();
 for (const file of files) {
   assert.ok(!/\.env|node_modules|(^|\/)\.\.(\/|$)/.test(file.name), 'Unexpected package file.');

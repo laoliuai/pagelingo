@@ -1,6 +1,6 @@
-# 插件 0.4.2 安装与浏览器测试
+# 插件 0.4.4 安装与浏览器测试
 
-产物：`apps/extension/dist/`，或 `releases/pagelingo-0.4.2.zip`。ZIP 解压后直接得到含 `manifest.json` 的目录，不需要启动网站或后台服务。翻译 SDK 为 0.3.0，助手 SDK 为 0.2.0；0.4.2 将选区与问题组成独立用户消息，修复回车发送和侧栏跨标签页显示，已有翻译和个人术语功能继续保留。
+产物：`apps/extension/dist/`，或 `releases/pagelingo-0.4.4.zip`。ZIP 解压后直接得到含 `manifest.json` 的目录，不需要启动网站或后台服务。翻译 SDK 为 0.4.0，助手 SDK 为 0.2.0；新版增加译文背景高亮，包含颜色、下划线与提示框占位保护，保留之前的选区提问、回车发送、标签页独立侧栏和个人术语功能。
 
 1. Chrome 打开 `chrome://extensions`；Edge 打开 `edge://extensions`。
 2. 开启开发者模式，点击“加载已解压的扩展程序”，选择 dist 或 ZIP 解压目录。
@@ -12,9 +12,23 @@
 
 ## 已安装版本的更新
 
-如果原来加载的是本项目的 `apps/extension/dist/`，重建后在 `edge://extensions` / `chrome://extensions` 找到 PageLingo，点击重新加载，再刷新已打开的文章页，并关闭、重新打开阅读助手。插件详情应显示 0.4.2，原有 API 设置保留。
+如果原来加载的是本项目的 `apps/extension/dist/`，重建后在 `edge://extensions` / `chrome://extensions` 找到 PageLingo，点击重新加载，再刷新已打开的文章页，并关闭、重新打开阅读助手。插件详情应显示 0.4.4，原有 API 设置保留。
 
 如果原来加载的是 ZIP 解压目录，将新版 ZIP 的内容覆盖到原来的加载目录，再重新加载扩展、刷新文章页。同一路径更新可沿用现有设置。
+
+0.4.4 保留译文中的背景高亮、下划线和局部颜色，并保护 PDF 导出 HTML 中的占位变量与答题线。
+配合 LLM Foundations v7 阅读包使用；原生 PDF 浏览器视图仍不支持直接翻译。
+原文预览可直接打开本地 `index.html`；插件当前只支持 HTTP/HTTPS，不能直接翻译 `file://`。
+要翻译阅读包，在解压后的目录运行以下命令，再在同一台机器的浏览器打开
+`http://127.0.0.1:8765/index.html`，进入所需 PDF 页并点击“翻译当前页面”：
+
+```bash
+python -m http.server 8765 --bind 127.0.0.1
+```
+
+这只提供静态文件，不运行解析器、数据库或 PDF 后端。也可把整个阅读包放到现有 HTTP
+静态服务器，保留 `pages/`、`assets/` 和 `source.pdf` 的相对路径；处理一次后可反复使用。
+旧页面若已有译文，先恢复页面或刷新后重新翻译，重新提取新的格式绑定；无需清空全部缓存。
 
 ## 阅读助手
 

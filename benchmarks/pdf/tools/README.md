@@ -6,6 +6,39 @@
 
 2026-10-10，RL 新版增加原 PDF 绘制区域的强调框投影、算法原件图与异常文字 / 数学符号的来源回退。30 个确认的强调框用 HTML 保留背景、边框、标题条和可选文字；7 个算法保留原图的浮动标题、行号和缩进。书内 49 页的条件期望原先被分入 text，带控制字符，另一个问号被识别成数学下标；两处均保留原件，PPO 的异常字形也随算法原图保留。导航同时显示 PDF 页码和书内印刷页码。没有新解析 / LLM 请求。
 
+2026-10-12，增加原生 PDF 视觉行、基线和局部正文边界的缩进恢复，区分首行、整段、列表
+层级和框内缩进。列表项包含中间的说明 / 示例 / 公式 / 强调框，支持字母编号与子列表；
+避免说明重复缩进。LLM 书内 25 页（PDF 第 34 页）的六行 Original / Unchanged Token、
+Sequence / Label 示例按标签和值重组，同组共享列宽，标签在桌面保持一行，下划线与
+红色文字保留。布局补充文件独立保存，重组前验证原 DOM 文字完整覆盖；匹配不可靠时
+保留原节点。原始 source / raw / manifest 和旧包均保留。
+
+之前的术语分行、目录层级、空白补全线、局部颜色及原生脚注修复也包含在新版中。
+列表、缩进与容器仍是基于样本的保守规则；跨页续接、复杂多栏、扫描件、旋转文字和
+表格的结构化重建未完成。插件 0.4.4 / translation-core 0.4.0 已支持局部颜色、背景高亮、
+下划线、提示变量和答题线的保护与回填；具体样式在本地绑定，不发送 CSS 给模型。
+
+LLM Foundations v5 恢复 49 个确认的提示框，包括误判的 code / table 候选。
+按原生视觉行区分逻辑正文、变量独立行和答题线；灰色 SYSTEM / USER / DEMO 角色
+保留为独立列，示例映射保持原样。PDF 108 页的 premise 从原生文字恢复，109 页的
+Q/A 放回引导段落之后；110 页的续段不会被上游并入提示框后覆盖，112 页按角色与
+示例对齐，114 页的指令 / 变量 / 空白保持三行。明确的编程语言、算法及真正公式
+不进入提示框重建。连续下划线路径先合并，避免把下划线正文的间隔误作填空。
+
+LLM Foundations v6 增加单行文字高亮的原生填充路径投影，PDF 117 页两处绿色指令
+与下划线回答保持可翻译；译文背景色通过插件 0.4.4 的本地样式绑定回填。PDF 120 页
+的三句指令使用原生共同左边界，避免第三句被误判居中。PDF 124 页的 DEMO / USER
+框原解析漏掉中间文字；仅在角色共享一列、存在多组 Q/A、已有解析片段精确匹配且
+没有外部块争用这些字符时，从 PDF 文字层补回完整内容。补充文件另存原 bbox、导出
+bbox 和恢复字符区间；没有重新解析、模型补写或改写原 raw。
+
+2026-10-13，LLM Foundations v7 修复 PDF 125 页的斜体示例误判为标题。只对原生
+文字精确匹配、与正文同字号、字体明确为普通字重斜体的单行示例恢复正文语义，
+保留真实编号标题；字体名、标志、字重、字号和来源字符范围留在补充记录中。
+125、145、154 页共 3 个示例恢复居中斜体。131 页识别 TASK，按 TASK / DEMO / USER
+分配任务说明、两组问答和用户问答；无角色的前置说明跨整组列，避免长文字撑大角色列。
+角色词仍使用明确的原生标签匹配，没有把其他表格改成正文。继续使用插件 0.4.4。
+
 强调框检测仅处理直接页面、不透明、轴对齐的矩形 / 圆角填充路径，排除图表区域；嵌套 Form、扫描 / 图片背景、透明和倾斜装饰仍不支持。问号下标是“不确定，显示原件”的保守规则，合法的此类数学标记也可能使用回退。混合了异常公式和正文的块暂整体保留原件图，里面的正文也暂不可直接选字或翻译，原始结构文本仍在 retained raw。
 
 这是 P0 展示实验，不是正式 Reader、增强解析或翻译产物。它能帮助区分结构解析与 `debug.html` 的普通文本展示问题。公式排版成功不证明识别正确；排版失败保留 LaTeX，数量在页面顶部和 `preview.json` 中显示，原 PDF 随包保留。
@@ -31,25 +64,76 @@ services/document-parser/.venv-mineru/bin/python benchmarks/pdf/tools/export-min
 
 工具先校验原运行 manifest，原始产物不覆盖。包内有 `index.html`、`pages/`、原 PDF、原件区域图 / 实际使用图片、共享 CSS / 字体、导航脚本、第三方许可、原运行 / 配置来源、公式 fallback 列表和全部输出的 SHA-256 manifest。`preview.json` 的 `reparsed=false` / `translated=false` 明确标注处理范围。页面没有可读块时提供原 PDF 入口，不宣称页面一定空白；FULL 渲染保留各源页边界，不跨页吸收下一页段落。
 
+`source-layout.json` / `source-layout.schema.json` 是经过校验的实验性来源补充，包含源运行和
+hash、带索引空间声明的半开字符区间、视觉行、原解析阅读顺序、匹配歧义、段落 / 列表 /
+标签行和容器引用。v5 / v6 / v7 使用版本 2，另存提示框的原解析类别 / 文字、角色和行内样式、
+占位线来源、暂不合并的续段及局部阅读顺序修复 before / after；原 raw 索引不变。
+叶节点互斥拥有原生字符，容器只引用成员；几何归属不是置信度。
+PDFium 字符索引不等于 PDF 内容流 glyph ID，文件不等于正式 Reader IR。标签行覆盖
+对应段落缩进规则时，记录 `superseded-by-label-rows`；失败或受保护规则也记录原因。
+
 新版下载：
 
-- [LLM Foundations 分页包](../../../releases/pdf-previews/llm-foundations-basic-paged-v2.zip)：317 页，155 个原件图 / 表区域，最大页面 HTML 148281 B / 3608 个 DOM 元素。
-- [RL Little Book 新版分页包](../../../releases/pdf-previews/rl-little-book-basic-paged-v4.zip)：154 页，30 个强调框，60 个图 / 表区域、7 个算法原件图和 2 个不确定区域回退，最大页面 HTML 59442 B / 1451 个 DOM 元素。
+- [LLM Foundations v7](../../../releases/pdf-previews/llm-foundations-basic-paged-v7.zip)：317 页，95 个强调框，其中 61 个恢复为结构化提示框，包含 18 个角色标签、28 个文字高亮绑定、3 个居中斜体示例和 1 个原生文字覆盖恢复框；151 个图 / 表原件区域、23 个术语符号图和 3 个保护区域。95 组列表，7 组共 15 行标签 / 值示例，56 个补全线。最大页面 HTML 149759 B / 3612 个 DOM 元素。
+- [RL Little Book v6](../../../releases/pdf-previews/rl-little-book-basic-paged-v6.zip)：154 页，30 个强调框，60 个图 / 表区域、7 个算法原件图和 2 个不确定区域回退；33 组列表、22 个缩进文本块。最大页面 HTML 60188 B / 1451 个 DOM 元素。
 
-共享 CSS 含离线字体，约 1.47 MB，仅随包保存一份；以上页面大小不包含它。LLM v2 预排版 1611 个公式、5 个 fallback。RL 最新版预排版 427 个公式、KaTeX fallback 为 0；算法、图表和受保护块内部公式随原件图片保留，不再计入 KaTeX 数量。这些数字不代表识别准确率，也不能证明所有公式均被分类为公式。
+共享 CSS 含离线字体，约 1.47 MB，仅随包保存一份；以上页面大小不包含它。LLM v7 预排版 1593 个公式、4 个 fallback。RL v6 预排版 427 个公式、KaTeX fallback 为 0；算法、图表和受保护块内部公式随原件图片保留，不再计入 KaTeX 数量。这些数字不代表识别准确率，也不能证明所有公式均被分类为公式。LLM v6 和更早的包仍保留。
 
 旧版整本单页包保持不变，其记录见 [旧版离线验证](../static-preview-validation.json)。新版 ZIP / 原件像素与链接检查见 [包验证](../paged-preview-package-validation.json)，断网逐页打开和翻页 / 跳转 / 滚动 smoke test 见 [浏览器验证](../paged-preview-browser-validation.json)。两份包的所有 215 个图表区域均与原 PDF 按记录参数重新渲染的像素一致，但这不证明 parser 的 bbox 语义边界正确。
 
-以上为 2026-10-07 的 v2 包记录。2026-10-10 RL 更新记录见 [包验证](../rl-preview-package-validation-2026-10-10.json) 与 [浏览器验证](../rl-preview-browser-validation-2026-10-10-final.json)，旧包不覆盖。
+前述两份旧验证为 2026-10-07 的 v2 包记录。2026-10-10 RL 更新记录见 [包验证](../rl-preview-package-validation-2026-10-10.json) 与 [浏览器验证](../rl-preview-browser-validation-2026-10-10-final.json)，旧包不覆盖。
+
+2026-10-12 最终包的验证见 [整包 / 来源像素](../paged-preview-package-validation-2026-10-12-final.json)、
+[断网逐页浏览器](../paged-preview-browser-validation-2026-10-12-final.json) 和
+[插件结构回归](../preview-structure-validation-2026-10-12-final.json)。来源像素检查重新渲染
+包内原 PDF，逐个比较区域图；插件检查使用实际 DOM 提取 / 回填代码和模拟译文，验证
+标签、列表、术语分行、模式切换和原文精确恢复，不调用 LLM，也不评价实际翻译质量。
+
+LLM v5 的更新验证见 [整包 / 来源像素](../llm-prompt-package-validation-2026-10-12-final.json)、
+[317 页断网加载](../llm-prompt-browser-validation-2026-10-12-final.json)、
+[提示框 / 插件回填](../llm-prompt-structure-validation-2026-10-12-final.json) 和
+[既有布局回归](../preview-structure-validation-2026-10-12-prompts-final.json)。
+提示框检查包含 PDF 17、108、109、110、111、112、114 页与窄屏布局；验证可见答题线、
+变量、灰色角色列、同组缩进、缺失保护对象拒绝回填以及原文精确恢复。译文使用 Mock，
+图片中的“测试译文”不代表实际翻译。更新插件后再使用新包，详情见
+[安装指南](../../../docs/install-m2.md)。原文预览支持 `file://` 离线阅读；插件当前只支持
+HTTP/HTTPS，翻译时需通过本地或已有静态 HTTP 服务打开阅读包。
+
+LLM v6 的最终包验证见 [整包 / 来源像素](../llm-highlight-package-validation-2026-10-12-final.json)、
+[317 页断网加载](../llm-highlight-browser-validation-2026-10-12-final.json)、
+[16 页提示框 / 插件回填](../llm-highlight-structure-validation-2026-10-12-final.json) 与
+[既有布局回归](../preview-structure-validation-2026-10-12-highlights-final.json)。新增检查
+包含 PDF 117 页的真正中文模拟译文背景和回答下划线、120 页翻译后同组对齐、
+124 页六段 Q/A 的完整回填，以及其他因高亮而恢复的提示框；窄屏检查含这三页。
+译文均为固定 Mock，不请求真实 LLM。
+
+LLM v7 的验证见 [整包 / 来源像素](../llm-role-package-validation-2026-10-13-final.json)、
+[317 页断网加载](../llm-role-browser-validation-2026-10-13-final.json)、
+[20 页提示框 / 插件回填](../llm-role-structure-validation-2026-10-13-final.json) 与
+[既有布局回归](../preview-structure-validation-2026-10-13-roles-final.json)。实际插件 DOM
+适配器验证中文模拟译文的居中、斜体、与正文同字号 / 字重，以及三个灰色角色、
+任务说明和完整问答的列宽、位置与可见性；另测无标签前置说明和 390 px 窄屏。
+这些结构检查不调用 LLM，也不评价真实翻译语义质量。
 
 仓库根目录可复现不调用模型的裁剪回归和离线浏览器检查（先自行解压到新目录）：
 
 ```bash
 services/document-parser/.venv-mineru/bin/python benchmarks/pdf/tools/test-preview-crops.py
 services/document-parser/.venv-mineru/bin/python benchmarks/pdf/tools/test-preview-source.py
+services/document-parser/.venv-mineru/bin/python benchmarks/pdf/tools/test-preview-layout.py
+services/document-parser/.venv-mineru/bin/python benchmarks/pdf/tools/test-preview-prompts.py
+services/document-parser/.venv-mineru/bin/python benchmarks/pdf/tools/check-preview-package.py \
+  data/pdf-p0/my-package-check.json \
+  data/pdf-p0/preview-zip-check/llm-foundations-basic-paged-v7-final \
+  data/pdf-p0/preview-zip-check/rl-little-book-basic-paged-v6-final
 node benchmarks/pdf/tools/check-paged-preview.mjs data/pdf-p0/my-browser-check.json \
-  data/pdf-p0/preview-zip-check/llm-foundations-basic-paged-v2 \
-  data/pdf-p0/preview-zip-check/rl-little-book-basic-paged-v4
+  data/pdf-p0/preview-zip-check/llm-foundations-basic-paged-v7-final \
+  data/pdf-p0/preview-zip-check/rl-little-book-basic-paged-v6-final
+node benchmarks/pdf/tools/check-preview-structure.mjs data/pdf-p0/my-structure-check.json \
+  data/pdf-p0/preview-zip-check/llm-foundations-basic-paged-v7-final \
+  data/pdf-p0/preview-zip-check/rl-little-book-basic-paged-v6-final
+node benchmarks/pdf/tools/check-preview-prompts.mjs data/pdf-p0/my-prompt-check.json \
+  data/pdf-p0/preview-zip-check/llm-foundations-basic-paged-v7-final
 ```
 
 分页包是 P0 展示实验。正式版本从共同 Reader IR 实现章节导航、有限 DOM 窗口、来源跳转、翻译和助手，不扩展为依赖 MinerU raw 的第二套产品阅读器。详见 [本机处理与静态产物](../../../docs/pdf-processing.md)。

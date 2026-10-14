@@ -42,6 +42,7 @@ try {
       originalVisuals: 0, maxDomElements: 0, maxLoadMs: 0,
       callouts: 0, algorithmImages: 0, protectedSourceImages: 0,
       listItems: 0, notationRows: 0, completionSlots: 0, coloredSpans: 0,
+      sourceParagraphs: 0, labelRows: 0, prompts: 0, promptRoles: 0,
     };
     for (const entry of preview.pages) {
       const started = performance.now();
@@ -63,6 +64,12 @@ try {
           notationRows: document.querySelectorAll('.pl-notation-entry').length,
           completionSlots: document.querySelectorAll('.pl-completion-slot').length,
           coloredSpans: document.querySelectorAll('.pl-source-color').length,
+          sourceParagraphs: document.querySelectorAll('.pl-source-paragraph').length,
+          sourceExamples: document.querySelectorAll('.pl-source-example').length,
+          labelRows: document.querySelectorAll('.pl-label-row').length,
+          prompts: document.querySelectorAll('.pl-prompt').length,
+          promptRoles: document.querySelectorAll('.pl-prompt-role').length,
+          highlights: document.querySelectorAll('.pl-source-highlight,.pl-prompt-placeholder[style*="background-color"]').length,
           invalidText: /[\x00-\x08\x0b\x0c\x0e-\x1f\ufffd\ufffe\uffff]/.test(document.body.textContent),
           bookPage: document.querySelector('.pl-book-page')?.textContent,
           tables: document.querySelectorAll('table').length,
@@ -90,6 +97,20 @@ try {
         assert.equal(loaded.completionSlots, entry.completionSlotCount, entry.path);
         assert.equal(loaded.coloredSpans, entry.coloredSpanCount, entry.path);
       }
+      if (entry.sourceParagraphCount !== undefined) {
+        assert.equal(loaded.sourceParagraphs, entry.sourceParagraphCount, entry.path);
+        assert.equal(loaded.labelRows, entry.labelRowCount, entry.path);
+      }
+      if (entry.sourceExampleCount !== undefined) {
+        assert.equal(loaded.sourceExamples, entry.sourceExampleCount, entry.path);
+      }
+      if (entry.promptCount !== undefined) {
+        assert.equal(loaded.prompts, entry.promptCount, entry.path);
+        assert.equal(loaded.promptRoles, entry.promptRoleCount, entry.path);
+      }
+      if (entry.highlightSpanCount !== undefined) {
+        assert.equal(loaded.highlights, entry.highlightSpanCount, entry.path);
+      }
       assert.equal(loaded.tables, 0, 'Tables must use original PDF crops');
       assert.equal(loaded.pages, 1, 'Only one source page may be loaded');
       assert.equal(Number(loaded.selectedPage), entry.sourcePageIndex + 1);
@@ -113,6 +134,10 @@ try {
       summary.notationRows += loaded.notationRows;
       summary.completionSlots += loaded.completionSlots;
       summary.coloredSpans += loaded.coloredSpans;
+      summary.sourceParagraphs += loaded.sourceParagraphs;
+      summary.labelRows += loaded.labelRows;
+      summary.prompts += loaded.prompts;
+      summary.promptRoles += loaded.promptRoles;
       summary.maxDomElements = Math.max(summary.maxDomElements, loaded.dom);
       summary.maxLoadMs = Math.max(summary.maxLoadMs, performance.now() - started);
       if (summary.pagesOpened % 50 === 0) console.log(`${summary.name}: opened ${summary.pagesOpened}/${preview.pages.length}`);

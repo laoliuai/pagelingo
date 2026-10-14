@@ -74,6 +74,33 @@ describe('portable document protection', () => {
     expect(first.sourceText).toBe(text);
   });
 
+  it('preserves prompt variables and answer slots alongside translated underline and style runs', () => {
+    const block = documentFixture().blocks[0];
+    block.content = [
+      { type: 'format', id: 'color', kind: 'style', children: [
+        { type: 'format', id: 'under', kind: 'underline', children: [{ type: 'text', text: 'Solve the problem' }] },
+      ] },
+      { type: 'text', text: ': ' },
+      { type: 'protected', id: 'variable', kind: 'literal', source: '{∗problem∗}' },
+      { type: 'text', text: '\n' },
+      { type: 'protected', id: 'answer', kind: 'literal', source: '____' },
+    ];
+    const encoded = encodeBlock(block);
+    const translated = encoded.protectedText.replace('Solve the problem', '解答这道题');
+    expect(decodeTranslation(encoded, translated)).toEqual([
+      { type: 'format', id: 'color', kind: 'style', children: [
+        { type: 'format', id: 'under', kind: 'underline', children: [{ type: 'text', text: '解答这道题' }] },
+      ] },
+      ...block.content.slice(1),
+    ]);
+    const answer = encoded.slots.find(slot => slot.kind === 'atom' && slot.inline.type === 'protected' && slot.inline.id === 'answer')!;
+    expect(() => decodeTranslation(encoded, translated.replace(answer.token, ''))).toThrow();
+    expect(() => decodeTranslation(encoded, translated + answer.token)).toThrow();
+    expect(() => translationDocumentSchema.parse({ ...documentFixture(), blocks: [
+      { ...block, content: [{ type: 'format', id: 'color', kind: 'style', css: 'color:red', children: [] }] },
+    ] })).toThrow();
+  });
+
   it('allows complete format subtrees to move while rejecting malformed marker structure', () => {
     const block = documentFixture().blocks[0];
     block.content = [

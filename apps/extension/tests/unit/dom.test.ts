@@ -104,6 +104,76 @@ describe('semantic block extraction', () => {
 });
 
 describe('reversible rendering', () => {
+  it('keeps prompt variables, answer lines and role labels in translation mode and restores exact markup', async () => {
+    document.body.innerHTML = '<main><div class="pl-prompt-role-row"><span class="pl-prompt-role" translate="no" style="color:rgb(128,128,128)">USER</span><div class="pl-prompt-value"><p>Solve <span class="pl-prompt-placeholder" data-pl-preserve="placeholder">{∗problem∗}</span>: <span id="original-blank" class="pl-completion-slot" style="--pl-slot-width:2.5em" data-pl-preserve="blank" data-private="local">____</span></p><p class="pl-prompt-answer-line"><span class="pl-completion-slot" data-pl-preserve="blank">____</span></p></div></div></main>';
+    const original = document.body.innerHTML;
+    const [block, ...other] = await extractBlocks(document);
+    expect(other).toHaveLength(0);
+    expect(block.input.protectedText).toContain('Solve');
+    expect(block.input.protectedText).not.toMatch(/USER|problem|____|2.5em|private/);
+    const atoms = block.input.slots.filter(slot => slot.kind === 'atom');
+    expect(atoms).toHaveLength(2);
+    const translated = block.input.protectedText.replace('Solve', '请解答');
+    const renderer = new DomRenderer();
+    expect(() => renderer.render(block, translated.replace(atoms[1].token, ''))).toThrow();
+    expect(renderer.render(block, translated)).toBe(true);
+    renderer.setMode('translation');
+    const output = document.querySelector('[data-pl-owned="translation"]')!;
+    expect(output.querySelector('.pl-prompt-placeholder')?.textContent).toBe('{∗problem∗}');
+    const blank = output.querySelector<HTMLElement>('.pl-completion-slot')!;
+    expect(blank.style.getPropertyValue('--pl-slot-width')).toBe('2.5em');
+    expect(blank.id).toBe('');
+    expect(blank.hasAttribute('data-private')).toBe(false);
+    expect(document.querySelector('.pl-prompt-role')?.closest('[data-pl-source]')).toBeNull();
+    expect(document.querySelector('.pl-prompt-answer-line [data-pl-preserve="blank"]')).not.toBeNull();
+    expect(renderer.fallbackCount).toBe(0);
+    renderer.restore();
+    expect(document.body.innerHTML).toBe(original);
+  });
+
+  it('restores translated underlines and local colors without copying IDs, URLs or event attributes', async () => {
+    document.body.innerHTML = '<main><p>An <span id="color-source" class="pl-source-color" style="color:rgb(192,0,0);font-weight:700;background-image:url(https://example.com/private.png)" onclick="alert(1)"><u>important</u></span> term.</p></main>';
+    const original = document.body.innerHTML;
+    const [block] = await extractBlocks(document);
+    expect(block.input.protectedText).toContain('important');
+    expect(JSON.stringify(block.block)).not.toMatch(/rgb|private.png|onclick|color-source/);
+    const fragment = restoreFragment(block, block.input.protectedText.replace('important', '重要'));
+    const span = fragment.querySelector('span')!;
+    expect(span.style.color).toBe('rgb(192, 0, 0)');
+    expect(span.style.fontWeight).toBe('700');
+    expect(span.querySelector('u')?.textContent).toBe('重要');
+    expect(span.style.backgroundImage).toBe('');
+    expect(span.id).toBe('');
+    expect(span.hasAttribute('onclick')).toBe(false);
+    const renderer = new DomRenderer();
+    renderer.render(block, block.input.protectedText.replace('important', '重要'));
+    renderer.setMode('translation');
+    renderer.restore();
+    expect(document.body.innerHTML).toBe(original);
+  });
+
+  it('preserves translated background highlights and protected variable highlights', async () => {
+    document.body.innerHTML = '<main><p><span id="highlight-source" class="pl-source-highlight" style="background-color:rgb(154,245,175);background-image:url(https://example.com/private.png)">Classify this text.</span> Result: <u>negative</u> <span class="pl-prompt-placeholder" data-pl-preserve="placeholder" style="background-color:rgb(154,245,175)">{∗text∗}</span></p></main>';
+    const before = document.body.innerHTML;
+    const [block] = await extractBlocks(document);
+    expect(JSON.stringify(block.input)).not.toMatch(/154|245|rgb|private.png|highlight-source/);
+    const output = block.input.protectedText.replace('Classify this text.', '判断这段文本的情感。').replace('negative', '负面');
+    const fragment = restoreFragment(block, output);
+    const highlight = fragment.querySelector('span')!;
+    expect(highlight.textContent).toBe('判断这段文本的情感。');
+    expect(highlight.style.backgroundColor).toBe('rgb(154, 245, 175)');
+    expect(highlight.style.backgroundImage).toBe('');
+    expect(highlight.id).toBe('');
+    expect(fragment.querySelector('u')?.textContent).toBe('负面');
+    expect(fragment.querySelector<HTMLElement>('.pl-prompt-placeholder')?.style.backgroundColor).toBe('rgb(154, 245, 175)');
+    const renderer = new DomRenderer();
+    renderer.render(block, output);
+    renderer.setMode('translation');
+    expect(document.querySelector('[data-pl-owned="translation"] span')?.textContent).toBe('判断这段文本的情感。');
+    renderer.restore();
+    expect(document.body.innerHTML).toBe(before);
+  });
+
   for (const fixture of ['arxiv', 'github-readme', 'technical-doc']) {
     it(`preserves original nodes and restores exact markup in ${fixture}`, async () => {
       loadFixture(fixture);

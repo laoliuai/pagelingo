@@ -22,7 +22,9 @@ __pycache__/
 /benchmarks/pdf/first-run-report.md
 /benchmarks/pdf/first-run-summary.json
 /benchmarks/pdf/*validation*.json
+/benchmarks/pdf/*validation*.png
 /benchmarks/pdf/smoke-observations.json
 
 .superpowers/
 /releases/
+/temp/

@@ -1,6 +1,6 @@
 {
   "name": "@pagelingo/extension",
-  "version": "0.4.2",
+  "version": "0.4.4",
   "private": true,
   "type": "module",
   "description": "PageLingo browser extension for technical reading.",
@@ -13,7 +13,7 @@
     "test:e2e": "npm run build && playwright test"
   },
   "dependencies": {
-    "@pagelingo/translation-core": "0.3.0",
+    "@pagelingo/translation-core": "0.4.0",
     "idb": "8.0.3",
     "react": "19.3.0",
     "react-dom": "19.3.0",

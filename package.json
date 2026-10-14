@@ -1,6 +1,6 @@
 {
   "name": "pagelingo",
-  "version": "0.4.2",
+  "version": "0.4.4",
   "private": true,
   "type": "module",
   "description": "Shared translation SDK and applications for technical reading.",
@@ -39,7 +39,7 @@
     "node": ">=24.0.0"
   },
   "dependencies": {
-    "@pagelingo/translation-core": "0.3.0",
+    "@pagelingo/translation-core": "0.4.0",
     "@pagelingo/assistant-core": "0.2.0"
   },
   "devDependencies": {

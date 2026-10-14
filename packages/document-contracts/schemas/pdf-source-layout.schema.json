@@ -1,0 +1,404 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:pagelingo:pdf-source-layout:2",
+  "title": "Experimental PDF source layout supplement",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "status",
+    "sourceRunId",
+    "sourceSha256",
+    "nativeIndexSpace",
+    "coordinateSpace",
+    "rangeConvention",
+    "readingOrderSource",
+    "pages",
+    "containers",
+    "supplements",
+    "callouts",
+    "limitations"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "pagelingo-pdf-source-layout/2"
+    },
+    "status": {
+      "const": "experimental-supplement"
+    },
+    "sourceRunId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sourceSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "nativeIndexSpace": {
+      "const": "pdfium-text-page-character-index"
+    },
+    "coordinateSpace": {
+      "const": "normalized-displayed-crop-box-top-left"
+    },
+    "rangeConvention": {
+      "const": "half-open"
+    },
+    "readingOrderSource": {
+      "enum": [
+        "retained-parser-block-order",
+        "retained-parser-with-local-geometric-repairs"
+      ]
+    },
+    "pages": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/page"
+      }
+    },
+    "containers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/container"
+      }
+    },
+    "supplements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "paragraphs",
+        "definitions",
+        "lists",
+        "notation",
+        "inline",
+        "footnoteRepairs",
+        "prompts",
+        "proseRepairs"
+      ],
+      "properties": {
+        "paragraphs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/paragraph"
+          }
+        },
+        "definitions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "parsedPageIndex",
+              "sourcePageIndex",
+              "blockIndices",
+              "rows",
+              "applied"
+            ]
+          }
+        },
+        "lists": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "parsedPageIndex",
+              "sourcePageIndex",
+              "kind",
+              "items",
+              "applied"
+            ]
+          }
+        },
+        "notation": {
+          "type": "array"
+        },
+        "inline": {
+          "type": "array"
+        },
+        "footnoteRepairs": {
+          "type": "array"
+        },
+        "prompts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "parsedPageIndex",
+              "sourcePageIndex",
+              "blockIndices",
+              "rows",
+              "applied",
+              "sourceCharacterRanges",
+              "parserBlocks"
+            ]
+          }
+        },
+        "proseRepairs": {
+          "type": "array"
+        }
+      }
+    },
+    "callouts": {
+      "type": "array"
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "$defs": {
+    "range": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "ranges": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/range"
+      }
+    },
+    "box": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {
+        "type": "number"
+      }
+    },
+    "line": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bbox",
+        "baseline",
+        "fontSize",
+        "nativeCharacterRanges"
+      ],
+      "properties": {
+        "bbox": {
+          "$ref": "#/$defs/box"
+        },
+        "baseline": {
+          "type": "number"
+        },
+        "fontSize": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "nativeCharacterRanges": {
+          "$ref": "#/$defs/ranges"
+        }
+      }
+    },
+    "block": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "blockIndex",
+        "kind",
+        "bbox",
+        "role",
+        "nativeCharacterRanges",
+        "ambiguousCharacterRanges",
+        "visualLines"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "blockIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "kind": {
+          "type": "string"
+        },
+        "bbox": {
+          "$ref": "#/$defs/box"
+        },
+        "role": {
+          "enum": [
+            "content",
+            "furniture"
+          ]
+        },
+        "nativeCharacterRanges": {
+          "$ref": "#/$defs/ranges"
+        },
+        "ambiguousCharacterRanges": {
+          "$ref": "#/$defs/ranges"
+        },
+        "visualLines": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/line"
+          }
+        }
+      }
+    },
+    "page": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parsedPageIndex",
+        "sourcePageIndex",
+        "width",
+        "height",
+        "cropBox",
+        "rotation",
+        "assignmentMethod",
+        "blocks",
+        "unassignedCharacterRanges",
+        "ambiguousAssignments",
+        "readingOrder",
+        "bodyColumns"
+      ],
+      "properties": {
+        "parsedPageIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sourcePageIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "width": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "height": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "cropBox": {
+          "$ref": "#/$defs/box"
+        },
+        "rotation": {
+          "enum": [
+            0,
+            90,
+            180,
+            270
+          ]
+        },
+        "assignmentMethod": {
+          "const": "character-center-and-smallest-region"
+        },
+        "blocks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/block"
+          }
+        },
+        "unassignedCharacterRanges": {
+          "$ref": "#/$defs/ranges"
+        },
+        "ambiguousAssignments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "nativeIndex",
+              "candidateIds"
+            ],
+            "properties": {
+              "nativeIndex": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "candidateIds": {
+                "type": "array",
+                "minItems": 2,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "readingOrder": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "bodyColumns": {
+          "type": "array"
+        }
+      }
+    },
+    "container": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "children"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "parser-visual",
+            "callout",
+            "list",
+            "label-rows",
+            "notation",
+            "prompt"
+          ]
+        },
+        "children": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "applied": {
+          "type": "boolean"
+        }
+      }
+    },
+    "paragraph": {
+      "type": "object",
+      "required": [
+        "sourceId",
+        "firstLineEm",
+        "leftInsetEm",
+        "method",
+        "applied"
+      ],
+      "properties": {
+        "sourceId": {
+          "type": "string"
+        },
+        "firstLineEm": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 3
+        },
+        "leftInsetEm": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 8
+        },
+        "method": {
+          "const": "native-lines-and-local-margin"
+        },
+        "applied": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

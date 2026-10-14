@@ -19,7 +19,7 @@ test('packed SDK installs outside the workspace, typechecks and runs in plain No
     // npm ci/install populates the dependency cache first; this check itself makes no network requests.
     run('npm', ['install', '--offline', '--ignore-scripts', '--no-audit', '--no-fund', '--package-lock=false', path.join(temporary, packed.filename)], consumer);
     writeFileSync(path.join(consumer, 'consumer.mts'), `
-import { OpenAICompatibleProvider, TranslationEngine, ConcurrencyScheduler, parseGlossaryFile, mergeGlossaryEntries, type TranslationDocument, type CacheEntry } from '@pagelingo/translation-core';
+import { OpenAICompatibleProvider, TranslationEngine, ConcurrencyScheduler, parseGlossaryFile, mergeGlossaryEntries, encodeBlock, decodeTranslation, type TranslationDocument, type CacheEntry } from '@pagelingo/translation-core';
 import { MockProvider } from '@pagelingo/translation-core/testing';
 if (typeof document !== 'undefined' || typeof window !== 'undefined') throw new Error('Unexpected DOM');
 const input: TranslationDocument = {
@@ -36,6 +36,20 @@ for await (const result of new TranslationEngine(new MockProvider(0)).translate(
   if (JSON.stringify(result.translations[0].content[1]) !== JSON.stringify(input.blocks[0].content[1])) throw new Error('Citation changed');
 }
 if (completed !== 1) throw new Error('Missing translation result');
+const prompt: TranslationDocument = { id: 'prompt', blocks: [{ id: 'instruction', kind: 'paragraph', content: [
+  { type: 'format', id: 'color', kind: 'style', children: [
+    { type: 'format', id: 'underline', kind: 'underline', children: [{ type: 'text', text: 'Solve' }] },
+  ] },
+  { type: 'protected', id: 'variable', kind: 'literal', source: '{∗problem∗}' },
+  { type: 'protected', id: 'answer', kind: 'literal', source: '____' },
+] }] };
+const encodedPrompt = encodeBlock(prompt.blocks[0]);
+const decodedPrompt = decodeTranslation(encodedPrompt, encodedPrompt.protectedText.replace('Solve', '解答'));
+if (JSON.stringify(decodedPrompt) !== JSON.stringify([
+  { type: 'format', id: 'color', kind: 'style', children: [
+    { type: 'format', id: 'underline', kind: 'underline', children: [{ type: 'text', text: '解答' }] },
+  ] }, ...prompt.blocks[0].content.slice(1),
+])) throw new Error('Portable prompt / style restoration failed');
 const glossary = mergeGlossaryEntries([], parseGlossaryFile('source,target,policy,domain\\nharness engineering,harness 工程,translate,machine-learning', 'csv'));
 const technical: TranslationDocument = { id: 'terms', blocks: [{ id: 'title', kind: 'heading', content: [{ type: 'text', text: 'Harness engineering' }] }] };
 for await (const result of new TranslationEngine(new MockProvider(0)).translate(technical, { targetLanguage: 'zh-CN', glossary, glossaryDomain: 'machine-learning' })) {

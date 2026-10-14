@@ -6,7 +6,7 @@ export type BlockKind = z.infer<typeof blockKindSchema>;
 export const protectedKindSchema = z.enum(['code', 'math', 'citation', 'identifier', 'url', 'literal']);
 export type ProtectedKind = z.infer<typeof protectedKindSchema>;
 
-export const formatKindSchema = z.enum(['strong', 'emphasis', 'link', 'subscript', 'superscript', 'deletion', 'small', 'mark']);
+export const formatKindSchema = z.enum(['strong', 'emphasis', 'link', 'subscript', 'superscript', 'deletion', 'small', 'mark', 'underline', 'style']);
 export type FormatKind = z.infer<typeof formatKindSchema>;
 
 export interface TextInline {

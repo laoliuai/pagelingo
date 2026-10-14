@@ -114,6 +114,48 @@ def page_panels(page):
     return candidates
 
 
+def text_highlights(page, chars):
+    """Opaque, colored rectangles calibrated to a single native text line.
+
+    PDF highlighters often paint each word separately. These small paths are
+    deliberately excluded from page_panels, which identifies larger containers.
+    """
+    result = []
+    for obj in page.get_objects(filter=[pdfium.raw.FPDF_PAGEOBJ_PATH], max_depth=1):
+        fill, stroke = ctypes.c_int(), ctypes.c_int()
+        channels = [ctypes.c_uint() for _ in range(4)]
+        if (
+            not pdfium.raw.FPDFPath_GetDrawMode(obj, fill, stroke)
+            or not fill.value
+            or not pdfium.raw.FPDFPageObj_GetFillColor(obj, *channels)
+        ):
+            continue
+        rgba = [c.value for c in channels]
+        if rgba[3] != 255 or max(rgba[:3]) - min(rgba[:3]) < 30:
+            continue
+        if not rectangular_path(obj)[0]:
+            continue
+        try:
+            bbox = normalized_pdf_box(obj.get_bounds(), page.get_bbox(), page.get_rotation())
+        except ValueError:
+            continue
+        selected = [
+            c
+            for c in chars
+            if c["bbox"]
+            and c["fontSize"] > 0
+            and bbox[0] <= c["x"] <= bbox[2]
+            and bbox[1] <= c["y"] <= bbox[3]
+        ]
+        if not selected or any(
+            not 0.5 <= (bbox[3] - bbox[1]) * page.get_height() / c["fontSize"] <= 1.7
+            for c in selected
+        ):
+            continue
+        result.append({"bbox": bbox, "color": rgba[:3], "indices": [c["index"] for c in selected]})
+    return result
+
+
 def project_source(raw, run, source):
     """No inference. Preserve uncertain text and code, supplement confirmed panel styles."""
     callouts, protected = [], {}
@@ -236,14 +278,12 @@ def project_source(raw, run, source):
 
 
 def apply_callouts(soup, callouts):
+    blocks = {
+        (int(node["data-page-idx"]), int(node["data-block-index"])): node
+        for node in soup.select(".docvortex-block[data-page-idx][data-block-index]")
+    }
     for record in callouts:
-        nodes = [
-            soup.select_one(
-                f'.docvortex-block[data-page-idx="{record["parsedPageIndex"]}"]'
-                f'[data-block-index="{index}"]'
-            )
-            for index in record["blockIndices"]
-        ]
+        nodes = [blocks.get((record["parsedPageIndex"], index)) for index in record["blockIndices"]]
         if any(node is None for node in nodes):
             raise ValueError("A styled panel lost a source block during rendering")
         # This is article content. Generic browser translators often exclude aside.
@@ -256,7 +296,10 @@ def apply_callouts(soup, callouts):
         box["style"] = (
             f"background:{color(record['bodyColor'])};"
             f"border-color:{color(record['borderColor'])};"
-            f"border-radius:{8 if record['rounded'] else 0}px"
+            f"border-radius:{8 if record['rounded'] else 0}px;"
+            f"margin-inline-start:max(0em,calc({record.get('leftInsetEm', 0)}em "
+            "- var(--pl-parent-inset,0em)));"
+            f"margin-inline-end:{record.get('rightInsetEm', 0)}em"
         )
         nodes[0].insert_before(box)
         body = soup.new_tag("div", attrs={"class": "pl-callout-body"})

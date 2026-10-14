@@ -2,6 +2,7 @@ import type { DisplayMode } from '../shared/types';
 import { SLOT_PATTERN, validateStructure } from '@pagelingo/translation-core';
 import { snapshotNodes, type ProtectedBlock } from './protect';
 import { headingLevel } from './content-scope';
+import { restoreVisualLiteral } from './inline-appearance';
 
 interface RenderedBlock {
   block: ProtectedBlock;
@@ -40,6 +41,8 @@ export function restoreFragment(block: ProtectedBlock, text: string): DocumentFr
     if (slot.kind === 'atom') {
       if (slot.category === 'literal') {
         parent.append(document.createTextNode(slot.node.textContent ?? ''));
+      } else if (slot.category === 'visual-literal') {
+        parent.append(restoreVisualLiteral(slot.node as Element, document));
       } else if (slot.category === 'math') {
         const marker = document.createElement('span');
         marker.textContent = '〔公式见原文〕';
@@ -52,6 +55,7 @@ export function restoreFragment(block: ProtectedBlock, text: string): DocumentFr
       }
     } else if (slot.kind === 'open') {
       const element = createFormatElement(slot.element, document);
+      if (slot.appearance) Object.assign(element.style, slot.appearance);
       parent.append(element);
       stack.push(element);
     } else {
