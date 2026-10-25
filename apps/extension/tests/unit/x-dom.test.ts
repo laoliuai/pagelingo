@@ -1,13 +1,11 @@
-import { readFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { beforeEach, expect, it } from 'vitest';
+import { renderFixture } from '../fixtures';
 import { extractBlocks } from '../../src/dom/extractor';
 import { DomRenderer } from '../../src/dom/renderer';
 import { sourceDocumentVersion } from '../../src/dom/document-version';
 
 function load(name: string): void {
-  const parsed = new DOMParser().parseFromString(readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../fixtures', `${name}.html`), 'utf8'), 'text/html');
+  const parsed = new DOMParser().parseFromString(renderFixture(name), 'text/html');
   document.head.innerHTML = parsed.head.innerHTML; document.body.innerHTML = parsed.body.innerHTML;
 }
 beforeEach(() => { document.head.replaceChildren(); document.body.replaceChildren(); document.body.removeAttribute('style'); history.replaceState({}, '', '/goyal__pramod/status/2106244243727507733'); });

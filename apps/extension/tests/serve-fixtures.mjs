@@ -1,7 +1,7 @@
 import { createServer } from 'node:http';
-import { readFile } from 'node:fs/promises';
+import { fixtureNames, renderFixture } from './fixtures.ts';
 
-const names = new Set(['arxiv', 'github-readme', 'technical-doc', 'x-post', 'x-article']);
+const names = new Set(fixtureNames);
 const emptyMetrics = () => ({ requests: 0, aborted: 0, active: 0, peak: 0, attempts: {},chatRequests:0,chatBodies:[] });
 let metrics = emptyMetrics();
 const server = createServer(async (request, response) => {
@@ -72,7 +72,7 @@ const server = createServer(async (request, response) => {
   const name = url.pathname.slice(1).replace(/\.html$/, '') || 'arxiv';
   if (!names.has(name)) { response.writeHead(404); response.end('Not found'); return; }
   try {
-    const content = await readFile(new URL(`./fixtures/${name}.html`, import.meta.url));
+    const content = renderFixture(name);
     response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
     response.end(content);
   } catch { response.writeHead(500); response.end('Fixture unavailable'); }

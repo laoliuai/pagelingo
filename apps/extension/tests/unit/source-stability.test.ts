@@ -1,7 +1,5 @@
-import { readFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { renderFixture } from '../fixtures';
 import { PageController } from '../../src/content/page-controller';
 import { extractBlocks } from '../../src/dom/extractor';
 import { DomRenderer } from '../../src/dom/renderer';
@@ -9,7 +7,7 @@ import { MockProvider } from '@pagelingo/translation-core/testing';
 
 let controller: PageController | undefined;
 beforeEach(() => {
-  const html = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../fixtures/x-article.html'), 'utf8');
+  const html = renderFixture('x-article');
   const parsed = new DOMParser().parseFromString(html, 'text/html');
   document.head.innerHTML = parsed.head.innerHTML;
   document.body.innerHTML = parsed.body.innerHTML;

@@ -1,14 +1,12 @@
-import { readFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { renderFixture } from '../fixtures';
 import { extractBlocks } from '../../src/dom/extractor';
 import { DomRenderer, restoreFragment } from '../../src/dom/renderer';
 import { protectNodes } from '../../src/dom/protect';
 import { validateBatch, validateStructure } from '@pagelingo/translation-core';
 
 function loadFixture(name: string) {
-  const html = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../fixtures', `${name}.html`), 'utf8');
+  const html = renderFixture(name);
   const parsed = new DOMParser().parseFromString(html, 'text/html');
   document.head.innerHTML = parsed.head.innerHTML;
   document.body.innerHTML = parsed.body.innerHTML;

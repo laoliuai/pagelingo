@@ -19,4 +19,4 @@
 
 `src/dom` 保存网页节点映射与安全渲染；`src/content` 管理页面会话与失效；`src/background` 管理可信扩展操作；React popup / options 独立于宿主页面。翻译逻辑通过 `@pagelingo/translation-core` 的公开入口调用。
 
-配置和 `tests/unit`、`tests/fixtures`、`tests/e2e` 随应用管理。根命令 `npm run test:extension`、`npm run test:e2e` 自动先构建 SDK；也可先在根构建 SDK，再在本目录执行自身 npm scripts。测试输出在本目录 `test-results/`。
+配置和 `tests/unit`、`tests/fixtures.ts`、`tests/e2e` 随应用管理。合成测试页面由代码生成，不依赖本机 HTML 数据文件。根命令 `npm run test:extension`、`npm run test:e2e` 自动先构建 SDK；也可先在根构建 SDK，再在本目录执行自身 npm scripts。测试输出在本目录 `test-results/`。

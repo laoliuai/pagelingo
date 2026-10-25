@@ -20,7 +20,7 @@ PDF P0 已完成两本书及三篇论文的首轮真实评测；Python 候选适
 
 ## 本地运行
 
-需要 Node.js 24 或以上。
+需要 Node.js 24 或以上；使用 nvm 时，在仓库根目录运行 `nvm use` 读取 `.nvmrc`。
 
 ```bash
 npm ci
@@ -95,7 +95,7 @@ npm run test:e2e
 
 也可使用 `npm run check` 执行 SDK / DOM 单元测试、独立包消费验证、类型检查、构建与浏览器测试。SDK 单元测试运行在无 DOM 的 Node 环境，网页结构测试使用 jsdom。
 
-`apps/extension/tests/fixtures/` 是人工编写的 arXiv 风格、GitHub README 风格、文档页和 X 帖子/长文样本，包含列表、表格、代码、MathML、链接事件、编辑区域及 SPA 变化测试。它们验证确定性的结构行为，不代表已经覆盖真实站点所有页面。
+`apps/extension/tests/fixtures.ts` 为 DOM 测试与本地 HTTP 服务生成 arXiv 风格、GitHub README 风格、文档页和 X 帖子/长文合成页面，包含列表、表格、代码、MathML、链接事件、编辑区域及 SPA 变化测试。新克隆的仓库可直接运行测试，无需另行取得 HTML 数据文件；这些样本验证确定性的结构行为，不代表已经覆盖真实站点所有页面。
 
 默认检查使用本地模拟 API，不读取 `.env.local`，不调用付费模型。真实联调需要主动运行：
 
