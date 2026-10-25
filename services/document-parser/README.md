@@ -5,11 +5,16 @@
 仓库根目录安装基础环境、运行检查：
 
 ```bash
+nvm use
 npm run pdf:setup
 npm run pdf:lint
 npm run pdf:test
 npm run pdf:cli -- --help
 ```
+
+仓库的 `.nvmrc` 固定 Node 24。`uv` 使用复制安装依赖，避免项目虚拟环境与共享缓存
+通过硬链接互相影响。环境损坏时保留旧目录，使用 `uv sync --locked --no-cache` 重新下载；
+不要把已有的损坏缓存当作恢复来源。原 PDF、模型权重和解析运行无需随环境重装而删除。
 
 候选环境分别安装；基础安装不带 ML 依赖：
 

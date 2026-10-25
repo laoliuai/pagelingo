@@ -29,6 +29,7 @@ build-backend = "hatchling.build"
 packages = ["src/pagelingo_parser"]
 
 [tool.uv]
+link-mode = "copy"
 conflicts = [[{extra = "docling"}, {extra = "mineru"}]]
 
 [[tool.uv.index]]
