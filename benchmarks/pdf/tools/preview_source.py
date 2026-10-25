@@ -2,10 +2,12 @@
 
 import ctypes
 import re
+from copy import deepcopy
 
 import pypdfium2 as pdfium
 from pagelingo_parser.geometry import normalized_pdf_box
 from pagelingo_parser.normalize import content_text
+from preview_typography import ambiguous_math_glyphs
 
 BAD_GLYPHS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\ue000-\uf8ff\ufffd-\uffff]")
 UNCERTAIN_MATH = re.compile(r"[_^]\s*\{\s*\?\s*\}")
@@ -114,12 +116,8 @@ def page_panels(page):
     return candidates
 
 
-def text_highlights(page, chars):
-    """Opaque, colored rectangles calibrated to a single native text line.
-
-    PDF highlighters often paint each word separately. These small paths are
-    deliberately excluded from page_panels, which identifies larger containers.
-    """
+def colored_rectangles(page):
+    """Direct, opaque colored paint; it may contain text or mark an empty slot."""
     result = []
     for obj in page.get_objects(filter=[pdfium.raw.FPDF_PAGEOBJ_PATH], max_depth=1):
         fill, stroke = ctypes.c_int(), ctypes.c_int()
@@ -139,6 +137,15 @@ def text_highlights(page, chars):
             bbox = normalized_pdf_box(obj.get_bounds(), page.get_bbox(), page.get_rotation())
         except ValueError:
             continue
+        result.append({"bbox": bbox, "color": rgba[:3]})
+    return result
+
+
+def text_highlights(page, chars):
+    """Colored rectangles calibrated to a single native text line."""
+    result = []
+    for paint in colored_rectangles(page):
+        bbox = paint["bbox"]
         selected = [
             c
             for c in chars
@@ -152,8 +159,58 @@ def text_highlights(page, chars):
             for c in selected
         ):
             continue
-        result.append({"bbox": bbox, "color": rgba[:3], "indices": [c["index"] for c in selected]})
+        result.append({**paint, "indices": [c["index"] for c in selected]})
     return result
+
+
+def protect_dense_footnotes(blocks, page, textpage):
+    """Preserve a fragmented math footnote band instead of flattening its formulas.
+
+    Require a source divider, several overlapping parser fragments and multiple
+    unmapped extension-font glyphs. Ordinary prose and structured math stay text.
+    """
+    from preview_layout import short_rules
+
+    notes = [b for b in blocks if b["type"] == "page_footnote"]
+    if len(notes) < 8 or any(math_contents(b) for b in notes):
+        return None
+    box = [min(b["bbox"][0] for b in notes), min(b["bbox"][1] for b in notes),
+           max(b["bbox"][2] for b in notes), max(b["bbox"][3] for b in notes)]
+    if box[2] - box[0] < 0.5 or box[3] - box[1] < 0.12:
+        return None
+    overlaps = sum(
+        area(a["bbox"]) < area(b["bbox"]) * 0.75
+        and overlap_fraction(a["bbox"], b["bbox"]) >= 0.95
+        for a in notes for b in notes if a is not b
+    )
+    if overlaps < 3 or any(
+        overlap_fraction(b["bbox"], box) > 0.01
+        for b in blocks if b not in notes and b["type"] not in FURNITURE_TYPES
+    ):
+        return None
+    dividers = [r for r in short_rules(page, max_width=page.get_width())
+                if 0 <= box[1] - r[3] < 0.018 and r[2] - r[0] >= 0.12
+                and abs(r[0] - box[0]) < 0.025 and r[2] <= box[2]]
+    if not dividers:
+        return None
+    glyphs = ambiguous_math_glyphs(page, textpage, box)
+    if len(glyphs) < 6:
+        return None
+    originals = deepcopy(notes)
+    divider = max(dividers, key=lambda r: r[3])
+    box[0], box[1] = min(box[0], divider[0]), divider[1]
+    anchor = min(notes, key=lambda b: (b["bbox"][1], b["index"]))
+    record = {
+        "role": "source-fallback", "reason": "unparsed-dense-footnote-math",
+        "sourceKind": "page_footnote", "sourceBBox": anchor["bbox"][:], "bbox": box,
+        "invalidGlyphCodes": [], "uncertainMath": [], "nativeGlyphEvidence": glyphs,
+        "method": "source-divider-and-fragmented-native-math-footnote-band",
+        "blockIndex": anchor["index"], "blockIndices": [b["index"] for b in notes],
+        "originalBlocks": originals, "sourceDividerBBox": divider,
+    }
+    anchor["bbox"] = box
+    blocks[:] = [b for b in blocks if b not in notes or b is anchor]
+    return record
 
 
 def project_source(raw, run, source):
@@ -165,10 +222,19 @@ def project_source(raw, run, source):
             source_index = run["requestedPageIndices"][parsed_index]
             blocks = parsed.get("blocks", [])
             page = pdf[source_index]
+            textpage = None
             try:
                 panels = page_panels(page)
+                if sum(b["type"] == "page_footnote" for b in blocks) >= 8:
+                    textpage = page.get_textpage()
+                    band = protect_dense_footnotes(blocks, page, textpage)
+                    if band:
+                        protected[(parsed_index, band["blockIndex"])] = band
                 for block in blocks:
-                    if block["type"] in VISUAL_TYPES | FURNITURE_TYPES:
+                    if (
+                        block["type"] in VISUAL_TYPES | FURNITURE_TYPES
+                        or (parsed_index, block["index"]) in protected
+                    ):
                         continue
                     bad = BAD_GLYPHS.findall(content_text(block.get("content", "")))
                     uncertain = [
@@ -177,7 +243,17 @@ def project_source(raw, run, source):
                         if UNCERTAIN_MATH.search(formula)
                     ]
                     algorithm = block["type"] == "code" and block.get("sub_type") == "algorithm"
-                    if not bad and not algorithm and not uncertain:
+                    ambiguous = []
+                    if (
+                        block["type"] == "page_footnote"
+                        and block["bbox"][3] - block["bbox"][1] >= 0.022
+                        and block["bbox"][2] - block["bbox"][0] <= 0.6
+                        and not math_contents(block)
+                    ):
+                        if textpage is None:
+                            textpage = page.get_textpage()
+                        ambiguous = ambiguous_math_glyphs(page, textpage, block["bbox"])
+                    if not bad and not algorithm and not uncertain and not ambiguous:
                         continue
                     bbox = block["bbox"][:]
                     if algorithm:
@@ -199,12 +275,16 @@ def project_source(raw, run, source):
                         "role": "algorithm" if algorithm else "source-fallback",
                         "reason": "preserve-algorithm-layout"
                         if algorithm
-                        else ("invalid-text-glyphs" if bad else "uncertain-math-punctuation"),
+                        else (
+                            "invalid-text-glyphs" if bad else "unmapped-native-math-operator"
+                            if ambiguous else "uncertain-math-punctuation"
+                        ),
                         "sourceKind": block["type"],
                         "sourceBBox": block["bbox"][:],
                         "bbox": bbox,
                         "invalidGlyphCodes": sorted({f"U+{ord(char):04X}" for char in bad}),
                         "uncertainMath": uncertain,
+                        **({"nativeGlyphEvidence": ambiguous} if ambiguous else {}),
                     }
                 # Each outer panel owns its inset body and title strip. The parser's
                 # graph/table bodies are excluded so chart shading cannot become a callout.
@@ -273,8 +353,28 @@ def project_source(raw, run, source):
                         if position < len(blocks) and "continues_prev" in blocks[position]:
                             blocks[position]["continues_prev"] = False
             finally:
+                if textpage is not None:
+                    textpage.close()
                 page.close()
     return callouts, protected
+
+
+def callout_box(soup, record):
+    box = soup.new_tag("section", attrs={"class": "pl-callout"})
+    box["data-source-panel"] = str(record["sourcePageIndex"])
+
+    def color(rgb):
+        return "#" + "".join(f"{c:02x}" for c in rgb)
+
+    box["style"] = (
+            f"background:{color(record['bodyColor'])};"
+            f"border-color:{color(record.get('borderColor', record['bodyColor']))};"
+            f"border-radius:{8 if record['rounded'] else 0}px;"
+            f"margin-inline-start:max(0em,calc({record.get('leftInsetEm', 0)}em "
+            "- var(--pl-parent-inset,0em)));"
+            f"margin-inline-end:{record.get('rightInsetEm', 0)}em"
+        )
+    return box
 
 
 def apply_callouts(soup, callouts):
@@ -283,24 +383,12 @@ def apply_callouts(soup, callouts):
         for node in soup.select(".docvortex-block[data-page-idx][data-block-index]")
     }
     for record in callouts:
+        if record.get("embeddedPrompt"):
+            continue
         nodes = [blocks.get((record["parsedPageIndex"], index)) for index in record["blockIndices"]]
         if any(node is None for node in nodes):
             raise ValueError("A styled panel lost a source block during rendering")
-        # This is article content. Generic browser translators often exclude aside.
-        box = soup.new_tag("section", attrs={"class": "pl-callout"})
-        box["data-source-panel"] = str(record["sourcePageIndex"])
-
-        def color(rgb):
-            return "#" + "".join(f"{c:02x}" for c in rgb)
-
-        box["style"] = (
-            f"background:{color(record['bodyColor'])};"
-            f"border-color:{color(record['borderColor'])};"
-            f"border-radius:{8 if record['rounded'] else 0}px;"
-            f"margin-inline-start:max(0em,calc({record.get('leftInsetEm', 0)}em "
-            "- var(--pl-parent-inset,0em)));"
-            f"margin-inline-end:{record.get('rightInsetEm', 0)}em"
-        )
+        box = callout_box(soup, record)
         nodes[0].insert_before(box)
         body = soup.new_tag("div", attrs={"class": "pl-callout-body"})
         for node in nodes:
@@ -308,7 +396,8 @@ def apply_callouts(soup, callouts):
                 node["class"] = [*node.get("class", []), "pl-callout-title"]
                 rgb = record["headerColor"]
                 foreground = "#fff" if sum(rgb) < 3 * 160 else "#202b3b"
-                node["style"] = f"background:{color(rgb)};color:{foreground}"
+                rgb_hex = "#" + "".join(f"{c:02x}" for c in rgb)
+                node["style"] = f"background:{rgb_hex};color:{foreground}"
                 box.append(node.extract())
             else:
                 body.append(node.extract())

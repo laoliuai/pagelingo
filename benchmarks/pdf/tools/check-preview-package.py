@@ -11,6 +11,7 @@ from jsonschema import Draft202012Validator
 from pagelingo_parser.files import digest, read_json, relative_file, write_json
 from PIL import Image
 from preview_paragraphs import validate_native_ownership
+from preview_validation import check_prompt_coverage
 
 
 def check_bundle(root, archive):
@@ -75,6 +76,7 @@ def check_bundle(root, archive):
                         bitmap.close()
             finally:
                 page.close()
+    prompt_coverage = check_prompt_coverage(root, preview, evidence)
     return {
         "bundle": root.name,
         "archive": archive.name,
@@ -87,6 +89,7 @@ def check_bundle(root, archive):
         "containerReferences": "passed",
         "originalRegionPixelsChecked": pixels_checked,
         "originalRegionPixels": "identical",
+        "promptCoverage": prompt_coverage,
         "pages": len(preview["pages"]),
         "reparsed": False,
         "translated": False,

@@ -79,6 +79,8 @@ try {
         rowsKept, listsKept, notationKept, restored: article.innerHTML === before,
         callouts: article.querySelectorAll('.pl-callout').length,
         underlines: article.querySelectorAll('.pl-label-row u').length,
+        underlinedValues: rows.map(row => [...row.querySelectorAll('dd u')]
+          .map(node => node.textContent).join('').replace(/\s+/g, '')),
         colors: article.querySelectorAll('.pl-label-row .pl-source-color').length,
         sourceText: blocks.map(block => block.input.sourceText) };
     });
@@ -96,7 +98,9 @@ try {
       assert(result.layout.find(entry => entry.block === 6).textIndent > 15);
       assert(result.layout.find(entry => entry.block === 5).margin < 1,
         'Continuation inside a list must not receive a second indent');
-      assert(result.underlines === 2 && result.colors > 0);
+      assert.deepEqual(result.underlinedValues, ['rainingIanumbrella', '', '', '', '', ''],
+        'Native underlines also mark I and an; preserve all four selected tokens');
+      assert(result.colors > 0);
       assert(result.labels.every(row => row.labelHeight <= row.labelLineHeight + 1),
         'Desktop labels must fit on one line');
     }

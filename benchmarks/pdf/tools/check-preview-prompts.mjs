@@ -22,16 +22,21 @@ const browser = await chromium.launch({ headless: true });
 const report = { schemaVersion: 'pagelingo-preview-prompt-validation/1',
   scope: 'Source geometry and actual extension mock rendering, protected slots and style restoration; no LLM requests',
   pages: [], errors: [] };
+const highlightTranslations = [
+  ['When did the environmental study start?', '这项环境研究何时开始？'],
+  ['When did the environmental study end?', '这项环境研究何时结束？'],
+  ['What was the duration of the environmental study?', '这项环境研究持续了多久？'],
+];
 try {
   const context = await browser.newContext({ offline: true, viewport: { width: 1180, height: 1000 } });
   const page = await context.newPage();
   page.on('pageerror', error => report.errors.push(error.message));
-  for (const number of [17, 108, 109, 110, 111, 112, 114, 117, 118, 119, 120, 122, 123, 124, 125, 131, 145, 146, 147, 154]) {
+  for (const number of [17, 108, 109, 110, 111, 112, 114, 117, 118, 119, 120, 122, 123, 124, 125, 131, 132, 145, 146, 147, 154]) {
     const root = path.resolve(directory);
     await page.goto(pathToFileURL(path.join(root, 'pages', `page-${String(number).padStart(4, '0')}.html`)).href);
     await page.evaluate(() => document.fonts.ready);
     await page.addScriptTag({ content: script });
-    const result = await page.evaluate(number => {
+    const result = await page.evaluate(({ number, highlightTranslations }) => {
       const article = document.querySelector('article');
       const before = article.innerHTML;
       const visible = selector => [...article.querySelectorAll(selector)]
@@ -113,12 +118,15 @@ try {
             catch { removedSlotsRejected++; }
           }
         }
-        const translated = block.input.protectedText
+        let translated = block.input.protectedText
           .replaceAll('Calculate the average of the numbers 2, 4, and 9.', '计算数字 2、4 和 9 的平均值。')
           .replaceAll('Where will the 2028 Olympics be held?', '2028 年奥运会将在哪里举办？')
           .replaceAll('Translate the following sentence from English to Chinese.', '将以下句子从英文翻译成中文。')
           .replaceAll('Analyze the polarity of the following text and classify it as positive, negative, or neutral.', '分析以下文本的情感，并将其分类为正面、负面或中性。')
           .replaceAll('negative', '负面');
+        if (number === 132) {
+          for (const [source, target] of highlightTranslations) translated = translated.replaceAll(source, target);
+        }
         if (!renderer.render(block, `测试译文 ${translated}`)) throw new Error('Mock render rejected ' + block.input.id);
       }
       renderer.setMode('translation');
@@ -127,7 +135,9 @@ try {
       const translatedColors = roles.map(node => getComputedStyle(node).color);
       const translatedSourceStyleRuns = [...article.querySelectorAll('[data-pl-owned="translation"] span[style*="color"]')].length;
       const translatedUnderlines = article.querySelectorAll('[data-pl-owned="translation"] u').length;
-      const translatedHighlights = emphasis('[data-pl-owned="translation"] span[style*="background-color"]')
+      const translatedAllHighlights = emphasis('[data-pl-owned="translation"] span[style*="background-color"]')
+        .filter(node => node.background !== 'rgba(0, 0, 0, 0)' && node.background !== 'transparent');
+      const translatedHighlights = translatedAllHighlights
         .filter(node => node.background === 'rgb(154, 245, 175)');
       const translatedAnswerUnderline = number !== 117 || sourceBlocks(6)
         .querySelector('[data-pl-owned="translation"] u')?.textContent === '负面';
@@ -155,11 +165,11 @@ try {
       return { prompts: promptLines.length, blanks, translatedBlanks, variables, translatedVariables,
         roles: roles.map(node => node.textContent), roleColors, translatedColors, bodyLefts, promptLines,
         questionOrder, introductionKept, blankGeometry, sourceRepaired, translatedPrompts, removedSlotsRejected, translatedSourceStyleRuns,
-        translatedUnderlines, hasSourceCodePrompt, sourceHighlights, translatedHighlights, answerUnderline,
+        translatedUnderlines, hasSourceCodePrompt, sourceHighlights, translatedHighlights, translatedAllHighlights, answerUnderline,
         translatedAnswerUnderline, indentPositions, translatedIndentPositions, demonstration, translatedDemonstration,
         exampleAppearance, translatedExample, roleGeometry, translatedRoleGeometry, prologueFitsGrid,
         restored: article.innerHTML === before };
-    }, number);
+    }, { number, highlightTranslations });
     assert.equal(result.restored, true);
     assert.equal(result.hasSourceCodePrompt, 0);
     assert.equal(result.questionOrder, true, 'Q/A must follow its introducing paragraph');
@@ -238,23 +248,40 @@ try {
       assert(result.translatedRoleGeometry.every(node => node.bodyWidth > 400 && node.bodyRight <= 1180));
       assert.equal(result.prologueFitsGrid, true, 'An introductory paragraph must span the grid without enlarging its role column');
     }
+    if (number === 132) {
+      assert.equal(result.prompts, 0, 'Paragraph highlights must not depend on role/prompt reclassification');
+      assert.equal(result.sourceHighlights.length, 12, 'All six questions and six answers must keep their highlights');
+      const backgrounds = result.sourceHighlights.map(node => node.background);
+      assert.equal(backgrounds.filter(color => color === 'rgb(153, 202, 240)').length, 6);
+      assert.equal(backgrounds.filter(color => color === 'rgb(237, 196, 107)').length, 4);
+      assert.equal(backgrounds.filter(color => color === 'rgb(241, 148, 138)').length, 2);
+      assert.deepEqual(result.translatedAllHighlights, result.sourceHighlights.map(node => ({
+        ...node, text: highlightTranslations.reduce((text, [source, target]) => text.replaceAll(source, target), node.text),
+      })), 'Chinese questions and numeric answers must keep their original background colors');
+    }
     await page.screenshot({ path: `${reportPath.replace(/\.json$/, '')}-${number}-source.png`, fullPage: true });
-    await page.evaluate(() => {
+    await page.evaluate(({ number, highlightTranslations }) => {
       const renderer = window.plPreviewRegression.renderer();
-      for (const block of window.plPreviewRegression.extract()) renderer.render(block, `测试译文 ${block.input.protectedText
+      for (const block of window.plPreviewRegression.extract()) {
+        let translated = block.input.protectedText
         .replaceAll('Calculate the average of the numbers 2, 4, and 9.', '计算数字 2、4 和 9 的平均值。')
         .replaceAll('Where will the 2028 Olympics be held?', '2028 年奥运会将在哪里举办？')
         .replaceAll('Translate the following sentence from English to Chinese.', '将以下句子从英文翻译成中文。')
         .replaceAll('Analyze the polarity of the following text and classify it as positive, negative, or neutral.', '分析以下文本的情感，并将其分类为正面、负面或中性。')
-        .replaceAll('negative', '负面')}`);
+        .replaceAll('negative', '负面');
+        if (number === 132) {
+          for (const [source, target] of highlightTranslations) translated = translated.replaceAll(source, target);
+        }
+        renderer.render(block, `测试译文 ${translated}`);
+      }
       renderer.setMode('translation');
-    });
+    }, { number, highlightTranslations });
     await page.screenshot({ path: `${reportPath.replace(/\.json$/, '')}-${number}-mock-translation.png`, fullPage: true });
     report.pages.push({ pdfPage: number, ...result });
   }
   report.mobile = [];
   await page.setViewportSize({ width: 390, height: 844 });
-  for (const number of [110, 111, 112, 114, 117, 120, 124, 125, 131]) {
+  for (const number of [110, 111, 112, 114, 117, 120, 124, 125, 131, 132]) {
     await page.goto(pathToFileURL(path.join(path.resolve(directory), 'pages', `page-${String(number).padStart(4, '0')}.html`)).href);
     await page.evaluate(() => document.fonts.ready);
     const result = await page.evaluate(() => ({ width: innerWidth, scrollWidth: document.documentElement.scrollWidth,

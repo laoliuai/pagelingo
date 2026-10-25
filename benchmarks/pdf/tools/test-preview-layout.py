@@ -10,7 +10,7 @@ from docvortex.render.contracts import RenderMode
 from docvortex.render.html import render_html
 from docvortex.schema import MiddleJson
 from preview_evidence import source_layout
-from preview_layout import apply_layout, collect_layout, list_records
+from preview_layout import apply_inline, apply_layout, collect_layout, list_records
 from preview_paragraphs import validate_native_ownership
 from pypdf import PdfWriter
 from pypdf.generic import (
@@ -193,6 +193,145 @@ class LayoutTests(unittest.TestCase):
         )
         apply_layout(soup, layout)
         return soup
+
+    def highlight_fixture(self, root):
+        writer = PdfWriter()
+        font = writer._add_object(
+            DictionaryObject(
+                {
+                    NameObject("/Type"): NameObject("/Font"),
+                    NameObject("/Subtype"): NameObject("/Type1"),
+                    NameObject("/BaseFont"): NameObject("/Helvetica"),
+                }
+            )
+        )
+        italic_font = writer._add_object(
+            DictionaryObject({
+                NameObject("/Type"): NameObject("/Font"),
+                NameObject("/Subtype"): NameObject("/Type1"),
+                NameObject("/BaseFont"): NameObject("/Helvetica-Oblique"),
+            })
+        )
+        for framed in (False, True):
+            page = writer.add_blank_page(width=400, height=500)
+            page[NameObject("/Resources")] = DictionaryObject(
+                {NameObject("/Font"): DictionaryObject({
+                    NameObject("/F1"): font, NameObject("/F2"): italic_font,
+                })}
+            )
+            stream = DecodedStreamObject()
+            stream.set_data(
+                (b"0.95 g 20 390 360 75 re f " if framed else b"")
+                + b"0.6 0.96 0.68 rg 80 435 34 15 re f 118 435 36 15 re f "
+                b"0.6 0.8 1 rg 80 410 27 15 re f 0 g "
+                b"BT /F1 12 Tf 40 440 Td (Read) Tj ET "
+                b"BT /F2 12 Tf 80 440 Td (signal) Tj ET "
+                b"BT /F1 12 Tf 118 440 Td (phrase) Tj ET "
+                b"BT /F1 12 Tf 163 440 Td (and leave signal phrase plain.) Tj ET "
+                b"BT /F1 12 Tf 40 415 Td (Year:) Tj ET "
+                b"BT /F1 12 Tf 80 415 Td (2024.) Tj ET"
+            )
+            page[NameObject("/Contents")] = writer._add_object(stream)
+        source = root / "source.pdf"
+        with source.open("wb") as target:
+            writer.write(target)
+        value = "Read signal phrase and leave signal phrase plain. Year: 2024."
+        raw = {
+            "schema": "docvortex.middle",
+            "schema_version": "2.0",
+            "is_full_document": True,
+            "metadata": {
+                "file_suffix": "pdf",
+                "producer": {"name": "highlight-fixture", "version": "1"},
+            },
+            "pages": [
+                {"page_idx": i, "blocks": [text_block(0, value, [0.08, 0.1, 0.95, 0.19])]}
+                for i in range(2)
+            ],
+        }
+        return source, raw
+
+    def test_prose_highlights_do_not_require_prompt_roles_or_a_panel(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            source, raw = self.highlight_fixture(Path(temporary))
+            original = copy.deepcopy(raw)
+            layout, _ = collect_layout(raw, {"requestedPageIndices": [0, 1]}, source)
+            soup = self.render(raw, layout)
+            for index in (0, 1):
+                with self.subTest(framed=bool(index)):
+                    node = soup.select_one(f'.docvortex-block[data-page-idx="{index}"]')
+                    highlights = node.select(".pl-source-highlight")
+                    self.assertEqual([h.get_text() for h in highlights], ["signal phrase", "2024"])
+                    self.assertEqual(
+                        [h["style"] for h in highlights],
+                        ["background-color:#99f5ad", "background-color:#99ccff"],
+                    )
+                    expected = original["pages"][index]["blocks"][0]["content"][0]["content"]
+                    self.assertEqual(node.get_text().strip(), expected)
+                    record = next(r for r in layout["inline"] if r["parsedPageIndex"] == index)
+                    self.assertTrue(record["highlights"])
+                    self.assertGreater(record["result"]["appliedHighlightCharacters"], 0)
+                    self.assertEqual(record["result"]["highlightAlignment"], "exact")
+            self.assertEqual(raw, original)
+
+    def test_highlights_preserve_links_and_emphasis_without_coloring_their_repetitions(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            source, raw = self.highlight_fixture(Path(temporary))
+            raw["pages"][1]["blocks"][0]["content"] = [
+                {"type": "text", "content": "Read "},
+                {"type": "text", "content": "signal", "styles": ["italic"]},
+                {"type": "text", "content": " "},
+                {
+                    "type": "hyperlink",
+                    "url": "https://example.com/reference",
+                    "content": [{"type": "text", "content": "phrase"}],
+                },
+                {"type": "text", "content": " and leave signal phrase plain. Year: 2024."},
+            ]
+            layout, _ = collect_layout(raw, {"requestedPageIndices": [0, 1]}, source)
+            soup = self.render(raw, layout)
+            node = soup.select_one('.docvortex-block[data-page-idx="1"]')
+            self.assertEqual(node.select_one("em .pl-source-highlight").get_text(), "signal")
+            self.assertEqual(node.select_one("a .pl-source-highlight").get_text(), "phrase")
+            self.assertEqual(node.a["href"], "https://example.com/reference")
+            self.assertEqual(
+                [h.get_text() for h in node.select(".pl-source-highlight")],
+                ["signal", "phrase", "2024"],
+            )
+
+    def test_backgrounds_are_not_guessed_when_native_and_rendered_text_disagree(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            source, raw = self.highlight_fixture(Path(temporary))
+            raw["pages"][0]["blocks"][0]["content"] = [{"type": "text", "content": "signal phrase"}]
+            layout, _ = collect_layout(raw, {"requestedPageIndices": [0, 1]}, source)
+            soup = self.render(raw, layout)
+            node = soup.select_one('.docvortex-block[data-page-idx="0"]')
+            self.assertEqual(node.get_text().strip(), "signal phrase")
+            self.assertFalse(node.select(".pl-source-highlight"))
+            record = next(r for r in layout["inline"] if r["parsedPageIndex"] == 0)
+            self.assertEqual(record["result"]["appliedHighlightCharacters"], 0)
+            self.assertEqual(record["result"]["highlightAlignment"], "text-mismatch")
+
+    def test_background_mapping_preserves_expanded_and_folded_ligatures(self):
+        soup = BeautifulSoup(
+            '<div class="docvortex-block" data-page-idx="0" data-block-index="0">'
+            "<p>fine ﬁlm</p></div>",
+            "html.parser",
+        )
+        record = {
+            "parsedPageIndex": 0,
+            "blockIndex": 0,
+            "centered": False,
+            "native": [{"index": i, "text": c} for i, c in enumerate("ﬁne film")],
+            "coloredIndices": [],
+            "blanks": [],
+            "highlights": [{"indices": [0, 4, 5], "color": [153, 202, 240]}],
+        }
+        result = apply_inline(soup, record)
+        self.assertEqual(soup.p.get_text(), "fine ﬁlm")
+        self.assertEqual([h.get_text() for h in soup.select(".pl-source-highlight")], ["fi", "ﬁ"])
+        self.assertEqual(result["highlightAlignment"], "exact")
+        self.assertEqual(result["appliedHighlightCharacters"], 3)
 
     def test_pdf_definition_rows_have_independent_selectable_descriptions(self):
         with tempfile.TemporaryDirectory() as temporary:

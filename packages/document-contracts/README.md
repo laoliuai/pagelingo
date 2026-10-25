@@ -8,4 +8,17 @@
 
 来源布局补充当前为 `pagelingo-pdf-source-layout/2`。增加经原生文字和绘制路径确认的提示框、角色、占位变量与答题线，以及 prose 被误归为公式时的原生文字修复记录。每个提示框保留原解析类别 / 文字和字符来源；局部阅读顺序修复单独记录 before / after，原始 raw 的 block 索引不变。旧离线包保留其随包版本 1 Schema，版本 2 仍不是正式 Reader IR。
 
+版本 2 的可选 `figureGroups` 保存共同图注下的行列图组、原成员和组合区域。合并模板的
+逻辑片段仍引用原 parser block，并记录互斥字符范围；字体、下划线、彩色答题位与数学
+字形回退也保留原生证据。它们用于可审阅的 P0 投影，不改变原始解析或正式 Reader 边界。
+
+`prompts[].nativeCoverageRepair` 可记录单列标签框的 `blockRepairs`：原成员索引、原 /
+导出 bbox、原文字与恢复字符区间。补充标签仍归属于原成员叶节点，不创建新的 parser
+索引；局部顺序修复继续通过 `readingOrderRepair` 保存 before / after。
+
+列表项的 `nativeMarkerRepair` 保存漏符号的原解析文字、原生圆点字符索引及位置。
+`figureGroups` 的可选 `rowLengths` 表示不等长末行，`nativeSubcaptions` 保存纵向子图说明
+的原生范围。密集公式脚注的合并原成员和分割线证据保存在预览包的原件保护记录，
+渲染仍引用同一原 PDF，不将原件图中的正文误称为已完成文本识别或翻译。
+
 具体边界见 [monorepo.md](../../docs/monorepo.md)。

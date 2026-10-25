@@ -75,6 +75,14 @@
         "proseRepairs"
       ],
       "properties": {
+        "figureGroups": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["parsedPageIndex", "sourcePageIndex", "blockIndex", "blockIndices",
+                         "method", "rows", "columns", "bbox", "originalBlocks", "applied"]
+          }
+        },
         "paragraphs": {
           "type": "array",
           "items": {

@@ -5,6 +5,7 @@ before treating a code/table candidate as a natural-language prompt.
 """
 
 import re
+from copy import deepcopy
 from statistics import median
 
 import pypdfium2 as pdfium
@@ -24,11 +25,14 @@ from preview_paragraphs import ranges, source_lines
 from preview_source import (
     BAD_GLYPHS,
     FURNITURE_TYPES,
+    callout_box,
+    colored_rectangles,
     contained,
     overlap_fraction,
     page_panels,
     text_highlights,
 )
+from preview_typography import underlined_indices
 
 PLACEHOLDER = re.compile(r"\{[∗*][^{}\n]{1,64}[∗*]\}")
 ROLE = re.compile(r"^(?:TASK|SYSTEM|USER|ASSISTANT|DEMO\d*)$")
@@ -51,7 +55,7 @@ def line_text(chars, members):
     ).strip()
 
 
-def gray_role(line, chars):
+def gray_role(line, chars, *, template=False):
     gray = [
         c
         for c in line["members"]
@@ -60,7 +64,11 @@ def gray_role(line, chars):
         and max(c["color"][:3]) - min(c["color"][:3]) < 8
         and 70 <= min(c["color"][:3]) <= 190
     ]
-    if not gray or not ROLE.fullmatch(line_text(chars, gray)):
+    label = line_text(chars, gray) if gray else ""
+    if not gray or not (
+        ROLE.fullmatch(label)
+        or template and re.fullmatch(r"[A-Za-z][A-Za-z\d ]{0,25}", label)
+    ):
         return None
     body = [c for c in line["members"] if c not in gray]
     if not body or min(c["bbox"][0] for c in body) <= max(c["bbox"][2] for c in gray):
@@ -76,7 +84,31 @@ def gray_role(line, chars):
     }
 
 
-def blank_slots(panel, chars, rules, font, page):
+def template_role_panel(chars, lines, parser_text):
+    """Admit mixed-case field labels only for an exactly anchored variable template.
+
+    Gray text alone is not a role: real tables and arbitrary colored prose must
+    not enter this path. Each row needs a label and a shared body column, with
+    at least two complete placeholder values and a natural-language instruction.
+    """
+    if len(lines) < 3:
+        return False
+    roles = [gray_role(line, chars, template=True) for line in lines]
+    if not all(roles):
+        return False
+    lefts = [min(c["bbox"][0] for c in role["body"]) for role in roles]
+    if max(lefts) - min(lefts) > 0.004:
+        return False
+    bodies = [line_text(chars, role["body"]) for role in roles]
+    if sum(bool(PLACEHOLDER.fullmatch(t)) for t in bodies) < 2:
+        return False
+    if not any(len(re.findall(r"[A-Za-z]+", text)) >= 4 for text in bodies):
+        return False
+    native = " ".join(line_text(chars, line["members"]) for line in lines)
+    return canonical(native) == canonical(parser_text)
+
+
+def blank_slots(panel, chars, rules, font, page, paints=None):
     result = []
     for box in rules:
         if not contained(box, panel["bbox"], tolerance=0):
@@ -92,20 +124,88 @@ def blank_slots(panel, chars, rules, font, page):
             continue
         if not 0.7 <= (box[2] - box[0]) * page.get_width() / font <= 8:
             continue
-        result.append(
-            {
+        slot = {
                 "bbox": box,
                 "widthEm": round((box[2] - box[0]) * page.get_width() / font, 3),
-            }
-        )
+        }
+        for paint in paints or []:
+            bbox = paint["bbox"]
+            if (
+                contained(bbox, panel["bbox"], tolerance=0)
+                and 0.5 <= (bbox[3] - bbox[1]) * page.get_height() / font <= 1.7
+                and abs(bbox[3] - y) * page.get_height() < font * 0.4
+                and 0.8 <= (bbox[2] - bbox[0]) / (box[2] - box[0]) <= 1.2
+                and abs(bbox[0] - box[0]) * page.get_width() < font * 0.3
+                and not any(in_box(c, bbox, tolerance=0) for c in chars)
+            ):
+                slot.update(backgroundColor=paint["color"], backgroundBBox=bbox)
+        result.append(slot)
     return result
 
 
-def reconstruct_rows(chars, lines, slots, parser_text, page):
+def split_panel_blocks(blocks, panels, chars, rules, page):
+    """Describe disjoint template fragments without changing parser block identities."""
+    splits = {}
+    for original in list(blocks):
+        if original["type"] not in {"text", "code"} or math_contents_in_block(original):
+            continue
+        if (original.get("guess_lang") or "txt").casefold() not in {
+            "txt", "text", "plain", "unknown",
+        }:
+            continue
+        candidates = sorted(
+            [p for p in panels if max(p["color"]) - min(p["color"]) <= 8
+             and 220 <= min(p["color"]) < 253
+             and contained(p["bbox"], original["bbox"], tolerance=0.004)],
+            key=lambda p: p["bbox"][1],
+        )
+        if len(candidates) < 2 or any(
+            a["bbox"][3] >= b["bbox"][1]
+            for a, b in zip(candidates, candidates[1:], strict=False)
+        ):
+            continue
+        groups = []
+        for panel in candidates:
+            selected = [c for c in chars if in_box(c, panel["bbox"], tolerance=0)]
+            lines = source_lines(selected)
+            if (
+                not lines
+                or not any(
+                    PLACEHOLDER.fullmatch(line_text(chars, line["members"])) for line in lines
+                )
+                or not blank_slots(
+                    panel, chars, rules, median(line["fontSize"] for line in lines), page
+                )
+            ):
+                break
+            text = " ".join(line_text(chars, line["members"]) for line in lines)
+            groups.append((panel, selected, text))
+        if len(groups) != len(candidates):
+            continue
+        original_text = content_text(original.get("content", ""))
+        if canonical("".join(t for _, _, t in groups)) != canonical(original_text):
+            continue
+        selected = [c for c in chars if in_box(c, original["bbox"])]
+        if canonical("".join(c["text"] for c in selected)) != canonical(original_text):
+            continue
+        for ordinal, (panel, native, _) in enumerate(groups):
+            splits[tuple(panel["bbox"])] = {
+                "method": "disjoint-native-template-panels", "sourceBlockIndex": original["index"],
+                "sourceKind": original["type"], "sourceBBox": original["bbox"],
+                "sourceText": original_text,
+                "panelOrdinal": ordinal,
+                "nativeCharacterRanges": ranges(c["index"] for c in native),
+            }
+    return splits
+
+
+def reconstruct_rows(
+    chars, lines, slots, parser_text, page, *, template_roles=False, paragraph_boxes=()
+):
     rows, roles, soft_hyphens = [], [], []
     right_margin = max(line["bbox"][2] for line in lines)
     for i, line in enumerate(lines):
-        role = gray_role(line, chars)
+        role = gray_role(line, chars, template=template_roles)
         members = role["body"] if role else line["members"]
         text = line_text(chars, members)
         soft_wrap = False
@@ -154,12 +254,21 @@ def reconstruct_rows(chars, lines, slots, parser_text, page):
             previous_text = rows[-1]["text"]
             start_new |= previous_text.endswith(":") or bool(rows[-1].get("mapping"))
             start_new |= not previous_text
-            start_new |= (right_margin - lines[i - 1]["bbox"][2]) * page.get_width() > 2.5 * line[
+            paragraph = next(
+                (box for box in paragraph_boxes if contained(lines[i - 1]["bbox"], box)), None
+            )
+            margin = max(
+                line["bbox"][2] for line in lines if contained(line["bbox"], paragraph)
+            ) if paragraph else right_margin
+            start_new |= (margin - lines[i - 1]["bbox"][2]) * page.get_width() > 2.5 * line[
                 "fontSize"
             ]
         if not start_new:
             row = rows[-1]
-            row["text"] += ("" if row.pop("joinNext", False) else " ") + text
+            join = row.pop("joinNext", False)
+            boundary = row["text"][-1:] + text[:1]
+            join |= bool(re.fullmatch(r"[\u3400-\u9fff]{2}", boundary)) and boundary in parser_text
+            row["text"] += ("" if join else " ") + text
             row["sourceIndices"].extend(sorted(c["index"] for c in members))
             row["joinNext"] = soft_wrap
             row["slots"].extend(line_slots)
@@ -207,17 +316,7 @@ def row_appearance(row, chars, rules, page, highlights):
     if canonical("".join(c["text"] for c in native)) != canonical(row["text"]):
         raise ValueError("Prompt inline appearance is not aligned with native text")
     row["native"] = [{k: c[k] for k in ("index", "text", "color")} for c in native]
-    row["underlinedIndices"] = [
-        c["index"]
-        for c in native
-        if any(
-            rule[0] <= c["x"] <= rule[2]
-            and 0
-            < ((rule[1] + rule[3]) / 2 - c["baseline"][1]) * page.get_height()
-            < c["fontSize"] * 0.35
-            for rule in rules
-        )
-    ]
+    row["underlinedIndices"] = underlined_indices(native, rules, page.get_height())
     indices = {c["index"] for c in native}
     row["highlights"] = [
         {**highlight, "indices": [i for i in highlight["indices"] if i in indices]}
@@ -263,10 +362,86 @@ def recover_role_coverage(members, blocks, chars, lines, roles, uncovered, page)
     }
 
 
+def recover_labeled_coverage(members, blocks, chars, lines, uncovered):
+    """Repair small omissions in a single-column, colon-labeled prose panel.
+
+    Every parser block must be an exact native anchor, apart from at most one
+    missing leading character in a long block. Whole omitted lines must be
+    standalone labels. Conflicting ownership or other text differences reject
+    the entire repair; nothing is guessed from a label's language or meaning.
+    """
+    if len(members) < 2 or any(b["type"] not in {"text", "paragraph_title"} for b in members):
+        return None
+    labels = [
+        line for line in lines
+        if re.fullmatch(r"[A-Za-z][A-Za-z\d ]{0,25}:", line_text(chars, line["members"]))
+    ]
+    if len(labels) < 2 or max(line["bbox"][0] for line in lines) - min(
+        line["bbox"][0] for line in lines
+    ) > 0.012:
+        return None
+    ordered = sorted(members, key=lambda b: b["bbox"][1])
+    if any(a["bbox"][3] > b["bbox"][1] for a, b in zip(ordered, ordered[1:], strict=False)):
+        return None
+    fixes = {}
+    for block in ordered:
+        selected = [c for c in chars if in_box(c, block["bbox"])]
+        native = " ".join(line_text(chars, line["members"]) for line in source_lines(selected))
+        expected = canonical(content_text(block.get("content", "")))
+        actual = canonical(native).replace("\x02", "")
+        if actual == expected:
+            continue
+        if len(expected) < 20 or actual[1:] != expected:
+            return None
+        visible = [c for c in selected if canonical(c["text"])]
+        if not visible or canonical(visible[0]["text"]) != actual[0]:
+            return None
+        # A prefix is recoverable at a physical line start, never mid-line.
+        line = next((line for line in lines if visible[0] in line["members"]), None)
+        if not line or line["members"][0] is not visible[0]:
+            return None
+        fixes[block["index"]] = [visible[0]]
+    uncovered_indices = {c["index"] for c in uncovered}
+    omitted = [line for line in labels if all(
+        c["index"] in uncovered_indices for c in line["members"]
+    )]
+    if uncovered_indices != {c["index"] for line in omitted for c in line["members"]}:
+        return None
+    for line in omitted:
+        following = next((b for b in ordered if b["bbox"][1] >= line["bbox"][3]), None)
+        if following is None:
+            return None
+        fixes.setdefault(following["index"], []).extend(line["members"])
+    if not fixes:
+        return None
+    recovered = [c for group in fixes.values() for c in group]
+    others = [b for b in blocks if b not in members and b["type"] not in FURNITURE_TYPES]
+    if any(any(in_box(c, b["bbox"]) for b in others) for c in recovered):
+        return None
+    repairs = []
+    for block in ordered:
+        if block["index"] not in fixes:
+            continue
+        recovered_chars = fixes[block["index"]]
+        repairs.append({
+            "blockIndex": block["index"],
+            "parserBBox": block["bbox"][:],
+            "exportBBox": union_box([block["bbox"], *[c["bbox"] for c in recovered_chars]]),
+            "parserText": content_text(block.get("content", "")),
+            "sourceCharacterRanges": ranges(c["index"] for c in recovered_chars),
+        })
+    return {
+        "method": "native-labeled-panel-text-coverage",
+        "sourceCharacterRanges": ranges(c["index"] for c in recovered),
+        "blockRepairs": repairs,
+    }
+
+
 def repair_order(blocks, panels):
-    before = [b["index"] for b in blocks]
+    panels = [p for p in panels if not p.get("splitFromParserBlocks")]
     if not panels:
         return
+    before = [b["index"] for b in blocks]
     member_indices = {i for r in panels for i in r["blockIndices"]}
     units = [
         {
@@ -316,6 +491,8 @@ def prepare_prompts(raw, run, source):
                 highlights = text_highlights(page, chars)
                 page_prompts = []
                 rules = short_rules(page, max_width=page.get_width())
+                paints = colored_rectangles(page)
+                panel_splits = split_panel_blocks(blocks, panels, chars, rules, page)
                 for panel in panels:
                     if (
                         max(panel["color"]) - min(panel["color"]) > 8
@@ -328,6 +505,9 @@ def prepare_prompts(raw, run, source):
                         if b["type"] not in FURNITURE_TYPES
                         and overlap_fraction(b["bbox"], panel["bbox"]) >= 0.95
                     ]
+                    fragment = panel_splits.get(tuple(panel["bbox"]))
+                    if fragment:
+                        members = [b for b in blocks if b["index"] == fragment["sourceBlockIndex"]]
                     if not members or any(
                         b["type"] in {"image", "chart"}
                         or b.get("sub_type") == "algorithm"
@@ -351,8 +531,17 @@ def prepare_prompts(raw, run, source):
                     if not lines:
                         continue
                     font = median(line["fontSize"] for line in lines)
-                    slots = blank_slots(panel, chars, rules, font, page)
-                    roles = [gray_role(line, chars) for line in lines]
+                    slots = blank_slots(panel, chars, rules, font, page, paints)
+                    parser_text = " ".join(content_text(b.get("content", "")) for b in members)
+                    template_roles = template_role_panel(chars, lines, parser_text)
+                    roles = [gray_role(line, chars, template=template_roles) for line in lines]
+                    uncovered = [
+                        c for c in selected
+                        if c["bbox"] and not any(in_box(c, b["bbox"]) for b in members)
+                    ]
+                    labeled_recovery = recover_labeled_coverage(
+                        members, blocks, chars, lines, uncovered
+                    )
                     template = any(
                         PLACEHOLDER.search(line_text(chars, line["members"])) for line in lines
                     )
@@ -362,7 +551,10 @@ def prepare_prompts(raw, run, source):
                         and all(c["index"] in highlighted for c in line["members"])
                         for line in lines
                     ) and any(NAMED_LINE.match(line_text(chars, line["members"])) for line in lines)
-                    if not slots and not any(roles) and not highlighted_instruction:
+                    if (
+                        not slots and not any(roles)
+                        and not highlighted_instruction and not labeled_recovery
+                    ):
                         continue
                     if (
                         any(b["type"] == "table" for b in members)
@@ -370,18 +562,15 @@ def prepare_prompts(raw, run, source):
                         and not template
                     ):
                         continue  # Shaded real tables retain the original visual policy.
-                    parser_text = " ".join(content_text(b.get("content", "")) for b in members)
-                    reconstructed = reconstruct_rows(chars, lines, slots, parser_text, page)
+                    reconstructed = reconstruct_rows(
+                        chars, lines, slots, parser_text, page, template_roles=template_roles,
+                        paragraph_boxes=[b["bbox"] for b in members] if labeled_recovery else (),
+                    )
                     if reconstructed is None:
                         continue
                     rows, roles, hyphens = reconstructed
-                    uncovered = [
-                        c
-                        for c in selected
-                        if c["bbox"] and not any(in_box(c, b["bbox"]) for b in members)
-                    ]
-                    recovery = None
-                    if uncovered:
+                    recovery = labeled_recovery
+                    if uncovered and recovery is None:
                         recovery = recover_role_coverage(
                             members, blocks, chars, lines, roles, uncovered, page
                         )
@@ -417,11 +606,20 @@ def prepare_prompts(raw, run, source):
                             for b in members
                         ],
                     }
+                    if fragment:
+                        record["splitFromParserBlocks"] = [deepcopy(fragment)]
                     if recovery:
                         record["nativeCoverageRepair"] = recovery
-                        members[0]["bbox"] = recovery["exportBBox"]
+                        if recovery.get("blockRepairs"):
+                            for repair in recovery["blockRepairs"]:
+                                next(b for b in members if b["index"] == repair["blockIndex"])[
+                                    "bbox"
+                                ] = repair["exportBBox"]
+                        else:
+                            members[0]["bbox"] = recovery["exportBBox"]
                     for block in members:
-                        native = [c for c in selected if in_box(c, block["bbox"])]
+                        native = [c for c in (chars if fragment else selected)
+                                  if in_box(c, block["bbox"])]
                         text = " ".join(
                             line_text(chars, line["members"]) for line in source_lines(native)
                         )
@@ -486,12 +684,14 @@ def prepare_prompts(raw, run, source):
 
 def ensure_prompt_callouts(callouts, prompts):
     for record in prompts:
+        fragment = bool(record.get("splitFromParserBlocks"))
         existing = next(
             (
                 c
                 for c in callouts
                 if c["parsedPageIndex"] == record["parsedPageIndex"]
                 and set(c["blockIndices"]) == set(record["blockIndices"])
+                and not fragment
             ),
             None,
         )
@@ -514,6 +714,8 @@ def ensure_prompt_callouts(callouts, prompts):
                 borderColor=record["bodyColor"], headerBlockIndex=None, headerColor=None
             )
         existing["prompt"] = True
+        if fragment:
+            existing["embeddedPrompt"] = True
 
 
 def append_text(soup, parent, text):
@@ -542,6 +744,10 @@ def append_slots(soup, parent, slots):
             },
         )
         span.string = "____"
+        if slot.get("backgroundColor"):
+            span["style"] += ";background-color:#" + "".join(
+                f"{c:02x}" for c in slot["backgroundColor"]
+            )
         parent.append(span)
 
 
@@ -567,6 +773,11 @@ def apply_prompt_appearance(soup, line, row):
                 leaf.parent["style"] = "background-color:#" + "".join(
                     f"{c:02x}" for c in background.pop()
                 )
+            if all(
+                styles.get((i, offset), (None, False, None))[1]
+                for offset, char in enumerate(str(leaf)) if not char.isspace()
+            ):
+                leaf.wrap(soup.new_tag("u"))
             continue  # Variables and blank slots remain intact protected objects.
         text, start = str(leaf), 0
         # Native mappings omit spaces. Bridge only whitespace between identical
@@ -608,6 +819,7 @@ def apply_prompt_appearance(soup, line, row):
 
 
 def apply_prompts(soup, supplement):
+    fragment_roots = set()
     for record in supplement["prompts"]:
         nodes = [source_block(soup, record["parsedPageIndex"], i) for i in record["blockIndices"]]
         if any(n is None for n in nodes) or any(n.parent is not nodes[0].parent for n in nodes):
@@ -660,8 +872,19 @@ def apply_prompts(soup, supplement):
             "".join((r["role"]["text"] if r["role"] else "") + r["text"] for r in record["rows"])
         ):
             raise ValueError("Native prompt lost text during construction")
-        root.clear()
-        root.append(prompt)
+        if record.get("splitFromParserBlocks"):
+            identity = record["parsedPageIndex"], record["blockIndices"][0]
+            if identity not in fragment_roots:
+                root.clear()
+                fragment_roots.add(identity)
+            box = callout_box(soup, record)
+            body = soup.new_tag("div", attrs={"class": "pl-callout-body"})
+            body.append(prompt)
+            box.append(body)
+            root.append(box)
+        else:
+            root.clear()
+            root.append(prompt)
         root["data-block-type"] = "text"
         for node in nodes[1:]:
             if node.get("id"):

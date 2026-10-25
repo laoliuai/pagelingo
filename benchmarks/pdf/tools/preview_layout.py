@@ -6,7 +6,6 @@ copy; they are not a new canonical Reader IR or a claim of full layout recovery.
 
 import ctypes
 import re
-import unicodedata
 from copy import copy
 from difflib import SequenceMatcher
 from statistics import median
@@ -15,6 +14,7 @@ import pypdfium2 as pdfium
 from bs4 import NavigableString
 from pagelingo_parser.geometry import normalized_pdf_box
 from pagelingo_parser.normalize import content_text
+from preview_lists import recover_list_markers
 from preview_paragraphs import (
     page_evidence,
     paragraph_records,
@@ -22,7 +22,15 @@ from preview_paragraphs import (
     source_lines,
     validate_native_ownership,
 )
-from preview_source import BAD_GLYPHS, overlap_fraction
+from preview_source import BAD_GLYPHS, overlap_fraction, text_highlights
+from preview_typography import (
+    apply_typography,
+    canonical,
+    font_appearance,
+    parser_font_styles,
+    regular_body_heading,
+    underlined_indices,
+)
 
 BULLET = re.compile(r"^\s*([•●▪◦‣–])\s+")
 NUMBER = re.compile(r"^\s*(?:\((\d+|[a-z]|[ivxlcdm]+)\)|((?:\d+|[a-z]|[ivxlcdm]+))[.)])\s+")
@@ -35,12 +43,6 @@ def union_box(boxes):
         max(b[2] for b in boxes),
         max(b[3] for b in boxes),
     ]
-
-
-def canonical(text):
-    return "".join(
-        c for c in unicodedata.normalize("NFKC", text) if not c.isspace() and c != "\u00ad"
-    )
 
 
 def native_bounds(box, page):
@@ -79,7 +81,7 @@ def in_box(char, box, tolerance=0.003):
     )
 
 
-def native_chars(page, textpage):
+def native_chars(page, textpage, *, with_fonts=False):
     chars = []
     for index in range(textpage.count_chars()):
         code = pdfium.raw.FPDFText_GetUnicode(textpage, index)
@@ -124,6 +126,7 @@ def native_chars(page, textpage):
                 "fontSize": pdfium.raw.FPDFText_GetFontSize(textpage, index) if bbox else 0,
                 "baseline": baseline or [(bbox[0] + bbox[2]) / 2, bbox[3]] if bbox else None,
                 "pageHeight": page.get_height(),
+                **({"font": font_appearance(textpage, index)} if bbox and with_fonts else {}),
             }
         )
     return chars
@@ -559,12 +562,11 @@ def collect_layout(raw, run, source, callouts=None, prompt_blocks=None):
             source_index = run["requestedPageIndices"][index]
             blocks = parsed.get("blocks", [])
             prompt_indices = {b["index"] for b in blocks if (index, b["index"]) in prompt_blocks}
-            lists = list_records(blocks, index, source_index, prompt_indices)
-            layout["lists"].extend(lists)
             page = pdf[source_index]
             textpage = None
             try:
-                rules = short_rules(page)
+                all_rules = short_rules(page, max_width=page.get_width())
+                rules = [b for b in all_rules if (b[2] - b[0]) * page.get_width() <= 80]
                 notation = any(
                     b["type"] == "paragraph_title"
                     and content_text(b.get("content", "")).strip().lower() == "notation"
@@ -578,9 +580,19 @@ def collect_layout(raw, run, source, callouts=None, prompt_blocks=None):
                 )
                 if blocks:
                     textpage = page.get_textpage()
-                    chars = native_chars(page, textpage)
+                    chars = native_chars(page, textpage, with_fonts=True)
                 else:
                     chars = []
+                marker_repairs = recover_list_markers(
+                    [b for b in blocks if b["index"] not in prompt_indices], chars
+                )
+                lists = list_records(blocks, index, source_index, prompt_indices)
+                for group in lists:
+                    for item in group["items"]:
+                        if item["blockIndex"] in marker_repairs:
+                            item["nativeMarkerRepair"] = marker_repairs[item["blockIndex"]]
+                layout["lists"].extend(lists)
+                highlights = text_highlights(page, chars) if chars else []
                 if overlapping:
                     for repair in repair_footnotes(blocks, page, textpage):
                         layout["footnoteRepairs"].append(
@@ -780,7 +792,13 @@ def collect_layout(raw, run, source, callouts=None, prompt_blocks=None):
                         for c in selected
                         if c["color"]
                         and c["color"][3] == 255
-                        and max(c["color"][:3]) - min(c["color"][:3]) > 30
+                        and c["color"][:3] != [0, 0, 0]
+                    ]
+                    selected_indices = {c["index"] for c in selected}
+                    block_highlights = [
+                        {**h, "indices": [i for i in h["indices"] if i in selected_indices]}
+                        for h in highlights
+                        if selected_indices.intersection(h["indices"])
                     ]
                     blanks = []
                     for rule in [] if underlined(block) else rules:
@@ -846,7 +864,18 @@ def collect_layout(raw, run, source, callouts=None, prompt_blocks=None):
                     )
                     example = italic_body_example(block, selected, textpage, body_font)
                     centered |= example is not None
-                    if not colored_chars and not blanks and not centered:
+                    heading_repair = regular_body_heading(
+                        block, selected, body_font, block["index"] in panel_members
+                    )
+                    underlines = underlined_indices(selected, all_rules, page.get_height())
+                    font_styles = parser_font_styles(block) or any(
+                        c.get("font", {}).get("italic") or c.get("font", {}).get("bold")
+                        for c in selected
+                    )
+                    if not any((
+                        colored_chars, block_highlights, blanks, centered, underlines,
+                        font_styles, heading_repair,
+                    )):
                         continue
                     layout["inline"].append(
                         {
@@ -855,10 +884,18 @@ def collect_layout(raw, run, source, callouts=None, prompt_blocks=None):
                             "blockIndex": block["index"],
                             "centered": centered,
                             "native": [
-                                {k: c[k] for k in ("index", "text", "color")} for c in selected
+                                {k: c[k] for k in ("index", "text", "color", "font") if k in c}
+                                for c in selected
                             ],
                             "coloredIndices": [c["index"] for c in colored_chars],
+                            "highlights": block_highlights,
                             "blanks": blanks,
+                            "underlinedIndices": underlines,
+                            "typographyFonts": sorted({
+                                (c["font"]["name"], c["font"]["flags"], c["font"]["rawWeight"])
+                                for c in selected if c.get("font")
+                            }),
+                            **({"headingAppearance": heading_repair} if heading_repair else {}),
                             **({"exampleAppearance": example} if example else {}),
                         }
                     )
@@ -904,16 +941,23 @@ def plain_nodes(node):
     ]
 
 
-def append_piece(soup, pieces, text, color):
+def append_piece(soup, pieces, text, color, background=None):
     if not text:
         return
+    piece = NavigableString(text)
     if color:
         span = soup.new_tag("span", attrs={"class": "pl-source-color"})
         span["style"] = "color:#" + "".join(f"{c:02x}" for c in color)
-        span.string = text
-        pieces.append(span)
-    else:
-        pieces.append(NavigableString(text))
+        span.append(piece)
+        piece = span
+    if background:
+        span = soup.new_tag(
+            "span", attrs={"class": "pl-source-highlight", "data-pl-format": "style"}
+        )
+        span["style"] = "background-color:#" + "".join(f"{c:02x}" for c in background)
+        span.append(piece)
+        piece = span
+    pieces.append(piece)
 
 
 def map_native(node, characters):
@@ -937,6 +981,31 @@ def map_native(node, characters):
     return leaves, mapped
 
 
+def map_backgrounds(leaves, characters, highlights):
+    """Map paint only through exact normalized text, including expanded ligatures.
+
+    Background recovery is independent of prompt/role recognition. A partial
+    fuzzy match must not move a highlight onto another occurrence of a phrase.
+    """
+    if not highlights:
+        return {}, None
+    native = [(part, c["index"]) for c in characters for part in canonical(c["text"])]
+    target = [
+        (part, (i, offset))
+        for i, leaf in enumerate(leaves)
+        for offset, char in enumerate(str(leaf))
+        for part in canonical(char)
+    ]
+    if [part for part, _ in native] != [part for part, _ in target]:
+        return {}, "text-mismatch"
+    colors = {i: tuple(h["color"]) for h in highlights for i in h["indices"]}
+    return {
+        position: colors[index]
+        for (_, index), (_, position) in zip(native, target, strict=True)
+        if index in colors
+    }, "exact"
+
+
 def apply_inline(soup, record):
     node = source_block(soup, record["parsedPageIndex"], record["blockIndex"])
     if node is None or node.find("img"):
@@ -946,6 +1015,8 @@ def apply_inline(soup, record):
             "skipped": "protected-or-missing",
         }
     leaves, mapped = map_native(node, record["native"])
+    backgrounds, alignment = map_backgrounds(leaves, record["native"], record.get("highlights", []))
+    highlighted_characters = len(backgrounds)
     colors, slots = {}, {}
     by_index = {c["index"]: c for c in record["native"]}
     for index in record["coloredIndices"]:
@@ -957,12 +1028,20 @@ def apply_inline(soup, record):
             slots[(anchor[0], anchor[1] + 1)] = slot
     for leaf_index, leaf in enumerate(leaves):
         text = str(leaf)
-        pieces, current, current_color = [], "", None
+        # PDF word rectangles omit whitespace. Join only matching paint runs;
+        # unrelated words, punctuation, and different colors remain separate.
+        for match in re.finditer(r"\s+", text):
+            left = backgrounds.get((leaf_index, match.start() - 1))
+            right = backgrounds.get((leaf_index, match.end()))
+            if left and left == right:
+                for offset in range(match.start(), match.end()):
+                    backgrounds[(leaf_index, offset)] = left
+        pieces, current, current_style = [], "", (None, None)
 
         for offset in range(len(text) + 1):
             slot = slots.get((leaf_index, offset))
             if slot:
-                append_piece(soup, pieces, current, current_color)
+                append_piece(soup, pieces, current, *current_style)
                 current = ""
                 span = soup.new_tag(
                     "span",
@@ -976,13 +1055,13 @@ def apply_inline(soup, record):
                 pieces.append(span)
             if offset == len(text):
                 break
-            color = colors.get((leaf_index, offset))
-            if color != current_color:
-                append_piece(soup, pieces, current, current_color)
+            style = colors.get((leaf_index, offset)), backgrounds.get((leaf_index, offset))
+            if style != current_style:
+                append_piece(soup, pieces, current, *current_style)
                 current = ""
-                current_color = color
+                current_style = style
             current += text[offset]
-        append_piece(soup, pieces, current, current_color)
+        append_piece(soup, pieces, current, *current_style)
         for piece in pieces:
             leaf.insert_before(piece)
         leaf.extract()
@@ -1004,7 +1083,25 @@ def apply_inline(soup, record):
                     italic.append(child.extract())
                 heading.append(italic)
                 record["exampleAppearance"]["applied"] = True
-    return {"appliedColors": len(colors), "appliedBlanks": len(slots), "skipped": None}
+    if record.get("headingAppearance"):
+        heading = node.find(re.compile(r"^h[1-6]$"))
+        if heading:
+            heading.name = "p"
+            heading["class"] = ["docvortex-text"]
+            heading.attrs.pop("data-heading-level", None)
+            node["data-block-type"] = "text"
+            node.attrs.pop("data-level", None)
+            node["class"] = [*node.get("class", []), "pl-source-body-text"]
+            record["headingAppearance"]["applied"] = True
+    typography = apply_typography(soup, node, record["native"], record.get("underlinedIndices", []))
+    return {
+        "appliedColors": len(colors),
+        "appliedBlanks": len(slots),
+        "appliedHighlightCharacters": highlighted_characters,
+        "highlightAlignment": alignment,
+        "typography": typography,
+        "skipped": None,
+    }
 
 
 def remove_prefix(node, prefix):

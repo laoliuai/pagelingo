@@ -25,6 +25,7 @@ from pagelingo_parser.normalize import content_text
 from PIL import Image
 from preview_evidence import SCHEMA as SOURCE_LAYOUT_SCHEMA
 from preview_evidence import source_layout
+from preview_figures import merge_figure_groups
 from preview_layout import apply_layout, collect_layout, toc_depth
 from preview_prompts import apply_prompts, ensure_prompt_callouts, prepare_prompts
 from preview_source import apply_callouts, project_source
@@ -255,9 +256,12 @@ def materialize_images(soup: BeautifulSoup, run_dir: Path, output: Path, visuals
                 if record["protection"] and (
                     record["protection"]["invalidGlyphCodes"]
                     or record["protection"]["uncertainMath"]
+                    or record["protection"]["reason"] == "unparsed-dense-footnote-math"
                 ):
                     note = soup.new_tag("figcaption", attrs={"class": "pl-source-note"})
-                    note.string = (
+                    note.string = "此脚注含未可靠识别的公式，已按原 PDF 保留。" if (
+                        record["protection"]["reason"] == "unparsed-dense-footnote-math"
+                    ) else (
                         "此区域的文字 / 公式识别异常，已显示原 PDF。"
                         if record["protection"]["invalidGlyphCodes"]
                         else "此区域的公式识别待确认，已显示原 PDF。"
@@ -354,6 +358,7 @@ def export(run_dir: Path, output: Path, katex: Path, archive: Path, scale: float
         raise ValueError("Parser page index is outside the requested-page mapping")
     title = run["input"].removesuffix(".pdf")
     output.mkdir(parents=True)
+    figure_groups = merge_figure_groups(raw, run, run_dir / "source.pdf")
     prompt_layout = prepare_prompts(raw, run, run_dir / "source.pdf")
     callouts, protected = project_source(raw, run, run_dir / "source.pdf")
     ensure_prompt_callouts(callouts, prompt_layout["prompts"])
@@ -364,6 +369,7 @@ def export(run_dir: Path, output: Path, katex: Path, archive: Path, scale: float
         raw, run, run_dir / "source.pdf", callouts, prompt_blocks
     )
     layout.update(prompt_layout)
+    layout["figureGroups"] = figure_groups
     visuals = original_visuals(raw, run, run_dir, output, scale, protected, source_regions)
     # FULL prevents cross-page continuation merging and provides global anchors.
     # Page furniture is omitted from reading, as in the previous DEFAULT preview.
@@ -451,6 +457,9 @@ def export(run_dir: Path, output: Path, katex: Path, archive: Path, scale: float
         info["coloredSpanCount"] = len(section.select(".pl-source-color"))
         info["sourceParagraphCount"] = len(section.select(".pl-source-paragraph"))
         info["sourceExampleCount"] = len(section.select(".pl-source-example"))
+        info["figureGroupCount"] = sum(
+            r["parsedPageIndex"] == info["parsedPageIndex"] for r in figure_groups
+        )
         info["labelRowCount"] = len(section.select(".pl-label-row"))
         info["promptCount"] = len(section.select(".pl-prompt"))
         info["promptRoleCount"] = len(section.select(".pl-prompt-role"))
@@ -552,7 +561,10 @@ def export(run_dir: Path, output: Path, katex: Path, archive: Path, scale: float
                 "navigationSha256": digest(TOOLS / "preview-navigation.js"),
                 "sourceProjectionSha256": digest(TOOLS / "preview_source.py"),
                 "layoutProjectionSha256": digest(TOOLS / "preview_layout.py"),
+                "typographyProjectionSha256": digest(TOOLS / "preview_typography.py"),
+                "figureProjectionSha256": digest(TOOLS / "preview_figures.py"),
                 "paragraphProjectionSha256": digest(TOOLS / "preview_paragraphs.py"),
+                "listProjectionSha256": digest(TOOLS / "preview_lists.py"),
                 "sourceEvidenceSha256": digest(TOOLS / "preview_evidence.py"),
                 "sourceEvidenceSchemaSha256": digest(SOURCE_LAYOUT_SCHEMA),
                 "promptProjectionSha256": digest(TOOLS / "preview_prompts.py"),
