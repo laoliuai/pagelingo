@@ -39,6 +39,6 @@ import {
 - `documents`：以 UUID、SHA-256、资产 ID 和字节数绑定原件的 `SourceIdentity`、固定初始状态的 PDF 摘要、分页列表与查询。分页从 1 开始，默认每页 20、最多 100，搜索最多 200 字符；服务按 createdAt / id 降序返回。
 - `errors`：`{ error: { code, message, requestId } }`。API 前缀 `/api/v1`，版本响应头为 `X-PageLingo-API-Version: pagelingo-site-api/1`，成功响应直接返回相应 DTO。
 
-运行 `npm run build:sdk` 后可执行 `npm run build:contracts`；`npm run test --workspace @pagelingo/document-contracts` 运行协议测试。根 `typecheck` / `test` 会先构建 SDK 与 contracts。包内保留现有 P0 JSON Schema，不改变其内容或版本；这些文件与网站 DTO 不互相替代。
+运行 `npm run build:contracts` 会先构建所依赖的 SDK，再构建协议包，无需手动准备 SDK 产物；`npm run test --workspace @pagelingo/document-contracts` 运行协议测试。根 `typecheck` / `test` 会先构建 SDK 与 contracts。包内保留现有 P0 JSON Schema，不改变其内容或版本；这些文件与网站 DTO 不互相替代。
 
 Actor、数据库对象、文件系统适配器及 Keyring 仅属于服务，不能从本包导出。公开输出 schema 拒绝 `ownerId` 等额外字段，实际授权必须由服务从会话 / 设备身份取得 owner。
