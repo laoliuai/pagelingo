@@ -1,10 +1,17 @@
 import { spawnSync } from 'node:child_process';
 const env = { ...process.env };
 delete env.NO_COLOR;
+const check = process.argv[2] === '--check';
 for (const args of [
   ['run', 'build:site'],
-  ['run', 'test:e2e', '--workspace', '@pagelingo/web', '--', ...process.argv.slice(2)],
+  ...(check ? [['run', 'test:integration', '--workspace', '@pagelingo/document-service']] : []),
+  ['run', 'test:e2e', '--workspace', '@pagelingo/web', '--', ...process.argv.slice(check ? 3 : 2)],
 ]) {
   const result = spawnSync('npm', args, { stdio: 'inherit', env });
+  if (result.status !== 0) process.exit(result.status ?? 1);
+}
+
+if (check) {
+  const result = spawnSync(process.execPath, ['--test', 'tests/site/dev.test.mjs'], { stdio: 'inherit', env });
   if (result.status !== 0) process.exit(result.status ?? 1);
 }

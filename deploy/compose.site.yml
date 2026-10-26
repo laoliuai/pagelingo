@@ -1,0 +1,46 @@
+services:
+  db:
+    image: postgres:17.11@sha256:b8faeff7712663c2773a190181e1246e37e364b887611c04658c28b44e2408fe
+    environment:
+      POSTGRES_DB: pagelingo
+      POSTGRES_USER: pagelingo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Generate a database password in the runtime env file}
+    volumes:
+      - database:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U pagelingo -d pagelingo']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+  app:
+    build:
+      context: ..
+      dockerfile: apps/document-service/Dockerfile
+    init: true
+    environment:
+      PAGELINGO_SITE_MODE: local
+      PAGELINGO_SITE_ORIGIN: ${PAGELINGO_SITE_ORIGIN:-http://127.0.0.1:4320}
+      PAGELINGO_SERVICE_HOST: 0.0.0.0
+      PAGELINGO_SERVICE_PORT: '4320'
+      PAGELINGO_DATA_DIR: /data/objects
+      PAGELINGO_WEB_DIR: /app/apps/web/dist
+      DATABASE_URL: postgresql://pagelingo:${POSTGRES_PASSWORD}@db:5432/pagelingo
+      PAGELINGO_MASTER_KEY_ID: ${PAGELINGO_MASTER_KEY_ID:?Run site:keygen first}
+      PAGELINGO_MASTER_KEYS_JSON: ${PAGELINGO_MASTER_KEYS_JSON:?Run site:keygen first}
+    ports:
+      - '127.0.0.1:${PAGELINGO_SITE_PORT:-4320}:4320'
+    volumes:
+      - objects:/data
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:4320/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+volumes:
+  database:
+  objects:

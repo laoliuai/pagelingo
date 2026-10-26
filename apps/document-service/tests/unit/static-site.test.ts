@@ -12,6 +12,8 @@ it('serves a WASM-only evaluation policy and caches only built assets even under
   const app = Fastify();
   try {
     await mkdir(join(webDir, 'assets'), { recursive: true });
+    await mkdir(join(webDir, 'assets', 'pdfjs'), { recursive: true });
+    await writeFile(join(webDir, 'assets', 'pdfjs', 'decoder.wasm'), 'wasm');
     await writeFile(join(webDir, 'index.html'), '<html>shell</html>');
     await writeFile(join(webDir, 'assets', 'app-hash.js'), 'export {};');
     const config: RuntimeConfig = {
@@ -30,6 +32,9 @@ it('serves a WASM-only evaluation policy and caches only built assets even under
     expect(shell.statusCode).toBe(200);
     expect(shell.headers['cache-control']).toBe('no-store');
     expect(shell.headers['content-security-policy']).toContain('upgrade-insecure-requests');
+    const decoder = await app.inject('/assets/pdfjs/decoder.wasm');
+    expect(decoder.statusCode).toBe(200);
+    expect(decoder.headers['cache-control']).toBe('no-cache');
     const asset = await app.inject('/assets/app-hash.js');
     expect(asset.statusCode).toBe(200);
     expect(asset.headers['cache-control']).toBe('public, max-age=31536000, immutable');

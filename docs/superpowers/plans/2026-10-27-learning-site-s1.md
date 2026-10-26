@@ -69,7 +69,7 @@ S1 实现 Spec 的 A01、A03，以及 A02 / A07 / A13 / A15 / A16 中与账号�
 | 连接测试 | 用户显式触发，使用已保存 profile，最多一次 SDK Provider 调用；总时限 10 秒、输出上限 128 tokens、响应体上限 1 MiB；每用户每分钟最多 5 次 |
 | 出站地址 | 仅 HTTPS、无 userinfo / query / fragment；只允许公有单播 IP，校验全部 DNS 结果并绑定实际连接；Provider 请求不跟随重定向 |
 | 开发端口 | API `127.0.0.1:4320`；Vite `127.0.0.1:5174` 代理 `/api`；测试使用独立端口或动态端口 |
-| CSP | 同源 script / connect；PDF worker / 图片 / 字体按需允许同源与 blob / data；禁止 object / base / 外部 frame ancestor；Radix 与 PDF 布局需要的 inline style 仅限样式。local 模式关闭 upgrade-insecure-requests |
+| CSP | 同源 script / connect；仅可信 PDF WASM 解码器允许 wasm-unsafe-eval，禁止 JavaScript unsafe-eval / PDF 脚本沙箱；PDF worker / 图片 / 字体按需允许同源与 blob / data；禁止 object / base / 外部 frame ancestor；Radix 与 PDF 布局需要的 inline style 仅限样式。local 模式关闭 upgrade-insecure-requests |
 
 密码参数依据 [OWASP scrypt 配置](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html#scrypt)与 [Node crypto](https://nodejs.org/docs/latest-v24.x/api/crypto.html#cryptoscryptpassword-salt-keylen-options-callback)。本阶段选择 Node 内建稳定实现，避免为首版引入原生密码扩展；哈希算法和参数写入存储编码，可升级迁移。Scrypt 并发最多 2，排队上限 8，超限返回 429，避免高内存并发。
 
@@ -300,7 +300,7 @@ expect(modelCalls).toHaveLength(1);
 
 **Interfaces:** `PdfSource({sourceUrl,title}:{sourceUrl:string,title:string})` 只接受由公共文档 ID 生成的同源 URL；PDF.js worker / fonts / cmap 由本地构建资源提供。列表使用 DocumentList，sourceUrl 为 `/api/v1/documents/<id>/source`。
 
-- [ ] **Step 1: 写测试。** 空库没有示例计数；上传合成 3 页 PDF 后条目与详情出现，刷新保留，PDF.js 能实际渲染三页并切换 / 缩放。上传过大、错误文件、重试、401 和删除中断的错误有原位提示，不能显示成功进度。另一浏览器 context 和同一页面退出换账号都不能看到旧资料。
+- [ ] **Step 1: 写测试。** 空库没有示例计数；上传合成 3 页 PDF 后条目与详情出现，刷新保留，PDF.js 能实际渲染三页并切换 / 缩放。上传过大、错误文件、重试、401 和上传中断的错误有原位提示，不能显示成功进度。另一浏览器 context 和同一页面退出换账号都不能看到旧资料。
 - [ ] **Step 2: 运行 RED。** `npm run test:site:e2e -- library.test.ts pdf-source.test.ts account-isolation.test.ts`。
 - [ ] **Step 3: 实现列表与上传。** q / page 放 URL，用户 query key 隔离；上传使用 AbortController 和稳定幂等键，服务器确认后才显示“原文已保存 / 等待本地处理”。S1 添加入口只暴露已实现 PDF 上传；其他来源入口在后续任务接通后出现。原文件名只作文字和标题默认值。
 - [ ] **Step 4: 实现原件视图。** 使用 PDF.js getDocument、独立 worker、同源凭据和受控 Range，显式 `isEvalSupported:false`；只挂载当前页，页码 UI 从 1 开始、内部从 0 开始。切换页取消旧 render task；退出文档 / 账号销毁 loadingTask、worker 和 canvas。加载失败提供原件下载和重试；S1 不显示不存在的译文栏。代码 / 原件宽度保持局部滚动，390px 可用。
@@ -327,7 +327,7 @@ expect(modelCalls).toHaveLength(1);
 | S1 保留的依据 | S2 接入位置 |
 | --- | --- |
 | SourceIdentity 的原件 hash / sourceVersionId | 包绑定同一 owner / document / source，不能按文件名覆盖 |
-| `documents.current_source_id` 与独立 source_versions | parse run、translation run 和当前可读版本另建增量迁移 |
+| `documents.current_source_version_id` 与独立 source_versions | parse run、translation run 和当前可读版本另建增量迁移 |
 | ObjectStore 的不可变写入和鉴权资产 URL | 导入包所有资源逐项验证后写入，最终事务发布 |
 | `PdfSource` 与同源 Range API | 对照 Reader 的左侧原件、原页定位和缩放 |
 | 可复用 Provider / owner / authVersion | 本地 Node 翻译与服务器任务分别使用自己的授权配置，导入包不含 Key |

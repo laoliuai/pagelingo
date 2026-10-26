@@ -33,10 +33,10 @@ export default defineConfig({
             /^\/assets\/pdfjs\/(cmaps|standard_fonts|wasm)\/([a-zA-Z0-9_.-]+)$/.exec(
               request.url ?? '',
             );
-          if (!match || match[2] === '.' || match[2] === '..') return next();
+          if (!match || match[2] === '.' || match[2] === '..' || match[2] === 'quickjs-eval.wasm') return next();
           response.setHeader(
             'Content-Type',
-            match[2].endsWith('.wasm') ? 'application/wasm' : 'application/octet-stream',
+            match[2].endsWith('.wasm') ? 'application/wasm' : match[2].endsWith('.js') ? 'text/javascript' : 'application/octet-stream',
           );
           const stream = createReadStream(join(pdfRoot, match[1], match[2]));
           stream.on('error', () => {
@@ -48,5 +48,5 @@ export default defineConfig({
       },
     },
   ],
-  server: { host: '127.0.0.1', port: 5174, proxy: { '/api': 'http://127.0.0.1:4320' } },
+  server: { host: '127.0.0.1', port: Number(process.env.PAGELINGO_VITE_PORT ?? 5174), strictPort: true, proxy: { '/api': `http://127.0.0.1:${process.env.PAGELINGO_SERVICE_PORT ?? 4320}` } },
 });

@@ -15,7 +15,9 @@ async function capture(page: Page, name: string) {
   });
   await page.mouse.move(0, 0);
   await page.screenshot({
-    path: `../../docs/superpowers/specs/assets/2026-10-27-s1-validation/${name}.png`,
+    path: process.env.PAGELINGO_CAPTURE_DOCS === '1'
+      ? `../../docs/superpowers/specs/assets/2026-10-27-s1-validation/${name}.png`
+      : `test-results/captures/${name}.png`,
     fullPage: true,
   });
 }

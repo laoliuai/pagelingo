@@ -35,7 +35,9 @@ export async function registerStaticSite(
       setHeaders(response, path) {
         response.header(
           'Cache-Control',
-          relative(root, path).startsWith(`assets${sep}`)
+          relative(root, path).startsWith(`assets${sep}pdfjs${sep}`)
+            ? 'no-cache'
+            : relative(root, path).startsWith(`assets${sep}`)
             ? 'public, max-age=31536000, immutable'
             : 'no-store',
         );

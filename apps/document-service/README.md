@@ -1,17 +1,10 @@
 # 文档服务
 
-已注册为独立 npm workspace，当前实现运行配置、PostgreSQL 迁移、health API、初始管理员、登录 / 会话 / 修改密码、管理员账号管理及本人 PDF 原件 API；已接入本人模型配置和显式连接测试。[个人学习站 V1 设计稿](../../docs/superpowers/specs/2026-10-26-personal-learning-site-design.md)已于 2026-10-27 获批，管理员已可手工开通账号；S1 后续任务将使用 TypeScript 实现各用户独立资料与 API 配置、持久化任务和共享翻译 SDK 调用。后续再接入站内助手。账号、任务、原件与资源读取采用同一用户隔离边界。
+S1 / 0.1.0 已实现运行配置、PostgreSQL 迁移、health API、管理员初始化、登录 / 会话 / 修改密码、账号管理、本人 PDF 原件 API、个人模型配置与显式连接测试。网站、API 和静态 PDF 解码资源可由同一服务提供。安装、Compose、密钥初始化与开发命令见 [学习站安装指南](../../docs/learning-site-install.md)，交付边界与证据见 [S1 验证记录](../../docs/learning-site-s1-validation.md)。
 
-API 与 worker 可属于同一个包、使用不同入口；重解析和重译都有独立 run ID。PDF 解析调用 `services/document-parser` 的独立进程，不重写 Python 翻译引擎。具体协议、取消与恢复约束见 [PDF 规格](../../docs/pdf-spec.md) 和 [架构](../../docs/monorepo.md)。
+账号、原件、资源和 Provider 均按当前会话 owner 隔离；管理员只额外管理账号。数据库、对象卷和主密钥在运行时注入。Dockerfile 使用固定 Node 镜像，多阶段构建及非 root runtime；Compose 是 loopback local 预览，并非公网生产部署。
 
-允许本机处理后导入服务器：处理机导出原件、版本化 IR / 译文、阅读快照与资产 manifest；服务校验文件 / checksum 后写入 ObjectStore、登记 PostgreSQL，重复导入幂等。后续可通过任务接口拆分 GPU worker 与阅读服务器。静态 HTML 是可重建产物，业务依据仍为 IR / 译文与运行数据；见 [处理设计](../../docs/pdf-processing.md)。导入与快照服务尚未实现。
-
-本机与服务器统一使用 PostgreSQL 保存文档、运行、任务 / 检查点、按块译文 / 缓存、术语、对话与阅读位置；数据库访问集中在 repository，schema 用版本化迁移管理。PDF、raw parser 输出、完整 source IR 与图表资产通过 ObjectStore 保存，首版 LocalObjectStore 使用可配置的持久化目录，后续 S3 adapter 必须验证同一读写 / checksum 合同。
-
-存储 backend、对象 key 与 checksum 留在服务内，前端只使用文档 / 资产 ID；绝对路径与数据库凭据不进入 Reader 协议或 SDK。对象校验完成后再提交数据库引用；任务有 lease / epoch、版本与取消条件，防止重启后旧结果覆盖新运行。完整设计见 [存储边界](../../docs/pdf-spec.md#84-storage)。
-
-部署规划为 Compose 中的独立 API / worker 入口、PostgreSQL 与持久卷。`DATABASE_URL`、`PAGELINGO_DATA_DIR` 及加密主密钥在运行时注入；各用户 API Key 加密保存，排除日志、快照及普通 settings 响应。parser 子进程采用环境变量白名单。服务器使用 HTTPS、会话与可撤销设备授权；备份包含数据库、引用对象及恢复所需的密钥材料，并验证在空环境 / 另一台主机上的恢复。当前已有数据库迁移和运行服务，尚无生产 Dockerfile 或 Compose。
-
+S2 将在独立迁移中加入解析 / 翻译 run、包导入和完整译文 Reader。当前只有原件、source version 与不可变对象存储，没有运行中的 parser / translation worker 或导入路由。来源绑定使用 `documents.current_source_version_id`；未来包必须绑定同一 owner / document / source。后台任务、助手、设备授权与完整备份恢复按后续阶段实现，设计见 [PDF 规格](../../docs/pdf-spec.md) 与 [处理设计](../../docs/pdf-processing.md)。
 
 ## Persistence foundation
 
@@ -40,7 +33,7 @@ both resources. Test applications deny outbound requests by default.
 
 ## Initial administrator and authentication
 
-After `npm run build:contracts`, inject the same service runtime variables and
+After `npm run build:contracts`, configure `.env.local` for the local database and
 run `npm run site:admin -- --username admin`. A terminal prompts for a masked
 password. Automation must pass `--password-stdin` with non-TTY stdin; one final
 line ending is removed. Passwords never belong in command arguments. Bootstrap

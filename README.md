@@ -1,6 +1,6 @@
 # PageLingo
 
-面向科技阅读的 monorepo，使用用户自己的 LLM API。当前提供浏览器翻译插件和文章阅读助手，后续 PDF / LaTeX 阅读网站复用翻译与助手 SDK。
+面向科技阅读的 monorepo，使用用户自己的 LLM API。当前提供浏览器翻译插件和文章阅读助手，私有 PDF 原件阅读网站复用协议与 SDK。
 
 当前插件 **0.4.5**，包含 M2（A / B / C）、M3 个人术语部分及阅读助手第一版。翻译 SDK 为 0.4.0，助手 SDK 为 0.2.0。支持真实网页翻译、预算与长段拆分、跨标签页并发、有限重试、IndexedDB 缓存和后台恢复，并保留译文局部颜色、背景高亮、下划线及 PDF 导出 HTML 的提示框变量和答题线。个人术语表支持文件导入、后写覆盖、搜索编辑与导出，见 [词表维护](docs/glossary.md)。
 
@@ -14,13 +14,13 @@
 
 0.3.0 的导入、覆盖、术语保护和缓存验证见 [个人术语验收记录](docs/glossary-validation.md)。
 
-扩展已迁入 `apps/extension`；`apps/web`、`apps/document-service` 目前只有规划说明，尚无网站或后端服务实现。
+扩展位于 `apps/extension`。私有学习站 **S1 / 0.1.0** 已实现登录、管理员开通账号、个人模型配置、本人 PDF 保存与原件阅读，以及本机 Compose 持久卷与重启验收。安装见 [学习站安装指南](docs/learning-site-install.md)，真实测试数量、截图与限制见 [S1 验证记录](docs/learning-site-s1-validation.md)。网站入口为 `npm run dev:site` / `build:site`，默认扩展入口保持不变。
 
-个人学习站 V1 设计已于 2026-10-27 获批，正在编写 S1 实现计划：电脑插件收藏网页、各用户独立资料与 API、管理员手工开通账号，以及本地 PDF 处理后导入服务器、原 PDF / 译文 HTML 对照阅读。范围、验收与已确认视觉见 [个人学习站设计稿](docs/superpowers/specs/2026-10-26-personal-learning-site-design.md)，当前尚未进入产品实现。
+个人学习站 V1 设计已于 2026-10-27 获批，见 [设计稿](docs/superpowers/specs/2026-10-26-personal-learning-site-design.md)。S1 只交付原件阅读；完整译文包导入、译文 HTML / 原 PDF 对照阅读属于 S2，插件收藏、后台任务、站内助手与公网部署依后续阶段交付。
 
-PDF P0 已完成两本书及三篇论文的首轮真实评测；Python 候选适配、来源映射与离线布局检查已实现，见 [实测报告](benchmarks/pdf/first-run-report.md)。正式质量 corpus / 选型仍待完成。此前 PDF 阶段按单用户、可部署服务器的应用设计：本机与服务器共用 PostgreSQL，原件 / 解析 IR / 图表采用独立对象存储接口，首版使用持久化磁盘目录。数据库迁移、任务恢复、后端对话、Compose 部署与备份恢复纳入交付计划，详见 [存储与部署设计](docs/pdf-spec.md#84-storage)；这些后端与部署能力仍未实现。
+PDF P0 已完成两本书及三篇论文的首轮真实评测；Python 候选适配、来源映射与离线布局检查已实现，见 [实测报告](benchmarks/pdf/first-run-report.md)。正式质量 corpus / 选型仍待完成。此前 PDF 阶段按单用户、可部署服务器的应用设计：本机与服务器共用 PostgreSQL，原件 / 解析 IR / 图表采用独立对象存储接口，首版使用持久化磁盘目录。数据库迁移、任务恢复、后端对话、Compose 部署与备份恢复纳入交付计划，详见 [存储与部署设计](docs/pdf-spec.md#84-storage)；S1 已实现账号、原件持久化和本机 Compose，任务恢复、后端对话与完整备份恢复仍待后续阶段。
 
-后续解析优先阅读效果，继续评测 standard / advanced；允许当前机器处理、服务器校验导入后阅读，保存 IR / 译文与完整静态 HTML 资源。现有 raw 已可导出[离线原文预览](benchmarks/pdf/tools/README.md)：每次加载一个 PDF 页，公式预排版，图 / 表主体保留原 PDF 高清区域图，避免长书整页负担及重建表格失真。正式 Reader / 翻译包 / 导入服务仍待实现，见 [处理与产物设计](docs/pdf-processing.md)。
+后续解析优先阅读效果，继续评测 standard / advanced；允许当前机器处理、服务器校验导入后阅读，保存 IR / 译文与完整静态 HTML 资源。现有 raw 已可导出[离线原文预览](benchmarks/pdf/tools/README.md)：每次加载一个 PDF 页，公式预排版，图 / 表主体保留原 PDF 高清区域图，避免长书整页负担及重建表格失真。S1 已提供 PDF 原件 Reader，完整译文 Reader / 翻译包 / 导入服务仍待 S2 实现，见 [处理与产物设计](docs/pdf-processing.md)。
 
 ## 本地运行
 
