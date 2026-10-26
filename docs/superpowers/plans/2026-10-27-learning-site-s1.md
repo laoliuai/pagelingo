@@ -6,7 +6,7 @@
 
 **Architecture:** React 网站与 Fastify 文档 API 使用共同版本化协议。PostgreSQL 保存账号、会话、个人配置和文档引用，LocalObjectStore 保存不可变 PDF；所有业务操作从认证身份确定用户。开发使用 Vite 代理，S1 本机 Compose 使用 API 同源提供构建后的网站；PDF 翻译 / 阅读包、网页采集和 worker 分别在后续阶段接入。
 
-**Tech Stack:** Node.js 24.13.0、TypeScript 7.0.2、React 19.3.0、Vite 8.3.2、Fastify 5.12.7、PostgreSQL 17.11、Zod 4.6.5、Tailwind CSS 4.3.3、Vitest 5.0.3、Playwright 1.63.0。
+**Tech Stack:** Node.js 24.13.0、TypeScript 7.0.2、React 19.3.0、Vite 8.3.5、Fastify 5.12.7、PostgreSQL 17.11、Zod 4.6.7、Tailwind CSS 4.3.3、Vitest 5.0.3、Playwright 1.63.0。
 
 **Spec:** [2026-10-26-personal-learning-site-design.md](../specs/2026-10-26-personal-learning-site-design.md)，用户于 2026-10-27 批准。
 
@@ -41,12 +41,12 @@ S1 实现 Spec 的 A01、A03，以及 A02 / A07 / A13 / A15 / A16 中与账号�
 
 ### 1.1 依赖版本
 
-以下版本于 2026-10-27 从 npm Registry 核对；实施使用 `--save-exact` 并提交 `package-lock.json`。已有 React、Vite、TypeScript、Zod、Vitest 和 Playwright 版本继续复用。
+以下版本于 2026-10-27 从 npm Registry 核对；实施使用 `--save-exact` 并提交 `package-lock.json`。React、TypeScript、Vitest 和 Playwright 沿用仓库版本；基线审计发现 Vite、Zod、Undici 漏洞，分别采用 8.3.5、4.6.7、7.30.1 的同大版本修复补丁。
 
 | 使用位置 | 新增直接依赖 |
 | --- | --- |
-| document-contracts | `@pagelingo/translation-core@0.4.0`、`zod@4.6.5` |
-| document-service | `@pagelingo/document-contracts@0.1.0`、`@pagelingo/translation-core@0.4.0`、`zod@4.6.5`、`fastify@5.12.7`、`@fastify/cookie@11.1.3`、`@fastify/multipart@10.1.6`、`@fastify/helmet@13.2.0`、`@fastify/static@10.1.7`、`pg@8.23.1`、`undici@7.30.0`、`ipaddr.js@2.5.0`；开发依赖 `@types/pg@8.23.1`、`tsx@4.23.15` |
+| document-contracts | `@pagelingo/translation-core@0.4.0`、`zod@4.6.7` |
+| document-service | `@pagelingo/document-contracts@0.1.0`、`@pagelingo/translation-core@0.4.0`、`zod@4.6.7`、`fastify@5.12.7`、`@fastify/cookie@11.1.3`、`@fastify/multipart@10.1.6`、`@fastify/helmet@13.2.0`、`@fastify/static@10.1.7`、`pg@8.23.1`、`undici@7.30.1`、`ipaddr.js@2.5.0`；开发依赖 `@types/pg@8.23.1`、`tsx@4.23.15` |
 | web | `@pagelingo/document-contracts@0.1.0`、`react@19.3.0`、`react-dom@19.3.0`、`react-router-dom@7.18.4`、`@tanstack/react-query@5.105.0`、`lucide-react@1.61.0`、`pdfjs-dist@6.4.299`、`@radix-ui/react-dialog@1.3.1`、`@radix-ui/react-alert-dialog@1.2.1`、`@radix-ui/react-slot@1.5.0`、`class-variance-authority@0.7.1`、`clsx@2.1.1`、`tailwind-merge@3.7.0`；开发依赖 `tailwindcss@4.3.3`、`@tailwindcss/vite@4.3.3` |
 
 按需引入 shadcn 风格的基础组件到本项目，使用上表 Radix primitives 与统一 token，不在实现过程中运行会改动配置的 `shadcn@latest init`。数据库镜像固定 `postgres:17.11@sha256:b8faeff7712663c2773a190181e1246e37e364b887611c04658c28b44e2408fe`；卷挂载 `/var/lib/postgresql/data`。Node 镜像与 `.nvmrc` 一致，生产补丁升级另行验证。
@@ -140,7 +140,7 @@ S1 实现 Spec 的 A01、A03，以及 A02 / A07 / A13 / A15 / A16 中与账号�
 
 ## Task 1: 公共协议成为可消费的独立 workspace
 
-**Files:** Create `packages/document-contracts/{package.json,tsconfig.json,tsconfig.test.json,vitest.config.ts}`、`src/{auth,provider,documents,errors,index}.ts`、`tests/site-contracts.test.ts`；Modify `packages/document-contracts/README.md`、根 `package.json`、`package-lock.json`。
+**Files:** Create `packages/document-contracts/{package.json,tsconfig.json,tsconfig.test.json,vitest.config.ts}`、`src/{auth,provider,documents,errors,index}.ts`、`tests/site-contracts.test.ts`；Modify `packages/document-contracts/README.md`、根 `package.json`、`package-lock.json` 及 extension / translation-core / assistant-core 的 package.json，应用已核对的修复补丁。
 
 **Interfaces:** Produces 上节所有公共 DTO / schema，导出包名 `@pagelingo/document-contracts@0.1.0`、ESM dist 与声明；P0 JSON Schema 文件原样保留。不导出 Actor、数据库对象或 Keyring。
 
@@ -153,8 +153,8 @@ expect(documentSummarySchema.parse(summary).source.sha256).toMatch(/^[a-f0-9]{64
 ```
 
 - [ ] **Step 2: 运行 RED。** `npm run test --workspace @pagelingo/document-contracts`，先得到缺少实现的失败，而非忽略测试。
-- [ ] **Step 3: 实现 schema、导出和独立构建。** NodeNext / `.js` ESM imports；公开输出使用 strict schema。Provider 枚举和预算类型复用 translation-core 公共入口，不导入 extension 设置文件。根新增 `build:contracts`，根 typecheck / test 先构建 SDK 和 contracts；旧 `build:sdk` 保持独立包语义。
-- [ ] **Step 4: 运行 GREEN。** `npm run build:contracts`、`npm run test --workspace @pagelingo/document-contracts`、`npm run typecheck`；全部通过并验证 SDK 原有导出不变。
+- [ ] **Step 3: 实现 schema、导出和独立构建，并修复基线依赖。** 三个既有 workspace 的 Zod 固定到 4.6.7、extension 的 Vite 固定到 8.3.5，根 override 将 Undici 固定为 7.30.1；新 service 后续同样使用修复版本。 NodeNext / `.js` ESM imports；公开输出使用 strict schema。Provider 枚举和预算类型复用 translation-core 公共入口，不导入 extension 设置文件。根新增 `build:contracts`，根 typecheck / test 先构建 SDK 和 contracts；旧 `build:sdk` 保持独立包语义。
+- [ ] **Step 4: 运行 GREEN。** `npm run build:contracts`、`npm run test --workspace @pagelingo/document-contracts`、`npm run check` 与 `npm audit`；验证 SDK 原有导出不变及依赖补丁未破坏原有插件 / SDK。
 - [ ] **Step 5: Commit。** `feat: establish learning site api contracts`。
 
 ## Task 2: PostgreSQL 迁移、运行配置与真实服务测试入口
