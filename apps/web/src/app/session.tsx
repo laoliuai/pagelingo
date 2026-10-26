@@ -98,12 +98,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           channel.current?.postMessage('changed');
         },
         logout: async (allDevices = false) => {
-          try {
-            await apiRequest('/api/v1/auth/logout', { method: 'POST', body: { allDevices } });
-          } finally {
-            clear();
-            channel.current?.postMessage('changed');
-          }
+          await apiRequest('/api/v1/auth/logout', { method: 'POST', body: { allDevices } });
+          clear();
+          channel.current?.postMessage('changed');
         },
       }}
     >

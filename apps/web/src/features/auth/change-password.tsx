@@ -69,6 +69,7 @@ export function ChangePassword() {
           action="确认退出所有设备"
           trigger={<Button>退出所有设备</Button>}
           onConfirm={() => logout(true)}
+          failureMessage="退出失败，仍保持登录。请重试。"
         />
       </div>
     </section>

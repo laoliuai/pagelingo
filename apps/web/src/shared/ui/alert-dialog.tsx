@@ -9,12 +9,14 @@ export function Confirm({
   description,
   action,
   onConfirm,
+  failureMessage,
 }: {
   trigger: ReactNode;
   title: string;
   description: string;
   action: string;
   onConfirm: () => Promise<void>;
+  failureMessage?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
@@ -44,10 +46,11 @@ export function Confirm({
               primary
               disabled={pending}
               onClick={() => {
+                setError('');
                 setPending(true);
                 void onConfirm()
                   .then(() => setOpen(false))
-                  .catch((error) => setError(errorMessage(error)))
+                  .catch((error) => setError(failureMessage ?? errorMessage(error)))
                   .finally(() => setPending(false));
               }}
             >

@@ -216,3 +216,75 @@ test('a cross-tab account switch clears secrets and rejects a delayed old-user p
     await page.unrouteAll({ behavior: 'wait' });
   }
 });
+for (const allDevices of [false, true]) {
+  for (const failure of ['server', 'network'] as const) {
+    test(`failed logout keeps authenticated UI and retries revocation: ${allDevices ? 'all devices' : 'current device'}, ${failure}`, async ({
+      page,
+      browser,
+      context,
+    }) => {
+      await login(page);
+      const sessionCookie = (await context.cookies())
+        .map((cookie) => `${cookie.name}=${cookie.value}`)
+        .join('; ');
+      const otherContext = await browser.newContext({ baseURL: 'http://127.0.0.1:4338' });
+      try {
+        const otherDevice = await otherContext.newPage();
+        await login(otherDevice);
+        await page.getByRole('link', { name: '模型与账户' }).click();
+        await expect(page.getByLabel('Base URL')).toBeVisible();
+        await page.route('**/api/v1/auth/logout', async (route) => {
+          if (failure === 'network') return route.abort('failed');
+          return route.fulfill({
+            status: 500,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              error: {
+                code: 'INTERNAL_ERROR',
+                message: 'Service unavailable',
+                requestId: 'test-logout',
+              },
+            }),
+          });
+        });
+        if (allDevices) {
+          await page.getByRole('button', { name: '退出所有设备', exact: true }).click();
+          await page.getByRole('button', { name: '确认退出所有设备' }).click();
+        } else {
+          await page.getByRole('button', { name: '退出登录', exact: true }).click();
+        }
+        await expect(page.getByRole('alert')).toContainText('退出失败，仍保持登录。请重试。');
+        await expect(page.getByRole('alert')).toBeFocused();
+        await expect(page).toHaveURL(/\/settings$/);
+        if (allDevices) await expect(page.getByRole('alertdialog')).toBeVisible();
+        expect((await (await page.request.get('/api/v1/auth/session')).json()).user.username).toBe(
+          'admin',
+        );
+        expect(
+          (await (await otherDevice.request.get('/api/v1/auth/session')).json()).user.username,
+        ).toBe('admin');
+        await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+        await expect(page.getByRole('alert')).toContainText('退出失败，仍保持登录。请重试。');
+        await page.unroute('**/api/v1/auth/logout');
+        if (allDevices) {
+          await page.getByRole('button', { name: '确认退出所有设备' }).click();
+        } else {
+          await page.getByRole('button', { name: '退出登录', exact: true }).click();
+        }
+        await expect(page).toHaveURL(/\/login$/);
+        await expect(page.getByLabel('密码', { exact: true })).toHaveValue('');
+        const revoked = await page.request.get('/api/v1/auth/session', {
+          headers: { Cookie: sessionCookie },
+        });
+        expect((await revoked.json()).user).toBeNull();
+        const otherSession = await (await otherDevice.request.get('/api/v1/auth/session')).json();
+        if (allDevices) expect(otherSession.user).toBeNull();
+        else expect(otherSession.user.username).toBe('admin');
+        await page.reload();
+        await expect(page).toHaveURL(/\/login$/);
+      } finally {
+        await otherContext.close();
+      }
+    });
+  }
+}

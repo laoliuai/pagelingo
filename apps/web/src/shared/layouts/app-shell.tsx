@@ -2,6 +2,7 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { BookOpen, Settings2, Users, Moon, LogOut } from 'lucide-react';
 import { useSession } from '../../app/session';
 import { Button } from '../ui/button';
+import { Feedback } from '../ui/toast';
 import { useState } from 'react';
 export function ThemeButton() {
   const [theme, setTheme] = useState(document.documentElement.dataset.theme ?? 'light');
@@ -24,6 +25,8 @@ export function ThemeButton() {
 }
 export function AppShell() {
   const { user, logout } = useSession();
+  const [logoutPending, setLogoutPending] = useState(false);
+  const [logoutError, setLogoutError] = useState('');
   return (
     <div className="app">
       <aside className="sidebar">
@@ -63,17 +66,23 @@ export function AppShell() {
           <div className="topbar-actions">
             <ThemeButton />
             <Button
+              disabled={logoutPending}
               onClick={() => {
-                void logout().catch(() => {});
+                setLogoutError('');
+                setLogoutPending(true);
+                void logout()
+                  .catch(() => setLogoutError('退出失败，仍保持登录。请重试。'))
+                  .finally(() => setLogoutPending(false));
               }}
               aria-label="退出登录"
             >
               <LogOut size={16} />
-              <span>退出登录</span>
+              <span>{logoutPending ? '退出中…' : '退出登录'}</span>
             </Button>
           </div>
         </header>
         <main className="content">
+          <Feedback message={logoutError} error />
           <Outlet />
         </main>
       </div>
