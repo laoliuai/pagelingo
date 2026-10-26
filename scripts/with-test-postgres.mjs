@@ -3,7 +3,8 @@ import { spawn } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 
 // This runner never reads .env files or DATABASE_URL. Only an explicit test URL
-// bypasses Docker; helpers still create and remove only their own random schemas.
+// skips database-container provisioning; helpers still own only their random schemas.
+// Full check:site also needs Docker Compose CLI for config validation (no daemon).
 const image = 'postgres:17.11@sha256:b8faeff7712663c2773a190181e1246e37e364b887611c04658c28b44e2408fe';
 const args = process.argv.slice(2);
 if (args[0] === '--') args.shift();

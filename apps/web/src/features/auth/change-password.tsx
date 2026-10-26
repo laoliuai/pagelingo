@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useSession } from '../../app/session';
-import { apiRequest, errorMessage } from '../../shared/api-client';
+import { ApiError, apiRequest, errorMessage } from '../../shared/api-client';
 import { Field } from '../../shared/ui/field';
 import { Input } from '../../shared/ui/input';
 import { Button } from '../../shared/ui/button';
@@ -25,7 +25,9 @@ export function ChangePassword() {
       });
       clear();
     } catch (error) {
-      setError(errorMessage(error));
+      setError(error instanceof ApiError && error.status === 401 && error.code === 'INVALID_CREDENTIALS'
+        ? '当前密码不正确，请重新输入。'
+        : errorMessage(error));
     } finally {
       setCurrent('');
       setNew('');

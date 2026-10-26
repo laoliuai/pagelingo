@@ -8,10 +8,15 @@
 | --- | --- |
 | `node --test tests/site/*.test.mjs` | 6 个密钥文件测试通过；5 个需要隔离数据库的 dev smoke 明确跳过，随后在 `check:site` 实际执行 |
 | `npm run check` | 类型检查通过；321 单元测试通过（service 101、extension 86、assistant 31、contracts 14、translation 89）；6 glossary + 2 独立包测试通过；55 扩展 Chromium 测试通过 |
-| `npm run check:site` | `build:site` 通过；83 PostgreSQL 集成测试、20 网站 Chromium 测试、5 dev smoke 全部通过；一个独立 PostgreSQL 生命周期，结束后清理 |
+| `npm run check:site` | 最后一轮小修复后，`build:site` 通过；87 PostgreSQL 集成测试、20 网站 Chromium 测试、5 dev smoke 全部通过；一个独立 PostgreSQL 生命周期，结束后清理 |
+| `npm run test:service:db -- users.test.ts` | 最后一轮聚焦回归：20/20 通过，包含大小写 UUID 的启用 / 停用、密码重置、规范化 DTO / 审计目标与最后管理员保护 |
+| `npm run test:site:e2e -- accounts.test.ts` | 最后一轮聚焦 Chromium 回归：9/9 通过，错误当前密码保留有效会话并聚焦错误提示，随后正确修改撤销会话；真实撤销后的密码请求仍清理登录状态 |
+| `npm run typecheck --workspace @pagelingo/document-service` / `npm run typecheck --workspace @pagelingo/web` | 最后一轮服务与网站类型检查均通过 |
 | `npm run test:site:restart` | 镜像构建 / 内容检查、真实登录 / 上传 / 保存配置、保留命名卷重建 app + db 容器、原件 hash / SourceIdentity、密钥解密、授权与撤销均通过；独立项目 / 卷清理成功 |
-| `npm audit --json` | 同一锁文件，所有级别漏洞均为 0；本次由控制代理执行并保留审计输出 |
+| `npm audit --json` | 同一锁文件，控制代理实际执行的审计中，所有级别漏洞均为 0 |
 | `git diff --check` | 通过；常规网站检查没有修改任何已提交截图 |
+
+最后一轮小修复只修改密码错误反馈、管理目标 UUID 规范化及外部测试库的 Compose CLI 前提说明；以上聚焦回归与完整 `check:site` 为修复后的实际执行结果。默认 `check`、容器重建与依赖审计记录来自此前同次 S1 验收，未在该轮重复执行；锁文件、容器配置、扩展和 SDK 实现未改动。
 
 独立 dev 聚焦命令 `node scripts/with-test-postgres.mjs -- node --test tests/site/dev.test.mjs` 也为 5/5 通过：使用临时 env、随机端口和独立数据库，验证 API / Vite 代理、PDF fallback JavaScript MIME，并分别发送 SIGTERM / SIGINT，确认两端口关闭和退出码 143 / 130。另外验证无效配置、API 端口被占用时命令失败且不终止占用者，以及独立开发库 / 主机原件目录中的 PDF 在开发进程重启后仍可读。没有借用已有开发服务。显式集成 runner 遇到空或不可用测试数据库时失败，不回退用户 `DATABASE_URL`；只有不带数据库的通用 Node 测试命令跳过上述 dev smoke。开发 smoke 的 URL 显式指定随机 `pgl_test_*` search_path，清理后检查 public 对象未改变且自己的 schema 不再存在。
 

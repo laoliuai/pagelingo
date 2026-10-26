@@ -64,7 +64,7 @@ export function createUsersService(db: Database) {
     },
     async setActive(actor: Actor, userId: string, active: boolean): Promise<PublicUser> {
       requireAdmin(actor);
-      const id = parse(z.uuid(), userId);
+      const id = parse(z.uuid(), userId).toLowerCase();
       const input = parse(updateUserRequestSchema, { active });
       return authorized(actor, id, async (client, rows) => {
         const target = targetUser(rows, id);
@@ -79,7 +79,7 @@ export function createUsersService(db: Database) {
     },
     async resetPassword(actor: Actor, userId: string, newPassword: string): Promise<void> {
       requireAdmin(actor);
-      const id = parse(z.uuid(), userId);
+      const id = parse(z.uuid(), userId).toLowerCase();
       const input = parse(resetPasswordRequestSchema, { newPassword });
       // Commit attempts before hashing, including absent or forbidden targets. Never
       // let a hash failure or a later authorization failure refund the quota.

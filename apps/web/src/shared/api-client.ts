@@ -62,7 +62,10 @@ export async function apiRequest<T>(
       error?: { code?: string };
     } | null;
     signal.throwIfAborted();
-    if (response.status === 401 && path !== '/api/v1/auth/login') onUnauthorized();
+    const invalidCurrentPassword = method === 'POST' &&
+      path === '/api/v1/auth/password' && error?.error?.code === 'INVALID_CREDENTIALS';
+    if (response.status === 401 && path !== '/api/v1/auth/login' && !invalidCurrentPassword)
+      onUnauthorized();
     throw new ApiError(response.status, error?.error?.code ?? 'REQUEST_FAILED');
   }
   const value = response.status === 204 ? undefined : await response.json();

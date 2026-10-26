@@ -42,11 +42,30 @@ test('accounts enforce roles, password revocation and disabled old tabs', async 
   await expect(reader.getByRole('heading', { name: '无权访问' })).toBeVisible();
   expect((await reader.request.get('/api/v1/admin/users')).status()).toBe(403);
   await reader.getByRole('link', { name: '模型与账户' }).click();
+  await reader.getByLabel('当前密码').fill('incorrect-password');
+  await reader.getByLabel('新密码', { exact: true }).fill('reader-password-2');
+  const wrongPassword = reader.waitForResponse((response) =>
+    response.url().endsWith('/api/v1/auth/password') && response.request().method() === 'POST',
+  );
+  await reader.getByRole('button', { name: '修改密码并重新登录' }).click();
+  const rejected = await wrongPassword;
+  expect(rejected.status()).toBe(401);
+  expect((await rejected.json()).error.code).toBe('INVALID_CREDENTIALS');
+  await expect(reader).toHaveURL(/\/settings$/);
+  await expect(reader.getByRole('alert')).toContainText('当前密码不正确');
+  await expect(reader.getByRole('alert')).toBeFocused();
+  await expect(reader.getByLabel('当前密码')).toHaveValue('');
+  expect((await reader.request.get('/api/v1/documents')).status()).toBe(200);
+  expect((await (await reader.request.get('/api/v1/auth/session')).json()).user.username).toBe('reader');
   await reader.getByLabel('当前密码').fill('reader-password-1');
   await reader.getByLabel('新密码', { exact: true }).fill('reader-password-2');
   await reader.getByRole('button', { name: '修改密码并重新登录' }).click();
   await expect(reader).toHaveURL(/\/login$/);
+  expect((await (await reader.request.get('/api/v1/auth/session')).json()).user).toBeNull();
   await login(reader, 'reader', 'reader-password-2');
+  await reader.getByRole('link', { name: '模型与账户' }).click();
+  await reader.getByLabel('当前密码').fill('reader-password-2');
+  await reader.getByLabel('新密码', { exact: true }).fill('reader-password-3');
   await page
     .getByRole('row')
     .filter({ hasText: 'reader' })
@@ -55,7 +74,13 @@ test('accounts enforce roles, password revocation and disabled old tabs', async 
   await page.getByRole('dialog').getByLabel('新密码').fill('reader-reset-password');
   await page.getByRole('button', { name: '确认重置密码' }).click();
   await expect(page.getByRole('dialog')).toBeHidden();
-  await reader.getByRole('link', { name: '模型与账户' }).click();
+  const revokedPassword = reader.waitForResponse((response) =>
+    response.url().endsWith('/api/v1/auth/password') && response.request().method() === 'POST',
+  );
+  await reader.getByRole('button', { name: '修改密码并重新登录' }).click();
+  const revoked = await revokedPassword;
+  expect(revoked.status()).toBe(401);
+  expect((await revoked.json()).error.code).toBe('UNAUTHORIZED');
   await expect(reader).toHaveURL(/\/login$/);
   await login(reader, 'reader', 'reader-reset-password');
   await page

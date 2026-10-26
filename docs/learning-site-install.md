@@ -106,7 +106,7 @@ npm run check:site
 npm run test:site:restart
 ```
 
-默认 `check` 保留原扩展 / SDK 回归，不要求 Docker / Python 或付费 API。`check:site` 在一次独立 PostgreSQL 生命周期中构建网站、运行服务集成、Chromium UI 和开发信号 smoke；初次运行需准备 Playwright Chromium（`npx playwright install chromium`）。显式 `PAGELINGO_TEST_DATABASE_URL` 必须是专用测试库。服务集成、UI 与开发 smoke 都仅在各自随机 `pgl_test_*` schema 内迁移，并在 finally 删除自己的 schema；不会在 public 中创建应用表。不要指向用户数据库。
+默认 `check` 保留原扩展 / SDK 回归，不要求 Docker / Python 或付费 API。`check:site` 在一次独立 PostgreSQL 生命周期中构建网站、运行服务集成、Chromium UI 和开发信号 smoke；初次运行需准备 Playwright Chromium（`npx playwright install chromium`）。显式 `PAGELINGO_TEST_DATABASE_URL` 必须是专用测试库；指定后跳过数据库容器的创建，但完整 `check:site` 仍需要 Docker Compose CLI 来校验开发 / 预览配置，这项配置校验不需要 Docker daemon。服务集成、UI 与开发 smoke 都仅在各自随机 `pgl_test_*` schema 内迁移，并在 finally 删除自己的 schema；不会在 public 中创建应用表。不要指向用户数据库。
 
 `test:site:restart` 不读取 `.env.local` 或复用环境里的数据库、项目、卷；创建随机项目、动态 loopback 端口、独立命名卷和凭据，密码通过 stdin，临时 env 为 0600。它真实登录、上传合成 PDF、保存假 Key、保留卷重建 app / db 容器，验证内容 hash、内部解密和权限，并在 finally 删除自己的资源。它不调用真实模型。中断也会清理；若 Docker 失联导致清理失败，只报告本次项目名供人工恢复。
 

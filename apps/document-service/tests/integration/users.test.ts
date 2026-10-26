@@ -134,11 +134,49 @@ describe('administrator-managed accounts', () => {
     expect((await login(app, 'second-admin', password)).user.role).toBe('admin');
   });
 
+  for (const targetId of ['AB12CD34-ABCD-4ABC-8ABC-AB12CD34AB12', 'Ab12Cd34-aBcD-4aBc-8AbC-aB12cD34aB12']) {
+    const canonicalId = 'ab12cd34-abcd-4abc-8abc-ab12cd34ab12';
+    it(`changes active state for an accepted UUID spelling: ${targetId}`, async () => {
+      const { app, db, admin, alice } = await setup();
+      await db.pool.query(`INSERT INTO users (id, username, password_hash, role)
+        SELECT $1, 'case-reader', password_hash, 'user' FROM users WHERE username = 'admin'`, [canonicalId]);
+      const reader = await login(app, 'case-reader', password);
+      const change = (session: typeof admin, active: boolean) => app.inject({ method: 'PATCH', url: `/api/v1/admin/users/${targetId}`, headers: headers(session), payload: { active } });
+      expect((await change(alice, false)).statusCode).toBe(403);
+      const disabled = await change(admin, false);
+      expect(disabled.statusCode).toBe(200);
+      expect(disabled.json()).toMatchObject({ id: canonicalId, active: false });
+      expect((await app.inject({ url: '/api/v1/auth/session', headers: { cookie: reader.cookie } })).json().user).toBeNull();
+      const enabled = await change(admin, true);
+      expect(enabled.statusCode).toBe(200);
+      expect(enabled.json()).toMatchObject({ id: canonicalId, active: true });
+      expect((await login(app, 'case-reader', password)).user.id).toBe(canonicalId);
+      expect((await db.pool.query('SELECT target_id, action FROM user_audit_events ORDER BY created_at, id')).rows).toEqual([
+        { target_id: canonicalId, action: 'disable' }, { target_id: canonicalId, action: 'enable' },
+      ]);
+    });
+
+    it(`resets a password for an accepted UUID spelling: ${targetId}`, async () => {
+      const { app, db, admin, alice } = await setup();
+      await db.pool.query(`INSERT INTO users (id, username, password_hash, role)
+        SELECT $1, 'case-reader', password_hash, 'user' FROM users WHERE username = 'admin'`, [canonicalId]);
+      const reader = await login(app, 'case-reader', password);
+      const reset = (session: typeof admin) => app.inject({ method: 'POST', url: `/api/v1/admin/users/${targetId}/reset-password`, headers: headers(session), payload: { newPassword } });
+      expect((await reset(alice)).statusCode).toBe(403);
+      expect((await reset(admin)).statusCode).toBe(204);
+      expect((await app.inject({ url: '/api/v1/auth/session', headers: { cookie: reader.cookie } })).json().user).toBeNull();
+      expect((await login(app, 'case-reader', newPassword)).user.id).toBe(canonicalId);
+      expect((await db.pool.query('SELECT target_id, action FROM user_audit_events')).rows).toEqual([
+        { target_id: canonicalId, action: 'reset-password' },
+      ]);
+    });
+  }
+
   it('protects the last active administrator', async () => {
     const { app, db, admin, second } = await setup();
     const disable = (id: string) => app.inject({ method: 'PATCH', url: `/api/v1/admin/users/${id}`, headers: headers(admin), payload: { active: false } });
-    expect((await disable(second.user.id)).statusCode).toBe(200);
-    expect((await disable(admin.user.id)).statusCode).toBe(409);
+    expect((await disable(second.user.id.toUpperCase())).statusCode).toBe(200);
+    expect((await disable(admin.user.id.toUpperCase())).statusCode).toBe(409);
     expect((await db.pool.query("SELECT count(*)::int AS n FROM users WHERE role = 'admin' AND active")).rows[0].n).toBe(1);
   });
 
