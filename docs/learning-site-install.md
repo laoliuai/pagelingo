@@ -58,19 +58,40 @@ site_compose down                 # 移除本项目容器和网络，保留卷
 
 ## 开发模式
 
-停止 Compose app 后，将 `.env.local` 的 `PAGELINGO_SITE_ORIGIN` 改为 `http://127.0.0.1:5174`。保留上面生成的数据库 URL；`site:db` 使用相同命名项目、卷与密码。首次初始化后不要通过修改 env 密码来尝试修改现有 PostgreSQL 账号密码。
+开发与 Compose 预览是**两套独立数据**：开发使用 `.env.site-dev.local`、`pagelingo-site-dev` 项目数据库与主机 `./data/document-service-dev`；预览继续使用 `.env.local`、`pagelingo-site` 数据库与命名原件卷。不要只共享数据库而切换原件目录。账号、主密钥和 PDF 不自动迁移，两套环境各自初始化管理员。已保存的 PDF 在其原环境内重启后继续可读。
+
+先用 `site_compose stop app` 释放 4320 端口；预览的 `.env.local` 保持原样。以下命令独立生成开发凭据，不复制预览密码。已有开发文件时保留并手工合并，不能覆盖：
 
 ```bash
+node --input-type=module <<'JS'
+import { randomBytes } from 'node:crypto';
+import { writeFileSync } from 'node:fs';
+const password = randomBytes(24).toString('hex');
+writeFileSync('.env.site-dev.local', [
+  `POSTGRES_PASSWORD=${password}`,
+  `DATABASE_URL=postgresql://pagelingo:${password}@127.0.0.1:54330/pagelingo`,
+  'PAGELINGO_SITE_MODE=local',
+  'PAGELINGO_SITE_ORIGIN=http://127.0.0.1:5174',
+  'PAGELINGO_SERVICE_HOST=127.0.0.1',
+  'PAGELINGO_SERVICE_PORT=4320',
+  'PAGELINGO_DATA_DIR=./data/document-service-dev',
+  '',
+].join('\n'), { flag: 'wx', mode: 0o600 });
+JS
+npm run site:keygen -- --file .env.site-dev.local
 npm run site:db
 npm run build:contracts
-npm run site:admin -- --username myadmin  # 仅尚未创建管理员时
+npm run site:admin -- --username myadmin  # 开发数据库中首次初始化
 npm run dev:site
 ```
 
-API 在 `127.0.0.1:4320`，Vite 在 `127.0.0.1:5174` 代理 `/api`。开发数据库仅在 `127.0.0.1:54330` 暴露。`dev:site` 明确加载 `.env.local`，先构建协议再启动 API / Vite；Vite 不加载秘密文件，只接收代理端口配置。Ctrl+C / SIGTERM 同时结束两组进程，五秒后强制结束未退出的子进程。端口占用会失败，不自动复用其他服务。测试可指定 `dev:site -- --file <临时文件>` 及 `PAGELINGO_VITE_PORT` / `PAGELINGO_SERVICE_PORT`。
+`site:db` 默认只启动 `pagelingo-site-dev` 的数据库，独立卷为 `pagelingo-site-dev_database`，仅在 `127.0.0.1:54330` 暴露。`site:admin` 和 `dev:site` 默认读取 `.env.site-dev.local`；`site:keygen` 默认仍是预览的 `.env.local`，为开发生成密钥时必须使用上面的 `--file`。两个秘密文件均被 Git 和 Docker context 排除。
 
-服务的原始 `main` 入口只接受注入的环境，不隐式读取文件。`site:admin` 显式加载 `.env.local`，密码仍由终端或 stdin 输入。独立部署可在构建后使用 `node --env-file=<文件> apps/document-service/dist/main.js`。
+开发 API 在 `127.0.0.1:4320`，Vite 在 `127.0.0.1:5174` 代理 `/api`。`dev:site` 先构建协议再启动 API / Vite；API 使用非 watch 进程，修改后重新启动。API 配置错误或监听失败会让启动命令失败并结束其 Vite 进程，不接受或终止已存在的服务。Vite 不加载秘密文件，只接收代理端口配置。Ctrl+C / SIGTERM 同时结束两组进程，五秒后强制结束未退出的子进程。测试可指定 `dev:site -- --file <临时文件>` 及 `PAGELINGO_VITE_PORT` / `PAGELINGO_SERVICE_PORT`。
 
+返回预览时先 Ctrl+C 停止开发进程，再运行 `site_compose up -d --wait`，访问原来的 `http://127.0.0.1:4320`；预览账号和 PDF 仍来自预览卷。开发数据仍保留在其独立数据库卷和主机目录，需要时可再次运行 `dev:site`，访问 5174。不要将开发 `DATABASE_URL` 指向预览库，也不要为“切换环境”更改任何已有数据库密码。
+
+服务的原始 `main` 入口只接受注入的环境，不隐式读取文件。管理员密码仍由终端或 stdin 输入。独立部署可在构建后使用 `node --env-file=<文件> apps/document-service/dist/main.js`。
 ## 使用和检查
 
 1. 登录管理员账号，在用户管理中创建普通账号；禁用和重置密码会撤销目标账号旧会话。管理员不能读取其他人的资料。
@@ -85,7 +106,7 @@ npm run check:site
 npm run test:site:restart
 ```
 
-默认 `check` 保留原扩展 / SDK 回归，不要求 Docker / Python 或付费 API。`check:site` 在一次独立 PostgreSQL 生命周期中构建网站、运行服务集成、Chromium UI 和开发信号 smoke；初次运行需准备 Playwright Chromium（`npx playwright install chromium`）。显式 `PAGELINGO_TEST_DATABASE_URL` 必须是专用的可丢弃测试库：开发 smoke 会应用 public schema 迁移；普通集成和 UI 仍使用随机 schema。不要指向用户数据库。
+默认 `check` 保留原扩展 / SDK 回归，不要求 Docker / Python 或付费 API。`check:site` 在一次独立 PostgreSQL 生命周期中构建网站、运行服务集成、Chromium UI 和开发信号 smoke；初次运行需准备 Playwright Chromium（`npx playwright install chromium`）。显式 `PAGELINGO_TEST_DATABASE_URL` 必须是专用测试库。服务集成、UI 与开发 smoke 都仅在各自随机 `pgl_test_*` schema 内迁移，并在 finally 删除自己的 schema；不会在 public 中创建应用表。不要指向用户数据库。
 
 `test:site:restart` 不读取 `.env.local` 或复用环境里的数据库、项目、卷；创建随机项目、动态 loopback 端口、独立命名卷和凭据，密码通过 stdin，临时 env 为 0600。它真实登录、上传合成 PDF、保存假 Key、保留卷重建 app / db 容器，验证内容 hash、内部解密和权限，并在 finally 删除自己的资源。它不调用真实模型。中断也会清理；若 Docker 失联导致清理失败，只报告本次项目名供人工恢复。
 

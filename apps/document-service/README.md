@@ -33,7 +33,7 @@ both resources. Test applications deny outbound requests by default.
 
 ## Initial administrator and authentication
 
-After `npm run build:contracts`, configure `.env.local` for the local database and
+After `npm run build:contracts`, configure `.env.site-dev.local` for the separate development database and
 run `npm run site:admin -- --username admin`. A terminal prompts for a masked
 password. Automation must pass `--password-stdin` with non-TTY stdin; one final
 line ending is removed. Passwords never belong in command arguments. Bootstrap

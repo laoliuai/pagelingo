@@ -16,7 +16,7 @@ function stop(code, signal = 'SIGTERM') {
 }
 for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => stop(signal === 'SIGINT' ? 130 : 143, signal));
 try {
-  const { values } = parseArgs({ options: { file: { type: 'string', default: '.env.local' } } });
+  const { values } = parseArgs({ options: { file: { type: 'string', default: '.env.site-dev.local' } } });
   const env = { ...process.env, ...parseEnv(await readFile(values.file, 'utf8')) };
   // Vite never loads the file itself. Expose only the local ports to its process.
   const webEnv = Object.fromEntries(Object.entries(process.env).filter(([key]) => !/^(PAGELINGO_|DATABASE_URL$|POSTGRES_|VITE_)/.test(key)));
@@ -33,7 +33,7 @@ try {
   const built = await launch('npm', ['run', 'build:contracts'], webEnv);
   if (built !== 0 && !stopping) stop(built);
   if (!stopping) {
-    const service = launch(process.execPath, ['node_modules/tsx/dist/cli.mjs', 'watch', 'apps/document-service/src/main.ts'], env);
+    const service = launch(process.execPath, ['node_modules/tsx/dist/cli.mjs', 'apps/document-service/src/main.ts'], env);
     const web = launch(process.execPath, ['node_modules/vite/bin/vite.js', '--config', 'apps/web/vite.config.ts', 'apps/web'], webEnv);
     await Promise.race([service, web]).then(code => { if (!stopping) stop(code || 1); });
     await Promise.all([service, web]);
