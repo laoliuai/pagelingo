@@ -1,6 +1,6 @@
 # 文档服务
 
-已注册为独立 npm workspace，当前实现运行配置、PostgreSQL 迁移和 health API；账号、私有文档和模型配置 API 尚未接入。[个人学习站 V1 设计稿](../../docs/superpowers/specs/2026-10-26-personal-learning-site-design.md)已于 2026-10-27 获批，S1 后续任务将使用 TypeScript 实现管理员手工开通账号、各用户独立资料与 API 配置、持久化任务和共享翻译 SDK 调用。后续再接入站内助手。账号、任务、原件与资源读取采用同一用户隔离边界。
+已注册为独立 npm workspace，当前实现运行配置、PostgreSQL 迁移、health API、初始管理员及登录 / 会话 / 修改密码 API；管理员账号管理、私有文档和模型配置 API 尚未接入。[个人学习站 V1 设计稿](../../docs/superpowers/specs/2026-10-26-personal-learning-site-design.md)已于 2026-10-27 获批，S1 后续任务将使用 TypeScript 实现管理员手工开通账号、各用户独立资料与 API 配置、持久化任务和共享翻译 SDK 调用。后续再接入站内助手。账号、任务、原件与资源读取采用同一用户隔离边界。
 
 API 与 worker 可属于同一个包、使用不同入口；重解析和重译都有独立 run ID。PDF 解析调用 `services/document-parser` 的独立进程，不重写 Python 翻译引擎。具体协议、取消与恢复约束见 [PDF 规格](../../docs/pdf-spec.md) 和 [架构](../../docs/monorepo.md)。
 
@@ -36,3 +36,37 @@ temporary data directories. Connection failures fail the integration suite.
 `createApp({ config, db, outboundFetch? })` accepts caller-owned persistence;
 closing the app leaves the pool open. The executable and test helpers close
 both resources. Test applications deny outbound requests by default.
+
+
+## Initial administrator and authentication
+
+After `npm run build:contracts`, inject the same service runtime variables and
+run `npm run site:admin -- --username admin`. A terminal prompts for a masked
+password. Automation must pass `--password-stdin` with non-TTY stdin; one final
+line ending is removed. Passwords never belong in command arguments. Bootstrap
+creates only the first administrator and returns a conflict if any administrator
+already exists, including an inactive one.
+
+Passwords contain 12–128 Unicode code points, preserving spaces. Usernames are
+normalized to lowercase. Login uses `POST /api/v1/auth/login` with a JSON
+`{ username, password }` body and the exact configured `Origin`. Login and
+`GET /api/v1/auth/session` return `{ user, csrfToken }`; the opaque session token
+appears only in an HttpOnly cookie, expires after seven days, and is stored only
+as a SHA-256 hash. Production uses the Secure `__Host-pgl_session` cookie;
+loopback local/test origins use `pgl_session`.
+
+Authenticated writes require the same exact Origin and `X-CSRF-Token` from the
+current session. `POST /api/v1/auth/logout` takes `{}` or
+`{ allDevices: true }`; the latter revokes all sessions and increments the user
+version. `POST /api/v1/auth/password` takes
+`{ currentPassword, newPassword }` and revokes every prior session on success.
+Both return an anonymous SessionView and require a fresh login. Login failures
+are limited atomically by IP+username and by IP; 429 responses include
+`Retry-After` seconds. No service request or credential logging is enabled.
+
+Future authenticated routes use `requireSession(request)` and
+`requireWriteRequest(request, actor)`. Before committing protected state changes,
+call `assertActorCurrent(client, actor)` inside the same database transaction.
+It locks the user row, then checks the session; account mutations must preserve
+this user-before-sessions lock order and bump `auth_version` when revoking all
+authorization. Device tokens added later must carry and check this version too.
