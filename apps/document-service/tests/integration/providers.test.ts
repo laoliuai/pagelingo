@@ -213,5 +213,6 @@ describe('private provider settings', () => {
     expect((await test.db.pool.query('SELECT * FROM documents')).rows).toEqual(before);
     const source = await test.app.inject({ url: `/api/v1/documents/${document.id}/source`, headers: headers(test.alice) });
     expect(source.statusCode).toBe(200); expect(source.rawPayload).toEqual(pdf);
+    expect(test.outboundAttempts()).toBe(0);
   });
 });

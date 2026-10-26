@@ -1,6 +1,6 @@
 # 文档服务
 
-已注册为独立 npm workspace，当前实现运行配置、PostgreSQL 迁移、health API、初始管理员、登录 / 会话 / 修改密码、管理员账号管理及本人 PDF 原件 API；模型配置 API 尚未接入。[个人学习站 V1 设计稿](../../docs/superpowers/specs/2026-10-26-personal-learning-site-design.md)已于 2026-10-27 获批，管理员已可手工开通账号；S1 后续任务将使用 TypeScript 实现各用户独立资料与 API 配置、持久化任务和共享翻译 SDK 调用。后续再接入站内助手。账号、任务、原件与资源读取采用同一用户隔离边界。
+已注册为独立 npm workspace，当前实现运行配置、PostgreSQL 迁移、health API、初始管理员、登录 / 会话 / 修改密码、管理员账号管理及本人 PDF 原件 API；已接入本人模型配置和显式连接测试。[个人学习站 V1 设计稿](../../docs/superpowers/specs/2026-10-26-personal-learning-site-design.md)已于 2026-10-27 获批，管理员已可手工开通账号；S1 后续任务将使用 TypeScript 实现各用户独立资料与 API 配置、持久化任务和共享翻译 SDK 调用。后续再接入站内助手。账号、任务、原件与资源读取采用同一用户隔离边界。
 
 API 与 worker 可属于同一个包、使用不同入口；重解析和重译都有独立 run ID。PDF 解析调用 `services/document-parser` 的独立进程，不重写 Python 翻译引擎。具体协议、取消与恢复约束见 [PDF 规格](../../docs/pdf-spec.md) 和 [架构](../../docs/monorepo.md)。
 
@@ -156,3 +156,33 @@ until cleanup. Keep both the database and referenced objects in backups.
 after the stream is stored and before rechecking the actor and publishing any
 reference. It returns final `{ title? }` metadata after validating/draining
 remaining multipart parts. Plain async-body callers need no hook.
+
+
+## Personal provider settings and connection tests
+
+`GET` / `PUT /api/v1/settings/provider` read and update the authenticated user's
+profile. Reads expose only settings, revision, and `hasApiKey`; keys are encrypted
+with the runtime keyring. Saving settings and reading PDFs never call a model.
+`POST /api/v1/settings/provider/test` accepts an empty body or `{}`, requires
+Origin and CSRF, and uses only that user's saved profile and a fixed short block.
+It makes one SDK Provider call without retries and validates the returned block
+with the SDK validator. Results expose only `ok`, `profileRevision`, optional
+`usage`, and `checkedAt`. Failed calls return sanitized service errors.
+
+Each test has a ten-second total deadline, an output cap of 128 tokens, and a
+1 MiB decoded response limit. A committed PostgreSQL reservation enforces five
+attempts per user per minute, including upstream failures. Account, session, and
+profile changes invalidate in-flight tests: serialized checks run every 100 ms
+after the previous check completes and once again before accepting a result.
+Disconnects and revoked credentials abort the transport; no database transaction
+is held across network I/O. Already-running database queries can finish after
+cancellation but cannot start a late model call.
+
+Production and local modes use direct Undici transport with HTTPS only, full
+DNS-answer validation, a pinned numeric IP, original-hostname TLS certificate
+verification, and actual peer verification before request bytes are released.
+Mapped/transition/special addresses and IPv6 outside global `2000::/3` are
+rejected. Redirects and ambient proxies are not used. Responses are buffered
+within the size/time limits and each request's dispatcher is destroyed.
+`outboundFetch` injection is permitted only in test mode. Unit tests use in-memory
+sockets; integration tests use fake Provider responses, never real API keys.

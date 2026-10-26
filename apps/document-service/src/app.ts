@@ -7,6 +7,7 @@ import { ServiceError } from './errors.js';
 import { registerAuthRoutes } from './auth/routes.js';
 import { registerUsersRoutes } from './users/routes.js';
 import { registerProvidersRoutes } from './providers/routes.js';
+import { createOutboundFetch } from './network/safe-fetch.js';
 import type { FastifyInstance } from 'fastify';
 import type { ErrorResponse } from '@pagelingo/document-contracts';
 import type { RuntimeConfig } from './config.js';
@@ -19,7 +20,9 @@ export interface AppOptions {
   outboundFetch?: typeof fetch;
 }
 
-export async function createApp({ db, config }: AppOptions): Promise<FastifyInstance> {
+export async function createApp({ db, config, outboundFetch }: AppOptions): Promise<FastifyInstance> {
+  if (outboundFetch && config.mode !== 'test') throw new Error('Outbound fetch injection requires test mode');
+  const providerFetch = outboundFetch ?? createOutboundFetch({ timeoutMs: 10_000, maxResponseBytes: 1024 * 1024 });
   const app = Fastify({ logger: false });
   app.decorate('authContext', { db, config });
   await app.register(cookie);
@@ -29,7 +32,7 @@ export async function createApp({ db, config }: AppOptions): Promise<FastifyInst
   });
   registerAuthRoutes(app);
   registerUsersRoutes(app);
-  registerProvidersRoutes(app);
+  registerProvidersRoutes(app, providerFetch);
   registerDocumentsRoutes(app, createLocalObjectStore(config.dataDir));
   app.get('/health/live', async () => ({ status: 'ok' }));
   app.get('/health/ready', async (request, reply) => {
