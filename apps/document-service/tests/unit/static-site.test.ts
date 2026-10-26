@@ -6,7 +6,7 @@ import { expect, it } from 'vitest';
 import { registerStaticSite } from '../../src/static-site.js';
 import type { RuntimeConfig } from '../../src/config.js';
 
-it('only caches built assets immutably even when the deployment parent is named assets', async () => {
+it('serves a WASM-only evaluation policy and caches only built assets even under an assets parent', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'pgl-static-'));
   const webDir = join(directory, 'assets', 'web');
   const app = Fastify();
@@ -33,6 +33,15 @@ it('only caches built assets immutably even when the deployment parent is named 
     const asset = await app.inject('/assets/app-hash.js');
     expect(asset.statusCode).toBe(200);
     expect(asset.headers['cache-control']).toBe('public, max-age=31536000, immutable');
+    // The same CSP reaches both the shell and the externally served PDF worker.
+    for (const response of [shell, asset]) {
+      const policy = String(response.headers['content-security-policy']);
+      const script = policy.split(';').find((value) => value.trim().startsWith('script-src '))!;
+      expect(script).toContain("'self'");
+      expect(script).toContain("'wasm-unsafe-eval'");
+      expect(script).not.toContain("'unsafe-eval'");
+      expect(script).not.toContain("'unsafe-inline'");
+    }
   } finally {
     await app.close();
     await rm(directory, { recursive: true, force: true });

@@ -186,3 +186,84 @@ test('an upload denied after session revocation clears the pending private form'
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.locator('input[type=file]')).toHaveCount(0);
 });
+
+test('an old upload refresh cannot cancel a newly opened upload', async ({ page }) => {
+  await newReader(page, 'uploadrace');
+  await expect(page.getByText('还没有资料')).toBeVisible();
+  let releaseRefresh!: () => void;
+  let refreshStarted!: () => void;
+  const refreshHeld = new Promise<void>((resolve) => {
+    refreshStarted = resolve;
+  });
+  const refreshGate = new Promise<void>((resolve) => {
+    releaseRefresh = resolve;
+  });
+  let releaseNewUpload!: () => void;
+  let newUploadStarted!: () => void;
+  const uploadHeld = new Promise<void>((resolve) => {
+    newUploadStarted = resolve;
+  });
+  const uploadGate = new Promise<void>((resolve) => {
+    releaseNewUpload = resolve;
+  });
+  let intercepted = false;
+  await page.route('**/api/v1/documents?*', async (route) => {
+    if (intercepted) return route.continue();
+    intercepted = true;
+    const response = await route.fetch();
+    refreshStarted();
+    await refreshGate;
+    await route.fulfill({ response }).catch(() => {});
+  });
+  try {
+    await page.getByRole('button', { name: '上传 PDF', exact: true }).click();
+    await page
+      .getByLabel('PDF 文件')
+      .setInputFiles({
+        name: 'first.pdf',
+        mimeType: 'application/pdf',
+        buffer: Buffer.from(buildPdfFixture()),
+      });
+    await page.getByRole('button', { name: '保存原文', exact: true }).click();
+    await refreshHeld;
+    await page.getByRole('button', { name: '取消上传', exact: true }).click();
+    await page.getByRole('button', { name: '上传 PDF', exact: true }).click();
+    await page
+      .getByLabel('PDF 文件')
+      .setInputFiles({
+        name: 'second.pdf',
+        mimeType: 'application/pdf',
+        buffer: Buffer.from(buildPdfFixture(2)),
+      });
+    await page.route('**/api/v1/documents/pdf', async (route) => {
+      newUploadStarted();
+      await uploadGate;
+      await route.continue().catch(() => {});
+    });
+    await page.getByRole('button', { name: '保存原文', exact: true }).click();
+    await uploadHeld;
+    releaseRefresh();
+    await expect(page.locator('.document-row').filter({ hasText: 'first.pdf' })).toBeVisible();
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        ),
+    );
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await expect(page.getByLabel('资料标题')).toHaveValue('second.pdf');
+    expect(
+      await page
+        .getByLabel('PDF 文件')
+        .evaluate((input: HTMLInputElement) => input.files?.[0]?.name),
+    ).toBe('second.pdf');
+    await expect(page.getByRole('status')).toContainText('等待服务器确认');
+    releaseNewUpload();
+    await expect(page.getByRole('dialog')).toBeHidden();
+    await expect(page.getByRole('link', { name: 'second.pdf', exact: true })).toBeVisible();
+  } finally {
+    releaseRefresh();
+    releaseNewUpload();
+    await page.unrouteAll({ behavior: 'wait' });
+  }
+});

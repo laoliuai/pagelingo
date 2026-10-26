@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { buildIccPdfFixture } from '../../../../tests/fixtures/pdf';
 import { canvasData, capture, newReader, origin, upload } from './library-helpers';
 
 async function captureReader(page: import('@playwright/test').Page, name: string) {
@@ -236,4 +237,48 @@ test('large source uses authenticated bounded byte ranges and local decoding ass
   const cmap = await page.request.get('/assets/pdfjs/cmaps/UniGB-UCS2-H.bcmap');
   expect(cmap.status()).toBe(200);
   expect(cmap.headers()['content-type']).not.toContain('text/html');
+});
+
+test('ICC color conversion uses local WASM under the effective worker CSP', async ({
+  page,
+}) => {
+  await newReader(page, 'icc');
+  const warnings: string[] = [];
+  page.on('console', (message) => {
+    if (/ICCBased|WebAssembly|wasm|compile/i.test(message.text()))
+      warnings.push(message.text());
+  });
+  await page.getByRole('button', { name: '上传 PDF', exact: true }).click();
+  await page.getByLabel('PDF 文件').setInputFiles({
+    name: 'icc.pdf',
+    mimeType: 'application/pdf',
+    buffer: Buffer.from(buildIccPdfFixture()),
+  });
+  await page.getByRole('button', { name: '保存原文', exact: true }).click();
+  const workerResponse = page.waitForResponse((response) =>
+    /\/assets\/pdf\.worker[^/]*\.js$/.test(new URL(response.url()).pathname),
+  );
+  const decoderResponse = page.waitForResponse((response) =>
+    response.url().endsWith('/qcms_bg.wasm'),
+  );
+  await page.getByRole('link', { name: 'icc.pdf', exact: true }).click();
+  const worker = await workerResponse;
+  expect((await decoderResponse).status()).toBe(200);
+  const canvas = page.getByRole('img', { name: 'PDF 第 1 页' });
+  await expect(canvas).toHaveAttribute('data-rendered', 'true');
+  const pixel = await canvas.evaluate((node: HTMLCanvasElement) =>
+    Array.from(node.getContext('2d')!.getImageData(100, 100, 1, 1).data),
+  );
+  // The embedded custom profile maps red input to blue. DeviceRGB fallback stays red.
+  expect(pixel[0]).toBeLessThan(20);
+  expect(pixel[1]).toBeLessThan(20);
+  expect(pixel[2]).toBeGreaterThan(230);
+  expect(pixel[3]).toBe(255);
+  expect(warnings).toEqual([]);
+  const scriptPolicy = worker
+    .headers()
+    ['content-security-policy'].split(';')
+    .find((value) => value.trim().startsWith('script-src '))!;
+  expect(scriptPolicy).toContain("'wasm-unsafe-eval'");
+  expect(scriptPolicy).not.toContain("'unsafe-eval'");
 });

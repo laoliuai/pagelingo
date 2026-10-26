@@ -20,6 +20,6 @@ React / TypeScript 网站已接通登录、个人密码、管理员账号管理�
 
 PDF.js 按当前页渲染单个 canvas，支持翻页、缩放与原件下载；使用同源 Cookie 和 64 KiB 分块 Range，不自动预取。离开文档或切换账号会取消渲染、销毁 loadingTask 和独立 worker，并清空 canvas。原件 401 清空会话；404 / 无法解析时提供下载与重试。
 
-构建目录必须整体打包，包括拆分的阅读器 JS、独立 worker，以及 `assets/pdfjs/{cmaps,standard_fonts,wasm}/` 下的本地解码资源与许可证。Vite 开发服务也提供同一路径。未打包 PDF 脚本沙箱 `quickjs-eval.wasm`；应用没有启用 PDF 脚本执行。代码保留显式 `isEvalSupported: false`，但固定版本 PDF.js 6 已移除该旧选项及对应动态求值路径，不能把此兼容字段当作运行时开关。网站 CSP 仍禁止 `unsafe-eval`。
+构建目录必须整体打包，包括拆分的阅读器 JS、独立 worker，以及 `assets/pdfjs/{cmaps,standard_fonts,wasm}/` 下的本地解码资源与许可证。Vite 开发服务也提供同一路径。未打包 PDF 脚本沙箱 `quickjs-eval.wasm`；应用没有启用 PDF 脚本执行。代码保留显式 `isEvalSupported: false`，但固定版本 PDF.js 6 已移除该旧选项及对应动态求值路径，不能把此兼容字段当作运行时开关。网站 CSP 仅为同源 PDF 解码器允许 `wasm-unsafe-eval`，JavaScript `unsafe-eval` 仍被禁止。
 
 浏览器测试服务只在隔离临时数据库与目录内注册 `/__test/metrics` 和丢失原件的故障注入路径；生产服务不包含这些端点。所有模型计数来自测试服务器的模拟出站传输。

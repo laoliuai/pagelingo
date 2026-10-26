@@ -49,6 +49,7 @@ export function UploadDialog() {
       });
       if (request.current !== controller) return;
       await queryClient.invalidateQueries({ queryKey: [user!.id, 'documents'] });
+      if (controller.signal.aborted || request.current !== controller) return;
       close();
     } catch (error) {
       if (controller.signal.aborted || request.current !== controller) return;

@@ -13,7 +13,8 @@ export async function registerStaticSite(
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'"],
+        // Allow trusted same-origin PDF decoder WASM; JavaScript eval remains forbidden.
+        scriptSrc: ["'self'", "'wasm-unsafe-eval'"],
         connectSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
         imgSrc: ["'self'", 'blob:', 'data:'],
