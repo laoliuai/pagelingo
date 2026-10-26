@@ -190,6 +190,12 @@ test('a cross-tab account switch clears secrets and rejects a delayed old-user p
     await page.getByRole('link', { name: '资料库' }).click();
     await page.getByRole('link', { name: '模型与账户' }).click();
     await held;
+    // Keep real secrets in the live, remounted form at the identity boundary.
+    // The old request remains pending while a second actual GET mounts the form.
+    await page.getByRole('link', { name: '资料库' }).click();
+    await page.getByRole('link', { name: '模型与账户' }).click();
+    await page.getByLabel('API Key', { exact: true }).fill('live-sensitive-key');
+    await page.getByLabel('当前密码').fill('live-sensitive-password');
     const switcher = await context.newPage();
     await switcher.goto('/library');
     await switcher.getByRole('button', { name: '退出登录', exact: true }).click();

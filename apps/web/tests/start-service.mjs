@@ -1,5 +1,5 @@
 import { randomUUID, randomBytes } from 'node:crypto';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rename, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { openDatabase } from '../../document-service/dist/db/database.js';
@@ -11,6 +11,7 @@ if (!url) throw new Error('An isolated test PostgreSQL URL is required');
 const schema = `pgl_web_${randomUUID().replaceAll('-', '')}`;
 const admin = openDatabase(url);
 let db, app, dataDir;
+let modelCalls = 0;
 async function close() {
   try {
     await app?.close();
@@ -43,8 +44,9 @@ try {
       maxPdfBytes: 1024 * 1024,
       keyring: { activeKeyId: 'test', keys: { test: randomBytes(32) } },
     },
-    outboundFetch: async () =>
-      Response.json({
+    outboundFetch: async () => {
+      modelCalls++;
+      return Response.json({
         choices: [
           {
             message: {
@@ -56,7 +58,22 @@ try {
           },
         ],
         usage: { prompt_tokens: 3, completion_tokens: 1, total_tokens: 4 },
-      }),
+      });
+    },
+  });
+  app.get('/__test/metrics', async () => ({ modelCalls }));
+  // Fault injection operates on this runner's disposable real object store only.
+  app.post('/__test/missing-source/:id', async (request, reply) => {
+    const { rows } = await db.pool.query(
+      'SELECT object_key FROM assets WHERE document_id = $1',
+      [request.params.id],
+    );
+    if (!rows[0]) return reply.code(404).send();
+    await rename(
+      join(dataDir, 'objects', rows[0].object_key),
+      join(dataDir, 'objects', `${rows[0].object_key}.missing`),
+    );
+    return reply.code(204).send();
   });
   await app.listen({ host: '127.0.0.1', port: 4338 });
   for (const signal of ['SIGINT', 'SIGTERM'])

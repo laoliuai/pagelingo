@@ -19,7 +19,12 @@ export function resetApiSession(token: string | null) {
 }
 export async function apiRequest<T>(
   path: string,
-  options: { method?: string; body?: unknown | FormData; signal?: AbortSignal } = {},
+  options: {
+    method?: string;
+    body?: unknown | FormData;
+    signal?: AbortSignal;
+    idempotencyKey?: string;
+  } = {},
 ): Promise<T> {
   if (
     !/^\/api\/v1(?:\/|$)/.test(path) ||
@@ -30,7 +35,9 @@ export async function apiRequest<T>(
   )
     throw new Error('Invalid API path');
   const scope = generation;
-  const signal = options.signal ? AbortSignal.any([scope.signal, options.signal]) : scope.signal;
+  const signal = options.signal
+    ? AbortSignal.any([scope.signal, options.signal])
+    : scope.signal;
   const method = options.method ?? 'GET';
   const form = options.body instanceof FormData;
   const response = await fetch(path, {
@@ -39,8 +46,11 @@ export async function apiRequest<T>(
     cache: 'no-store',
     signal,
     headers: {
+      ...(options.idempotencyKey ? { 'Idempotency-Key': options.idempotencyKey } : {}),
       ...(!form && options.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
-      ...(method !== 'GET' && method !== 'HEAD' && csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
+      ...(method !== 'GET' && method !== 'HEAD' && csrfToken
+        ? { 'X-CSRF-Token': csrfToken }
+        : {}),
     },
     ...(options.body !== undefined
       ? { body: form ? (options.body as FormData) : JSON.stringify(options.body) }
@@ -48,7 +58,9 @@ export async function apiRequest<T>(
   });
   signal.throwIfAborted();
   if (!response.ok) {
-    const error = (await response.json().catch(() => null)) as { error?: { code?: string } } | null;
+    const error = (await response.json().catch(() => null)) as {
+      error?: { code?: string };
+    } | null;
     signal.throwIfAborted();
     if (response.status === 401 && path !== '/api/v1/auth/login') onUnauthorized();
     throw new ApiError(response.status, error?.error?.code ?? 'REQUEST_FAILED');
