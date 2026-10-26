@@ -1,0 +1,34 @@
+{
+  "name": "@pagelingo/document-service",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.test.json",
+    "test": "vitest run --config vitest.config.ts",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "dev": "tsx watch src/main.ts",
+    "start": "node dist/main.js"
+  },
+  "dependencies": {
+    "@pagelingo/document-contracts": "0.1.0",
+    "@pagelingo/translation-core": "0.4.0",
+    "zod": "4.6.7",
+    "fastify": "5.12.7",
+    "@fastify/cookie": "11.1.3",
+    "@fastify/multipart": "10.1.6",
+    "@fastify/helmet": "13.2.0",
+    "@fastify/static": "10.1.7",
+    "pg": "8.23.1",
+    "undici": "7.30.1",
+    "ipaddr.js": "2.5.0"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1",
+    "tsx": "4.23.15",
+    "@types/node": "26.6.4",
+    "typescript": "7.0.2",
+    "vitest": "5.0.3"
+  }
+}

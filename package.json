@@ -36,7 +36,10 @@
     "pdf:cli": "uv run --directory services/document-parser --locked --no-sync pagelingo-parser",
     "pdf:lint": "uv run --directory services/document-parser --locked --no-sync ruff check src tests",
     "pdf:test": "uv run --directory services/document-parser --locked --no-sync pytest -q",
-    "build:contracts": "npm run build:sdk && npm run build --workspace @pagelingo/document-contracts"
+    "build:contracts": "npm run build:sdk && npm run build --workspace @pagelingo/document-contracts",
+    "build:service": "npm run build:contracts && npm run build --workspace @pagelingo/document-service",
+    "test:service": "npm run build:contracts && npm run test --workspace @pagelingo/document-service",
+    "test:service:db": "npm run build:contracts && node scripts/with-test-postgres.mjs -- npm run test:integration --workspace @pagelingo/document-service --"
   },
   "engines": {
     "node": ">=24.0.0"
