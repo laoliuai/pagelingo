@@ -49,6 +49,35 @@ describe('PostgreSQL persistence', () => {
     await Promise.all(Array.from({ length: 5 }, () => migrateDatabase(db)));
     expect((await db.pool.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n).toBe(3);
   });
+  it('defaults new ingestions to receiving for stale-upload recovery', async () => {
+    const db = await database();
+    await migrateDatabase(db);
+    const user = await db.pool.query("INSERT INTO users (username, password_hash) VALUES ('alice', 'hash') RETURNING id");
+    await db.pool.query("INSERT INTO ingestions (owner_id, idempotency_key, request_hash) VALUES ($1, 'new-upload', repeat('a', 64))", [user.rows[0].id]);
+    const receiving = await db.pool.query("SELECT idempotency_key FROM ingestions WHERE status = 'receiving'");
+    expect(receiving.rows).toEqual([{ idempotency_key: 'new-upload' }]);
+  });
+  it('accepts receiving, completed and failed ingestion states with a document for completion', async () => {
+    const db = await database();
+    await migrateDatabase(db);
+    const user = await db.pool.query("INSERT INTO users (username, password_hash) VALUES ('alice', 'hash') RETURNING id");
+    const owner = user.rows[0].id;
+    const document = await db.pool.query("INSERT INTO documents (owner_id, title, original_filename) VALUES ($1, 'PDF', 'file.pdf') RETURNING id", [owner]);
+    await db.pool.query("INSERT INTO ingestions (owner_id, idempotency_key, request_hash, status) VALUES ($1, 'upload', repeat('a', 64), 'receiving')", [owner]);
+    await db.pool.query("UPDATE ingestions SET status = 'completed', document_id = $2 WHERE owner_id = $1 AND idempotency_key = 'upload'", [owner, document.rows[0].id]);
+    expect((await db.pool.query("SELECT status FROM ingestions WHERE owner_id = $1", [owner])).rows).toEqual([{ status: 'completed' }]);
+    await db.pool.query("INSERT INTO ingestions (owner_id, idempotency_key, request_hash, status) VALUES ($1, 'failed-upload', repeat('b', 64), 'failed')", [owner]);
+    expect((await db.pool.query("SELECT document_id FROM ingestions WHERE owner_id = $1 AND status = 'failed'", [owner])).rows).toEqual([{ document_id: null }]);
+  });
+  it('rejects marking an ingestion completed without its document', async () => {
+    const db = await database();
+    await migrateDatabase(db);
+    const user = await db.pool.query("INSERT INTO users (username, password_hash) VALUES ('alice', 'hash') RETURNING id");
+    const owner = user.rows[0].id;
+    await db.pool.query("INSERT INTO ingestions (owner_id, idempotency_key, request_hash) VALUES ($1, 'upload', repeat('a', 64))", [owner]);
+    await expect(db.pool.query("UPDATE ingestions SET status = 'completed' WHERE owner_id = $1", [owner])).rejects.toMatchObject({ code: '23514' });
+    expect((await db.pool.query('SELECT status, document_id FROM ingestions WHERE owner_id = $1', [owner])).rows).toEqual([{ status: 'receiving', document_id: null }]);
+  });
   it('rejects owner mismatches and a current source belonging to a different document', async () => {
     const db = await database();
     await migrateDatabase(db);

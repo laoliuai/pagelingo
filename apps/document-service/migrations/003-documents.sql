@@ -44,11 +44,11 @@ CREATE TABLE ingestions (
   idempotency_key text NOT NULL,
   request_hash text NOT NULL CHECK (request_hash ~ '^[a-f0-9]{64}$'),
   document_id uuid,
-  status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'complete', 'failed')),
+  status text NOT NULL DEFAULT 'receiving' CHECK (status IN ('receiving', 'completed', 'failed')),
   epoch bigint NOT NULL DEFAULT 0 CHECK (epoch >= 0),
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (owner_id, idempotency_key),
   FOREIGN KEY (owner_id, document_id) REFERENCES documents(owner_id, id),
-  CHECK (status <> 'complete' OR document_id IS NOT NULL)
+  CHECK (status <> 'completed' OR document_id IS NOT NULL)
 );
