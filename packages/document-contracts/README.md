@@ -1,6 +1,6 @@
 # 文档协议
 
-尚未注册为 npm workspace。已有 [P0 解析评测 JSON Schema](schemas/parser-evaluation.schema.json)，Python 评测入口实际校验此规范；它保留上游 payload、来源和资产用于比较候选，不等于正式 Reader IR。P1 再根据真实样本冻结 Reader IR、PDF / LaTeX 来源联合类型、任务 / API schema，并接入 TypeScript。
+`@pagelingo/document-contracts@0.1.0` 是可独立构建的 ESM workspace，提供学习网站 API 的 strict Zod schema 和 TypeScript DTO；未知字段会被拒绝。现有 [P0 解析评测 JSON Schema](schemas/parser-evaluation.schema.json)，Python 评测入口实际校验此规范；它保留上游 payload、来源和资产用于比较候选，不等于正式 Reader IR。正式 Reader IR、PDF / LaTeX 来源联合类型和处理任务协议仍待后续阶段根据真实样本冻结。
 
 2026-10-12 增加 [PDF 来源布局补充 Schema](schemas/pdf-source-layout.schema.json)。P0 离线包中的 `source-layout.json` 实际通过该 Schema 校验，保存源运行、PDFium 字符索引区间、视觉行、阅读顺序、歧义、段落缩进和容器引用。字符区间使用半开区间，叶节点互斥拥有字符，容器只引用成员；PDFium 索引不是 PDF 内容流 glyph ID。它仍是 `experimental-supplement`，供检查和后续协议设计参考，不代替正式 Reader IR。
 
@@ -22,3 +22,23 @@
 渲染仍引用同一原 PDF，不将原件图中的正文误称为已完成文本识别或翻译。
 
 具体边界见 [monorepo.md](../../docs/monorepo.md)。
+
+## 学习网站 API
+
+```ts
+import {
+  publicUserSchema,
+  providerProfileUpdateSchema,
+  documentSummarySchema,
+  type ProviderProfile,
+} from '@pagelingo/document-contracts';
+```
+
+- `auth`：公开用户、匿名 / 登录会话、登录、注销、修改密码与管理员账号写请求。用户名转小写；密码保留原文，以 Unicode 码点校验 12–128 的长度。会话 token 仅通过 Cookie 返回，不进入 DTO。
+- `provider`：脱敏 profile、初始 `defaultProviderProfile`、显式 `keep` / `replace` / `delete` Key 更新和连接测试结果。`replace` 才能携带非空 Key；profile 读取不接受任何 Key 字段。枚举与预算类型复用 translation-core 公开入口。空地址 / 模型用于初始未配置状态；地址校验只负责 HTTPS 和 URL 结构，公有单播 DNS 与连接绑定由服务实现。
+- `documents`：以 UUID、SHA-256、资产 ID 和字节数绑定原件的 `SourceIdentity`、固定初始状态的 PDF 摘要、分页列表与查询。分页从 1 开始，默认每页 20、最多 100，搜索最多 200 字符；服务按 createdAt / id 降序返回。
+- `errors`：`{ error: { code, message, requestId } }`。API 前缀 `/api/v1`，版本响应头为 `X-PageLingo-API-Version: pagelingo-site-api/1`，成功响应直接返回相应 DTO。
+
+运行 `npm run build:sdk` 后可执行 `npm run build:contracts`；`npm run test --workspace @pagelingo/document-contracts` 运行协议测试。根 `typecheck` / `test` 会先构建 SDK 与 contracts。包内保留现有 P0 JSON Schema，不改变其内容或版本；这些文件与网站 DTO 不互相替代。
+
+Actor、数据库对象、文件系统适配器及 Keyring 仅属于服务，不能从本包导出。公开输出 schema 拒绝 `ownerId` 等额外字段，实际授权必须由服务从会话 / 设备身份取得 owner。
