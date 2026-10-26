@@ -1,3 +1,4 @@
+import { registerStaticSite } from './static-site.js';
 import Fastify from 'fastify';
 import cookie from '@fastify/cookie';
 import multipart from '@fastify/multipart';
@@ -29,7 +30,9 @@ export async function createApp({ db, config, outboundFetch }: AppOptions): Prom
   await app.register(multipart);
   app.addHook('onRequest', async (_request, reply) => {
     reply.header('X-PageLingo-API-Version', 'pagelingo-site-api/1');
+    if (_request.url.split('?')[0] === '/api' || _request.url.startsWith('/api/')) reply.header('Cache-Control', 'no-store');
   });
+  await registerStaticSite(app, config);
   registerAuthRoutes(app);
   registerUsersRoutes(app);
   registerProvidersRoutes(app, providerFetch);
@@ -47,6 +50,10 @@ export async function createApp({ db, config, outboundFetch }: AppOptions): Prom
     }
   });
   app.setNotFoundHandler((request, reply) => {
+    const path = request.url.split('?')[0]!;
+    if (config.webDir && ['GET', 'HEAD'].includes(request.method) && !/^\/(api|assets|health)(\/|$)/.test(path) && !path.split('/').at(-1)?.includes('.')) {
+      return reply.header('Cache-Control', 'no-store').sendFile('index.html');
+    }
     const body: ErrorResponse = { error: { code: 'NOT_FOUND', message: 'Route not found', requestId: request.id } };
     return reply.code(404).send(body);
   });

@@ -1,0 +1,76 @@
+@import 'tailwindcss';
+
+:root {
+  color-scheme: light;
+  --page: #efefed;
+  --sidebar: #e9eae7;
+  --surface: #f6f6f3;
+  --hover: #e7e8e4;
+  --reader: #f2f1ec;
+  --ink: #26282b;
+  --secondary: #555b5f;
+  --muted: #626a66;
+  --border: #d8dbd5;
+  --subtle: #e2e4de;
+  --accent: #0f766e;
+  --accent-bg: #dce9e3;
+  --primary: #292c2d;
+  --on-primary: #f8f8f4;
+  --pdf: #e1e2de;
+  --paper: #faf9f4;
+  --paper-ink: #303237;
+  --warning: #826335;
+  --warning-bg: #eee7d9;
+  --radius-sm: 4px;
+  --radius: 6px;
+  --radius-lg: 8px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --font:
+    Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans CJK SC', 'PingFang SC',
+    'Microsoft YaHei', sans-serif;
+  --mono: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-base: 14px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+  --read-size: 18px;
+  --read-size-large: 20px;
+  --read-leading: 1.95;
+}
+[data-theme='dark'] {
+  color-scheme: dark;
+  --page: #202124;
+  --sidebar: #1b1d1f;
+  --surface: #27292c;
+  --hover: #303336;
+  --reader: #252629;
+  --ink: #dcdedc;
+  --secondary: #b1b7b3;
+  --muted: #9a9f9b;
+  --border: #3c4140;
+  --subtle: #323735;
+  --accent: #8cbeb3;
+  --accent-bg: #263d37;
+  --primary: #d8dcd8;
+  --on-primary: #232729;
+  --pdf: #1a1c1e;
+  --warning: #d0ba90;
+  --warning-bg: #3b352a;
+}
+
+@theme inline {
+  --color-page: var(--page);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-accent: var(--accent);
+  --font-sans: var(--font);
+}

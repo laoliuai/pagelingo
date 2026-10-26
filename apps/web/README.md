@@ -1,9 +1,17 @@
-# 文档阅读网站（规划）
+# PageLingo 私有网站
 
-尚未实现，也未注册为 npm workspace。按 [个人学习站 V1 设计稿](../../docs/superpowers/specs/2026-10-26-personal-learning-site-design.md) 建立 React / TypeScript 网站，支持管理员手工开通账号、各用户独立资料与 API，以及电脑 / 手机阅读。设计已于 2026-10-27 获批，正在制定 S1 实现计划；PDF 模块细节继续参考 [PDF 规格](../../docs/pdf-spec.md)。
+React / TypeScript 网站已接通登录、个人密码、管理员账号管理与个人模型配置。资料库和 PDF 阅读界面由后续任务接入；当前不展示示例资料。
 
-负责文档库、网页收藏、上传、任务进度与 Reader；后续接入阅读助手及 [LaTeX](../../docs/latex-spec.md)。PDF 在电脑上采用左侧原件、右侧译文 HTML；手机切换原文 / 译文。只消费版本化文档 / API 协议，不直接依赖 Python parser 或扩展内部代码。目录与依赖边界见 [monorepo.md](../../docs/monorepo.md)。
+从仓库根目录执行：
 
-文档、译文、对话、术语与阅读位置以 document-service 的 PostgreSQL / ObjectStore 为持久化依据，浏览器缓存可丢弃。UI 通过稳定文档与资产 ID 访问 API，不保存服务器磁盘路径或 LLM Key；服务器部署与本机使用同一数据协议，原件 / 资产与聊天采用相同认证边界。
+- `npm run build:site`：构建 SDK、文档协议、服务和网站，网站产物位于 `apps/web/dist/`。
+- `npm run test:site:e2e -- accounts.test.ts`：构建后启动独立 PostgreSQL 与真实同源服务，运行 Chromium 账号与配置测试。仅使用模拟 Provider，不调用模型服务，也不读取 `.env`。显式 `PAGELINGO_TEST_DATABASE_URL` 可使用已有的测试库；每次运行仍创建并删除随机 schema 和临时文件目录。
+- `npm run dev --workspace @pagelingo/web`：Vite 监听 `127.0.0.1:5174`，把 `/api` 代理到 `127.0.0.1:4320`。服务的 public origin 必须对应浏览器访问的网站地址。
 
-正式 Reader 与静态导出使用同一渲染策略，支持本机预生成、服务器展示和完整资源离线包；原文 / 译文 IR 继续保留。长书按章节组织，公式 / 图片 / 字体随包提供，阅读时不重新跑 parser 或翻译。当前已有独立原文预览实验，正式网站 / 快照尚未实现，见 [处理设计](../../docs/pdf-processing.md)。
+生产和同源测试复用 document-service 的静态网站路径。配置 `PAGELINGO_WEB_DIR` 指向构建目录后，服务提供 SPA 与 CSP；API 和缺失资源不会回退到 HTML。默认根 `dev` / `build` 仍运行扩展，默认单元检查不需要 PostgreSQL。
+
+业务 DTO 来自 `@pagelingo/document-contracts`。`apiRequest` 仅接受同源 `/api/v1` 请求，自动带 Cookie、CSRF 和 `cache: no-store`；调用方可传 `AbortSignal`，204 返回 `undefined`。Query key 必须以 `useSession().user.id` 开头。账号切换、退出与 401 会中止旧请求、清空 Query，并通过 session epoch 卸载敏感表单和后续阅读视图。跨标签页通知仅携带变更信号；不会传递会话或用户数据。
+
+浏览器仅持久化主题偏好；API Key 与会话 token 不写 localStorage / sessionStorage。Provider 的保存回显只含脱敏状态；测试连接需要明确确认，并先保存未保存配置。
+
+视觉验证截图位于 [S1 validation](../../docs/superpowers/specs/assets/2026-10-27-s1-validation/)，使用隔离测试账号、空密码框与空 Key 框。
