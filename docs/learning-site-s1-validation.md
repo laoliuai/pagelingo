@@ -16,13 +16,13 @@
 | `npm audit --json` | 同一锁文件，控制代理实际执行的审计中，所有级别漏洞均为 0 |
 | `git diff --check` | 通过；常规网站检查没有修改任何已提交截图 |
 
-最后一轮小修复只修改密码错误反馈、管理目标 UUID 规范化及外部测试库的 Compose CLI 前提说明；以上聚焦回归与完整 `check:site` 为修复后的实际执行结果。默认 `check`、容器重建与依赖审计记录来自此前同次 S1 验收，未在该轮重复执行；锁文件、容器配置、扩展和 SDK 实现未改动。
+最后一轮小修复只修改密码错误反馈、管理目标 UUID 规范化及外部测试库的 Compose CLI 前提说明；以上聚焦回归与完整 `check:site` 为修复后的实际执行结果。随后在最终业务代码提交 `5812e25` 上重新执行 `npm run check`，类型检查、321 项单测、8 项独立检查和 55 项扩展 Chromium 测试全部通过。容器重建与依赖审计沿用此前同次 S1 验收结果，对应的容器配置和锁文件未改动。原扩展和 SDK 源码未改动。整分支审查及最终修正复审通过，S1 审查项均已关闭。
 
 独立 dev 聚焦命令 `node scripts/with-test-postgres.mjs -- node --test tests/site/dev.test.mjs` 也为 5/5 通过：使用临时 env、随机端口和独立数据库，验证 API / Vite 代理、PDF fallback JavaScript MIME，并分别发送 SIGTERM / SIGINT，确认两端口关闭和退出码 143 / 130。另外验证无效配置、API 端口被占用时命令失败且不终止占用者，以及独立开发库 / 主机原件目录中的 PDF 在开发进程重启后仍可读。没有借用已有开发服务。显式集成 runner 遇到空或不可用测试数据库时失败，不回退用户 `DATABASE_URL`；只有不带数据库的通用 Node 测试命令跳过上述 dev smoke。开发 smoke 的 URL 显式指定随机 `pgl_test_*` search_path，清理后检查 public 对象未改变且自己的 schema 不再存在。
 
 另以全新 runner 自有临时 PostgreSQL 模拟“外部测试库”：外层探针创建唯一 public 哨兵表后，以显式测试 URL 执行上述 5 个 smoke，确认 public catalog / 哨兵值完全不变、没有新增残留测试 schema，再删除自己的哨兵和容器。标准 smoke 不创建 public 哨兵，也不向调用方 public schema 写入。
 
-默认扩展 Playwright 输出含现有 `NO_COLOR` / `FORCE_COLOR` 冲突提示，不影响退出码和测试结果；网站检查无该提示。未调用真实模型或使用用户现有 `.env.local`。PDF 原件上传、阅读、设置保存不触发模型；网站测试的显式连接测试使用受控模拟 Provider。
+默认扩展构建含现有 `inlineDynamicImports` 被忽略提示，Playwright 含 `NO_COLOR` / `FORCE_COLOR` 冲突提示，不影响退出码和测试结果；网站检查无这些提示。未调用真实模型或使用用户现有 `.env.local`。PDF 原件上传、阅读、设置保存不触发模型；网站测试的显式连接测试使用受控模拟 Provider。
 
 ## 构建与运行版本
 
