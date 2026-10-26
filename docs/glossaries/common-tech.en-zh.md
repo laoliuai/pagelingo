@@ -10,6 +10,10 @@
 
 插件 0.3.0 起支持在设置页导入这些 JSON / CSV 文件，确认合并并保存设置后，词条用于下一次翻译；文件不会自动加载。原词（忽略大小写与首尾空格）＋领域是键，重复导入及文件内部重复均以后面的覆盖前面的，未出现的已有词条保留。已保存词条可搜索、编辑、删除及导出 JSON。使用说明见 [词表维护](../glossary.md)。
 
+2026-10-25 增加保留本表策略的 HJFY 融合版，共 2,799 条：
+[JSON](merged-tech.en-zh.json) / [CSV](merged-tech.en-zh.csv)。本参考表仍保留 367 条，
+并将 accuracy / precision 调整为保留英文；融合规则及使用步骤见 [词表维护](../glossary.md#融合词表)。
+
 ## 策略含义
 
 | policy | 含义 | 使用建议 |
@@ -35,7 +39,7 @@
 | epoch / episode / training step | 训练轮次 / 交互回合 / 训练步，不可混用 |
 | on-policy / off-policy / offline | 同策略 / 异策略 / 离线，描述的维度不同 |
 | inference / reasoning | 执行模型获得输出 / 推理过程；中文资料常都用“推理”，应根据上下文区分 |
-| precision | 分类指标：查准率；数值格式：精度，因此采用优先英文 |
+| accuracy / precision | 保留英文以区分指标；accuracy 可指准确率，precision 在数值格式中指精度、分类指标中指查准率 |
 | actor / critic | Actor-Critic 中的策略部分 / 价值评估部分，采用优先英文，避免直译成演员 / 评论家 |
 | concurrency / parallelism | 并发 / 并行，并发并不要求任务同时执行 |
 | authentication / authorization | 身份验证 / 授权，分别涉及身份和访问权限 |
@@ -62,7 +66,7 @@ DPO 放在“强化学习与对齐”分类，属于偏好优化相关术语，�
 | 强化学习与对齐 | 90 |
 | 合计 | 367 |
 
-策略分布：固定译文 237、双语术语 73、保留英文 44、优先英文 13。
+策略分布：固定译文 236、双语术语 73、保留英文 46、优先英文 12。
 
 ## 通用技术
 
@@ -273,8 +277,8 @@ DPO 放在“强化学习与对齐”分类，属于偏好优化相关术语，�
 | quantization | 量化 | 固定译文 | machine-learning | — |
 | pruning | 剪枝 | 固定译文 | machine-learning | — |
 | mixed precision | 混合精度 | 固定译文 | machine-learning | — |
-| accuracy | 准确率 | 固定译文 | machine-learning | 分类评测指标语境；一般叙述中的 accuracy 可指准确性。 |
-| precision | 查准率 | 优先英文 | machine-learning | 分类指标为查准率；数值格式语境为精度；不要全局强制单一译法。 |
+| accuracy | 准确率 | 保留英文 | machine-learning | 保留英文以区分评测指标；target 仅作释义，普通叙述也可能指准确性。 |
+| precision | 精度 / 查准率 | 保留英文 | machine-learning | 保留英文；数值格式语境为精度，分类指标语境为查准率，避免与 accuracy 混淆。 |
 | recall | 召回率 | 固定译文 | machine-learning | 也常译为查全率；此词表统一采用召回率。 |
 | F1 score | F1 分数 | 固定译文 | machine-learning | — |
 | ablation study | 消融实验 | 固定译文 | machine-learning | — |

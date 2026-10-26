@@ -2,13 +2,15 @@
 
 面向科技阅读的 monorepo，使用用户自己的 LLM API。当前提供浏览器翻译插件和文章阅读助手，后续 PDF / LaTeX 阅读网站复用翻译与助手 SDK。
 
-当前插件 **0.4.4**，包含 M2（A / B / C）、M3 个人术语部分及阅读助手第一版。翻译 SDK 为 0.4.0，助手 SDK 为 0.2.0。支持真实网页翻译、预算与长段拆分、跨标签页并发、有限重试、IndexedDB 缓存和后台恢复，并保留译文局部颜色、背景高亮、下划线及 PDF 导出 HTML 的提示框变量和答题线。个人术语表支持文件导入、后写覆盖、搜索编辑与导出，见 [词表维护](docs/glossary.md)。
+当前插件 **0.4.5**，包含 M2（A / B / C）、M3 个人术语部分及阅读助手第一版。翻译 SDK 为 0.4.0，助手 SDK 为 0.2.0。支持真实网页翻译、预算与长段拆分、跨标签页并发、有限重试、IndexedDB 缓存和后台恢复，并保留译文局部颜色、背景高亮、下划线及 PDF 导出 HTML 的提示框变量和答题线。个人术语表支持文件导入、后写覆盖、搜索编辑与导出，见 [词表维护](docs/glossary.md)。
 
 阅读助手支持原生侧栏、右键添加引用、连续对话、按文章保存历史、停止 / 重试及长对话摘要，底层使用 Pi Agent runtime。添加引用不请求模型，补充问题并发送后才开始对话。完整选区与问题合并为最后一条用户消息，文章背景另行提供；Enter 发送、Shift + Enter 换行。侧栏绑定打开它的标签页，切换到未打开助手的标签页会隐藏。默认复用已有 API 配置，无搜索或工具调用；使用方法见 [阅读助手指南](docs/assistant.md)。
 
 助手实现和翻译回归的验证结果见 [阅读助手验收记录](docs/assistant-validation.md)。
 
 可编辑的 [常见科技个人术语表](docs/glossaries/common-tech.en-zh.md) 包含 367 条编程、软件工程、机器学习、大模型和强化学习词条，同目录提供符合 SDK 词条格式的 JSON 与带语境说明的 CSV。
+
+另提供 [2,799 条融合词表](docs/glossaries/merged-tech.en-zh.json)，优先保留我们的领域与译法策略，补充 HJFY 机器学习术语；accuracy / precision 保留英文。当前源码支持最多 5,000 条、8 MiB，重新构建并加载插件后可导入，详见 [融合与维护规则](docs/glossary.md#融合词表)。
 
 0.3.0 的导入、覆盖、术语保护和缓存验证见 [个人术语验收记录](docs/glossary-validation.md)。
 
@@ -35,7 +37,7 @@ npm run package:extension
 4. 在扩展设置页填写 Base URL、API Key、Model，点击“授权并测试连接”。Base URL 是 API 根地址，例如 `https://api.deepseek.com/v1`，不包含 `/chat/completions`。
 5. 打开普通 HTTP/HTTPS 文章，点击 PageLingo 图标，再点击“翻译当前页面”。切换原文、仅译文、中英对照；“恢复页面”移除译文并恢复原节点。
 
-也可解压 `releases/pagelingo-0.4.4.zip`，选择含 `manifest.json` 的目录。浏览器不会读取 `.env.local`；完整安装步骤见 [安装指南](docs/install-m2.md)。
+也可解压 `releases/pagelingo-0.4.5.zip`，选择含 `manifest.json` 的目录。浏览器不会读取 `.env.local`；完整安装步骤见 [安装指南](docs/install-m2.md)。
 
 选中文字后，可使用右键菜单中的“PageLingo：翻译选中内容”。“预览页面布局”在当前网页正文下插入【布局预览】文本，不调用 API；选择中英对照并关闭面板即可查看。PDF、浏览器内部页面和 iframe 内容暂不支持。修改源码并重新构建后，需要在扩展管理页重新加载扩展，并刷新已注入脚本的网页。
 
@@ -94,6 +96,8 @@ npm run test:e2e
 ```
 
 也可使用 `npm run check` 执行 SDK / DOM 单元测试、独立包消费验证、类型检查、构建与浏览器测试。SDK 单元测试运行在无 DOM 的 Node 环境，网页结构测试使用 jsdom。
+
+`npm run test:glossary` 验证融合词表的来源优先级、导入导出与实际匹配，已包含在 `npm run check` 中。
 
 `apps/extension/tests/fixtures.ts` 为 DOM 测试与本地 HTTP 服务生成 arXiv 风格、GitHub README 风格、文档页和 X 帖子/长文合成页面，包含列表、表格、代码、MathML、链接事件、编辑区域及 SPA 变化测试。新克隆的仓库可直接运行测试，无需另行取得 HTML 数据文件；这些样本验证确定性的结构行为，不代表已经覆盖真实站点所有页面。
 

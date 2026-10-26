@@ -14,6 +14,39 @@
 
 导入是合并：文件未包含的已有词条保留。在文件中删除一行不会删除浏览器中的词条，需要在设置页删除并保存。
 
+## 融合词表
+
+自用融合版提供 [JSON](glossaries/merged-tech.en-zh.json) 与带来源列的
+[CSV](glossaries/merged-tech.en-zh.csv)，共 **2,799 条**：保留 PageLingo 的 367 条，
+补充 HJFY 的 2,432 条，其中 10 条拼写变体沿用我们的策略，另有 3 条人工校正。
+使用支持 5,000 条的插件 0.4.5 或以上版本，重新加载扩展并刷新文章页，再按上述步骤导入；
+术语适用领域选择“机器学习 / 大模型 / RL”。文件不会自动加载。
+
+融合时按英文原词忽略大小写匹配，已有原词使用我们的领域和策略，不另加更高优先级的
+机器学习版本。空格、连字符等拼写变体显式新增为别名，沿用原词的译法和领域。
+HJFY 的其余新增词条限定在 `machine-learning`，原词与译文仅大小写不同的采用 `keep`。
+不把 HJFY 的 `case` 列解释为保留英文；当前引擎仍不区分大小写。
+
+`accuracy` 和 `precision` 均保留原文，中文栏分别为“准确率”和“精度 / 查准率”，只作释义。
+`mixed precision` 等已有完整词组仍优先按词组处理。修正 `PCA → PAC` 为保留 PCA、释义主成分分析，
+并保护 Actor-Critic Algorithm / Method，避免较长词组引入“演员 / 评论员”。
+其余词条沿用来源译法，尚未逐条完成语义审校。
+
+导入融合文件时，同键覆盖规则照常适用：若已有 367 条参考词表，无需清空，确认导入即可；
+你在浏览器中手工修改过的同键词条也会被融合文件覆盖，建议先导出 JSON 备份。
+以后可直接维护融合 CSV，再次导入；若重新运行生成器，手工修改应先同步到参考词表或生成规则。
+
+开发时复现融合结果（原 HJFY CSV 留在本机，不随代码复制）：
+
+```bash
+npm run glossary:merge -- --hjfy temp/HJFY-parsed/data/MachineLearningTerminology.csv
+npm run glossary:merge -- --hjfy temp/HJFY-parsed/data/MachineLearningTerminology.csv --check
+npm run test:glossary
+```
+
+[来源清单](glossaries/merged-tech.en-zh.manifest.json) 记录输入 SHA-256、条目分布、校正与输出校验值。
+`--check` 仅比对生成结果；日常测试不依赖本机 HJFY 文件，也不访问外部服务。
+
 ## 文件格式
 
 JSON 是纯词条数组：
@@ -35,7 +68,7 @@ harness engineering,harness 工程,translate,machine-learning
 RSI,递归自我改进,keep,machine-learning
 ```
 
-CSV / TSV 省略策略时，有译文默认 `translate`，无译文默认 `keep`；省略领域默认 `all`。JSON 必须提供四个字段。最多 2,000 个不同键、5 MiB；不合法文件整体拒绝，不修改已有词条。固定译文必须非空；引擎保留的 `⟦`、`⟧` 分隔符不能出现在原词及固定输出中。
+CSV / TSV 省略策略时，有译文默认 `translate`，无译文默认 `keep`；省略领域默认 `all`。JSON 必须提供四个字段。最多 5,000 个不同键、8 MiB；不合法文件整体拒绝，不修改已有词条。固定译文必须非空；引擎保留的 `⟦`、`⟧` 分隔符不能出现在原词及固定输出中。
 
 ## 生效范围与策略
 
@@ -65,4 +98,4 @@ for await (const batch of engine.translate(document, {
 
 SDK 不读取文件或浏览器设置，调用方传入文本和词条即可。解析、合并、匹配、保护及相关缓存依赖由同一个 SDK 管理。
 
-本次交付为 M3 的个人术语部分。自动领域识别、内置词表自动加载、文档上下文分析、动态词表与人工质量评测仍需继续；逐段重试及选区译文回填也尚未加入。
+本文覆盖个人词表维护。自动领域识别、内置词表自动加载、文档上下文分析、动态词表与人工质量评测仍待继续。

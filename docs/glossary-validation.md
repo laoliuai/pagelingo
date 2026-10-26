@@ -29,3 +29,16 @@
 运行方式、文件维护和升级步骤见 [词表维护](glossary.md) 与 [安装指南](install-m2.md)。
 
 安装包：`releases/pagelingo-0.3.0.zip`，20 个文件，212,642 字节；SHA-256：`50576bb9cdf04534657f9a1220d52c749e3a914f8f7d4cf552261e12aff02ab3`。包含安装指南、词表维护说明及三种词表文件；构建目录为 `apps/extension/dist/`。
+
+## 2026-10-25 融合词表与容量更新
+
+- SDK、扩展设置校验与界面统一使用 5,000 条 / 8 MiB 上限。5,000 条非 ASCII 最大字段词表可导出再导入，超过条目或文件上限仍拒绝。
+- 融合版共 2,799 条；参考表保留 367 条并优先于 HJFY。新增词条限定机器学习领域，10 条拼写别名沿用既有策略；PCA 和两个 Actor-Critic 长词组有显式校正。
+- accuracy / precision 使用 `keep`；数值格式中的 mixed precision 继续按已有完整词组译为混合精度。只将实际命中的词条传给模型。
+- `npm run typecheck`、`npm test` 通过：扩展 86、助手 SDK 31、翻译 SDK 89，共 206 个单元测试。
+- `npm run test:glossary` 的 6 项规则与数据测试、`npm run test:package` 的 2 项独立 SDK 消费测试通过。
+- 5 项术语相关 Chromium 测试通过：旧词表导入与后写覆盖、参考 CSV、融合 CSV、编辑提交约束及相关缓存失效。融合表在真实扩展中完成导入、保存、重开、搜索、JSON 全量导出和模拟 API 翻译。
+- 生成器 `--check` 逐字核对 JSON、CSV、来源清单，输出一致。隔离目录中的 ZIP 打包检查通过，31 个文件，融合词表与源码一致、CRC 正常；既有发布包未覆盖。
+- 正式 `releases/pagelingo-0.4.5.zip` 为 424,524 字节，31 个文件，SHA-256：`d28be9f386ae54ffe92947de1df70b573a337ae335d8e4dbb4e768cc463e17d6`。直接解压此 ZIP，在未修改生产 manifest 的 Chromium 中加载，完成包内 2,799 条 CSV 的导入、保存、重开、搜索及 JSON 导出比对；无页面脚本错误，precision 保留英文。
+
+本轮以插件 0.4.5 交付，构建位于 `apps/extension/dist/`，ZIP 包含融合词表与更新说明。测试未调用真实 LLM，新增的来源译法尚未逐条语义审校；使用与维护步骤见 [融合词表](glossary.md#融合词表)。

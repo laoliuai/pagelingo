@@ -3,6 +3,7 @@ import {
   chatCompletionsUrl,
   glossaryEntrySchema,
   glossaryDomainSchema,
+  MAX_GLOSSARY_ENTRIES,
   mergeGlossaryEntries,
   responseFormatSchema,
 } from '@pagelingo/translation-core';
@@ -41,7 +42,7 @@ export const settingsSchema = z.object({
   displayMode: displayModeSchema,
   customGlossary: z
     .array(glossaryEntrySchema)
-    .max(2000)
+    .max(MAX_GLOSSARY_ENTRIES)
     .transform((entries) => mergeGlossaryEntries([], entries)),
   glossaryDomain: glossaryDomainSchema.default('machine-learning'),
   assistant: z

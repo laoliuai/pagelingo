@@ -1,0 +1,69 @@
+{
+  "formatVersion": 1,
+  "inputs": {
+    "preferred": {
+      "file": "common-tech.en-zh.json",
+      "sha256": "18f6649c26141ae7c8bf71569449f4e74c29804eddc54bfb787a5cebfa33b404",
+      "entries": 367
+    },
+    "hjfy": {
+      "file": "MachineLearningTerminology.csv",
+      "sha256": "0788ef3437bb896327e5655cf74915281a3218f1536403220a29d7b270a55e64",
+      "entries": 2544
+    }
+  },
+  "entries": 2799,
+  "distinctSources": 2798,
+  "skippedExactHjfySources": 112,
+  "origins": {
+    "hjfy": 2419,
+    "pagelingo": 367,
+    "pagelingo-alias": 10,
+    "reviewed-hjfy": 3
+  },
+  "policies": {
+    "first-bilingual": 76,
+    "keep": 95,
+    "prefer-source": 12,
+    "translate": 2616
+  },
+  "domains": {
+    "all": 24,
+    "machine-learning": 2654,
+    "software-engineering": 121
+  },
+  "reviewedCorrections": [
+    {
+      "source": "Actor-Critic Algorithm",
+      "target": "Actor-Critic 算法",
+      "policy": "keep",
+      "domain": "machine-learning",
+      "reason": "沿用 Actor-Critic 英文保留策略，避免长词组引入演员/评论员译法。"
+    },
+    {
+      "source": "Actor-Critic Method",
+      "target": "Actor-Critic 方法",
+      "policy": "keep",
+      "domain": "machine-learning",
+      "reason": "沿用 Actor-Critic 英文保留策略，避免长词组引入演员/评论员译法。"
+    },
+    {
+      "source": "PCA",
+      "target": "主成分分析",
+      "policy": "keep",
+      "domain": "machine-learning",
+      "reason": "修正原表 PCA → PAC；缩写保留英文。"
+    }
+  ],
+  "rules": [
+    "Existing PageLingo sources take precedence across all domains; their original domains and policies are retained.",
+    "Whitespace/hyphen spelling aliases inherit the matching PageLingo policy and domain.",
+    "Additional HJFY terms are scoped to machine-learning; unchanged English targets use keep.",
+    "HJFY case flags are not reproduced; PageLingo matching remains case-insensitive.",
+    "Accuracy and precision preferences are maintained in the preferred reference glossary."
+  ],
+  "outputSha256": {
+    "json": "d8285d5b50422b1af95d964ac438b1c7a5eb025c82a9ca97d61fb915620791ed",
+    "csv": "9e73d576c2b57dd39f600eb9bff063ec1a3d8051c4577d606668d25163a8d9a8"
+  }
+}

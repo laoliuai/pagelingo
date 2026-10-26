@@ -41,14 +41,17 @@ describe('personal glossary maintenance', () => {
     for (const text of ['source,target\n"unterminated,x', 'source,source\na,b', 'source,target,policy\na,b,bogus', 'source,target\na,b,c']) {
       expect(() => sdk.parseGlossaryFile(text, 'csv')).toThrow();
     }
-    expect(() => sdk.mergeGlossaryEntries([], Array.from({ length: 2001 }, (_, i) => term(`term${i}`, '译文')))).toThrow();
+    expect(() => sdk.mergeGlossaryEntries([], Array.from({ length: sdk.MAX_GLOSSARY_ENTRIES + 1 }, (_, i) => term(`term${i}`, '译文')))).toThrow();
   });
   it('rejects reserved marker delimiters before hard-output terms can synthesize adapter markers', () => {
     for (const target of ['⟦A999', '999⟧', '⟦A999⟧']) expect(() => sdk.mergeGlossaryEntries([], [term('term', target)])).toThrow();
   });
   it('can reimport an exported maximum-size non-ASCII glossary', () => {
-    const entries = Array.from({ length: 2000 }, (_, i) => term(`${i}${'词'.repeat(115)}`, '译'.repeat(240)));
-    expect(sdk.parseGlossaryFile(JSON.stringify(entries, null, 2), 'json')).toHaveLength(2000);
+    const entries = Array.from({ length: sdk.MAX_GLOSSARY_ENTRIES }, (_, i) => term(`${i}${'词'.repeat(115)}`, '译'.repeat(240)));
+    expect(sdk.parseGlossaryFile(JSON.stringify(entries, null, 2), 'json')).toHaveLength(sdk.MAX_GLOSSARY_ENTRIES);
+  });
+  it('rejects an oversized file before parsing it', () => {
+    expect(() => sdk.parseGlossaryFile(' '.repeat(sdk.MAX_GLOSSARY_FILE_BYTES + 1), 'csv')).toThrow('MiB');
   });
 });
 

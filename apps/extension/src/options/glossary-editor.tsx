@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { glossaryEntrySchema, glossaryKey, mergeGlossaryEntries, parseGlossaryFile, MAX_GLOSSARY_FILE_BYTES, type GlossaryEntry } from '@pagelingo/translation-core';
+import { glossaryEntrySchema, glossaryKey, mergeGlossaryEntries, parseGlossaryFile, MAX_GLOSSARY_ENTRIES, MAX_GLOSSARY_FILE_BYTES, type GlossaryEntry } from '@pagelingo/translation-core';
 import { errorMessage } from '../shared/types';
 
 const policies: Record<GlossaryEntry['policy'], string> = { keep: '保留英文', translate: '固定译文', 'prefer-source': '优先英文', 'first-bilingual': '双语术语' };
 const domains: Record<GlossaryEntry['domain'], string> = { all: '通用', 'machine-learning': '机器学习 / 大模型 / RL', 'software-engineering': '编程 / 软件工程', physics: '物理', 'general-technical': '一般科技' };
 const blank = (): GlossaryEntry => ({ source: '', target: '', policy: 'keep', domain: 'all' });
+const maxFileMiB = MAX_GLOSSARY_FILE_BYTES / 1024 / 1024;
 
 export function GlossaryEditor({ entries, domain, onChange, onDomainChange, onPendingChange }: {
   entries: GlossaryEntry[]; domain: GlossaryEntry['domain']; onChange: (entries: GlossaryEntry[]) => void;
@@ -35,7 +36,7 @@ export function GlossaryEditor({ entries, domain, onChange, onDomainChange, onPe
   async function readFile(file: File) {
     setReading(true); setPending(undefined); setError(''); setMessage('');
     try {
-      if (file.size > MAX_GLOSSARY_FILE_BYTES) throw new Error('词表文件不能超过 5 MiB。');
+      if (file.size > MAX_GLOSSARY_FILE_BYTES) throw new Error(`词表文件不能超过 ${maxFileMiB} MiB。`);
       const extension = file.name.split('.').at(-1)?.toLowerCase();
       if (!['json', 'csv', 'tsv'].includes(extension ?? '')) throw new Error('请选择 JSON、CSV 或 TSV 词表文件。');
       prepare(await file.text(), extension as 'json' | 'csv' | 'tsv', file.name);
@@ -78,7 +79,7 @@ export function GlossaryEditor({ entries, domain, onChange, onDomainChange, onPe
     <label className="field">导入词表文件<input type="file" accept=".json,.csv,.tsv" disabled={reading} onChange={event => {
       const file = event.target.files?.[0]; event.target.value = ''; if (file) void readFile(file);
     }} /></label>
-    <p className="hint">支持 JSON 数组或有表头的 CSV / TSV，最多 5 MiB、2,000 个词条。重复键按原词（忽略大小写和首尾空格）＋领域判断，后面的覆盖前面的；文件中未出现的词条继续保留。</p>
+    <p className="hint">支持 JSON 数组或有表头的 CSV / TSV，最多 {maxFileMiB} MiB、{MAX_GLOSSARY_ENTRIES.toLocaleString('en-US')} 个词条。重复键按原词（忽略大小写和首尾空格）＋领域判断，后面的覆盖前面的；文件中未出现的词条继续保留。</p>
     {reading && <p role="status">正在读取词表…</p>}
     <details><summary>从表格粘贴批量导入</summary>
       <label className="field">批量词条<textarea rows={6} value={paste} onChange={event => setPaste(event.target.value)} placeholder={'source\ttarget\tpolicy\tdomain\nharness\t\tkeep\tmachine-learning'} /></label>

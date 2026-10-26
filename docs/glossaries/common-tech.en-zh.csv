@@ -189,8 +189,8 @@
 机器学习基础,quantization,量化,translate,machine-learning,
 机器学习基础,pruning,剪枝,translate,machine-learning,
 机器学习基础,mixed precision,混合精度,translate,machine-learning,
-机器学习基础,accuracy,准确率,translate,machine-learning,分类评测指标语境；一般叙述中的 accuracy 可指准确性。
-机器学习基础,precision,查准率,prefer-source,machine-learning,分类指标为查准率；数值格式语境为精度；不要全局强制单一译法。
+机器学习基础,accuracy,准确率,keep,machine-learning,保留英文以区分评测指标；target 仅作释义，普通叙述也可能指准确性。
+机器学习基础,precision,精度 / 查准率,keep,machine-learning,保留英文；数值格式语境为精度，分类指标语境为查准率，避免与 accuracy 混淆。
 机器学习基础,recall,召回率,translate,machine-learning,也常译为查全率；此词表统一采用召回率。
 机器学习基础,F1 score,F1 分数,translate,machine-learning,
 机器学习基础,ablation study,消融实验,translate,machine-learning,

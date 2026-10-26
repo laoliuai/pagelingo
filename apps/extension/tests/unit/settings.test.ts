@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { defaultSettings, isValidBaseUrl, settingsSchema } from '../../src/settings/schema';
 import { apiHostPattern, providerOptions } from '../../src/settings/connection';
+import { MAX_GLOSSARY_ENTRIES } from '@pagelingo/translation-core';
 
 describe('local settings validation', () => {
   it('allows blank setup, HTTPS endpoints and explicit local HTTP services', () => {
@@ -19,6 +20,16 @@ describe('local settings validation', () => {
     const entry = { source: 'token', target: '旧译文', policy: 'translate', domain: 'all' };
     const parsed = settingsSchema.parse({ ...defaultSettings, customGlossary: [entry, { ...entry, source: ' TOKEN ', target: '词元' }] });
     expect(parsed.customGlossary).toEqual([{ ...entry, source: 'TOKEN', target: '词元' }]);
+  });
+  it('saves and reloads a glossary above the former limit and rejects excess entries', () => {
+    const customGlossary = Array.from({ length: MAX_GLOSSARY_ENTRIES }, (_, i) => ({
+      source: `term${i}`, target: '译文', policy: 'translate', domain: 'machine-learning',
+    }));
+    const saved = settingsSchema.parse({ ...defaultSettings, customGlossary });
+    expect(settingsSchema.parse(JSON.parse(JSON.stringify(saved))).customGlossary).toHaveLength(MAX_GLOSSARY_ENTRIES);
+    expect(settingsSchema.safeParse({ ...saved, customGlossary: [...customGlossary, {
+      ...customGlossary[0], source: 'extra',
+    }] }).success).toBe(false);
   });
   it('migrates saved M1 settings with conservative compatibility defaults', () => {
     const old = { schemaVersion: 1, baseUrl: 'https://api.example.com/v1', model: 'model', apiKey: 'key', temperature: 0.1,

@@ -78,6 +78,34 @@ test('loads and searches the repository CSV glossary and exports only glossary e
   expect(Object.keys(data[0]).sort()).toEqual(['domain', 'policy', 'source', 'target']);
 });
 
+test('imports and reloads the merged glossary above 2000 terms and preserves metrics in translation', async ({ page, control }) => {
+  await configureApi(control);
+  const csv = readFileSync(new URL('../../../../docs/glossaries/merged-tech.en-zh.csv', import.meta.url));
+  const expected = JSON.parse(readFileSync(new URL('../../../../docs/glossaries/merged-tech.en-zh.json', import.meta.url), 'utf8'));
+  await control.getByLabel('导入词表文件').setInputFiles({ name: 'merged.csv', mimeType: 'text/csv', buffer: csv });
+  await expect(control.locator('.glossary-preview')).toContainText(`${expected.length} 个不同词条`);
+  await control.getByRole('button', { name: '确认合并词表' }).click();
+  await control.getByRole('button', { name: '保存设置' }).click();
+  await expect(control.getByText('设置已保存在本地')).toBeVisible();
+  await control.reload();
+  await control.getByLabel('搜索术语').fill('accuracy');
+  const rows = control.locator('.glossary-table tbody tr');
+  await expect(rows.filter({ has: control.getByRole('cell', { name: 'accuracy', exact: true }) })).toContainText('保留英文');
+  const downloaded = control.waitForEvent('download');
+  await control.getByRole('button', { name: '导出 JSON 词表' }).click();
+  const download = await downloaded;
+  expect(JSON.parse(readFileSync((await download.path())!, 'utf8'))).toEqual(expected);
+  await page.goto('http://127.0.0.1:4317/technical-doc.html');
+  await page.evaluate(() => {
+    document.querySelector('article')!.innerHTML = '<h1>Measuring models</h1><p>Accuracy and precision are reported.</p><p>We use mixed precision.</p>';
+  });
+  await command(control, page, { type: 'page:translate', mode: 'bilingual' });
+  await expect.poll(async () => (await command(control, page, { type: 'page:status' })).status).toBe('completed');
+  const translations = page.locator('[data-pl-owned="translation"]');
+  await expect(translations.nth(1)).toContainText('Accuracy and precision');
+  await expect(translations.nth(2)).toContainText('混合精度');
+});
+
 test('requires committing a manual term before saving settings', async ({ control }) => {
   await control.getByRole('button', { name: '添加术语' }).click();
   await control.getByLabel('术语原词', { exact: true }).fill('harness');

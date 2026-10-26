@@ -29,6 +29,10 @@ for (const extension of ['json', 'csv', 'md']) {
   const name = `glossaries/common-tech.en-zh.${extension}`;
   files.push({ name, data: readFileSync(path.join(root, 'docs', name)) });
 }
+for (const extension of ['json', 'csv', 'manifest.json']) {
+  const name = `glossaries/merged-tech.en-zh.${extension}`;
+  files.push({ name, data: readFileSync(path.join(root, 'docs', name)) });
+}
 let local = {};
 if (!process.argv.includes('--artifact-only')) {
   try { local = parseEnv(readFileSync(path.join(root, '.env.local'), 'utf8')); } catch (error) { if (error.code !== 'ENOENT') throw error; }

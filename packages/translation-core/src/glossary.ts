@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
 export const glossaryDomainSchema = z.enum(['all', 'machine-learning', 'software-engineering', 'physics', 'general-technical']);
-export const MAX_GLOSSARY_ENTRIES = 2000;
-export const MAX_GLOSSARY_FILE_BYTES = 5 * 1024 * 1024;
+export const MAX_GLOSSARY_ENTRIES = 5000;
+export const MAX_GLOSSARY_FILE_BYTES = 8 * 1024 * 1024;
 
 export const glossaryEntrySchema = z.object({
   source: z.string().trim().min(1).max(120).refine(source => !/[⟦⟧]/.test(source), '原词不能包含翻译引擎的占位分隔符。'),
@@ -58,7 +58,7 @@ function readDelimited(text: string, separator: string): string[][] {
 
 /** Pure, portable file decoding; the caller owns file selection and persistence. */
 export function parseGlossaryFile(value: string, format: 'json' | 'csv' | 'tsv'): GlossaryEntry[] {
-  if (new TextEncoder().encode(value).byteLength > MAX_GLOSSARY_FILE_BYTES) throw new Error('词表文件不能超过 5 MiB。');
+  if (new TextEncoder().encode(value).byteLength > MAX_GLOSSARY_FILE_BYTES) throw new Error(`词表文件不能超过 ${MAX_GLOSSARY_FILE_BYTES / 1024 / 1024} MiB。`);
   const text = value.replace(/^\uFEFF/, '');
   if (format === 'json') {
     let parsed: unknown;

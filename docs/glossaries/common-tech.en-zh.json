@@ -1142,13 +1142,13 @@
   {
     "source": "accuracy",
     "target": "准确率",
-    "policy": "translate",
+    "policy": "keep",
     "domain": "machine-learning"
   },
   {
     "source": "precision",
-    "target": "查准率",
-    "policy": "prefer-source",
+    "target": "精度 / 查准率",
+    "policy": "keep",
     "domain": "machine-learning"
   },
   {
