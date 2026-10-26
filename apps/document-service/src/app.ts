@@ -1,5 +1,8 @@
 import Fastify from 'fastify';
 import cookie from '@fastify/cookie';
+import multipart from '@fastify/multipart';
+import { createLocalObjectStore } from './storage/local-object-store.js';
+import { registerDocumentsRoutes } from './documents/routes.js';
 import { ServiceError } from './errors.js';
 import { registerAuthRoutes } from './auth/routes.js';
 import { registerUsersRoutes } from './users/routes.js';
@@ -19,11 +22,13 @@ export async function createApp({ db, config }: AppOptions): Promise<FastifyInst
   const app = Fastify({ logger: false });
   app.decorate('authContext', { db, config });
   await app.register(cookie);
+  await app.register(multipart);
   app.addHook('onRequest', async (_request, reply) => {
     reply.header('X-PageLingo-API-Version', 'pagelingo-site-api/1');
   });
   registerAuthRoutes(app);
   registerUsersRoutes(app);
+  registerDocumentsRoutes(app, createLocalObjectStore(config.dataDir));
   app.get('/health/live', async () => ({ status: 'ok' }));
   app.get('/health/ready', async (request, reply) => {
     try {

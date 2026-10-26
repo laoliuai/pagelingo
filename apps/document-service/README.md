@@ -1,6 +1,6 @@
 # 文档服务
 
-已注册为独立 npm workspace，当前实现运行配置、PostgreSQL 迁移、health API、初始管理员、登录 / 会话 / 修改密码及管理员账号管理 API；私有文档和模型配置 API 尚未接入。[个人学习站 V1 设计稿](../../docs/superpowers/specs/2026-10-26-personal-learning-site-design.md)已于 2026-10-27 获批，管理员已可手工开通账号；S1 后续任务将使用 TypeScript 实现各用户独立资料与 API 配置、持久化任务和共享翻译 SDK 调用。后续再接入站内助手。账号、任务、原件与资源读取采用同一用户隔离边界。
+已注册为独立 npm workspace，当前实现运行配置、PostgreSQL 迁移、health API、初始管理员、登录 / 会话 / 修改密码、管理员账号管理及本人 PDF 原件 API；模型配置 API 尚未接入。[个人学习站 V1 设计稿](../../docs/superpowers/specs/2026-10-26-personal-learning-site-design.md)已于 2026-10-27 获批，管理员已可手工开通账号；S1 后续任务将使用 TypeScript 实现各用户独立资料与 API 配置、持久化任务和共享翻译 SDK 调用。后续再接入站内助手。账号、任务、原件与资源读取采用同一用户隔离边界。
 
 API 与 worker 可属于同一个包、使用不同入口；重解析和重译都有独立 run ID。PDF 解析调用 `services/document-parser` 的独立进程，不重写 Python 翻译引擎。具体协议、取消与恢复约束见 [PDF 规格](../../docs/pdf-spec.md) 和 [架构](../../docs/monorepo.md)。
 
@@ -112,3 +112,47 @@ Password reset reserves five attempts per administrator per 60-second window
 under scope `admin-password-reset`. Missing/forbidden targets and later hash
 failures consume quota. Password hashing runs after that reservation commits;
 a second transaction locks and rechecks the actor and target before writing.
+
+
+## Private PDF originals
+
+`POST /api/v1/documents/pdf` requires a current session, Origin, CSRF token,
+and an `Idempotency-Key` (1–200 visible ASCII characters). Send multipart
+`file` and optional `title` in either order. Uploads stream to private immutable
+objects; the default limit is 256 MiB, one file, and four multipart parts. Unknown
+fields, duplicate titles, and trailing invalid parts fail before any document
+reference commits. `%PDF-` must occur entirely within the first 1024 bytes.
+This only accepts an original for storage: the returned status remains
+`original-saved` / `awaiting-local-processing`, with no claim of parser success.
+
+`GET /api/v1/documents` accepts `q`, `page` (default 1), and `pageSize`
+(default 20, maximum 100). Title search treats `%` and `_` literally.
+`GET /api/v1/documents/:id` returns the owner-scoped summary and source identity.
+`GET` / `HEAD /api/v1/documents/:id/source` and
+`GET` / `HEAD /api/v1/assets/:id/content` return only the current owner's PDF,
+including for administrators. Source responses support single and suffix byte
+ranges; invalid/multiple ranges return 416 with `Content-Range: bytes */size`.
+Use `?download=true` for attachment disposition. Private successes and errors use
+`Cache-Control: no-store`; filenames are encoded and object keys remain internal.
+
+Retrying the same owner's idempotency key compares streamed content SHA-256;
+a different file returns 409. The same owner's identical PDF returns the existing
+document; another owner saves an independent document and asset. In-flight
+keys return 409 / `Retry-After`; failed claims retry with a higher epoch. Claims
+left receiving for over 15 minutes can be recovered, and old epochs cannot
+commit. Account/session state is checked again after upload and validation.
+
+After building, run `node apps/document-service/dist/cli/cleanup-staging.js`
+with the service runtime environment to remove unreferenced objects and staging
+files older than 24 hours. Cleanup checks database asset references under the
+same publication lock used by uploads; never delete files directly. SQL/finalize
+failures and duplicate successful uploads can leave unreadable orphan objects
+until cleanup. Keep both the database and referenced objects in backups.
+
+`createDocumentsService({ db, store, maxPdfBytes? })` exposes `savePdf`, `list`,
+`get`, and `getAsset`. `get`/`list`/`savePdf` return shared document DTOs;
+`getAsset` returns internal owner-scoped file metadata for the response adapter.
+`savePdf` accepts an optional internal `finalize()` hook, awaited exactly once
+after the stream is stored and before rechecking the actor and publishing any
+reference. It returns final `{ title? }` metadata after validating/draining
+remaining multipart parts. Plain async-body callers need no hook.
