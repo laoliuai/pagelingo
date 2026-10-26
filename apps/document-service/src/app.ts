@@ -2,6 +2,7 @@ import Fastify from 'fastify';
 import cookie from '@fastify/cookie';
 import { ServiceError } from './errors.js';
 import { registerAuthRoutes } from './auth/routes.js';
+import { registerUsersRoutes } from './users/routes.js';
 import type { FastifyInstance } from 'fastify';
 import type { ErrorResponse } from '@pagelingo/document-contracts';
 import type { RuntimeConfig } from './config.js';
@@ -22,6 +23,7 @@ export async function createApp({ db, config }: AppOptions): Promise<FastifyInst
     reply.header('X-PageLingo-API-Version', 'pagelingo-site-api/1');
   });
   registerAuthRoutes(app);
+  registerUsersRoutes(app);
   app.get('/health/live', async () => ({ status: 'ok' }));
   app.get('/health/ready', async (request, reply) => {
     try {

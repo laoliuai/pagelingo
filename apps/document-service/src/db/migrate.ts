@@ -40,5 +40,5 @@ export async function verifyDatabaseSchema(db: Database): Promise<void> {
     throw new Error('Schema migration mismatch');
   }
   // Resolve every required table using this pool's search_path.
-  await db.pool.query('SELECT 1 FROM users, sessions, auth_attempts, provider_profiles, documents, source_versions, assets, ingestions LIMIT 0');
+  await db.pool.query('SELECT 1 FROM users, sessions, auth_attempts, provider_profiles, documents, source_versions, assets, ingestions, user_audit_events, rate_limit_windows LIMIT 0');
 }

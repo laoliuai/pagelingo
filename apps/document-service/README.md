@@ -1,6 +1,6 @@
 # 文档服务
 
-已注册为独立 npm workspace，当前实现运行配置、PostgreSQL 迁移、health API、初始管理员及登录 / 会话 / 修改密码 API；管理员账号管理、私有文档和模型配置 API 尚未接入。[个人学习站 V1 设计稿](../../docs/superpowers/specs/2026-10-26-personal-learning-site-design.md)已于 2026-10-27 获批，S1 后续任务将使用 TypeScript 实现管理员手工开通账号、各用户独立资料与 API 配置、持久化任务和共享翻译 SDK 调用。后续再接入站内助手。账号、任务、原件与资源读取采用同一用户隔离边界。
+已注册为独立 npm workspace，当前实现运行配置、PostgreSQL 迁移、health API、初始管理员、登录 / 会话 / 修改密码及管理员账号管理 API；私有文档和模型配置 API 尚未接入。[个人学习站 V1 设计稿](../../docs/superpowers/specs/2026-10-26-personal-learning-site-design.md)已于 2026-10-27 获批，管理员已可手工开通账号；S1 后续任务将使用 TypeScript 实现各用户独立资料与 API 配置、持久化任务和共享翻译 SDK 调用。后续再接入站内助手。账号、任务、原件与资源读取采用同一用户隔离边界。
 
 API 与 worker 可属于同一个包、使用不同入口；重解析和重译都有独立 run ID。PDF 解析调用 `services/document-parser` 的独立进程，不重写 Python 翻译引擎。具体协议、取消与恢复约束见 [PDF 规格](../../docs/pdf-spec.md) 和 [架构](../../docs/monorepo.md)。
 
@@ -70,3 +70,45 @@ call `assertActorCurrent(client, actor)` inside the same database transaction.
 It locks the user row, then checks the session; account mutations must preserve
 this user-before-sessions lock order and bump `auth_version` when revoking all
 authorization. Device tokens added later must carry and check this version too.
+
+
+## Administrator-managed accounts
+
+All `/api/v1/admin/users` endpoints require a current administrator session.
+`GET` returns a `PublicUser[]`; `POST` accepts `{ username, password }` and
+returns the created ordinary user with status 201. Roles cannot be promoted
+through the API. Duplicate normalized usernames return 409. JSON bodies reject
+unknown fields, including `role`, `ownerId`, and `passwordHash`.
+
+`PATCH /api/v1/admin/users/:id` accepts `{ active }` and returns the updated
+public user. Disabling increments the authorization version and deletes every
+session; enabling never revives an old cookie. The last active administrator
+cannot be disabled, including through concurrent administrator requests.
+`POST /api/v1/admin/users/:id/reset-password` accepts `{ newPassword }`, applies
+only to ordinary users, revokes all their sessions, and returns 204. All writes
+require Origin and CSRF checks. Successful changes are recorded transactionally
+in `user_audit_events` with only actor, target, action, ID, and timestamp.
+
+`createUsersService(db)` exposes `list(actor)`,
+`create(actor, { username, password })`, `setActive(actor, userId, active)`, and
+`resetPassword(actor, userId, newPassword)`. Management transactions acquire the
+bootstrap advisory lock `(204716, 1)`, then actor/target rows in UUID order, then
+revalidate the actor/session before changing state. Never acquire that advisory
+lock after locking a user. Authentication-only transactions continue to lock one
+user before sessions and never acquire the management lock.
+
+The shared `consumeRateLimit(client, { scope, subject, limit, windowSeconds })`
+function in `src/auth/rate-limit.ts` atomically reserves one request in a fixed
+window using the database clock and `rate_limit_windows`. Exhaustion throws
+`ServiceError(429, 'RATE_LIMITED', ..., retryAfter)`; HTTP replies expose
+`Retry-After` seconds. A transaction rollback refunds its reservation. To count
+attempts despite later failures, commit a guarded reservation before performing
+the work. Acquire account locks before quota rows; when taking multiple quotas,
+use scope/subject order. Callers supply trusted positive integer limits/window
+sizes and stable scope names; subjects must come from authenticated identities.
+The existing failed-login limiter retains its separate failure-count semantics.
+
+Password reset reserves five attempts per administrator per 60-second window
+under scope `admin-password-reset`. Missing/forbidden targets and later hash
+failures consume quota. Password hashing runs after that reservation commits;
+a second transaction locks and rechecks the actor and target before writing.
