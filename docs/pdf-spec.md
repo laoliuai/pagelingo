@@ -1,5 +1,7 @@
 # PDF Translation Reader V1 详细设计 SPEC
 
+> 2026-10-26：网站账号、首版范围与阅读模式的最新设计见 [个人学习站 V1 设计稿](superpowers/specs/2026-10-26-personal-learning-site-design.md)，目前待审阅。已确认方向为各用户独立资料、个人 API、本机 PDF 处理后导入，以及左原 PDF / 右译文 HTML；本文件继续保留 PDF 内容、来源坐标和处理质量等模块要求。
+
 > 2026-10-07 方案更新：进入 PDF P0 首轮真实评测，入口见 [benchmark](../benchmarks/pdf/README.md)。首版为单用户、可部署到服务器的应用，本机是初始部署环境；数据库、文件存储、任务与对话由后端管理。本机和服务器统一使用 PostgreSQL，首版文件存储采用持久化磁盘目录，预留对象存储适配。浏览器插件继续回归；文档分析与自动术语可在 PDF 阶段补进共享 SDK。初稿完整保存在 [archive/pdf-spec-initial.md](archive/pdf-spec-initial.md)，历史审阅见 [spec-review.md](spec-review.md)，仓库边界见 [monorepo.md](monorepo.md)。LaTeX 后续复用同一个 Reader，见 [latex-spec.md](latex-spec.md)。
 >
 > P0 解析评测入口、候选适配和定位图已实现；两本书及三篇论文的首轮结果见 [实测报告](../benchmarks/pdf/first-run-report.md)，正式质量 corpus / 主选型仍待完成。正式 Reader / 网站 / 文档服务尚未实现。下文结构示例是设计材料，跨语言协议须在 PDF P0 / P1 验证并版本化；翻译执行与保护协议直接复用现有 SDK。
