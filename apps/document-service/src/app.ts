@@ -6,6 +6,7 @@ import { registerDocumentsRoutes } from './documents/routes.js';
 import { ServiceError } from './errors.js';
 import { registerAuthRoutes } from './auth/routes.js';
 import { registerUsersRoutes } from './users/routes.js';
+import { registerProvidersRoutes } from './providers/routes.js';
 import type { FastifyInstance } from 'fastify';
 import type { ErrorResponse } from '@pagelingo/document-contracts';
 import type { RuntimeConfig } from './config.js';
@@ -28,6 +29,7 @@ export async function createApp({ db, config }: AppOptions): Promise<FastifyInst
   });
   registerAuthRoutes(app);
   registerUsersRoutes(app);
+  registerProvidersRoutes(app);
   registerDocumentsRoutes(app, createLocalObjectStore(config.dataDir));
   app.get('/health/live', async () => ({ status: 'ok' }));
   app.get('/health/ready', async (request, reply) => {
