@@ -201,6 +201,8 @@ lease：heartbeat 5 秒、30 秒失效；claim 使用 SKIP LOCKED 并增加 epoc
 
 每项实现提交前完成所列 RED→GREEN 与相关检查；任务间通过上面的 DTO / 接口连接。私有辅助模块按责任拆分，新增公开协议先回到本计划。一次最终整分支审查集中修正实际问题，执行记录、验证摘要与重要裁定保存在正式文档，临时报告不得强制加入 Git。
 
+执行次序修正：任务7完成后先执行任务10，再执行8、9和11–13。任务8的真实链接回退依赖任务10的 links API；任务10所需的会话/设备、仓库、采集发布与资源合同已由任务4–7提供，翻译调度连接仍由任务9/11完成。各任务范围不变，避免消费端只能对尚未实现的接口做模拟验证。
+
 ### Task 0: 先交付 S2 目录兼容与固定包基线
 
 **Files:** 新建 `packages/document-bundle/tests/fixtures/s2-final/`、`scripts/check-s2-compat.mjs`、`packages/document-renderer/src/catalog-registry.ts`、`packages/document-renderer/compat/s2-0.1.0/`；修改 `packages/document-renderer/src/static.ts`、其 catalog 生成脚本与 package files、`packages/document-bundle/src/static-assets.ts`、`packages/document-bundle/tests/bundle-validation.test.ts`、`apps/document-service/Dockerfile` 的 compat COPY、workspace 版本 / lockfile。真实 S2 包只读使用 `data/pdf-s2/final-fix/current/`。
