@@ -1,7 +1,16 @@
-import { useRef, useState, type ReactNode } from 'react';
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 export type ReaderView = 'split' | 'source' | 'content';
 export function ReaderLayout({ view, source, content }: { view: ReaderView; source: ReactNode; content: ReactNode }) {
   const [width, setWidth] = useState(50); const root = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const element = root.current!;
+    const updateHeight = () => element.style.setProperty('--reader-top', `${element.getBoundingClientRect().top + window.scrollY}px`);
+    const observer = new ResizeObserver(updateHeight);
+    // Observe the controls, not the resized pane itself, to avoid a feedback loop.
+    observer.observe(element.previousElementSibling!);
+    window.addEventListener('resize', updateHeight); updateHeight();
+    return () => { observer.disconnect(); window.removeEventListener('resize', updateHeight); };
+  }, []);
   const update = (value: number) => setWidth(Math.round(Math.min(70, Math.max(30, value))));
   return <div ref={root} className={`reader-layout reader-view-${view}`} style={{ gridTemplateColumns: view === 'split' ? `minmax(0, ${width}fr) 10px minmax(0, ${100 - width}fr)` : 'minmax(0, 1fr)' }}>
     <div className="reader-source-pane" hidden={view === 'content'}>{source}</div>

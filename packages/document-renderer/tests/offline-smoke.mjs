@@ -37,6 +37,8 @@ try {
   await page.route(/^https?:/, route => { throw new Error(`Unexpected network: ${route.request().url()}`); });
   await page.goto(pathToFileURL(join(root, 'render/index.html')).href);
   await page.locator('#content .reader-block').first().waitFor();
+  assert.equal(await page.evaluate(() => scrollY), 0, 'initial registration must not scroll the outer page');
+  assert((await page.locator('header').boundingBox()).y >= 0);
   assert.equal(await page.locator('#title').textContent(), 'Offline </script> & title');
   assert.equal(await page.locator('#content > section').count(), 2);
   assert((await page.locator('header').boundingBox()).height < 250, 'many warnings must not fill the initial viewport');
@@ -51,14 +53,24 @@ try {
   assert(warningBox.height <= 160, 'expanded evidence uses a bounded scroll region');
   await page.locator('#warnings summary').focus(); await page.keyboard.press('Enter');
   await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(pathToFileURL(join(root, 'render/index.html')).href);
+  await page.locator('#content .reader-block').first().waitFor();
+  assert.equal(await page.evaluate(() => scrollY), 0, 'mobile initial registration stays in the pane');
+  assert((await page.locator('header').boundingBox()).y >= 0);
+  const mobileText = await page.locator('#content-pane').evaluate(pane => Math.min(innerHeight, pane.getBoundingClientRect().bottom) - Math.max(0, pane.getBoundingClientRect().top));
+  assert(mobileText >= 240, 'mobile initial text viewport remains useful');
   assert((await page.locator('header').boundingBox()).height < 300, 'warnings stay compact on mobile too');
   await page.setViewportSize({ width: 1280, height: 720 });
   for (let i = 0; i < 4; i++) {
     await page.locator('#next').click();
     await page.waitForFunction(() => document.getElementById('content').children.length === 3);
   }
+  assert.equal(await page.evaluate(() => scrollY), 0, 'chunk navigation stays inside its pane');
+  const delta = await page.evaluate(() => { const pane = document.getElementById('content-pane'); const block = document.querySelector('[data-chunk-id="c_000005"] [data-block-id]'); return block.getBoundingClientRect().top - pane.getBoundingClientRect().top; });
+  assert(Math.abs(delta) <= 1, 'current chunk starts at the content viewport');
   assert.equal(await page.locator('#content > section').count(), 3);
   assert.equal(await page.locator('script[src^="data/c_"]').count(), 3);
+  await page.locator('button[data-view=split]').click();
   await page.locator('#divider').focus(); await page.keyboard.press('Home');
   assert.equal(await page.locator('#divider').getAttribute('aria-valuenow'), '30');
   assert.deepEqual(errors, []);

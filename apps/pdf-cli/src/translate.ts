@@ -118,10 +118,15 @@ export async function translateRun(options: TranslateRunOptions, deps: Translati
       const snapshot = await translationSnapshot(ir, job, checkpoint, cancelled);
       const snapshotPath = `${paths.directory}/snapshots/${snapshot.id}.json`;
       const bytes = serializeBundleJson(snapshot);
-      await lock!.assertCurrent();
-      await atomicWrite(join(options.runDir, snapshotPath), bytes, true, () => lock!.assertCurrent());
-      await lock!.assertCurrent();
-      await atomicWrite(join(options.runDir, paths.latestPath), serializeBundleJson({ snapshotId: snapshot.id, sha256: hash(bytes) }), false, () => lock!.assertCurrent());
+      try {
+        await lock!.assertCurrent();
+        await atomicWrite(join(options.runDir, snapshotPath), bytes, true, () => lock!.assertCurrent());
+        await lock!.assertCurrent();
+        await atomicWrite(join(options.runDir, paths.latestPath), serializeBundleJson({ snapshotId: snapshot.id, sha256: hash(bytes) }), false, () => lock!.assertCurrent());
+      } catch (error) {
+        if (error instanceof CheckpointConflictError) throw error;
+        throw new LocalTranslationError('TRANSLATION_DISK_WRITE_FAILED');
+      }
       publishedCompleted = snapshot.blocks.filter(block => block.status === 'translated').length;
       published = { job, snapshot, jobPath: paths.jobPath, checkpointPath: paths.checkpointPath, snapshotPath, snapshotSha256: hash(bytes),
         warnings: snapshot.blocks.some(block => block.status === 'source-only' && block.reason === 'manual-choice') ? ['MANUAL_SELECTION_REQUIRED'] : [] };
@@ -149,7 +154,7 @@ export async function translateRun(options: TranslateRunOptions, deps: Translati
         if (batch.completed < batch.total && milestones.some(count => publishedCompleted < count && batch.completed >= count)) await saveSnapshot();
       }
     } catch (error) {
-      if (error instanceof CheckpointConflictError) throw error;
+      if (error instanceof CheckpointConflictError || error instanceof LocalTranslationError) throw error;
       if (!signal.aborted) throw new LocalTranslationError('TRANSLATION_SDK_FAILED');
     }
     return await saveSnapshot(signal.aborted);

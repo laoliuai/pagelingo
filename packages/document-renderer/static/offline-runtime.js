@@ -23,6 +23,9 @@
       return rect.bottom > viewport.top && rect.top < viewport.bottom;
     });
     const anchor = visibleBlock ? { id: visibleBlock.id, offset: visibleBlock.getBoundingClientRect().top - viewport.top } : undefined;
+    // Leave enough non-content space to position even a short final/current chunk
+    // before either neighbor arrives, without scrolling any outer ancestor.
+    if (pane.clientHeight) container.style.paddingBottom = `${pane.clientHeight}px`;
     container.replaceChildren();
     for (const info of index.chunks.slice(Math.max(0, current - 1), current + 2)) {
       const data = entries.get(info.id);
@@ -37,7 +40,10 @@
       container.append(section);
     }
     const target = targetBlock && byId(targetBlock);
-    if (target) { target.scrollIntoView(); targetBlock = undefined; }
+    if (target && pane.clientHeight) {
+      pane.scrollTop += target.getBoundingClientRect().top - pane.getBoundingClientRect().top;
+      if (Math.abs(target.getBoundingClientRect().top - pane.getBoundingClientRect().top) <= 1) targetBlock = undefined;
+    }
     else if (anchor) {
       const restored = byId(anchor.id);
       if (restored) pane.scrollTop += restored.getBoundingClientRect().top - pane.getBoundingClientRect().top - anchor.offset;

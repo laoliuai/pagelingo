@@ -1,4 +1,6 @@
 import { test, expect } from '@playwright/test';
+import { ingest } from './bundle-helpers';
+import { readerBundle } from './reader-helpers';
 import { login, newReader, origin, upload } from './library-helpers';
 
 test('another context and same-tab account switch cannot read old documents or stale responses', async ({
@@ -53,4 +55,17 @@ test('another context and same-tab account switch cannot read old documents or s
   } finally {
     await otherContext.close();
   }
+});
+
+test('imported warning disclosure does not survive logout or reveal another account document', async ({ page }) => {
+  await newReader(page, 'warningowner');
+  const result = await ingest(page, await readerBundle(false, false, '译文 ', { warnings: ['source-binding-unavailable:private-warning-sentinel'] }));
+  await page.goto(`/library/${result.documentId}`);
+  await page.locator('.reader-warnings summary').click();
+  await expect(page.locator('.reader-warnings')).toContainText('private-warning-sentinel');
+  await page.getByRole('button', { name: '退出登录', exact: true }).click(); await login(page);
+  await expect(page.locator('.reader-warnings')).toHaveCount(0);
+  await page.goto(`/library/${result.documentId}`);
+  await expect(page.getByRole('alert')).toContainText('资料不存在');
+  await expect(page.getByText(/private-warning-sentinel/)).toHaveCount(0);
 });

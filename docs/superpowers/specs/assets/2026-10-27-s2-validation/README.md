@@ -1,5 +1,8 @@
 # S2 实际阅读截图与校验摘要
 
+最新修复 / 当前 catalog 的实际截图、身份和视口几何见 [final-fix](final-fix/)。
+以下为 Task12 的旧 catalog 全量证据，原样保留；旧初始滚动问题已修复，不代表当前行为。
+
 全部截图来自 Linux Chromium 的真实 `file://` 正式包，1440×1000 viewport，没有图像编辑或临时 CSS。
 `initial-viewport` 是 runtime 自动定位后、用户操作前的实际分栏画面；正文截图通过原界面收起目录、切换正文模式和定位目标片。
 原 PDF 的可获取性由本地响应、完整字节 hash、独立原区域像素及站内 PDF.js 回归分别验证；离线分栏截图中的空白 PDF 插件面板不作为原 PDF 栅格质量证明。
@@ -62,4 +65,4 @@ LLM 中段存在明确 LaTeX 排版预算回退提示；RL 首 / 末片保留未
 
 语义译文质量未验证。更完整命令、原 P0 / release 的完整路径和执行诊断保留在 ignored Task12 report / logs；PDF 和 ZIP 不提交。
 
-新上下文只执行 goto 的[初始定位诊断](initial-viewport-diagnostic.json)：scrollY=303、headerTop=-303、headerHeight=149。runtime 的 `load(0)` / `paint()` 自动对首块执行 scrollIntoView；此观察进入控制方整分支可用性分级，不在本任务另改行为。
+新上下文只执行 goto 的[初始定位诊断](initial-viewport-diagnostic.json)：scrollY=303、headerTop=-303、headerHeight=149。runtime 的 `load(0)` / `paint()` 自动对首块执行 scrollIntoView；这是旧行为的问题证据；当前 pane-contained 导航与零外层滚动见 final-fix。

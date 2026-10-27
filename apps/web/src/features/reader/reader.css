@@ -53,3 +53,32 @@
 
 .native-reader .reader-version-label select { max-width: min(260px, 60vw); }
 .native-reader .reader-version-pages { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+
+.native-reader .reader-settings, .native-reader .reader-warnings { margin: 4px 0; padding: 0; border: 0; }
+.native-reader .reader-warnings ul { max-height: 20vh; overflow-y: auto; padding-left: 20px; margin: 6px 0; }
+.native-reader .reader-warnings li { margin: 6px 0; }
+.native-reader .reader-warnings code { font-size: 12px; overflow-wrap: anywhere; }
+@media (max-width: 767px) {
+  .app:has(.native-reader) .sidebar { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 16px; }
+  .app:has(.native-reader) .sidebar .brand { margin: 0; font-size: 16px; gap: 6px; }
+  .app:has(.native-reader) .sidebar .brand-mark { width: 24px; height: 24px; }
+  .app:has(.native-reader) .sidebar nav { gap: 0; }
+  .app:has(.native-reader) .sidebar nav a { padding: 6px; }
+  .app:has(.native-reader) .content { padding-top: 12px; }
+  .document-page:has(.native-reader) .back-link { margin-bottom: 8px; }
+  .document-page:has(.native-reader) .page-header { margin-bottom: 10px; gap: 8px; }
+  .document-page:has(.native-reader) h1 { font-size: 20px; margin-bottom: 4px; }
+  .document-page:has(.native-reader) .page-header p { font-size: 12px; }
+  .native-reader .reader-status { font-size: 12px; line-height: 1.5; }
+  .native-reader .reader-status p { margin: 3px 0; }
+  .native-reader .reader-controls { gap: 10px; padding: 6px 0; }
+  .native-reader .reader-controls label { gap: 4px; }
+  .native-reader select { padding: 0 6px; height: 32px; min-width: 80px; }
+  .native-reader .reader-heading > [role='status'], .native-reader .reader-heading > [role='alert'] { font-size: 12px; margin: 4px 0; }
+  .native-reader .reader-toc { margin: 6px 0; }
+  .native-reader .reader-layout { height: max(300px, calc(100dvh - var(--reader-top, 480px) - 12px)); min-height: 300px; }
+  .native-reader .reader-chunk-nav { flex-wrap: nowrap; gap: 6px; padding: 6px; }
+  .native-reader .reader-chunk-nav .button { padding: 4px 6px; min-height: 32px; font-size: 12px; white-space: nowrap; }
+  .native-reader .reader-chunk-nav label { font-size: 0; gap: 0; }
+  .native-reader .reader-chunk-nav input { font-size: 12px; width: 44px; }
+}

@@ -17,6 +17,15 @@ export async function verifyOffline(directory, validated, output) {
     page.on('pageerror', error => errors.push(error.message));
     page.on('response', response => { if (response.url().startsWith('file://') && response.ok()) resources.add(response.url()); });
     await page.goto(pathToFileURL(join(directory, 'render/index.html')).href);
+    await page.locator('#content .reader-block').first().waitFor();
+    const initialGeometry = await page.evaluate(() => {
+      const header = document.querySelector('header').getBoundingClientRect();
+      const pane = document.getElementById('content-pane').getBoundingClientRect();
+      return { scrollY, headerTop: header.top, headerHeight: header.height, paneTop: pane.top,
+        visibleTextHeight: Math.min(innerHeight, pane.bottom) - Math.max(0, pane.top) };
+    });
+    assert.equal(initialGeometry.scrollY, 0); assert.equal(initialGeometry.headerTop, 0);
+    assert(initialGeometry.visibleTextHeight >= 240, 'initial package exposes useful text space');
     await page.screenshot({ path: join(output, 'initial-viewport.png') });
     await page.locator('#toc-toggle').click();
     await page.locator('button[data-view=content]').click();
@@ -39,15 +48,17 @@ export async function verifyOffline(directory, validated, output) {
         features.set(position, [...(features.get(position) ?? []), { label, blockId: block.source.id }]);
       }
     }
-    let images = 0; let math = 0; const screenshots = [{ path: 'initial-viewport.png', note: 'Initial split viewport before user navigation; warnings remain fully visible.' }]; const locatedPages = new Set();
+    let images = 0; let math = 0; const screenshots = [{ path: 'initial-viewport.png', note: 'Fresh goto before navigation; title/status/controls visible and full warning text available in collapsed details.' }]; const locatedPages = new Set();
     for (let position = 0; position < chunks.length; position++) {
       if (position) await page.locator('#next').click();
       const expected = chunks.slice(Math.max(0, position - 1), position + 2).map(chunk => chunk.id);
       await page.waitForFunction(expected => JSON.stringify([...document.querySelectorAll('#content > section')].map(section => section.dataset.chunkId)) === JSON.stringify(expected), expected);
       assert.equal(await page.locator('script[src^="data/c_"]').count(), expected.length);
+      assert.equal(await page.evaluate(() => scrollY), 0, 'chunk navigation stays in the pane');
       const current = page.locator(`#content > section[data-chunk-id="${chunks[position].id}"]`);
       const firstBlock = chunks[position].blockIds[0];
       if (firstBlock) {
+        if (position) { const gap = await current.locator(`[data-block-id="${firstBlock}"]`).evaluate(block => block.getBoundingClientRect().top - document.getElementById('content-pane').getBoundingClientRect().top); assert(Math.abs(gap) <= 2, `current chunk ${position + 1} starts at pane top: gap ${gap}`); }
         await current.locator(`[data-block-id="${firstBlock}"]`).evaluate(block => block.click());
         const sourcePage = validated.readerBuild.index.blockLocations[firstBlock].pageIndices[0];
         assert.equal(await page.locator('#pdf').getAttribute('src'), `../source.pdf#page=${sourcePage + 1}`);
@@ -56,20 +67,20 @@ export async function verifyOffline(directory, validated, output) {
       const pictures = current.locator('img');
       for (let i = 0; i < await pictures.count(); i++) {
         const picture = pictures.nth(i);
-        await picture.evaluate(image => image.scrollIntoView({ block: 'center' }));
+        await picture.evaluate(image => { const pane = document.getElementById('content-pane'); pane.scrollTop += image.getBoundingClientRect().top - pane.getBoundingClientRect().top - Math.max(0, (pane.clientHeight - image.clientHeight) / 2); });
         await page.waitForFunction(image => image.complete && image.naturalWidth > 0, await picture.elementHandle());
         images++;
       }
       math += await current.locator('.katex').count();
       await page.evaluate(async () => { await document.fonts.ready; });
       if (captures.has(position)) {
-        await current.evaluate(section => section.scrollIntoView({ block: 'start' }));
+        await current.evaluate(section => { const pane = document.getElementById('content-pane'); pane.scrollTop += section.getBoundingClientRect().top - pane.getBoundingClientRect().top; });
         const name = `chunk-${String(position + 1).padStart(4, '0')}.png`;
         await page.screenshot({ path: join(output, name) });
         screenshots.push({ path: name, chunkId: chunks[position].id, blockIds: chunks[position].blockIds });
       }
       for (const feature of features.get(position) ?? []) {
-        await current.locator(`[data-block-id="${feature.blockId}"]`).evaluate(block => block.scrollIntoView({ block: 'start' }));
+        await current.locator(`[data-block-id="${feature.blockId}"]`).evaluate(block => { const pane = document.getElementById('content-pane'); pane.scrollTop += block.getBoundingClientRect().top - pane.getBoundingClientRect().top; });
         const name = `${feature.label}-chunk-${String(position + 1).padStart(4, '0')}.png`;
         await page.screenshot({ path: join(output, name) });
         screenshots.push({ path: name, chunkId: chunks[position].id, blockIds: [feature.blockId] });
@@ -88,6 +99,6 @@ export async function verifyOffline(directory, validated, output) {
       }, { url, index: i }), `font ${fonts[i].path}`);
     }
     assert.deepEqual(network, []); assert.deepEqual(errors, []);
-    return { chunksVisited: chunks.length, sourcePagesLocated: [...locatedPages].sort((a, b) => a - b), imagesDecoded: images, mathRendered: math, fontsLoaded: fonts.length, httpRequests: network.length, pageErrors: errors, originalPdfOpened: true, maximumMountedChunks: 3, screenshots };
+    return { initialGeometry, chunksVisited: chunks.length, sourcePagesLocated: [...locatedPages].sort((a, b) => a - b), imagesDecoded: images, mathRendered: math, fontsLoaded: fonts.length, httpRequests: network.length, pageErrors: errors, originalPdfOpened: true, maximumMountedChunks: 3, screenshots };
   } finally { await browser.close(); }
 }

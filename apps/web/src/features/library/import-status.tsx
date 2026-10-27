@@ -1,3 +1,4 @@
+import { ReaderWarnings } from '../reader/reader-warnings';
 import type { BundleImport, DocumentSummary, ReaderDescriptor } from '@pagelingo/document-contracts';
 
 export const activeImport = (value?: BundleImport | null) =>
@@ -20,6 +21,7 @@ export function ReaderStatus({ reader }: { reader: NonNullable<DocumentSummary['
       {reader.parseCoverage === 'partial' && <p>解析不完整，可能缺页或有未解析内容，请结合 PDF 原件阅读。</p>}
       <p className="muted">图片与区域图保留原文，图片内文字未必已翻译。</p>
       {'index' in reader && reader.index.generationKind === 'mock' && <p>模拟译文：仅供流程验收，不代表真实翻译结果。</p>}
+      {'index' in reader && <ReaderWarnings warnings={[...reader.warnings, ...reader.index.warnings]} />}
     </div>
   );
 }

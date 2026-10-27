@@ -3,7 +3,7 @@ import type { ReadingProgress } from '@pagelingo/document-contracts';
 import { resolvePosition } from '../../src/features/reader/resolve-position';
 import { capture, login, newReader, origin } from './library-helpers';
 import { ingest, readingBundle } from './bundle-helpers';
-import { readerBundle, blockId } from './reader-helpers';
+import { readerBundle, blockId, mobileReadingGeometry } from './reader-helpers';
 
 async function progress(page: Page, id: string) {
   return (await page.request.get(`/api/v1/documents/${id}/progress`)).json();
@@ -333,4 +333,34 @@ test('showing a hidden short window reaches the saved fraction before passive re
   await expect.poll(async () => (await progress(page, id))?.revision).toBe(2);
   await page.waitForTimeout(1700); expect(writes).toHaveLength(1);
   expect(writes[0]).toMatchObject({ expectedRevision: 1, position: { ...savedPosition, view: 'content' } });
+});
+
+test('mobile restore and conflict messages leave useful body space and retain explicit CAS recovery', async ({ page, context }) => {
+  await newReader(page, 'mobilemessages'); const first = await ingest(page, await readerBundle()); const id = first.documentId;
+  await open(page, id); await page.getByLabel('阅读视图').selectOption('content');
+  await expect.poll(async () => (await progress(page, id))?.revision).toBe(1);
+  await ingest(page, await readerBundle(false, false, '新解析 ', { newParse: true }));
+  await page.setViewportSize({ width: 390, height: 844 });
+  const writes: string[] = []; page.on('request', request => { if (request.method() === 'PUT' && request.url().endsWith('/progress')) writes.push(request.url()); });
+  for (const theme of ['light', 'dark']) {
+    await page.evaluate(theme => localStorage.setItem('pgl-theme', theme), theme);
+    await open(page, id); await expect(page.getByText(/版本已更新，已定位到原页/)).toBeInViewport();
+    await page.waitForTimeout(1800); expect(writes).toEqual([]);
+    const geometry = await mobileReadingGeometry(page); console.log('mobile restore', theme, geometry);
+    expect(geometry.outerScroll).toBe(0); expect(geometry.visibleHeight).toBeGreaterThanOrEqual(240); expect(geometry.paragraphVisible).toBeGreaterThanOrEqual(50);
+    await capture(page, `s2-final-mobile-restore-${theme}`, false);
+  }
+  const other = await context.newPage(); await open(other, id);
+  await other.getByLabel('正文语言').selectOption('source'); await expect.poll(async () => (await progress(other, id))?.revision).toBe(2);
+  await page.getByLabel('正文语言').selectOption('source'); await expect(page.getByRole('alert')).toContainText('自动保存已暂停');
+  for (const theme of ['dark', 'light']) {
+    const geometry = await mobileReadingGeometry(page); console.log('mobile conflict', theme, geometry);
+    expect(geometry.outerScroll).toBe(0); expect(geometry.visibleHeight).toBeGreaterThanOrEqual(240);
+    await expect(page.getByRole('button', { name: '从当前位置继续', exact: true })).toBeInViewport();
+    await capture(page, `s2-final-mobile-conflict-${theme}`, false);
+    if (theme === 'dark') await page.getByRole('button', { name: '切换明暗主题' }).click();
+  }
+  await page.waitForTimeout(1800); expect((await progress(page, id)).revision).toBe(2);
+  await page.getByRole('button', { name: '从当前位置继续', exact: true }).click(); await expect.poll(async () => (await progress(page, id))?.revision).toBe(3);
+  await other.close();
 });

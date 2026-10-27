@@ -1,8 +1,9 @@
-import { expect, test } from 'vitest';
+import { expect, test, vi } from 'vitest';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { validateReaderTranslation } from '@pagelingo/document-renderer';
-import { translateRun } from '../src/translate.js';
+import * as checkpoints from '../src/file-checkpoints.js';
+import { loadTranslationRun, translateRun } from '../src/translate.js';
 import { echo, echoProvider, english, providerConfig, readyRun } from './translation-fixture.js';
 
 test('auto skips Chinese and preserves uncertain text for manual selection without provider requests', async () => {
@@ -89,3 +90,27 @@ test('many unique SDK batches retain bounded full snapshots and bytes while ever
   }
   // The two runs perform 146 durable checkpoint writes plus cache/snapshot fsyncs.
 }, 20_000);
+
+test('milestone snapshot publication failure reports disk failure and keeps the previous snapshot usable', async () => {
+  const f = await readyRun(Array.from({ length: 4 }, (_, i) => `<p>${english} Unique ${i}.</p>`).join(''));
+  const write = checkpoints.atomicWrite;
+  let snapshots = 0;
+  let previous: Awaited<ReturnType<typeof loadTranslationRun>> | undefined;
+  const spy = vi.spyOn(checkpoints, 'atomicWrite').mockImplementation(async (...args) => {
+    if (args[0].includes('/snapshots/') && ++snapshots === 2) {
+      previous = await loadTranslationRun(f.runDir);
+      throw Object.assign(new Error('ENOSPC private-path secret-sentinel'), { code: 'ENOSPC' });
+    }
+    await write(...args);
+  });
+  try {
+    await expect(translateRun({ runDir: f.runDir, selection: 'all', provider: providerConfig, resume: false, newJob: false,
+      budget: { maxBatchBlocks: 1 } }, { provider: echoProvider, generationKind: 'mock' }))
+      .rejects.toMatchObject({ message: 'TRANSLATION_DISK_WRITE_FAILED' });
+    const restored = await loadTranslationRun(f.runDir);
+    expect(previous).toBeDefined();
+    expect(restored).toEqual(previous);
+    validateReaderTranslation(f.ir, restored.snapshot);
+    expect(restored.snapshot.status).toBe('pending');
+  } finally { spy.mockRestore(); }
+});

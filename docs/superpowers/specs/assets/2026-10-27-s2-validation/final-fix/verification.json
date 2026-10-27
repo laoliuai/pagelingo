@@ -1,0 +1,40 @@
+{
+  "scope": "Final fixes only; Task12 earlier broad checks remain carried-forward evidence",
+  "unitTests": {
+    "renderer": 31,
+    "bundle": 140,
+    "pdfCli": 108
+  },
+  "typechecks": [
+    "renderer",
+    "bundle",
+    "pdf-cli",
+    "web"
+  ],
+  "webFull": {
+    "passed": 56,
+    "note": "Final UI behavior; before offline-only short-pane adjustment"
+  },
+  "webFinalCatalog": {
+    "passed": 4,
+    "cases": [
+      "mobile entry both themes zero passive PUT",
+      "full coverage imported warnings keyboard inert bounded",
+      "mobile restore/conflict geometry and CAS",
+      "warning account isolation"
+    ]
+  },
+  "offlineSmoke": "passed, desktop/mobile fresh goto, zero outer scroll, 401 warnings, three chunks",
+  "reversedNeighborCases": 3,
+  "cliOffline": "passed, 6 chunks and actual resource loading",
+  "acceptanceHarness": 4,
+  "corpus": "all 4 current catalog exports fully revalidated, 502 chunks/235 images/2090 formula renders/60 fonts per package, zero HTTP/page errors",
+  "dockerCurrentCatalog": "passed: all four imports, S1\u2192005, restart, original/resources/progress/complete download hash/revalidation, sessions/ownership/revocation; owned resources cleaned",
+  "catalogInputsUnchanged": 26,
+  "originalAndTranslationStateFilesUnchanged": 7307,
+  "limitations": [
+    "mock echo is not semantic translation quality evidence",
+    "headless native PDF iframe raster appearance unverified",
+    "Linux Chromium only"
+  ]
+}

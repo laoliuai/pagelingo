@@ -23,7 +23,7 @@ export function rotationPdf() {
   pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n${offsets.slice(1).map(offset => `${String(offset).padStart(10, '0')} 00000 n \n`).join('')}trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
   return Buffer.from(pdf);
 }
-export async function readerBundle(large = false, mismatch = false, prefix = '译文 ', options: { newParse?: boolean; pending?: boolean; longParagraph?: boolean; shortWindow?: boolean } = {}) {
+export async function readerBundle(large = false, mismatch = false, prefix = '译文 ', options: { newParse?: boolean; pending?: boolean; longParagraph?: boolean; shortWindow?: boolean; warnings?: string[]; mathFallback?: boolean } = {}) {
   const files = await fixture();
   const ir: ReaderIR = JSON.parse(files.get('source-ir.json')!.toString());
   const translation: ReaderTranslation = JSON.parse(files.get('translation.json')!.toString());
@@ -51,6 +51,8 @@ export async function readerBundle(large = false, mismatch = false, prefix = '�
       value: { id, kind: 'paragraph', content: [{ type: 'text', text: 'A short paragraph for restoring the reader position.' }] } }];
     ir.nodes = [{ id: nodeId, kind: 'block', blockId: id, children: [] }]; ir.roots = [nodeId]; ir.assets = [];
   }
+  if (options.warnings) ir.warnings = options.warnings;
+  if (options.mathFallback) { const math = ir.blocks.find(block => block.type === 'math'); if (math?.type === 'math') math.latex = 'x'.repeat(3000); }
   if (mismatch) ir.pages[1] = { ...ir.pages[0], pageIndex: 1 };
   if (large) {
     ir.metadata.language = { language: 'zh', reason: 'han-only' };
@@ -99,4 +101,15 @@ export async function readerBundle(large = false, mismatch = false, prefix = '�
   const chunks: Buffer[] = []; const done = new Promise<Buffer>((resolve, reject) => { zip.outputStream.on('data', chunk => chunks.push(chunk)); zip.outputStream.on('end', () => resolve(Buffer.concat(chunks))); zip.outputStream.on('error', reject); });
   zip.end();
   return { name: 'reader.zip', mimeType: 'application/zip', buffer: await done, pdf, build, ir };
+}
+
+/** Read viewport geometry without scrolling or clicking the content. */
+export async function mobileReadingGeometry(page: import('@playwright/test').Page) {
+  return page.locator('.reader-content').evaluate(element => {
+    const pane = element.getBoundingClientRect();
+    const paragraph = element.querySelector('.reader-block p')!.getBoundingClientRect();
+    return { outerScroll: scrollY, top: pane.top, height: pane.height,
+      visibleHeight: Math.min(innerHeight, pane.bottom) - Math.max(0, pane.top),
+      paragraphTop: paragraph.top, paragraphVisible: Math.min(innerHeight, pane.bottom, paragraph.bottom) - Math.max(0, pane.top, paragraph.top) };
+  });
 }

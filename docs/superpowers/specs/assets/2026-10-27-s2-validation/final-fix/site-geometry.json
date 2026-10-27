@@ -1,0 +1,32 @@
+{
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "themes": [
+    "light",
+    "dark"
+  ],
+  "entry": {
+    "scrollY": 0,
+    "paneTop": 471.28125,
+    "visibleHeight": 359.71875,
+    "paragraphTop": 588.296875,
+    "paragraphVisible": 68.375
+  },
+  "restore": {
+    "scrollY": 0,
+    "paneTop": 513.65625,
+    "visibleHeight": 317.34375,
+    "paragraphTop": 614.671875,
+    "paragraphVisible": 102.5625
+  },
+  "restoreAndConflict": {
+    "scrollY": 0,
+    "paneTop": 572.84375,
+    "visibleHeight": 258.15625,
+    "paragraphTop": 673.859375,
+    "paragraphVisible": 68.375
+  },
+  "test": "apps/web/tests/e2e/pdf-reader.test.ts and reader-progress.test.ts, real API fixture, no outer-scroll or CSS injection"
+}

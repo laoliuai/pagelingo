@@ -5,7 +5,64 @@
 下载模型、读取 `.env.local` 或调用真实模型 API。模拟翻译使用 echo provider，产物明确标为
 `generationKind=mock`，正文保持原语言；**未验证中文语义译文质量**。
 
-## 可复现命令与证据
+## 最终审查修复验证
+
+I1 / I2 / I3 / M1 已在同一修复批次实现；以下是改动后的新证据，整分支最终结论仍由控制方复审。
+390×844 站点仅 goto 的正文可见高度为 **359.7px**，恢复提示时 **317.3px**，恢复加 CAS 冲突时
+**258.2px**，两种主题均为 `scrollY=0`。移动目录与版本 / 字号设置默认收起，模式与状态保持可见；
+读区按剩余视口定高，未自动滚动外层页面。保留全部部分解析、模拟译文、原图与冲突提示。
+
+站点新增默认收起的完整解析 / 阅读提示，合并去重 descriptor 与 index 的消息；303 条真实导入
+fixture 的全部字符串、键盘展开、20vh 滚动边界、HTML 样式文本不执行与账号切换隔离均通过。
+四类常见来源 / 列表警告有中文解释，逐片公式显示预算提示仍保留。
+
+离线跳转只改变正文窗格，迟到邻片保持当前锚点；尾部非正文留白保证短分片也能到达目标，
+不会通过外层滚动补偿。四个新包的初始页头 top 与 scrollY 均为 0，论文正文窗格为780px，
+长书651px（1440×1000）。全502片的当前目标与窗格顶部偏差≤2px，235图、2,090处公式、
+每包60字体与全部原页锚点重新验证，零 HTTP(S) / 页面错误。全包重新通过可信目录验证。
+快照发布处统一归类磁盘错误为 `TRANSLATION_DISK_WRITE_FAILED`，注入里程碑 ENOSPC 后旧快照
+仍可加载与 SDK 复验；检查点 / epoch 冲突码保留，原始异常信息不外泄。
+
+最新 renderer 0.1.0 code SHA-256：
+`3bfbbf4ce02a787185643792d617f80cb960261d108ad0ce224b0909ea4d47c3`。
+新包从已验证的 Task12 ready run / 不可变译文快照导出到 `data/pdf-s2/final-fix/current/`；
+未重做解析或模型调用。源 IR 字节不变，导出译文只换其规定的新快照 UUID；原有 Task12 包与 manifest、
+原 P0 / preview manifest、release ZIP、源 PDF、快照 / 检查点 / 缓存共7,307个记录文件的前后 hash 一致。
+中间试验的旧 catalog 包保留在独立目录，未当作当前包证据。
+
+| 样本 | 新 ZIP 字节 | 新 ZIP SHA-256 |
+| --- | ---: | --- |
+| BERT | 4,222,342 | `5f29b868e1461755c66534cafe16230a5004640fa465fe61420ee0b4324db4d9` |
+| Attention | 5,208,231 | `b5f57cf5ab49fba3ae96db5beec058c3b033b45cebea28c998b450f74d8e0f86` |
+| LLM Foundations | 37,176,944 | `9eeae78e0b1ae6d44656f733626caffa799f228f0c9b6e0396c1ad9e0fc169cf` |
+| RL Little Book | 28,241,882 | `b8454f9be349171ad43168ceff45a25d9330c25b08026b6559f7bde54a8bb26e` |
+
+本轮实跑：renderer31 + bundle140 + CLI108 单元测试、四包 typecheck / 构建、完整站点56个
+真实API浏览器用例；最后 offline-only 修正之后，当前 catalog 再跑4个移动布局 / 警告 / 账号用例。
+file:// 警告 / 初始定位 smoke、3个长短块逆序邻片回归、6分片 CLI 离线包验收及4个 harness
+测试通过。[当前截图与完整身份摘要](superpowers/specs/assets/2026-10-27-s2-validation/final-fix/)
+独立保存，不覆盖前一轮截图。所有截图为实际 viewport / 页面捕获，未编辑图片或注入 CSS。
+
+本轮四个新包还通过独立 Docker S1→005、导入与幂等、保留卷重建 API / DB、原件与全部
+分片 / 图片 / 译文 / 进度、完整 ZIP 下载 hash 与全包复验、会话 / 另一账号 / 撤销检查。
+以下命令退出0，专属容器 / 卷已清理：
+
+```sh
+node scripts/check-site-restart.mjs \
+  --bundle data/pdf-s2/final-fix/current/bert/reader.zip \
+  --bundle data/pdf-s2/final-fix/current/attention/reader.zip \
+  --bundle data/pdf-s2/final-fix/current/llm-foundations/reader.zip \
+  --bundle data/pdf-s2/final-fix/current/rl-little-book/reader.zip
+```
+
+验证期间 renderer 的 source / static / dist 共26个文件 hash 保持不变。
+
+## Task12 已通过的原始全量证据（沿用）
+
+以下命令、旧 catalog 产物身份、Python / P0 和全量套件结果来自 Task12；本轮未重复未改变的
+SDK / extension / PostgreSQL / Python / 原布局广泛检查，也不将其标成新代码全量重跑。
+
+### 可复现命令与证据
 
 从仓库根目录执行，样本映射格式见 [PDF 工作流](pdf-reader-workflow.md)：
 
@@ -75,11 +132,9 @@ Docker 清单补齐 renderer / bundle 的构建与运行依赖，包括 renderer
 跨主机灾备恢复与公网部署均未验证。完整本地 Node 处理目前以 Linux `/proc/self/fd` 为基线，
 翻译还要求 `/usr/bin/flock`。ZIP 格式与浏览器离线阅读本身不绑定 Linux，但本次浏览器仅为 Linux Chromium。
 
-两项已记录 Minor 仍待控制方最终分级：移动站点首屏可见正文较少（390×844 约 120px，
-外层滚动后可增加阅读空间）；本地翻译快照在 SDK 迭代中写盘失败可能标成 `TRANSLATION_SDK_FAILED`，
-先前快照仍可恢复。未在本任务顺带修改。整分支最终审查由控制方执行，Task 12 Step 6 在其完成前不勾选。
+原 Task12 的移动首屏与快照错误分类延后项已纳入页首最终修复验证。最终复审与 Step 6 勾选仍由控制方负责。
 
-## 最终实测
+## Task12 当时的稳定树实测（旧 catalog）
 
 以下为 R42 新目录 / 可信 catalog 下的正式运行，旧 probe ZIP 不作为当前导入证据。
 
@@ -119,14 +174,14 @@ S2 的 Python 检查使用已有环境、`--locked --no-sync`：`pdf:lint` 退�
 LLM 67 个提示框 / 15,629 原生字符核对通过；7 个代表页旧预览 / 模拟插件回填 / 精确恢复通过。
 [旧包与像素检查](superpowers/specs/assets/2026-10-27-s2-validation/legacy-package-validation.json)、
 [原布局检查](superpowers/specs/assets/2026-10-27-s2-validation/legacy-structure-validation.json)、
-[旋转 oracle](superpowers/specs/assets/2026-10-27-s2-validation/rotation-oracle.json) 都是本次重跑，未改变旧 parser / P0 工具。
+[旋转 oracle](superpowers/specs/assets/2026-10-27-s2-validation/rotation-oracle.json) 均为 Task12 当时重跑，本轮沿用，未改变旧 parser / P0 工具。
 
 最终 `test:site:restart` 使用含 R42 catalog/runtime 的新镜像，四个正式包均退出 0：
 BERT 16 / Attention 15 / LLM 317 / RL 154 片及对应 16 / 9 / 141 / 69 图逐项验证，
 S1→005、同条目与重复导入、保存进度、容器重建、完整 ZIP 下载再验证、登录 / 会话 / 其他账号
 隔离与撤销通过，镜像内容检查通过。测试项目、容器与命名卷已由 finally 清理。
 
-初始离线分栏画面中，runtime 会自动把首块 scrollIntoView，可能将页头和部分目录滚出视口；
-本次单独复现并保留实际截图 / 诊断，作为控制方整分支可用性待分级观察。离线 headless 原 PDF
+旧 Task12 初始离线分栏的 scrollIntoView 外层滚动已由页首 I2 修复与新目录证据取代；
+旧截图 / 诊断仅保留为问题复现。离线 headless 原 PDF
 面板的可视栅格未验证，不能用本地响应成功替代视觉证据；完整原件字节、页几何、原区域像素及
 站内 PDF.js 回归是分别记录的检查。

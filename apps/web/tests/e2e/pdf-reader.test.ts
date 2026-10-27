@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { capture, newReader } from './library-helpers';
 import { ingest } from './bundle-helpers';
-import { readerBundle, blockId } from './reader-helpers';
+import { readerBundle, blockId, mobileReadingGeometry } from './reader-helpers';
 
 test('Reader splits, resizes, switches modes, locates four rotations against independent canvas pixels', async ({ page }) => {
   await newReader(page, 'split');
@@ -174,4 +174,43 @@ test('a failed current chunk stays retryable after an adjacent response succeeds
   await expect(page.locator('[data-reader-chunk="c_000002"]')).toBeAttached();
   await expect(page.getByRole('button', { name: '重试正文' })).toBeVisible(); await page.getByRole('button', { name: '重试正文' }).click();
   await expect(page.locator(`[data-block-id="${blockId(1)}"]`)).toBeAttached(); await expect(page.getByRole('alert')).toHaveCount(0);
+});
+
+test('mobile ordinary entry shows useful body space in both themes without passive PUT', async ({ page }) => {
+  await newReader(page, 'mobileentry'); const result = await ingest(page, await readerBundle());
+  const writes: string[] = []; page.on('request', request => { if (request.method() === 'PUT' && request.url().endsWith('/progress')) writes.push(request.url()); });
+  await page.setViewportSize({ width: 390, height: 844 });
+  for (const theme of ['light', 'dark']) {
+    await page.evaluate(theme => localStorage.setItem('pgl-theme', theme), theme);
+    await page.goto(`/library/${result.documentId}`);
+    await expect(page.locator('.reader-content')).toContainText('译文');
+    await page.waitForTimeout(1800);
+    const geometry = await mobileReadingGeometry(page); console.log('mobile entry', theme, geometry);
+    expect(geometry.outerScroll).toBe(0); expect(geometry.visibleHeight).toBeGreaterThanOrEqual(240); expect(geometry.paragraphVisible).toBeGreaterThanOrEqual(50);
+    await expect(page.getByLabel('阅读视图')).toBeInViewport();
+    await expect(page.getByText(/模拟译文/).first()).toBeInViewport();
+    await capture(page, `s2-final-mobile-entry-${theme}`, false);
+    expect(await page.locator('[data-reader-chunk]').count()).toBeLessThanOrEqual(3);
+  }
+  expect(writes).toEqual([]);
+});
+
+test('full-coverage imported warnings remain complete inert and bounded after keyboard expansion', async ({ page }) => {
+  await newReader(page, 'warnings');
+  const warnings = ['source-binding-unavailable:source-only-block', 'unsupported-list-markers:chapter', '<img src="https://example.invalid/leak" onerror="alert(1)">', ...Array.from({ length: 300 }, (_, i) => `source-evidence-conflict:block-${i}`)];
+  const result = await ingest(page, await readerBundle(false, false, '译文 ', { warnings, mathFallback: true }));
+  await page.setViewportSize({ width: 390, height: 844 }); await page.goto(`/library/${result.documentId}`);
+  const disclosure = page.locator('.reader-warnings'); const summary = disclosure.locator('summary');
+  await expect(summary).toContainText('303'); await expect(disclosure).not.toHaveAttribute('open');
+  await expect(page.getByText(/解析不完整/)).toHaveCount(0);
+  await summary.focus(); await page.keyboard.press('Enter'); await expect(disclosure).toHaveAttribute('open', '');
+  expect(await disclosure.locator('li code').allTextContents()).toEqual(warnings);
+  await expect(disclosure).toContainText('仅保留原文'); await expect(disclosure).toContainText('列表');
+  await expect(disclosure.locator('img, script')).toHaveCount(0);
+  const box = await disclosure.locator('ul').evaluate(list => ({ height: list.clientHeight, scroll: list.scrollHeight, overflow: getComputedStyle(list).overflowY }));
+  expect(box.height).toBeLessThanOrEqual(170); expect(box.scroll).toBeGreaterThan(box.height); expect(box.overflow).toBe('auto');
+  await capture(page, 's2-final-mobile-warnings', false);
+  await summary.focus(); await page.keyboard.press('Enter');
+  await page.getByLabel('正文分片').fill('3'); await page.getByRole('button', { name: '跳转正文' }).click();
+  await expect(page.locator('.reader-content')).toContainText('公式无法在显示预算内排版，已保留原始 LaTeX。');
 });
