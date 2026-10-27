@@ -222,6 +222,13 @@
                 "maxLength": 8192,
                 "pattern": "^https?:\\/\\/(?![^/?#]*@)[^/?#\\s\\x00-\\x1f\\x7f]+[^\\s\\x00-\\x1f\\x7f]*$"
               },
+              "role": {
+                "type": "string",
+                "enum": [
+                  "image",
+                  "css"
+                ]
+              },
               "status": {
                 "type": "string",
                 "const": "available"
@@ -235,6 +242,7 @@
             "required": [
               "id",
               "url",
+              "role",
               "status",
               "fileId"
             ],
@@ -252,6 +260,13 @@
                 "type": "string",
                 "maxLength": 8192,
                 "pattern": "^https?:\\/\\/(?![^/?#]*@)[^/?#\\s\\x00-\\x1f\\x7f]+[^\\s\\x00-\\x1f\\x7f]*$"
+              },
+              "role": {
+                "type": "string",
+                "enum": [
+                  "image",
+                  "css"
+                ]
               },
               "status": {
                 "type": "string",
@@ -273,6 +288,7 @@
             "required": [
               "id",
               "url",
+              "role",
               "status",
               "reason"
             ],

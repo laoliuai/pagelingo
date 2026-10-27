@@ -82,6 +82,17 @@ test('distributes strict portable Web JSON shapes matching the public Zod DTOs',
     const validate = ajv.compile(JSON.parse(readFileSync(new URL(`../schemas/${name}.schema.json`, import.meta.url), 'utf8')));
     expect(validate(value), `${name}: ${JSON.stringify(validate.errors)}`).toBe(true);
     expect(schema.safeParse(value).success, name).toBe(true);
+    if (name === 'web-capture') {
+      const resource = { id: 'sheet', role: 'css', url: 'https://example.com/opaque', status: 'missing', reason: 'unavailable' };
+      const available = replaceAt(value, ['resources'], [resource]);
+      expect(validate(available)).toBe(true);
+      expect(schema.safeParse(available).success).toBe(true);
+      for (const role of [undefined, 'script']) {
+        const invalid = replaceAt(value, ['resources'], [{ ...resource, role }]);
+        expect(validate(invalid)).toBe(false);
+        expect(schema.safeParse(invalid).success).toBe(false);
+      }
+    }
     for (const path of languagePaths[name] ?? []) {
       for (const language of ['und', 'UND-Latn', 'mul', 'MuL-CA', 'zxx', 'ZXX-US']) {
         const candidate = replaceAt(value, path, language);

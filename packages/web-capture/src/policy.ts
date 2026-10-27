@@ -1,0 +1,2 @@
+export const htmlTags = new Set('article section main div p span h1 h2 h3 h4 h5 h6 blockquote aside header footer nav ul ol li dl dt dd table caption colgroup col thead tbody tfoot tr th td figure figcaption pre code strong b em i a sub sup del s small mark u br hr img abbr time'.split(' '));
+export const forbidden = new Set('script style iframe frame frameset object embed form input textarea select option button meta base link template noscript canvas audio video source track'.split(' '));

@@ -45,7 +45,7 @@ export const captureFileSchema = z.strictObject({
   : value.role === 'html' || value.role === 'preview' ? value.mediaType === 'text/html'
   : value.role === 'css' ? value.mediaType === 'text/css' : value.mediaType === 'application/json', 'File media type does not match its role');
 export type CaptureFile = z.infer<typeof captureFileSchema>;
-const resourceBase = { id: webLocalIdSchema, url: captureUrlSchema };
+const resourceBase = { id: webLocalIdSchema, url: captureUrlSchema, role: z.enum(['image', 'css']) };
 export const captureResourceSchema = z.discriminatedUnion('status', [
   z.strictObject({ ...resourceBase, status: z.literal('available'), fileId: webLocalIdSchema }),
   z.strictObject({ ...resourceBase, status: z.literal('missing'), reason: z.enum(['unavailable', 'unsupported', 'blocked', 'too-large', 'timeout', 'not-loaded', 'invalid']) }),
@@ -129,7 +129,7 @@ export const webCaptureManifestSchema = withJsonDepthLimit(webCaptureManifestSha
   if (html && (html.bytes > defaultCaptureLimits.maxHtmlBytes || html.mediaType !== 'text/html')) fail('Invalid HTML file');
   for (const resource of value.resources) if (resource.status === 'available') {
     const file = use(resource.fileId);
-    if (file && file.role !== 'image' && file.role !== 'css') fail('Resource must be an image or archived CSS');
+    if (file && file.role !== resource.role) fail('Resource role must match its image or archived CSS file');
   }
   for (const id of value.stylesheetFileIds) use(id, 'css');
   if (value.existingTranslation) use(value.existingTranslation.fileId, 'translation');

@@ -56,7 +56,10 @@
     "pdf:bundle": "npm run build:pdf && node apps/pdf-cli/dist/cli.js bundle",
     "pdf:verify": "npm run build:pdf && node apps/pdf-cli/dist/cli.js verify",
     "test:pdf:offline": "npm run build:pdf && node --import tsx apps/pdf-cli/tests/offline-browser.mjs",
-    "check:pdf-reader": "npm run build:pdf && node scripts/check-pdf-reader.mjs"
+    "check:pdf-reader": "npm run build:pdf && node scripts/check-pdf-reader.mjs",
+    "build:web-capture": "npm run build:contracts && npm run build --workspace @pagelingo/web-capture",
+    "test:web-capture": "npm run build:web-capture && npm run test --workspace @pagelingo/web-capture",
+    "test:web-capture:browser": "npm run build:web-capture && npm run test:browser --workspace @pagelingo/web-capture"
   },
   "engines": {
     "node": ">=24.0.0"

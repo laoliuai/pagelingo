@@ -19,7 +19,7 @@ test('distinguishes manifest byte SHA from a content fingerprint and rejects for
   }
 });
 test('requires resource declarations and unique portable files within byte budgets', () => {
-  const resource = { id: 'image', url: 'https://images.example.com/a.png', status: 'missing', reason: 'unavailable' };
+  const resource = { id: 'image', role: 'image', url: 'https://images.example.com/a.png', status: 'missing', reason: 'unavailable' };
   expect(contracts.webCaptureManifestSchema.safeParse({ ...manifest, resources: [resource] }).success).toBe(true);
   const mutations = [
     { files: [file, file] }, { htmlFileId: 'absent' }, { files: [{ ...file, bytes: 8 * 1024 * 1024 + 1 }] },
@@ -48,7 +48,7 @@ test('enforces scope completeness warnings and UTF-8 snapshot budgets', () => {
 test('accepts preview resource closure while rejecting missing locations and illegal file media', () => {
   const previewFile = { ...file, id: 'preview', path: 'snapshot/preview.html', role: 'preview' };
   const image = { ...file, id: 'image', path: 'snapshot/image.png', mediaType: 'image/png', role: 'image' };
-  const value = { ...manifest, files: [file, previewFile, image], resources: [{ id: 'resource', url: 'https://example.com/image.png', status: 'available', fileId: 'image' }], snapshots: { previews: [{ id: 'preview-1', fileId: 'preview', nodeIds: ['source-1'], blockIds: [], resourceFileIds: ['image'], htmlBytes: 100, resourceBytes: 100 }], nodeLocations: { 'source-1': { previewId: 'preview-1', anchorId: 'source-1' } } } };
+  const value = { ...manifest, files: [file, previewFile, image], resources: [{ id: 'resource', role: 'image', url: 'https://example.com/image.png', status: 'available', fileId: 'image' }], snapshots: { previews: [{ id: 'preview-1', fileId: 'preview', nodeIds: ['source-1'], blockIds: [], resourceFileIds: ['image'], htmlBytes: 100, resourceBytes: 100 }], nodeLocations: { 'source-1': { previewId: 'preview-1', anchorId: 'source-1' } } } };
   expect(contracts.webCaptureManifestSchema.safeParse(value).success).toBe(true);
   expect(contracts.webCaptureManifestSchema.safeParse({ ...value, files: [file, previewFile, { ...image, mediaType: 'image/svg+xml' }] }).success).toBe(false);
   expect(contracts.webCaptureManifestSchema.safeParse({ ...value, snapshots: { ...value.snapshots, nodeLocations: { 'unknown-node': { previewId: 'preview-1', anchorId: 'source-1' } } } }).success).toBe(false);
@@ -61,7 +61,7 @@ test('rejects recursive SVG use references', () => {
   expect(contracts.safeMathAstSchema.safeParse(recursive).success).toBe(false);
 });
 test('returns validation errors for malformed resource URLs without throwing', () => {
-  const value = { ...manifest, resources: [{ id: 'broken', url: 'https://example.com:99999/image.png', status: 'missing', reason: 'invalid' }] };
+  const value = { ...manifest, resources: [{ id: 'broken', role: 'image', url: 'https://example.com:99999/image.png', status: 'missing', reason: 'invalid' }] };
   expect(() => contracts.webCaptureManifestSchema.safeParse(value)).not.toThrow();
   expect(contracts.webCaptureManifestSchema.safeParse(value).success).toBe(false);
 });
@@ -112,4 +112,12 @@ test.each(['zod', 'json-schema'])('bounds adversarial transform validation in %s
   expect(result.error, result.stderr).toBeUndefined();
   expect(result.status, result.stderr).toBe(0);
   expect(JSON.parse(result.stdout)).toEqual({ invalid: [false, false, false], valid: [true, true, true, true] });
+});
+test('keeps missing resource roles replayable and rejects role/file mismatches', () => {
+  const missing = { id: 'sheet', url: 'https://example.com/resource', status: 'missing', reason: 'unavailable' };
+  expect(contracts.captureResourceSchema.safeParse(missing).success).toBe(false);
+  expect(contracts.captureResourceSchema.parse({ ...missing, role: 'css' }).role).toBe('css');
+  const image = { ...file, id: 'image', path: 'image.png', role: 'image', mediaType: 'image/png' };
+  const resource = { id: 'resource', url: 'https://example.com/resource', status: 'available', role: 'css', fileId: 'image' };
+  expect(contracts.webCaptureManifestSchema.safeParse({ ...manifest, files: [file, image], resources: [resource] }).success).toBe(false);
 });

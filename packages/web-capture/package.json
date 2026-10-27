@@ -1,0 +1,35 @@
+{
+  "name": "@pagelingo/web-capture",
+  "version": "0.1.0",
+  "type": "module",
+  "sideEffects": false,
+  "files": ["dist", "README.md"],
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
+    "./browser": { "types": "./dist/browser.d.ts", "import": "./dist/browser.js" },
+    "./node": { "types": "./dist/node.d.ts", "import": "./dist/node.js" }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.test.json",
+    "test": "vitest run",
+    "test:browser": "playwright test"
+  },
+  "engines": { "node": ">=24.0.0" },
+  "dependencies": {
+    "@pagelingo/document-contracts": "0.3.0",
+    "@pagelingo/translation-core": "0.4.0",
+    "@mozilla/readability": "0.6.0",
+    "dompurify": "3.4.17",
+    "jsdom": "29.1.1",
+    "parse5": "8.0.1"
+  },
+  "devDependencies": {
+    "@types/jsdom": "30.0.0",
+    "@types/node": "26.6.4",
+    "@playwright/test": "1.63.0",
+    "esbuild": "0.28.2",
+    "typescript": "7.0.2",
+    "vitest": "5.0.3"
+  }
+}
