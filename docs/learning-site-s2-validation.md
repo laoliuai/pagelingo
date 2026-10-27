@@ -104,7 +104,7 @@ npm run test:site:restart -- \
   --bundle data/pdf-s2/task12-final/rl-little-book/reader.zip
 ```
 
-上述 corpus / run / ZIP / 解压文件与完整日志为本机 ignored 证据，不随源码分发 PDF。
+上述 corpus / run / ZIP / 解压文件为本机 ignored 证据，不随源码分发 PDF。逐任务临时审查与运行日志已在收尾时清理；公开验证摘要、命令与退出码、hash、截图及本地完整包继续保留。
 发布的摘要、hash、命令结果和截图在
 [验收资产目录](superpowers/specs/assets/2026-10-27-s2-validation/)。
 原输入映射：论文使用 `mineru-smoke/mineru-{bert,attention}`；长书使用
