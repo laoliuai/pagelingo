@@ -109,3 +109,48 @@ them in place without parsing or rewriting, and writes `report.json` with each
 archive's before/after SHA-256, manifest identity and source hashes. The output
 must be a new directory outside a directory input. Original S2 corpus inputs
 remain read-only; place reports in a separate run directory.
+
+## Archived Web Reader
+
+`toWebTranslationDocument(ir: WebReaderIR, selectionBlockIds: string[],
+sourceLanguage?: string): TranslationDocument` validates the source graph and
+requires unique text IDs in exact reading order. Empty selection represents a
+source-only document; a manual job selection must be nonempty at its API boundary.
+Manual languages use a conservative BCP47 form (2–63 characters), excluding
+`und`, `mul`, and `zxx`; automatic projection only inherits deterministic zh/en.
+
+`validateWebTranslation(ir, translation): ValidatedWebTranslation` returns the
+same decoded-block and source-only-reason Maps as PDF replay. Both adapters use
+one SDK `planUnits` / `validateStructure` / `decodeTranslation` implementation.
+Web validates manifest/parse identity, exact result membership, ordered units,
+status consistency and SDK versions. The byte adapter **must first verify the
+actual immutable Web IR bytes against `readerIrSha256`, actual source manifest
+bytes against `sourceSha256`, and actual glossary/resource bytes against their
+hashes**. Re-serializing an in-memory object does not verify original bytes.
+
+`buildWebReader(ir, translation): WebReaderBuild` returns `{index, chunks}` using
+Web DTOs only, without PDF sources/pages. Every primary block occurs exactly
+once in `index.chunks[].blockIds` and `index.blockLocations`. Snapshot locations
+keep source `nodeId`; `previewId` is null because the IR does not contain the
+preview index. Consumers resolve it with descriptor snapshots, never by guessing.
+Source heading levels survive in Web text `headingLevel` metadata, with logical
+section nesting as the fallback for older IR. Explicit headings populate the TOC.
+
+Chunks include at most 128 total blocks / 256 KiB JSON. A single oversized block
+can occupy up to 512 KiB including its chunk envelope; an impossible block or
+table context closure fails explicitly. `contextBlockIds` flags exact copies of
+original table header/caption blocks needed alongside primary cells. Explicit
+header references, scoped column headers, unscoped first-row headers and row
+headers are retained. Context copies reuse decoded results without extra SDK
+units; they count toward both budgets and never own progress/TOC positions.
+
+`renderWebChunk(chunk, {mode, resolveAsset}): TrustedReaderHtml` supports source,
+translation and bilingual modes. The resolver maps registered logical assets to
+application-owned HTTP(S), Blob or relative URLs. Text is escaped; source-bound
+formatting, code, images, KaTeX and validated SVG/MathML are restored. Reader
+colors come from the site theme. A bilingual block has one primary anchor;
+context anchors and table-cell IDs include chunk scope, and every formula
+instance includes source/translation and inline occurrence scope. Table spans,
+scopes and local header relationships survive neighboring chunks. Source-only
+reasons and display-budget warnings remain visible as escaped text. Snapshot
+preview HTML is a separate artifact and is never rendered by these functions.

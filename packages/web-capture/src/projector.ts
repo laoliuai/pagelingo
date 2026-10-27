@@ -86,7 +86,8 @@ export async function projectWebReader(snapshot: SanitizedSnapshot, input: WebCa
     // Exercise the public SDK's source/slot validation. Adapters never duplicate
     // marker escaping or protection algorithms.
     encodeBlock(value);
-    blocks.push({ ...base, type: 'text', value, bindings, safeMath, language: detectWebLanguage(naturalText(content), attr(unit.element, 'lang') ?? null) });
+    const heading = headingLevelFor(unit);
+    blocks.push({ ...base, type: 'text', ...(heading ? { headingLevel: heading } : {}), value, bindings, safeMath, language: detectWebLanguage(naturalText(content), attr(unit.element, 'lang') ?? null) });
   }
   const manifestSha256 = await sha256(manifestBytes); const configSha256 = await sha256(utf8(canonicalJson(limits)));
   const partial = !snapshot.scope.completeWithinScope || warnings.size > 0;
@@ -98,8 +99,14 @@ export async function projectWebReader(snapshot: SanitizedSnapshot, input: WebCa
   for (const block of blocks) check(byteLength(JSON.stringify(block)) <= limits.maxOversizedBlockBytes, 'Web block byte budget exceeded');
   check(byteLength(JSON.stringify(ir)) <= limits.maxIrBytes, 'IR byte budget exceeded'); validateWebGraph(ir); return ir;
 }
-function kindFor(unit: SemanticUnit): BlockKind {
-  const tag = attr(unit.element, 'data-pl-run') === '1' && unit.element.parentNode && isElement(unit.element.parentNode)
+function tagFor(unit: SemanticUnit): string {
+  return attr(unit.element, 'data-pl-run') === '1' && unit.element.parentNode && isElement(unit.element.parentNode)
     ? unit.element.parentNode.tagName : unit.element.tagName;
+}
+function headingLevelFor(unit: SemanticUnit): number | undefined {
+  const tag = tagFor(unit); return /^h[1-6]$/.test(tag) ? Number(tag[1]) : undefined;
+}
+function kindFor(unit: SemanticUnit): BlockKind {
+  const tag = tagFor(unit);
   return /^h[1-6]$/.test(tag) ? 'heading' : ['td', 'th'].includes(tag) ? 'table-cell' : ['caption', 'figcaption'].includes(tag) ? 'caption' : tag === 'li' ? 'list-item' : tag === 'blockquote' ? 'quote' : 'paragraph';
 }

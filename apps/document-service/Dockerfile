@@ -9,6 +9,7 @@ COPY packages/assistant-core/package.json packages/assistant-core/package.json
 COPY packages/document-contracts/package.json packages/document-contracts/package.json
 COPY apps/pdf-cli/package.json apps/pdf-cli/package.json
 COPY packages/document-renderer/package.json packages/document-renderer/package.json
+COPY packages/web-capture/package.json packages/web-capture/package.json
 COPY packages/document-bundle/package.json packages/document-bundle/package.json
 RUN npm ci
 COPY . .
@@ -25,6 +26,8 @@ COPY --from=build /app/packages/assistant-core/package.json ./packages/assistant
 COPY --from=build /app/packages/assistant-core/dist ./packages/assistant-core/dist
 COPY --from=build /app/packages/document-contracts/package.json ./packages/document-contracts/package.json
 COPY --from=build /app/packages/document-contracts/dist ./packages/document-contracts/dist
+COPY --from=build /app/packages/web-capture/package.json ./packages/web-capture/package.json
+COPY --from=build /app/packages/web-capture/dist ./packages/web-capture/dist
 COPY --from=build /app/packages/document-renderer/package.json ./packages/document-renderer/package.json
 COPY --from=build /app/packages/document-renderer/dist ./packages/document-renderer/dist
 COPY --from=build /app/packages/document-renderer/static ./packages/document-renderer/static

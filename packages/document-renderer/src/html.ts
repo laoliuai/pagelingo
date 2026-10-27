@@ -2,11 +2,11 @@ import { readerChunkSchema, type ReaderChunk, type ReaderChunkBlock, type Reader
 import type { InlineContent } from '@pagelingo/translation-core';
 import { escapeHtml as esc, renderMath, htmlBytes, elementCount, maxRenderedBytes, maxRenderedElements } from './math.js';
 import { bindingStyle, nodeStyle } from './styles.js';
+import { emphasisTags, naturalText, safeAssetUrl } from './semantic-html.js';
 declare const trustedReaderHtml: unique symbol;
 export type TrustedReaderHtml = string & { readonly [trustedReaderHtml]: true };
 export interface RenderedChunk { html: TrustedReaderHtml; blockIds: string[]; warnings: string[] }
 export interface RenderOptions { mode: 'source' | 'translation'; resolveAsset: (id: string) => string }
-const emphasisTags = { strong: 'strong', emphasis: 'em', subscript: 'sub', superscript: 'sup', deletion: 'del', small: 'small', mark: 'mark', underline: 'u' } as const;
 
 export function renderChunk(input: ReaderChunk, options: RenderOptions): RenderedChunk {
   const chunk = readerChunkSchema.parse(input);
@@ -20,7 +20,7 @@ export function renderChunk(input: ReaderChunk, options: RenderOptions): Rendere
   const asset = (id: string, alt: string): string => {
     if (!assets.has(id)) throw new Error('Missing chunk asset');
     const url = options.resolveAsset(id);
-    if (!url || /[\x00-\x20\\]/.test(url) || url.startsWith('//') || (/^[a-z][a-z0-9+.-]*:/i.test(url) && !/^(?:https?:|blob:)/i.test(url))) throw new Error('Unsafe asset URL');
+    if (!safeAssetUrl(url)) throw new Error('Unsafe asset URL');
     return `<img src="${esc(url)}" alt="${esc(alt)}" loading="lazy">`;
   };
   const math = (latex: string, display: boolean): string => {
@@ -55,7 +55,6 @@ export function renderChunk(input: ReaderChunk, options: RenderOptions): Rendere
       return `<${tag}${bindingStyle(binding)}>${inner}</${tag}>`;
     }).join('');
   }
-  const plain = (content: InlineContent[]): string => content.map(inline => inline.type === 'text' ? inline.text : inline.type === 'protected' ? inline.source : plain(inline.children)).join('');
   function blockHtml(entry: ReaderChunkBlock): string {
     const source = entry.source;
     formulaBytes = 0; formulaElements = 0;
@@ -70,7 +69,7 @@ export function renderChunk(input: ReaderChunk, options: RenderOptions): Rendere
       html = `<${tag}>${inlines(value.content, new Map(source.bindings.map(b => [b.id, b])))}</${tag}>`;
       if (htmlBytes(html) + usedBytes + 65536 > maxRenderedBytes || elementCount(html) + usedElements + 128 > maxRenderedElements) {
         warnings.push('文本格式超出显示预算，已保留可读文本。');
-        html = `<${tag}>${esc(plain(value.content))}</${tag}>`;
+        html = `<${tag}>${esc(naturalText(value.content))}</${tag}>`;
       }
     }
     const labels = { 'language-not-required': '保留原文', 'manual-choice': '未选择翻译', pending: '待翻译，保留原文', failed: '翻译失败，保留原文', cancelled: '已取消，保留原文' };

@@ -72,3 +72,9 @@ it('gives separately splittable mixed-content runs unique stable source anchors'
   expect(new Set(ir.blocks.map(block => block.sourceRefs[0].nodeId)).size).toBe(3);
   expect(sanitizeNodeSnapshot({ html: snapshot.html, url: snapshot.sourceUrl, scope: snapshot.scope }, undefined, snapshot.resources)).toEqual(snapshot);
 });
+it('retains actual heading levels through mixed heading content', async () => {
+  const snapshot = sanitizeNodeSnapshot(snapshotInput('<h3>Direct heading</h3><h5>Before<div>nested block</div>After</h5>'));
+  const manifest = await manifestFor(snapshot), ir = await projectWebReader(snapshot, manifest, projectionOptions(manifest));
+  const headings = ir.blocks.filter(block => block.type === 'text' && block.value.kind === 'heading');
+  expect(headings.map(block => block.type === 'text' ? block.headingLevel : undefined)).toEqual([3, 5]);
+});

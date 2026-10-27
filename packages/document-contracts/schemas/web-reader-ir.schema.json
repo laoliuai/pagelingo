@@ -813,6 +813,11 @@
                 "type": "string",
                 "const": "text"
               },
+              "headingLevel": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 6
+              },
               "value": {
                 "type": "object",
                 "properties": {

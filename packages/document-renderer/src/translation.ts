@@ -1,4 +1,4 @@
-import { readerIrSchema, readerTranslationSchema, validateReaderTranslationReferences, validateReaderGraph, type ReaderIR, type ReaderTranslation } from '@pagelingo/document-contracts';
+import { readerIrSchema, readerTranslationSchema, validateReaderTranslationReferences, validateReaderGraph, type ReaderIR, type ReaderTranslation, type WebTranslation } from '@pagelingo/document-contracts';
 import { planUnits, validateStructure, decodeTranslation, stripContinuation, PROMPT_VERSION, PROTECTION_VERSION, type TranslationDocument, type TranslationBlock } from '@pagelingo/translation-core';
 
 export interface ValidatedTranslation {
@@ -26,8 +26,12 @@ export function validateReaderTranslation(irInput: ReaderIR, input: ReaderTransl
   validateReaderGraph(ir);
   const translation = readerTranslationSchema.parse(input);
   validateReaderTranslationReferences(ir, translation);
+  return replayTranslation(toTranslationDocument(ir, translation.selectionBlockIds, translation.sourceLanguage ?? undefined), translation);
+}
+
+/** Common SDK planning, marker verification and decode for PDF and Web adapters. */
+export function replayTranslation(document: TranslationDocument, translation: ReaderTranslation | WebTranslation): ValidatedTranslation {
   check(translation.sdkVersion === '0.4.0' && translation.promptVersion === PROMPT_VERSION && translation.protectionVersion === PROTECTION_VERSION, 'Unsupported SDK/prompt/protection version');
-  const document = toTranslationDocument(ir, translation.selectionBlockIds, translation.sourceLanguage ?? undefined);
   const plan = planUnits(document, translation.targetLanguage, translation.profile, translation.budget, translation);
   const units = new Map(translation.units.map(unit => [unit.id, unit]));
   check(units.size === translation.units.length && units.size === plan.units.length, 'Missing or duplicate planned units');

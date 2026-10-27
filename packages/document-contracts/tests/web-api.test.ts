@@ -33,7 +33,7 @@ test('distributes strict portable Web JSON shapes matching the public Zod DTOs',
   const { ir, position, sha, blockId } = await import('./web-fixtures.js');
   const ajv = new Ajv2020({ strict: true, allErrors: true });
   addFormats(ajv);
-  const chunk = { id: 'c_000001', parseId: ir.parse.id, sourceSha256: sha, blocks: [{ source: ir.blocks[0], translation: null, sourceOnlyReason: 'pending' }], nodes: ir.nodes, roots: ir.roots, assets: [] };
+  const chunk = { contextBlockIds: [], id: 'c_000001', parseId: ir.parse.id, sourceSha256: sha, blocks: [{ source: ir.blocks[0], translation: null, sourceOnlyReason: 'pending' }], nodes: ir.nodes, roots: ir.roots, assets: [] };
   const index = { parseId: ir.parse.id, sourceSha256: sha, chunks: [{ id: 'c_000001', blockIds: [blockId], bytes: 100 }], toc: [], blockLocations: { [blockId]: { chunkId: 'c_000001', nodeId: 'source-1', previewId: null } }, language: ir.metadata.language, translationStatus: 'pending', generationKind: 'none', assetIds: [], warnings: [] };
   const source = { documentId: uuid, sourceVersionId: uuid, manifestAssetId: uuid, sha256: sha, snapshotSha256: sha, bytes: 100 };
   const timestamp = '2026-10-27T00:00:00.000Z';

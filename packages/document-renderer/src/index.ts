@@ -9,3 +9,9 @@ export type { OfflineMetadata, StaticFilePlan, GeneratedStaticFile, TrustedAsset
 export { rendererVersion, rendererSha256, trustedStaticAssets } from './static-catalog.js';
 export { resolveTrustedCatalog } from './catalog-registry.js';
 export type { TrustedRendererCatalog } from './catalog-registry.js';
+export { toWebTranslationDocument, validateWebTranslation } from './web-translation.js';
+export type { ValidatedWebTranslation } from './web-translation.js';
+export { buildWebReader } from './web-chunking.js';
+export type { WebReaderBuild } from './web-chunking.js';
+export { renderWebChunk } from './web-html.js';
+export type { WebRenderOptions } from './web-html.js';

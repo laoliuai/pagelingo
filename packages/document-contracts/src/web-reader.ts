@@ -147,7 +147,7 @@ export const webReaderAssetSchema = z.strictObject({
 export type WebReaderAsset = z.infer<typeof webReaderAssetSchema>;
 const blockBase = { id: blockIdSchema, sourceRefs: z.array(webSourceRefSchema).min(1) };
 export const webReaderBlockSchema = z.discriminatedUnion('type', [
-  z.strictObject({ ...blockBase, type: z.literal('text'), value: translationBlockSchema, bindings: z.array(readerBindingSchema), language: webLanguageDecisionSchema,
+  z.strictObject({ ...blockBase, type: z.literal('text'), headingLevel: z.number().int().min(1).max(6).optional(), value: translationBlockSchema, bindings: z.array(readerBindingSchema), language: webLanguageDecisionSchema,
     /** Metadata binds sanitized math through an existing protected asset/literal binding. */
     safeMath: z.array(z.strictObject({ bindingId: webLocalIdSchema, ast: safeMathAstSchema })),
   }).superRefine((value, ctx) => {
@@ -201,6 +201,7 @@ export type WebReaderChunkBlock = z.infer<typeof webReaderChunkBlockSchema>;
 export const webReaderChunkIdSchema = z.string().regex(/^c_(?!000000)[0-9]{6}$/);
 export const webReaderChunkShapeSchema = z.strictObject({
   id: webReaderChunkIdSchema, parseId: parseIdSchema, sourceSha256: sha256Schema,
+  contextBlockIds: z.array(blockIdSchema).max(defaultCaptureLimits.maxChunkBlocks),
   blocks: z.array(webReaderChunkBlockSchema).max(defaultCaptureLimits.maxChunkBlocks), nodes: z.array(webReaderNodeSchema).max(defaultCaptureLimits.maxDomNodes),
   roots: z.array(nodeIdSchema), assets: z.array(webReaderAssetSchema).max(defaultCaptureLimits.maxFiles),
 });

@@ -14,6 +14,14 @@
       "type": "string",
       "pattern": "^[a-f0-9]{64}$"
     },
+    "contextBlockIds": {
+      "maxItems": 128,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^b_[a-f0-9]{32}$"
+      }
+    },
     "blocks": {
       "maxItems": 128,
       "type": "array",
@@ -62,6 +70,11 @@
                   "type": {
                     "type": "string",
                     "const": "text"
+                  },
+                  "headingLevel": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 6
                   },
                   "value": {
                     "type": "object",
@@ -2186,6 +2199,7 @@
     "id",
     "parseId",
     "sourceSha256",
+    "contextBlockIds",
     "blocks",
     "nodes",
     "roots",
