@@ -1,3 +1,5 @@
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
 import { randomUUID, randomBytes } from 'node:crypto';
 import { mkdtemp, rename, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -11,10 +13,15 @@ const url = process.env.PAGELINGO_TEST_DATABASE_URL;
 if (!url) throw new Error('An isolated test PostgreSQL URL is required');
 const schema = `pgl_web_${randomUUID().replaceAll('-', '')}`;
 const admin = openDatabase(url);
-let db, app, dataDir;
+let db, app, dataDir, worker;
+const testKey = randomBytes(32);
 let modelCalls = 0;
+let closing = false;
 async function close() {
+  if (closing) return;
+  closing = true;
   try {
+    if (worker && worker.exitCode === null && worker.signalCode === null) { const exited = once(worker, 'exit'); worker.kill('SIGTERM'); await exited; }
     await app?.close();
   } finally {
     try {
@@ -45,7 +52,7 @@ try {
       maxPdfBytes: 1024 * 1024,
       captureLimits: { ...defaultCaptureLimits },
       bundleLimits: { ...defaultBundleLimits, maxPdfBytes: 1024 * 1024, maxArchiveBytes: 4 * 1024 * 1024 },
-      keyring: { activeKeyId: 'test', keys: { test: randomBytes(32) } },
+      keyring: { activeKeyId: 'test', keys: { test: testKey } },
     },
     outboundFetch: async () => {
       modelCalls++;
@@ -79,6 +86,12 @@ try {
     return reply.code(204).send();
   });
   await app.listen({ host: '127.0.0.1', port: 4338 });
+  worker = spawn(process.execPath, ['--import', 'tsx', resolve('../document-service/tests/helpers/mock-worker-process.ts'), schema], {
+    env: { PATH: process.env.PATH, PAGELINGO_SITE_MODE: 'test', PAGELINGO_SITE_ORIGIN: 'http://127.0.0.1:4338', PAGELINGO_DATA_DIR: dataDir, DATABASE_URL: url,
+      PAGELINGO_MASTER_KEY_ID: 'test', PAGELINGO_MASTER_KEYS_JSON: JSON.stringify({ test: testKey.toString('base64') }) },
+    stdio: ['ignore', 'inherit', 'inherit'],
+  });
+  worker.on('exit', () => { if (!closing) void close().then(() => process.exit(1)); });
   for (const signal of ['SIGINT', 'SIGTERM'])
     process.once(signal, () => {
       void close().then(() => process.exit(0));

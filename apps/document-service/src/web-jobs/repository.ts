@@ -16,6 +16,7 @@ export interface WebJobRow {
   input_sha256: string; url: string | null; source_version_id: string | null; parse_id: string | null;
   profile_revision: number | null; glossary_revision: number | null; source_language: string | null; selection_block_ids: string[] | null;
   status: WebJobStatus; epoch: string; lease_owner: string | null; lease_until: Date | null; slot_id: number | null; slot_epoch: string | null;
+  publication_milestone: number; finalized_epoch: string | null;
   next_request_at: Date | null; reader_version_id: string | null; completed_units: number; total_units: number;
   error_code: string | null; warnings: string[]; created_at: Date; updated_at: Date;
 }

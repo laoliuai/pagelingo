@@ -1,0 +1,44 @@
+import { afterEach, expect, it } from 'vitest';
+import { CheckpointConflictError } from '@pagelingo/translation-core';
+import { claimWebJob, heartbeatWebJob, reconcileWebJobs } from '../../src/web-jobs/lease.js';
+import { createJobStateStore } from '../../src/web-jobs/state-store.js';
+import { jobFixture } from '../helpers/web-jobs.js';
+const closes: Array<() => Promise<void>> = [];
+afterEach(async () => { for (const close of closes.splice(0)) await close(); });
+it('claims once per owner, renews the persisted lease and rejects obsolete checkpoints after recovery', async () => {
+  const t = await jobFixture(); closes.push(t.close);
+  const first = await t.save(); await t.save(13);
+  const [a,b] = await Promise.all([claimWebJob('worker-a', t.db), claimWebJob('worker-b', t.db)]);
+  const lease = a ?? b;
+  expect([a,b].filter(Boolean)).toHaveLength(1);
+  expect(lease?.jobId).toBe(first.jobId);
+  await heartbeatWebJob(lease!, t.db);
+  const state = createJobStateStore(lease!, t.db);
+  const checkpoint = { version: 1 as const, fingerprint: 'actual-test-checkpoint', units: [], blocks: {}, metrics: { requests: 1, retries: 0, cacheHits: 0, promptTokens: 1, completionTokens: 2, totalTokens: 3, usageRequests: 1, startedAt: Date.now(), elapsedMs: 1 }, nextRequestAt: Date.now() + 60000 };
+  await state.save(checkpoint, [{ key: 'cache-key', text: 'retained', schemaVersion: 1, createdAt: 1, lastAccessedAt: 1, bytes: 8 }]);
+  await t.db.pool.query("UPDATE web_jobs SET lease_until=clock_timestamp()-interval '1 second' WHERE id=$1", [lease!.jobId]);
+  await t.db.pool.query("UPDATE web_worker_slots SET lease_until=clock_timestamp()-interval '1 second' WHERE id=$1", [lease!.slotId]);
+  await reconcileWebJobs(t.db);
+  await expect(state.save(checkpoint, [])).rejects.toBeInstanceOf(CheckpointConflictError);
+  const row = (await t.db.pool.query('SELECT status,next_request_at FROM web_jobs WHERE id=$1', [lease!.jobId])).rows[0];
+  expect(row.status).toBe('queued'); expect(row.next_request_at.getTime()).toBe(checkpoint.nextRequestAt);
+  expect((await t.db.pool.query('SELECT entry FROM web_owner_cache')).rows[0].entry.text).toBe('retained');
+});
+it('pauses a running job on key change without requiring a browser status read', async () => {
+  const t = await jobFixture(); closes.push(t.close); await t.save();
+  const lease = await claimWebJob('worker', t.db); await t.profile(1);
+  await reconcileWebJobs(t.db);
+  expect((await t.db.pool.query('SELECT status FROM web_jobs WHERE id=$1', [lease!.jobId])).rows[0].status).toBe('paused-config');
+  await expect(heartbeatWebJob(lease!, t.db)).rejects.toBeInstanceOf(CheckpointConflictError);
+  expect((await t.db.pool.query('SELECT job_id FROM web_worker_slots WHERE id=$1', [lease!.slotId])).rows[0].job_id).toBeNull();
+});
+it('rolls back the checkpoint with a failed cache write and fails closed instead of falling back to memory', async () => {
+  const t=await jobFixture();closes.push(t.close);await t.save();
+  const lease=(await claimWebJob('worker',t.db))!;
+  const state=createJobStateStore(lease,t.db);
+  const checkpoint={version:1 as const,fingerprint:'transaction-test',units:[],blocks:{},metrics:{requests:0,retries:0,cacheHits:0,promptTokens:0,completionTokens:0,totalTokens:0,usageRequests:0,startedAt:Date.now(),elapsedMs:0}};
+  const invalid={key:null,text:'invalid',schemaVersion:1,createdAt:1,lastAccessedAt:1,bytes:1} as unknown as import('@pagelingo/translation-core').CacheEntry;
+  await expect(state.save(checkpoint,[invalid])).rejects.toBeInstanceOf(CheckpointConflictError);
+  expect(await state.load()).toBeUndefined();
+  expect((await t.db.pool.query('SELECT * FROM web_owner_cache')).rows).toEqual([]);
+});

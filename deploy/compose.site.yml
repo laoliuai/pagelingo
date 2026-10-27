@@ -18,7 +18,7 @@ services:
       context: ..
       dockerfile: apps/document-service/Dockerfile
     init: true
-    environment:
+    environment: &site-runtime
       PAGELINGO_SITE_MODE: local
       PAGELINGO_SITE_ORIGIN: ${PAGELINGO_SITE_ORIGIN:-http://127.0.0.1:4320}
       PAGELINGO_SERVICE_HOST: 0.0.0.0
@@ -42,6 +42,19 @@ services:
       interval: 2s
       timeout: 3s
       retries: 30
+    restart: unless-stopped
+  worker:
+    build:
+      context: ..
+      dockerfile: apps/document-service/Dockerfile
+    init: true
+    command: [node, apps/document-service/dist/worker/main.js]
+    environment: *site-runtime
+    volumes:
+      - objects:/data
+    depends_on:
+      app:
+        condition: service_healthy
     restart: unless-stopped
 volumes:
   database:

@@ -343,3 +343,7 @@ CREATE TABLE web_fetch_acquisitions (
   FOREIGN KEY (owner_id,document_id,raw_asset_id,raw_sha256,raw_bytes) REFERENCES assets(owner_id,document_id,id,sha256,bytes)
 );
 CREATE TRIGGER immutable_web_fetch_acquisition BEFORE UPDATE ON web_fetch_acquisitions FOR EACH ROW EXECUTE FUNCTION reject_reader_mutation();
+
+-- Durable bounded publication and terminal finalizer idempotence (S3 worker).
+ALTER TABLE web_jobs ADD COLUMN publication_milestone integer NOT NULL DEFAULT -1 CHECK (publication_milestone BETWEEN -1 AND 4);
+ALTER TABLE web_jobs ADD COLUMN finalized_epoch bigint CHECK (finalized_epoch BETWEEN 0 AND 9007199254740991 AND finalized_epoch<=epoch);

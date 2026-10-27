@@ -480,3 +480,11 @@ metadata, skips missing legacy language, completed Readers (including complete i
 and not-required Readers, and returns
 a real durable translation job ID or null. Claim/heartbeat, model execution and
 checkpoint-based cancellation finalization belong to the worker lifecycle.
+
+### Durable Web worker
+
+Run `npm run worker --workspace @pagelingo/document-service` after building the service and applying its schema. The worker is an independent process and verifies migration checksums before claiming work. It uses the same `DATABASE_URL`, `PAGELINGO_DATA_DIR`, site mode, and runtime master keyring as the HTTP service. `npm run dev:site` and the site Compose deployment start the worker alongside the API; stopping the browser or logging out normally does not stop accepted server jobs.
+
+The database permits two running Web jobs globally and one per owner. Workers renew 30-second leases every five seconds and recover expired jobs with a new epoch. Confirmed SDK checkpoints, owner-scoped cache writes, usage, and 429 cooldown commit atomically. Readers are immutable and published at bounded progress milestones and termination; cancellation or configuration changes retain confirmed work with fresh authorization. An explicitly retried job reuses its immutable input and confirmed units; changing configuration requires a new run. Failed/unconfirmed requests may need repetition after a crash, but confirmed completed units are not replayed.
+
+Production model calls use the public SDK over pinned HTTPS with bounded streaming responses, no redirects or query credentials. Every request resolves the current matching profile; an active database monitor aborts work after cancellation, revocation, or profile changes. Finalizing confirmed text needs no provider key. Test worker entries require test mode and explicit mock provider/fetch dependencies; mock Reader artifacts are marked `mock` and do not establish translation quality. Development/browser test lifecycles use isolated databases, generated test keys, and those mocks.

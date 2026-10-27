@@ -34,9 +34,19 @@ try {
   if (built !== 0 && !stopping) stop(built);
   if (!stopping) {
     const service = launch(process.execPath, ['node_modules/tsx/dist/cli.mjs', 'apps/document-service/src/main.ts'], env);
+    const worker = (async () => {
+      // Service owns migrations; worker verifies the same schema before claiming.
+      while (!stopping) {
+        try { if ((await fetch(`http://127.0.0.1:${env.PAGELINGO_SERVICE_PORT ?? '4320'}/health/ready`, { signal: AbortSignal.timeout(500) })).ok) break; } catch {}
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      if (stopping) return 0;
+      const entry = env.PAGELINGO_SITE_MODE === 'test' ? 'apps/document-service/tests/helpers/mock-worker-process.ts' : 'apps/document-service/src/worker/main.ts';
+      return launch(process.execPath, ['--import', 'tsx', entry], env);
+    })();
     const web = launch(process.execPath, ['node_modules/vite/bin/vite.js', '--config', 'apps/web/vite.config.ts', 'apps/web'], webEnv);
-    await Promise.race([service, web]).then(code => { if (!stopping) stop(code || 1); });
-    await Promise.all([service, web]);
+    await Promise.race([service, worker, web]).then(code => { if (!stopping) stop(code || 1); });
+    await Promise.all([service, worker, web]);
   }
 } catch {
   console.error('Site development startup failed; check runtime file and dependencies.');

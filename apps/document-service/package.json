@@ -10,7 +10,8 @@
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "dev": "tsx watch src/main.ts",
     "start": "node dist/main.js",
-    "admin": "tsx src/cli/bootstrap-admin.ts"
+    "admin": "tsx src/cli/bootstrap-admin.ts",
+    "worker": "node dist/worker/main.js"
   },
   "dependencies": {
     "@pagelingo/document-contracts": "0.3.0",

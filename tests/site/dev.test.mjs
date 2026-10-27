@@ -16,6 +16,13 @@ for (const signal of ['SIGTERM', 'SIGINT']) test(`dev owns its schema, serves de
   assert.equal((await runtime.stop(signal)).code, signal === 'SIGTERM' ? 143 : 130);
   for (const port of [runtime.apiPort, runtime.vitePort]) await assert.rejects(fetch(`http://127.0.0.1:${port}/`));
 }));
+test('an owned worker exit terminates the development API and web processes', options, () => withDev({}, async runtime => {
+  await runtime.start();
+  await runtime.ready();
+  await runtime.stopWorker();
+  await runtime.expectFailure();
+  await assert.rejects(fetch(`http://127.0.0.1:${runtime.apiPort}/health/ready`));
+}));
 test('invalid API configuration terminates both owned development processes', options, () => withDev({ env: { PAGELINGO_SITE_MODE: 'invalid' } }, async runtime => {
   await runtime.start();
   await runtime.expectFailure();
@@ -55,6 +62,10 @@ test('development database project differs from preview and native PDFs survive 
   assert.equal(dev.services.db.ports[0].host_ip, '127.0.0.1');
   assert.equal(dev.services.db.ports[0].published, '54330');
   assert.equal(preview.services.db.ports, undefined);
+  assert.deepEqual(preview.services.worker.environment, preview.services.app.environment);
+  assert.equal(preview.services.worker.volumes[0].source, preview.services.app.volumes[0].source);
+  assert.deepEqual(preview.services.worker.command, ['node', 'apps/document-service/dist/worker/main.js']);
+  assert.equal(preview.services.worker.depends_on.app.condition, 'service_healthy');
   const bootstrap = spawnSync(process.execPath, ['--import', 'tsx', 'apps/document-service/src/cli/bootstrap-admin.ts', '--username', 'devreader', '--password-stdin'], { env: { ...process.env, ...runtime.env }, input: 'dev-only-password-42\n', encoding: 'utf8' });
   assert.equal(bootstrap.status, 0, 'owned dev bootstrap');
   const origin = `http://127.0.0.1:${runtime.vitePort}`;

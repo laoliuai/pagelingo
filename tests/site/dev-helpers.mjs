@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createServer } from 'node:net';
@@ -40,7 +40,7 @@ export async function withDev(overrides, run) {
   let output = '';
   const runtime = {
     apiPort, vitePort, directory, file,
-    env: { PAGELINGO_SITE_MODE: 'local', PAGELINGO_SITE_ORIGIN: `http://127.0.0.1:${vitePort}`, PAGELINGO_SERVICE_PORT: String(apiPort), PAGELINGO_VITE_PORT: String(vitePort), PAGELINGO_DATA_DIR: `${directory}/objects`, DATABASE_URL: databaseUrl, PAGELINGO_MASTER_KEY_ID: 'test', PAGELINGO_MASTER_KEYS_JSON: JSON.stringify({ test: Buffer.alloc(32, 5).toString('base64') }), ...overrides.env },
+    env: { PAGELINGO_SITE_MODE: 'test', PAGELINGO_SITE_ORIGIN: `http://127.0.0.1:${vitePort}`, PAGELINGO_SERVICE_PORT: String(apiPort), PAGELINGO_VITE_PORT: String(vitePort), PAGELINGO_DATA_DIR: `${directory}/objects`, DATABASE_URL: databaseUrl, PAGELINGO_MASTER_KEY_ID: 'test', PAGELINGO_MASTER_KEYS_JSON: JSON.stringify({ test: Buffer.alloc(32, 5).toString('base64') }), ...overrides.env },
     async start() {
       await writeFile(file, Object.entries(runtime.env).map(([key, value]) => `${key}='${value}'`).join('\n') + '\n', { mode: 0o600 });
       child = spawn(process.execPath, [resolve('scripts/dev-site.mjs'), '--file', file], { stdio: ['ignore', 'pipe', 'pipe'] });
@@ -58,6 +58,18 @@ export async function withDev(overrides, run) {
         await delay(100);
       }
       assert.fail(`dev startup failed: ${output}`);
+    },
+    async stopWorker() {
+      // Inspect only children of this owned launcher, never global process names.
+      for (let attempt=0; attempt<50; attempt++) {
+        const pids=(await readFile(`/proc/${child.pid}/task/${child.pid}/children`,'utf8')).trim().split(/\s+/).filter(Boolean);
+        for (const pid of pids) {
+          const command=await readFile(`/proc/${pid}/cmdline`,'utf8').catch(()=> '');
+          if (command.includes('apps/document-service/tests/helpers/mock-worker-process.ts')) { process.kill(Number(pid),'SIGTERM'); return; }
+        }
+        await delay(100);
+      }
+      assert.fail('owned mock worker did not start');
     },
     async stop(signal = 'SIGTERM') {
       if (child?.exitCode === null) child.kill(signal);
