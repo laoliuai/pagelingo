@@ -9,7 +9,12 @@ interface CopyRecord {
   originalSha256: string;
   sha256: string;
   mode: 'original' | 'sanitized-copy';
-  fields: { pointer: string; original: string; projected: string | null }[];
+  fields: {
+    pointer: string;
+    original?: string;
+    originalSha256?: string;
+    projected: string | null;
+  }[];
 }
 export async function writeExclusive(
   root: string,
@@ -64,7 +69,7 @@ export async function writeProvenance(
   if (typeof metadata.debug === 'string') {
     fields.push({
       pointer: '/debug',
-      original: metadata.debug,
+      originalSha256: sha256(metadata.debug),
       projected: null,
     });
     delete metadata.debug;

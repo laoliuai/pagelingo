@@ -49,7 +49,13 @@
     "site:db": "docker compose --project-name pagelingo-site-dev --env-file .env.site-dev.local -f deploy/compose.site.yml -f deploy/compose.site-dev.yml up -d --wait db",
     "check:site": "node scripts/with-test-postgres.mjs -- node scripts/test-site.mjs --check",
     "build:renderer": "npm run build:contracts && npm run build --workspace @pagelingo/document-renderer",
-    "build:bundle": "npm run build:renderer && npm run build --workspace @pagelingo/document-bundle"
+    "build:bundle": "npm run build:renderer && npm run build --workspace @pagelingo/document-bundle",
+    "build:pdf": "npm run build:bundle && npm run build --workspace @pagelingo/pdf-cli",
+    "pdf:process": "npm run build:pdf && node apps/pdf-cli/dist/cli.js process",
+    "pdf:translate": "npm run build:pdf && node apps/pdf-cli/dist/cli.js translate",
+    "pdf:bundle": "npm run build:pdf && node apps/pdf-cli/dist/cli.js bundle",
+    "pdf:verify": "npm run build:pdf && node apps/pdf-cli/dist/cli.js verify",
+    "test:pdf:offline": "npm run build:pdf && node --import tsx apps/pdf-cli/tests/offline-browser.mjs"
   },
   "engines": {
     "node": ">=24.0.0"

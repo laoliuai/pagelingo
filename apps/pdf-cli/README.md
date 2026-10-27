@@ -2,7 +2,7 @@
 
 This private Node 24+ workspace projects verified MinerU P0 runs and legacy
 semantic previews into Reader IR and provides durable local SDK translation.
-It does not export bundles, download models, or install Python. Local processing and the downstream bundle directory
+It exports verified self-contained reader bundles. It does not download models or install Python. Local processing and the bundle directory
 adapter use Linux as the supported platform.
 
 Build dependencies first with `npm run build:bundle`, then
@@ -174,5 +174,33 @@ local writers and deterministic filesystem-failure tests.
 
 The CLI returns sanitized JSON on stdout, fixed error codes on stderr, and exit
 130 for cancellation (even if verified blocks make snapshot status partial).
-No bundle export, service job or UI is implemented by this command. Full export
-must independently enforce the processing run's exportReady/exportBlockers.
+Full export independently enforces the processing run's exportReady/exportBlockers.
+
+## Offline bundle export
+
+See the [complete four-command workflow](../../docs/pdf-reader-workflow.md) for
+explicit Python/model/legacy KaTeX setup, resuming translation, pending exports,
+limits and offline verification. Linux `/proc/self/fd` is required for bundle IO;
+translation additionally requires `/usr/bin/flock` (util-linux).
+
+```sh
+npm run pdf:bundle -- --run /path/run --output /path/new-bundle --archive /path/new.zip
+npm run pdf:verify -- /path/new.zip
+```
+
+Both output paths must be new and outside all source processing/P0/preview inputs.
+Each export derives fresh package and translation snapshot UUIDs, preserving the
+original immutable local snapshot. With no local translation job, export creates
+an honest pending/not-required snapshot without provider configuration or requests.
+Corrupt existing translation state is rejected. Read `render/index.html` from the
+unpacked ZIP using `file://`; images, formulas, fonts and original PDF are local.
+
+Public `exportBundle({runDir, outputDir, archivePath}, deps?)` returns
+`Promise<BundleIdentity>` (`packageId`, canonical `manifestSha256`). Optional
+`ExportDependencies` accepts validated `limits` and `signal`. It checks complete
+resource closure and trusted static bytes with `validateBundle`, then uses the
+shared streaming `writeBundle` for no-replace atomic ZIP publication. Failures
+may leave a new debug directory and sanitized `export-failure.json`; no success
+ZIP is published. `LocalExportError.code` is fixed and contains no host paths.
+`createStaticFilePlan` remains the shared renderer's pure export/replay function.
+Run `npm run test:pdf:offline` for the owned-fixture Chromium file:// ZIP check.

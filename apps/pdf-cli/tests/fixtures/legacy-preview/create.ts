@@ -37,14 +37,14 @@ export async function manifest(
     JSON.stringify({ schemaVersion, files }),
   );
 }
-export async function fixture(html?: string) {
+export async function fixture(html?: string, sourcePdf?: Uint8Array, pdfPage = page) {
   const root = await mkdtemp(join(tmpdir(), 'pagelingo-cli-'));
   const run = join(root, 'p0');
   const preview = join(root, 'preview');
   await mkdir(run);
   await mkdir(join(preview, 'pages'), { recursive: true });
   await mkdir(join(preview, 'assets'));
-  const source = Buffer.from('%PDF-1.7\nowned mock PDF');
+  const source = sourcePdf ?? Buffer.from('%PDF-1.7\nowned mock PDF');
   const meta = {
     schemaVersion: 'pagelingo-benchmark-run/1',
     runId: 'fixture-run',
@@ -122,10 +122,10 @@ export async function fixture(html?: string) {
         {
           sourcePageIndex: 0,
           parsedPageIndex: 0,
-          width: 360,
-          height: 420,
-          cropBox: page.cropBox,
-          rotation: 0,
+          width: pdfPage.displayWidth,
+          height: pdfPage.displayHeight,
+          cropBox: pdfPage.cropBox,
+          rotation: pdfPage.rotation,
           blocks: [0, 1, 2].map((blockIndex) => ({
             id: `fixture-run/p0/b${blockIndex}`,
             blockIndex,
@@ -169,7 +169,7 @@ export async function fixture(html?: string) {
     inspection: {
       schemaVersion: 'pagelingo-pdf-inspection/1',
       sourceSha256: hash(source),
-      pages: [page],
+      pages: [pdfPage],
       warnings: [],
     } satisfies PdfInspection,
   };

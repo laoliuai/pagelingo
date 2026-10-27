@@ -23,3 +23,6 @@ export type { LocalProviderConfig } from './safe-config.js';
 export type { LocalTranslationJob, LocalTranslationResult, TranslateRunOptions, TranslationDependencies } from './translation-types.js';
 export type { AtomicWrite } from './file-checkpoints.js';
 export type { RunLock } from './run-lock.js';
+
+export { exportBundle, LocalExportError } from './bundle.js';
+export type { ExportOptions, ExportDependencies } from './bundle.js';

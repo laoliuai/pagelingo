@@ -5,6 +5,9 @@ import { readFile } from 'node:fs/promises';
 import { CheckpointConflictError, parseGlossaryFile } from '@pagelingo/translation-core';
 import { translateRun } from './translate.js';
 import { LocalTranslationError } from './safe-config.js';
+import { exportBundle, LocalExportError } from './bundle.js';
+import { BundleError, createArchiveFileSource, validateBundle } from '@pagelingo/document-bundle';
+import { defaultBundleLimits, bundleLimitsOverrideSchema, bundleLimitsSchema } from '@pagelingo/document-contracts';
 
 const processGuidance = new Set([
   'Usage: pagelingo-pdf --source FILE --run-dir NEW_DIR [--p0-run DIR] [--preview DIR] [--python FILE] [--katex DIR] [--model-dir DIR] [--pages SELECTION]',
@@ -20,6 +23,7 @@ const translationCodes = new Set([
   'TRANSLATION_STATE_UNREADABLE', 'TRANSLATION_DISK_WRITE_FAILED', 'TRANSLATION_EPOCH_CONFLICT',
 ]);
 function errorCode(error: unknown, translating: boolean): string {
+  if (error instanceof BundleError || error instanceof LocalExportError) return error.code;
   if (error instanceof LocalTranslationError && translationCodes.has(error.code)) return error.code;
   if (error instanceof CheckpointConflictError && translationCodes.has(error.message)) return error.message;
   if (!translating && error instanceof Error && processGuidance.has(error.message)) return error.message;
@@ -28,7 +32,7 @@ function errorCode(error: unknown, translating: boolean): string {
 
 async function translateCommand(args: string[]): Promise<number> {
   const { values } = parseArgs({ args, options: {
-    'run-dir': { type: 'string' }, selection: { type: 'string', default: 'auto' },
+    'run-dir': { type: 'string' }, run: { type: 'string' }, selection: { type: 'string', default: 'auto' },
     'source-language': { type: 'string' }, 'target-language': { type: 'string' }, profile: { type: 'string' },
     'base-url': { type: 'string' }, model: { type: 'string' }, 'api-key-env': { type: 'string' },
     resume: { type: 'boolean' }, 'new-job': { type: 'boolean' },
@@ -36,7 +40,8 @@ async function translateCommand(args: string[]): Promise<number> {
     'context-window-tokens': { type: 'string' }, 'max-batch-blocks': { type: 'string' }, 'reserve-tokens': { type: 'string' },
     'max-retries': { type: 'string' }, glossary: { type: 'string' },
   } });
-  if (!values['run-dir'] || !values['base-url'] || !values.model || !['auto', 'all', 'none'].includes(values.selection!) || values.profile && !['technical', 'academic'].includes(values.profile)) throw new LocalTranslationError('TRANSLATION_OPTIONS_INVALID');
+  const runDir = values.run ?? values['run-dir'];
+  if (!runDir || !values['base-url'] || !values.model || !['auto', 'all', 'none'].includes(values.selection!) || values.profile && !['technical', 'academic'].includes(values.profile)) throw new LocalTranslationError('TRANSLATION_OPTIONS_INVALID');
   const budget = Object.fromEntries([
     ['maxInputTokens', values['max-input-tokens']], ['maxOutputTokens', values['max-output-tokens']],
     ['contextWindowTokens', values['context-window-tokens']], ['maxBatchBlocks', values['max-batch-blocks']], ['reserveTokens', values['reserve-tokens']],
@@ -45,7 +50,7 @@ async function translateCommand(args: string[]): Promise<number> {
   const cancel = () => controller.abort();
   process.once('SIGINT', cancel); process.once('SIGTERM', cancel);
   try {
-    const result = await translateRun({ runDir: values['run-dir'], selection: values.selection as 'auto' | 'all' | 'none',
+    const result = await translateRun({ runDir, selection: values.selection as 'auto' | 'all' | 'none',
       provider: { baseUrl: values['base-url'], model: values.model, apiKeyEnv: values['api-key-env'] },
       sourceLanguage: values['source-language'], targetLanguage: values['target-language'], profile: values.profile as 'academic' | 'technical' | undefined,
       resume: values.resume ?? false, newJob: values['new-job'] ?? false, budget,
@@ -57,13 +62,40 @@ async function translateCommand(args: string[]): Promise<number> {
   } finally { process.removeListener('SIGINT', cancel); process.removeListener('SIGTERM', cancel); }
 }
 
+async function bundleCommand(command: 'bundle' | 'verify', args: string[]): Promise<number> {
+  const overrides = bundleLimitsOverrideSchema.parse(JSON.parse(process.env.PAGELINGO_BUNDLE_LIMITS_JSON ?? '{}'));
+  const limits = bundleLimitsSchema.parse({ ...defaultBundleLimits, ...overrides,
+    maxPdfBytes: process.env.PAGELINGO_MAX_PDF_BYTES === undefined ? defaultBundleLimits.maxPdfBytes : Number(process.env.PAGELINGO_MAX_PDF_BYTES),
+  });
+  const controller = new AbortController();
+  const cancel = () => controller.abort();
+  process.once('SIGINT', cancel); process.once('SIGTERM', cancel);
+  try {
+    let identity: { packageId: string; manifestSha256: string };
+    if (command === 'bundle') {
+      const { values } = parseArgs({ args, options: { run: { type: 'string' }, 'run-dir': { type: 'string' }, output: { type: 'string' }, archive: { type: 'string' } } });
+      const runDir = values.run ?? values['run-dir'];
+      if (!runDir || !values.output || !values.archive) throw new LocalExportError('EXPORT_FAILED');
+      identity = await exportBundle({ runDir, outputDir: values.output, archivePath: values.archive }, { limits, signal: controller.signal });
+    } else {
+      const { positionals } = parseArgs({ args, allowPositionals: true });
+      if (positionals.length !== 1) throw new LocalExportError('EXPORT_FAILED');
+      const result = await validateBundle(createArchiveFileSource(positionals[0], limits, controller.signal), { limits, signal: controller.signal });
+      identity = { packageId: result.packageId, manifestSha256: result.manifestSha256 };
+    }
+    process.stdout.write(`${JSON.stringify(identity)}\n`);
+    return 0;
+  } finally { process.removeListener('SIGINT', cancel); process.removeListener('SIGTERM', cancel); }
+}
+
 export async function main(
   args: string[] = process.argv.slice(2),
 ): Promise<number> {
   try {
     if (args[0] === 'translate') return await translateCommand(args.slice(1));
+    if (args[0] === 'bundle' || args[0] === 'verify') return await bundleCommand(args[0], args.slice(1));
     const { values } = parseArgs({
-      args,
+      args: args[0] === 'process' ? args.slice(1) : args,
       options: {
         source: { type: 'string' },
         'run-dir': { type: 'string' },
@@ -71,6 +103,7 @@ export async function main(
         preview: { type: 'string' },
         python: { type: 'string' },
         katex: { type: 'string' },
+        'katex-dir': { type: 'string' },
         'model-dir': { type: 'string' },
         pages: { type: 'string' },
       },
@@ -85,7 +118,7 @@ export async function main(
       p0RunDir: values['p0-run'],
       previewDir: values.preview,
       pythonPath: values.python,
-      katexDir: values.katex,
+      katexDir: values['katex-dir'] ?? values.katex,
       modelDir: values['model-dir'],
       pages: values.pages,
     });
