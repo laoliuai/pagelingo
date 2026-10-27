@@ -38,5 +38,12 @@ const store={...baseStore,async putImmutable(...args:Parameters<typeof baseStore
 }};
 try {
   await runWorker({ db, config, store, signal: controller.signal, provider,
-    captureFetch: async () => { throw new Error('No external fetch in mock worker'); } });
+    captureFetch: async input => {
+      const url = new URL(String(input));
+      if (process.env.TEST_WORKER_LINK_FIXTURES !== '1' || url.origin !== 'https://site-link-fixture.example') throw new Error('No external fetch in mock worker');
+      const paragraph = url.pathname === '/zh'
+        ? '这是已保存的中文原文。读者可以离线阅读文章，保留来源和阅读位置，无需调用模型翻译。本文介绍如何归档资料并在不同设备上继续阅读。'
+        : 'The reader can save this original article and read the source. The software system has several useful features and the following documentation explains how the application works.';
+      return new Response(`<html><title>Saved article</title><article><h1>Saved article</h1>${`<p>${paragraph}</p>`.repeat(8)}</article></html>`, { headers: { 'content-type': 'text/html' } });
+    } });
 } finally { await db.close(); }

@@ -60,7 +60,10 @@ Default checks use mocks and do not install Python/models or call paid APIs.
 ## Archived Web reading
 
 The mixed library accepts links and opens server-published Web sources in original,
-translation or paragraph bilingual mode. Saving a link does not request a model.
+translation or paragraph bilingual mode. New link saves follow the account's
+future-save automatic translation preference. An explicit per-save opt-out skips
+automatic translation without changing the preference or accepted jobs. Chinese
+content and accounts without a configured key do not start translation jobs.
 Repository/paper links remain links; public article acquisition runs independently.
 The opened Reader version stays pinned when newer translations arrive. Version and
 job refresh controls discover results, and switching versions is explicit.
