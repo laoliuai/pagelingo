@@ -89,6 +89,7 @@ Web Reader 分片最多 128 blocks / 256 KiB，单超大块最多 512 KiB；正�
 | --- | --- |
 | contracts | 上述 DTO / schema、`CaptureLimits / defaultCaptureLimits`；不导出服务端凭据或会话内部对象 |
 | web-capture | `sanitizeSnapshot(input: SnapshotInput, environment: SnapshotEnvironment): SanitizedSnapshot`；`projectWebReader(snapshot, manifest, options: WebProjectionOptions): Promise<WebReaderIR>`；`validateWebGraph(ir): void`；`normalizeCaptureUrl(url): string`；`captureContentFingerprint(snapshot, resources): Promise<string>` |
+| web-capture source | `projectSnapshotTranslationSources(snapshot:SanitizedSnapshot, limits?:CaptureLimits): Array<{nodeId:string,source:TranslationBlock}>`；root 与 browser 入口导出，和完整 projector 共享语义/行内投影，无伪造 manifest/IR；资源解析只影响 Reader asset binding，不改变 SDK source value |
 | web-capture | `buildSnapshotPreviews(snapshot, resourceResolvedManifestDraft, limits): Promise<SnapshotPreviewBuild>`；`inspectImageResource(bytes, file, limits): Promise<WebReaderAsset>`；`resolveSnapshotAnchor(index, nodeId): {previewId,anchorId}|null`，预览 ID / node ID / 资源闭包进入不可变 source manifest |
 | web-capture/browser | `sanitizeBrowserSnapshot(input, limits?, resources?): SanitizedSnapshot`；使用原生 DOM，不包含站点适配或 Chrome I/O，也不导入 jsdom |
 | web-capture/node | `extractPublicArticle(html, url): SanitizedSnapshot`；禁脚本 / 子资源的 jsdom + Readability；仅在可终止 worker 内运行 |
