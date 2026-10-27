@@ -1,3 +1,4 @@
+import { registerDocumentLinksRoutes } from './web-captures/links.js';
 import { registerStaticSite } from './static-site.js';
 import Fastify from 'fastify';
 import cookie from '@fastify/cookie';
@@ -47,6 +48,7 @@ export async function createApp({ db, config, outboundFetch }: AppOptions): Prom
   registerBundleImportsRoutes(app, store);
   registerReadersRoutes(app, store);
   registerWebCapturesRoutes(app, store);
+  registerDocumentLinksRoutes(app);
   registerWebReadersRoutes(app, store);
   app.get('/health/live', async () => ({ status: 'ok' }));
   app.get('/health/ready', async (request, reply) => {

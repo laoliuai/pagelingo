@@ -2,7 +2,7 @@ import { Worker } from 'node:worker_threads';
 import type { CaptureLimits, WebCaptureManifest, WebReaderIR, WebTranslation } from '@pagelingo/document-contracts';
 import type { WebReaderBuild } from '@pagelingo/document-renderer';
 import { ServiceError } from '../errors.js';
-export interface ValidationInput { manifest: WebCaptureManifest; files: Array<{ id: string; path: string }>; limits: CaptureLimits; retained?: { sourceVersionId: string; manifestBytes: Uint8Array; irBytes: Uint8Array } }
+export interface ValidationInput { publicArticle?: { finalUrl: string }; manifest: WebCaptureManifest; files: Array<{ id: string; path: string }>; limits: CaptureLimits; retained?: { sourceVersionId: string; manifestBytes: Uint8Array; irBytes: Uint8Array } }
 export interface PreparedCapture {
   retainedSourceVersionId?: string; manifest: WebCaptureManifest; manifestBytes: Uint8Array; fingerprint: string; ir: WebReaderIR;
   translation: WebTranslation | null; build: WebReaderBuild; warnings: string[];
@@ -25,7 +25,7 @@ export function validateCaptureInWorker(input: ValidationInput, signal: AbortSig
     const cancel = () => finish(signal.reason);
     const timer = setTimeout(() => finish(new ServiceError(408, 'CAPTURE_VALIDATION_TIMEOUT', 'Capture validation timed out')), deadlineMs);
     signal.addEventListener('abort', cancel, { once: true });
-    worker.once('message', (message: { ok: boolean; value?: PreparedCapture }) => message.ok ? finish(undefined, message.value) : finish(new ServiceError(400, 'INVALID_CAPTURE', 'Capture validation failed')));
+    worker.once('message', (message: { ok: boolean; value?: PreparedCapture; code?: string }) => message.ok ? finish(undefined, message.value) : finish(message.code === 'FETCH_BROWSER_REQUIRED' ? new ServiceError(400, 'FETCH_BROWSER_REQUIRED', 'Public page requires browser capture') : new ServiceError(400, 'INVALID_CAPTURE', 'Capture validation failed')));
     worker.once('error', () => finish(new ServiceError(400, 'INVALID_CAPTURE', 'Capture validation failed')));
     worker.once('exit', () => { if (!settled) finish(new ServiceError(400, 'INVALID_CAPTURE', 'Capture validation stopped')); });
     if (signal.aborted) cancel();

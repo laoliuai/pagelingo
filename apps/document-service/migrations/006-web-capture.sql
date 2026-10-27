@@ -210,7 +210,7 @@ CREATE TABLE devices (
 CREATE INDEX devices_pairing_session ON devices(owner_id,pairing_session_id);
 CREATE TABLE web_captures (
   id uuid PRIMARY KEY, capture_id uuid NOT NULL, owner_id uuid NOT NULL REFERENCES users(id), auth_version integer NOT NULL CHECK (auth_version >= 0),
-  device_id uuid, session_id uuid, idempotency_key text NOT NULL, request_hash text NOT NULL CHECK (request_hash ~ '^[a-f0-9]{64}$'),
+  device_id uuid, session_id uuid, fetch_job_id uuid, idempotency_key text NOT NULL, request_hash text NOT NULL CHECK (request_hash ~ '^[a-f0-9]{64}$'),
   manifest jsonb NOT NULL CHECK (jsonb_typeof(manifest)='object'), target_document_id uuid,
   translation_intent text NOT NULL CHECK (translation_intent IN ('none','auto','translate')),
   status text NOT NULL DEFAULT 'created' CHECK (status IN ('created','receiving','validating','completed','failed','cancelled')),
@@ -225,7 +225,10 @@ CREATE TABLE web_captures (
   FOREIGN KEY (owner_id,document_id,source_version_id,reader_version_id) REFERENCES web_reader_versions(owner_id,document_id,source_version_id,id),
   FOREIGN KEY (owner_id,document_id,job_id) REFERENCES web_jobs(owner_id,document_id,id),
   CHECK (idempotency_key=capture_id::text),
-  CHECK ((device_id IS NULL) <> (session_id IS NULL)),
+  CHECK (num_nonnulls(device_id,session_id,fetch_job_id)=1),
+  CHECK (fetch_job_id IS NULL OR (target_document_id IS NOT NULL AND id<>fetch_job_id AND capture_id<>fetch_job_id AND id<>capture_id)),
+  UNIQUE (owner_id,fetch_job_id),
+  UNIQUE (owner_id,target_document_id,auth_version,fetch_job_id,id),
   CHECK ((status='completed' AND document_id IS NOT NULL AND source_version_id IS NOT NULL AND reader_version_id IS NOT NULL AND save_status IS NOT NULL)
     OR (status<>'completed' AND document_id IS NULL AND source_version_id IS NULL AND reader_version_id IS NULL AND job_id IS NULL AND save_status IS NULL))
 );
@@ -246,8 +249,8 @@ DO $$ DECLARE table_name text; BEGIN
 END; $$;
 CREATE FUNCTION protect_web_capture_input() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
-  IF (NEW.id,NEW.owner_id,NEW.capture_id,NEW.auth_version,NEW.device_id,NEW.session_id,NEW.idempotency_key,NEW.request_hash,NEW.manifest,NEW.target_document_id,NEW.translation_intent,NEW.staging_key,NEW.created_at)
-    IS DISTINCT FROM (OLD.id,OLD.owner_id,OLD.capture_id,OLD.auth_version,OLD.device_id,OLD.session_id,OLD.idempotency_key,OLD.request_hash,OLD.manifest,OLD.target_document_id,OLD.translation_intent,OLD.staging_key,OLD.created_at)
+  IF (NEW.id,NEW.owner_id,NEW.capture_id,NEW.auth_version,NEW.device_id,NEW.session_id,NEW.fetch_job_id,NEW.idempotency_key,NEW.request_hash,NEW.manifest,NEW.target_document_id,NEW.translation_intent,NEW.staging_key,NEW.created_at)
+    IS DISTINCT FROM (OLD.id,OLD.owner_id,OLD.capture_id,OLD.auth_version,OLD.device_id,OLD.session_id,OLD.fetch_job_id,OLD.idempotency_key,OLD.request_hash,OLD.manifest,OLD.target_document_id,OLD.translation_intent,OLD.staging_key,OLD.created_at)
   THEN RAISE EXCEPTION 'Immutable capture input'; END IF;
   RETURN NEW;
 END; $$;
@@ -306,3 +309,37 @@ CREATE CONSTRAINT TRIGGER web_capture_job_reader_identity
 ALTER TABLE web_translation_runs ADD CHECK ((generation_kind='import' AND job_id IS NULL) OR (generation_kind='model' AND job_id IS NOT NULL));
 
 ALTER TABLE web_translation_runs ADD FOREIGN KEY (owner_id,document_id,source_version_id,parse_id) REFERENCES web_parse_runs(owner_id,document_id,source_version_id,id);
+
+-- Stable transport retry ledger; callers cannot overwrite a lost acknowledgement.
+ALTER TABLE web_jobs ADD UNIQUE (owner_id,document_id,auth_version,id);
+CREATE TABLE web_link_requests (
+  owner_id uuid NOT NULL REFERENCES users(id), idempotency_key uuid NOT NULL,
+  request_hash text NOT NULL CHECK (request_hash ~ '^[a-f0-9]{64}$'), request jsonb NOT NULL,
+  document_id uuid NOT NULL, job_id uuid, auth_version integer NOT NULL, reason text,
+  created_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY (owner_id,idempotency_key),
+  FOREIGN KEY (owner_id,document_id) REFERENCES documents(owner_id,id),
+  FOREIGN KEY (owner_id,document_id,auth_version,job_id) REFERENCES web_jobs(owner_id,document_id,auth_version,id)
+);
+CREATE TRIGGER immutable_web_link_request BEFORE UPDATE ON web_link_requests FOR EACH ROW EXECUTE FUNCTION reject_reader_mutation();
+
+-- Job-origin captures require the actual immutable lease identity, not a synthetic session.
+ALTER TABLE web_captures ADD FOREIGN KEY (owner_id,target_document_id,auth_version,fetch_job_id)
+  REFERENCES web_jobs(owner_id,document_id,auth_version,id);
+CREATE FUNCTION assert_fetch_capture_origin() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.fetch_job_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM web_jobs WHERE (owner_id,document_id,auth_version,id,kind,url)=
+      (NEW.owner_id,NEW.target_document_id,NEW.auth_version,NEW.fetch_job_id,'fetch-link',NEW.manifest->'source'->>'url')
+  ) THEN RAISE EXCEPTION 'Fetch capture origin mismatch' USING ERRCODE='23514'; END IF;
+  RETURN NEW;
+END; $$;
+CREATE TRIGGER web_capture_fetch_origin BEFORE INSERT ON web_captures FOR EACH ROW EXECUTE FUNCTION assert_fetch_capture_origin();
+CREATE TABLE web_fetch_acquisitions (
+  owner_id uuid NOT NULL, document_id uuid NOT NULL, auth_version integer NOT NULL, job_id uuid NOT NULL,
+  ingestion_id uuid NOT NULL, raw_asset_id uuid NOT NULL, raw_sha256 text NOT NULL, raw_bytes bigint NOT NULL,
+  final_url text NOT NULL, created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (owner_id,job_id), UNIQUE (owner_id,ingestion_id),
+  FOREIGN KEY (owner_id,document_id,auth_version,job_id,ingestion_id) REFERENCES web_captures(owner_id,target_document_id,auth_version,fetch_job_id,id),
+  FOREIGN KEY (owner_id,document_id,raw_asset_id,raw_sha256,raw_bytes) REFERENCES assets(owner_id,document_id,id,sha256,bytes)
+);
+CREATE TRIGGER immutable_web_fetch_acquisition BEFORE UPDATE ON web_fetch_acquisitions FOR EACH ROW EXECUTE FUNCTION reject_reader_mutation();

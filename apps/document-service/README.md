@@ -373,3 +373,62 @@ the frozen ceilings. The default file-request timeout is 20 seconds and worker
 validation deadline is 60 seconds. Cleanup retains every published asset/history
 reference, waits at least 24 hours before collecting orphan objects, and clears
 stale unfinished upload references so missing files can be uploaded again.
+
+## S3 links and public fetch jobs
+
+`POST /api/v1/documents/links` accepts the unchanged `CreateDocumentLinkRequest`
+(`url`, optional `title`/`kind`, `translationIntent`) and a required UUID
+`Idempotency-Key`. Persist that key and the request before sending. Session writes
+require Origin/CSRF; devices require `links:write` and must omit cookies. A fresh
+or repeated successful request returns 201 `{documentId,jobId}`. Reusing a key
+with changed normalized input returns 409 `IDEMPOTENCY_CONFLICT`; a missing or
+invalid key returns 400 `INVALID_REQUEST`. No owner field is accepted.
+
+The immutable `web_link_requests` ledger scopes keys to their authenticated
+owner. Tracking-only URL differences normalize away, ordinary query/hash remain.
+The same owner/source reuses a document and the same immutable fetch input reuses
+its job within the current authVersion. A replay of an older acknowledgement
+returns its original result without reviving its old job. X, Zhihu, WeChat,
+repository and paper sources remain links; browser-only and unsupported reasons
+are retained in the ledger. A failed fetch retains the link and its job's
+`FETCH_CAPTURE_UNAVAILABLE` reason (or `FETCH_BROWSER_REQUIRED` for login/browser content). Saving and ordinary reading make no model calls.
+
+`runFetchJob(lease, {db,store,config,signal,onPublication?})` is the lease-authorized
+runner for `fetch-link` jobs. Task 11 supplies claim/heartbeat, the abort signal,
+auth/lease cancellation monitoring and retry orchestration. The runner checks the
+real user/job/slot epochs before acquisition and final publication; it never uses
+a fabricated session or device. Successful publication completes the fetch job
+and releases its matching slot in one transaction. A normal unavailable/invalid
+article marks that job failed while retaining the link. A stale or aborted lease
+throws without publishing or finalizing; the orchestrator must reconcile it.
+
+The first acquired response is registered as an immutable asset and bound through
+`web_fetch_acquisitions` to its owner/document/authVersion/job and a separate
+job-origin `web_captures` ingestion/capture UUID. Retries reuse those exact bytes
+and timestamp. Raw HTML is downloadable as `uploaded:<raw_asset_id>` after
+publication; the authoritative manifest/Reader uses the separately sanitized
+article. Upload expiry does not clear these durable acquisitions. Bounded scratch
+files are disposable. Readability, sanitization, previews and projection run in
+the existing terminable worker; network and heavy work stay outside DB locks.
+Exact login/auth route segments and actual parsed password inputs trigger a
+conservative browser-capture fallback; even an article with a password modal may
+remain a link. Escaped code examples and script strings do not count as controls.
+This gate applies only to public fetches, not logged-in extension snapshots.
+Resources unavailable to this public fetch (including document-bound blobs) are
+explicitly missing and never passed to a generic fetch. The optional publication
+hook is the same durable scheduling interface as capture ingestion; Tasks 9/11
+must enforce language/preferences/provider revisions and job identity when wiring
+it. No hook or paid backlog is enabled by the default application.
+
+`createCaptureFetch` permits credential-free HTTP(S) GET/HEAD, queries and at most
+five redirects, revalidating DNS and the actual pinned peer at every hop. It
+rejects userinfo, private/metadata/mapped addresses and HTTPS downgrade; its
+20-second configured deadline covers redirects and decoded body consumption.
+Only Accept, Accept-Language and User-Agent request headers are forwarded.
+`createProviderJobFetch` keeps HTTPS/queryless/nonredirecting provider policy but
+returns response headers before SSE finishes, bounding decoded consumed bytes.
+Its Agent stays alive until EOF, body cancellation, caller abort or deadline.
+The existing buffered `createOutboundFetch` retains its old policy and lifecycle.
+All three use the shared DNS/TLS/actual-peer connection layer; no production
+private-network override exists. The fetch runner's replacement fetch dependency
+is accepted only in test mode.

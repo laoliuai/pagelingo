@@ -31,7 +31,7 @@ export function createWebCapturesService({ db, store, config, onPublication }: {
     if (!z.uuid().safeParse(id).success) throw missing();
     await assertCapturePrincipalCurrent(client, p);
     const row = (await client.query<WebCaptureRow>('SELECT * FROM web_captures WHERE owner_id=$1 AND id=$2 FOR UPDATE', [owner(p), id])).rows[0];
-    if (!row) throw missing();
+    if (!row || row.fetch_job_id) throw missing();
     if (row.auth_version !== authVersion(p)) throw conflict('CAPTURE_AUTH_CHANGED');
     return row;
   }

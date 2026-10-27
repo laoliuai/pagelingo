@@ -1,40 +1,7 @@
-import { lookup as dnsLookup } from 'node:dns/promises';
-import { isIP } from 'node:net';
-import type { TcpNetConnectOpts } from 'node:net';
-import { connect, checkServerIdentity } from 'node:tls';
-import type { ConnectionOptions, TLSSocket } from 'node:tls';
 import { Agent, fetch as undiciFetch } from 'undici';
-import ipaddr from 'ipaddr.js';
-import { resolvePublicAddresses } from './address-policy.js';
-import type { Lookup, ResolvedAddress } from './address-policy.js';
-
-/** Resolve only after authenticating TLS for hostname. Must honor signal and destroy failed sockets. */
-export type Connector = (target: ResolvedAddress & { hostname: string; port: number; signal: AbortSignal }) => Promise<TLSSocket>;
-
-const tlsConnector: Connector = ({ address, family, hostname, port, signal }) => new Promise((resolve, reject) => {
-  const options: ConnectionOptions & TcpNetConnectOpts = { host: address, family, port, signal, rejectUnauthorized: true,
-    servername: isIP(hostname) ? undefined : hostname, ALPNProtocols: ['http/1.1'],
-    checkServerIdentity: (_host, certificate) => checkServerIdentity(hostname, certificate),
-  };
-  const socket = connect(options);
-  socket.once('error', error => { socket.destroy(); reject(error); });
-  socket.once('secureConnect', () => {
-    // Explicit check also covers literal IP targets (for which SNI is omitted).
-    const error = checkServerIdentity(hostname, socket.getPeerCertificate());
-    if (error || !socket.authorized) { socket.destroy(); reject(new Error('Outbound TLS authentication failed')); }
-    else resolve(socket);
-  });
-});
-const defaultLookup: Lookup = async hostname => (await dnsLookup(hostname, { all: true, verbatim: true })) as ResolvedAddress[];
-
-function abortable<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
-  if (signal.aborted) return Promise.reject(signal.reason);
-  return new Promise((resolve, reject) => {
-    const abort = () => reject(signal.reason);
-    signal.addEventListener('abort', abort, { once: true });
-    promise.then(resolve, reject).finally(() => signal.removeEventListener('abort', abort));
-  });
-}
+import { abortable, createPinnedAgent, defaultLookup, tlsConnector, type Connector } from './pinned-transport.js';
+import type { Lookup } from './address-policy.js';
+export type { Connector } from './pinned-transport.js';
 
 /** Per-request direct Agent: no ambient proxy, global dispatcher, redirects, or DNS re-resolution. */
 export function createOutboundFetch({ lookup = defaultLookup, connector = tlsConnector, timeoutMs, maxResponseBytes }: {
@@ -56,24 +23,7 @@ export function createOutboundFetch({ lookup = defaultLookup, connector = tlsCon
       controller.signal.throwIfAborted();
       const url = new URL(request.url);
       if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash) throw new Error('Invalid outbound URL');
-      const hostname = url.hostname.replace(/^\[|\]$/g, '');
-      const addresses = await abortable(resolvePublicAddresses(hostname, lookup), controller.signal);
-      controller.signal.throwIfAborted();
-      const target = { ...addresses[0]!, hostname, port: Number(url.port || 443), signal: controller.signal };
-      agent = new Agent({ connect: (_options, callback) => {
-        Promise.resolve().then(() => connector(target)).then(socket => {
-          try {
-            controller.signal.throwIfAborted();
-            if (!socket.encrypted || !socket.authorized || !socket.remoteAddress ||
-                ipaddr.process(socket.remoteAddress).toString() !== ipaddr.process(target.address).toString()) {
-              throw new Error('Outbound peer verification failed');
-            }
-          } catch {
-            socket.destroy(); callback(new Error('Outbound connection rejected'), null); return;
-          }
-          callback(null, socket);
-        }, () => callback(new Error('Outbound connection failed'), null));
-      } });
+      agent = await createPinnedAgent(url, controller.signal, { lookup, connector });
       const headers = new Headers(request.headers);
       headers.delete('host');
       const response = await abortable(undiciFetch(url, { method: request.method, headers: [...headers.entries()],

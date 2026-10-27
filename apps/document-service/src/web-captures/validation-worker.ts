@@ -1,8 +1,9 @@
+import { parseFragment, type DefaultTreeAdapterTypes } from 'parse5';
 import { constants } from 'node:fs';
 import { open } from 'node:fs/promises';
 import { parentPort, workerData } from 'node:worker_threads';
 import { webCaptureManifestSchema, webReaderIrSchema, type WebReaderAsset, type WebReaderIR, type WebImportedTranslation } from '@pagelingo/document-contracts';
-import { sanitizeNodeSnapshot } from '@pagelingo/web-capture/node';
+import { sanitizeNodeSnapshot, extractPublicArticle } from '@pagelingo/web-capture/node';
 import { canonicalManifestBytes, sha256, normalizeCaptureUrl, replayResourcesFromManifest, captureContentFingerprint, buildSnapshotPreviews, inspectImageResource, projectWebReader } from '@pagelingo/web-capture';
 import { importCandidates } from './candidates.js';
 import { buildWebReader, buildWebImportedReader } from '@pagelingo/document-renderer';
@@ -27,7 +28,25 @@ async function prepare(input: ValidationInput): Promise<PreparedCapture> {
     finally { await handle.close(); }
   }
   const html = new TextDecoder('utf-8', { fatal: true }).decode(files.get(manifest.htmlFileId)!);
-  const snapshot = sanitizeNodeSnapshot({ html, url: normalizeCaptureUrl(manifest.source.url), scope: manifest.scope }, limits, replayResourcesFromManifest(manifest));
+  if (input.publicArticle) {
+    // Reuse the bounded sanitizer preflight before inspecting raw control elements.
+    // parse5 is inert: script strings and escaped code examples are text, not controls.
+    sanitizeNodeSnapshot({ html, url: input.publicArticle.finalUrl, scope: manifest.scope }, limits);
+    const nodes: DefaultTreeAdapterTypes.Node[] = [...parseFragment(html).childNodes];
+    while (nodes.length) {
+      const node = nodes.pop()!;
+      if ('tagName' in node && node.tagName === 'input' && node.attrs.some(a => a.name === 'type' && a.value.trim().toLowerCase() === 'password')) throw new Error('FETCH_BROWSER_REQUIRED');
+      if ('childNodes' in node) for (const child of node.childNodes) nodes.push(child);
+    }
+  }
+  const snapshot = input.publicArticle
+    ? extractPublicArticle(html, input.publicArticle.finalUrl, limits)
+    : sanitizeNodeSnapshot({ html, url: normalizeCaptureUrl(manifest.source.url), scope: manifest.scope }, limits, replayResourcesFromManifest(manifest));
+  if (input.publicArticle) {
+    check(!snapshot.warnings.includes('Readability could not identify an article'));
+    // Redirects resolve relative resources; the saved source identity stays the requested URL.
+    snapshot.sourceUrl = normalizeCaptureUrl(manifest.source.url);
+  }
   for (const resource of snapshot.resources) if (!manifest.resources.some(r => r.id === resource.id)) manifest.resources.push({ ...resource, status: 'missing', reason: 'unavailable' });
   const warnings = [...snapshot.warnings]; const assets: WebReaderAsset[] = [];
   for (const resource of manifest.resources) if (resource.status === 'available' && resource.role === 'image') {
@@ -58,10 +77,11 @@ async function prepare(input: ValidationInput): Promise<PreparedCapture> {
   for (const preview of previews.files) files.set(preview.descriptor.id, new TextEncoder().encode(preview.html));
   const manifestBytes = canonicalManifestBytes(webCaptureManifestSchema.parse(manifest));
   const ir = await projectWebReader(snapshot, manifest, { manifestBytes, assets, limits });
+  if (input.publicArticle) check(ir.blocks.length > 0);
   if (!ir.blocks.length) warnings.push('Snapshot contains no readable semantic blocks; original download remains available.');
   const translation = await importCandidates(ir, manifest, fingerprint, await sha256(Buffer.from(JSON.stringify(ir))), manifest.existingTranslation ? files.get(manifest.existingTranslation.fileId) : undefined, warnings, limits);
   const reader = prepareReader(ir, translation, warnings);
   return { manifest, manifestBytes, fingerprint, ir, ...reader, warnings: [...new Set([...warnings, ...ir.warnings])], files: manifest.files.map(f => ({ id: f.id, bytes: files.get(f.id)! })) };
 }
 try { parentPort!.postMessage({ ok: true, value: await prepare(workerData as ValidationInput) }); }
-catch { parentPort!.postMessage({ ok: false }); }
+catch (error) { parentPort!.postMessage({ ok: false, code: error instanceof Error && error.message === 'FETCH_BROWSER_REQUIRED' ? 'FETCH_BROWSER_REQUIRED' : undefined }); }
