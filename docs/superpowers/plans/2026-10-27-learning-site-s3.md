@@ -305,10 +305,12 @@ lease：heartbeat 5 秒、30 秒失效；claim 使用 SKIP LOCKED 并增加 epoc
 
 **Files:** 新建 `apps/document-service/src/network/{pinned-transport,capture-fetch,provider-job-fetch}.ts`、`apps/document-service/src/web-captures/{links,fetch-runner}.ts`、相关 unit / integration；修改既有 safe-fetch 只提取共用连接层，旧 Provider 接口保持严格。
 **Interfaces:** 实现两种新 fetch、`POST /documents/links`、`runFetchJob(lease)`；公开 article 用 Readability clone + 同一清洗投影；X / 知乎 / 公众号需浏览器时保留链接与待补原因，不伪装服务端已取得登录正文。
-- [ ] **Step 1:** RED：含 query 文章可取、每跳 DNS / 实际 peer 校验、public→private 重定向拒绝、IPv4 / IPv6 / mapped / metadata 地址拒绝、实际解压字节超限中止；旧 Provider query / redirect 仍拒绝。
-- [ ] **Step 2:** capture fetch 只作公开 HTTP/HTTPS GET/HEAD，允许正文所需 query、拒绝 userinfo 与 HTTPS→HTTP 降级；凭据不跨 host 转发，重定向逐跳验证。Provider job fetch 保持原 HTTPS / 无 query / 无 redirect 规则，在 headers 到达时返回受限流，消费完 / abort 才关闭 agent，不提前缓冲整条 SSE。
-- [ ] **Step 3:** 新增 `tests/unit/{capture-fetch,provider-job-fetch}.test.ts` 与 integration `web-links.test.ts`，执行 service unit / DB runner。断续 SSE 应在 body 完成前返回 headers，`expect(connectedAddresses).toEqual(validatedAddresses)`；超时 / cancel 关闭 agent，帖子无正文仍仅链接。复用 TLS / DNS 测试注入，不新增生产私网绕过开关。
-- [ ] **Step 4:** 提交 `feat: fetch public articles with bounded streaming transport`。
+- [x] **Step 1:** RED：含 query 文章可取、每跳 DNS / 实际 peer 校验、public→private 重定向拒绝、IPv4 / IPv6 / mapped / metadata 地址拒绝、实际解压字节超限中止；旧 Provider query / redirect 仍拒绝。
+- [x] **Step 2:** capture fetch 只作公开 HTTP/HTTPS GET/HEAD，允许正文所需 query、拒绝 userinfo 与 HTTPS→HTTP 降级；凭据不跨 host 转发，重定向逐跳验证。Provider job fetch 保持原 HTTPS / 无 query / 无 redirect 规则，在 headers 到达时返回受限流，消费完 / abort 才关闭 agent，不提前缓冲整条 SSE。
+- [x] **Step 3:** 新增 `tests/unit/{capture-fetch,provider-job-fetch}.test.ts` 与 integration `web-links.test.ts`，执行 service unit / DB runner。断续 SSE 应在 body 完成前返回 headers，`expect(connectedAddresses).toEqual(validatedAddresses)`；超时 / cancel 关闭 agent，帖子无正文仍仅链接。复用 TLS / DNS 测试注入，不新增生产私网绕过开关。
+- [x] **Step 4:** 提交 `feat: fetch public articles with bounded streaming transport`。
+
+任务10已通过独立审查，无重要问题。最终数据库216项、类型检查与构建通过；服务端单元129项在登录页识别修正前通过，修正后受影响2项及最终数据库覆盖通过。审查中的跨域重定向与真实worker探针通过，永久回归补充及测试输出提示在任务13归整。公开补抓目前保留UTF-8正文，图片/CSS/blob明确标记缺失；登录或不可读内容保留链接，插件资源获取与后台调度仍由后续任务完成。
 
 ### Task 11: 后台翻译 worker、检查点与发布
 
