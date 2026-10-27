@@ -17,7 +17,7 @@ it('keeps bounded data and same-document-origin blob image locators through sani
   expect(captureUrlSchema.safeParse(blob).success).toBe(false);
 });
 it('rejects foreign-origin blobs, active data, malformed base64 and local CSS locators', () => {
-  const snapshot = sanitizeNodeSnapshot(snapshotInput('<article><img src="blob:https://other.test/ca64f96f-205e-46f3-af4a-47e1a61e1310"><img src="data:image/svg+xml;base64,PHN2Zz4="></article>'));
+  const snapshot = sanitizeNodeSnapshot(snapshotInput('<article><img src="blob:https://other.test/ca64f96f-205e-46f3-af4a-47e1a61e1310"><img src="BLOB:https://other.test/ca64f96f-205e-46f3-af4a-47e1a61e1310"><img src="blob:https://e.test/CA64F96F-205E-46F3-AF4A-47E1A61E1310"><img src="data:image/svg+xml;base64,PHN2Zz4="></article>'));
   expect(snapshot.resources).toEqual([]);
   for (const url of ['data:image/png;base64,a=', 'data:image/png;base64,a===', 'blob:https://user@e.test/id', 'blob:null/id']) {
     expect(pendingCaptureResourceSchema.safeParse({ id: 'r', role: 'image', url }).success).toBe(false);

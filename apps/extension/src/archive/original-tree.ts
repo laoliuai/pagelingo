@@ -31,7 +31,9 @@ export function originalTree(document: Document, source: ArchiveSource): HTMLEle
     }
     const style = document.defaultView?.getComputedStyle(element);
     if (element.hidden || element.getAttribute('aria-hidden') === 'true' || style?.display === 'none' || ['hidden', 'collapse'].includes(style?.visibility ?? '')) return null;
-    if (element.matches('script:not([type^="math/tex"]),style,noscript,template,form,input,textarea,select,button,[contenteditable]:not([contenteditable="false"]),[data-testid="quoteTweet"],[data-testid="quotedTweet"],[data-testid="simpleTweet"],[data-testid="card.wrapper"]')) return null;
+    if (element.matches('script:not([type^="math/tex"]),style,noscript,template,form,input,textarea,select,button,[contenteditable]:not([contenteditable="false"]),[data-testid="quoteTweet"],[data-testid="quotedTweet"],[data-testid="simpleTweet"]')) return null;
+    // X cards are represented separately by selected safe link evidence, not copied UI.
+    if (source.kind === 'x-post' && element.matches('[data-testid="card.wrapper"]')) return null;
     const copied = inert.createElementNS(element.namespaceURI, element.localName) as HTMLElement;
     for (const attribute of element.attributes) copied.setAttributeNS(attribute.namespaceURI, attribute.name, attribute.value);
     // Lazy sources are evidence already present in this document; never fetch here.
@@ -48,6 +50,11 @@ export function originalTree(document: Document, source: ArchiveSource): HTMLEle
     return copied;
   };
   for (const root of source.roots) { const copied = clone(root, 1); if (copied) container.append(copied); }
+  for (const link of source.externalLinks ?? []) {
+    const paragraph = inert.createElement('p');
+    const anchor = inert.createElement('a'); anchor.setAttribute('href', link.url); anchor.textContent = link.text;
+    paragraph.append(anchor); container.append(paragraph);
+  }
   if (container.querySelector('iframe,object,embed')) source.warnings.push('Embedded or framed content is unavailable to this capture.');
   if (container.querySelector('[aria-expanded="false"],.RichContent--unescapable')) source.warnings.push('Collapsed content was not expanded; only loaded source is captured.');
   return container;

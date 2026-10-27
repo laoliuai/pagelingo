@@ -40,7 +40,7 @@ export const captureUrlSchema = z.string().max(8192).regex(/^https?:\/\/(?![^/?#
 const dataImageUrlSchema = z.string().max(defaultCaptureLimits.maxIrBytes)
   .regex(/^data:image\/(?:png|jpeg|webp|gif);base64,(?=[A-Za-z0-9+/])(?:[A-Za-z0-9+/][A-Za-z0-9+/][A-Za-z0-9+/][A-Za-z0-9+/])*(?:[A-Za-z0-9+/][AQgw]==|[A-Za-z0-9+/][A-Za-z0-9+/][AEIMQUYcgkosw048]=)?$/);
 const blobImageUrlSchema = z.string().max(8192)
-  .regex(/^blob:https?:\/\/(?![^/?#]*@)[^/?#\s\x00-\x1f\x7f]+\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+  .regex(/^blob:https?:\/\/(?![^/?#]*@)[^/?#\s\x00-\x1f\x7f]+\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)
   .refine(value => captureUrlSchema.safeParse(value.slice(5)).success, 'Invalid blob origin');
 export const captureResourceUrlSchema = z.union([captureUrlSchema, dataImageUrlSchema, blobImageUrlSchema]);
 export const captureScopeSchema = z.strictObject({

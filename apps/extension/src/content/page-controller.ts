@@ -17,6 +17,7 @@ import { translateInBackground } from './background-translation';
 export class PageController {
   private readonly captureSessionId = crypto.randomUUID();
   private captureRevision = 0;
+  private captureGeneration = 0;
   private captureSource = '';
   private readonly consumedCaptureGrants = new Set<string>();
   private disposed = false;
@@ -84,15 +85,20 @@ export class PageController {
     const grant = captureGrantSchema.parse(input);
     if (this.document.defaultView && this.document.defaultView.top !== this.document.defaultView) throw new Error('Only frame 0 may capture');
     if (this.consumedCaptureGrants.has(grant.grantId)) throw new Error('Capture grant already consumed');
-    const assertCurrent = () => {
+    const assertSource = () => {
       const current = this.captureIdentity();
       if (current.contentSessionId !== grant.contentSessionId || current.revision !== grant.revision || current.url !== grant.url) throw new Error('Capture source changed; stale grant');
     };
-    assertCurrent();
+    assertSource();
     // Bound lifetime memory. A document that exhausts grants must be reloaded,
     // rather than forgetting consumed capabilities and accepting a replay.
     if (this.consumedCaptureGrants.size >= 256) throw new Error('Capture grant limit reached; reload this document');
     this.consumedCaptureGrants.add(grant.grantId);
+    const generation = ++this.captureGeneration;
+    const assertCurrent = () => {
+      if (generation !== this.captureGeneration) throw new Error('Capture grant superseded by a newer collection');
+      assertSource();
+    };
     this.capturedResources = undefined;
     const draft = await collectOriginalCapture(this.document, { captureId: grant.captureId, assertCurrent, translations: this.captureTranslations() });
     assertCurrent();

@@ -128,6 +128,8 @@ test('validates resource-only local image locators with portable/runtime parity 
   for (const [url, valid] of [
     ['data:image/png;base64,aGVsbG8=', true],
     ['blob:https://example.com/ca64f96f-205e-46f3-af4a-47e1a61e1310', true],
+    ['BLOB:https://other.test/ca64f96f-205e-46f3-af4a-47e1a61e1310', false],
+    ['blob:https://example.com/CA64F96F-205E-46F3-AF4A-47E1A61E1310', false],
     ['data:image/png;base64,', false], ['data:image/png;base64,a=', false],
     ['data:image/png;base64,ab==', false], ['data:image/svg+xml;base64,PHN2Zz4=', false],
     ['blob:https://user@example.com/ca64f96f-205e-46f3-af4a-47e1a61e1310', false],
@@ -142,4 +144,16 @@ test('validates resource-only local image locators with portable/runtime parity 
   const css = { id: 'css', role: 'css', url: 'data:image/png;base64,aGVsbG8=', status: 'missing', reason: 'unavailable' };
   expect(contracts.captureResourceSchema.safeParse(css).success).toBe(false);
   expect(validate(css)).toBe(false);
+});
+
+test('admits only canonical same-source-origin blob resources in a capture manifest', () => {
+  for (const [url, accepted] of [
+    ['blob:https://example.com/ca64f96f-205e-46f3-af4a-47e1a61e1310', true],
+    ['blob:https://other.test/ca64f96f-205e-46f3-af4a-47e1a61e1310', false],
+    ['BLOB:https://other.test/ca64f96f-205e-46f3-af4a-47e1a61e1310', false],
+    ['blob:https://example.com/CA64F96F-205E-46F3-AF4A-47E1A61E1310', false],
+  ] as const) {
+    const resources = [{ id: 'image', role: 'image', url, status: 'missing', reason: 'unavailable' }];
+    expect(contracts.webCaptureManifestSchema.safeParse({ ...manifest, resources }).success).toBe(accepted);
+  }
 });

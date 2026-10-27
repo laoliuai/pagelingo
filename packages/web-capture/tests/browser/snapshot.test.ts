@@ -132,10 +132,14 @@ test('native and Node replay retain data and document-origin blob evidence witho
     const data = 'data:image/png;base64,aGVsbG8=';
     const snapshot = window.Capture.sanitizeBrowserSnapshot({ ...input, html: `<article><img src="${data}"><img src="${blob}"></article>` });
     const replay = window.Capture.sanitizeBrowserSnapshot({ html: snapshot.html, url: snapshot.sourceUrl, scope: snapshot.scope }, undefined, snapshot.resources);
+    const rejected = window.Capture.sanitizeBrowserSnapshot({ ...input,
+      html: `<article><img src="BLOB:https://other.test/ca64f96f-205e-46f3-af4a-47e1a61e1310"><img src="blob:${new URL(input.url).origin}/CA64F96F-205E-46F3-AF4A-47E1A61E1310"></article>` });
     URL.revokeObjectURL(blob);
-    return { snapshot, replay, blob, data };
+    return { snapshot, replay, blob, data, rejected };
   }, raw);
   expect(result.snapshot.resources.map(resource => resource.url)).toEqual([result.data, result.blob]);
+  expect(result.rejected.resources).toEqual([]);
+  expect(result.rejected.warnings.length).toBeGreaterThan(0);
   expect(result.replay).toEqual(result.snapshot);
   expect(sanitizeNodeSnapshot({ html: result.snapshot.html, url: result.snapshot.sourceUrl, scope: result.snapshot.scope }, undefined, result.snapshot.resources)).toEqual(result.snapshot);
 });

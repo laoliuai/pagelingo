@@ -55,3 +55,21 @@ it('does not export mock preview results as existing translations', async () => 
   const grant = { ...controller.captureIdentity(), grantId: crypto.randomUUID(), captureId: crypto.randomUUID(), tabId: 9, frameId: 0 as const, documentId: 'chrome-document' };
   expect((await controller.collectCapture(grant)).existingTranslation).toBeNull();
 });
+it('rejects obsolete collection completion without replacing the newer resource grant', async () => {
+  const { controller, grant: firstGrant } = setup();
+  let release!: () => void;
+  const paused = new Promise<void>(resolve => { release = resolve; });
+  const digest = crypto.subtle.digest.bind(crypto.subtle);
+  vi.spyOn(crypto.subtle, 'digest').mockImplementationOnce(async (...args) => { await paused; return digest(...args); });
+  const firstResult = controller.collectCapture(firstGrant).then(() => ({ accepted: true, error: '' }), error => ({ accepted: false, error: String(error) }));
+  const secondGrant = { ...controller.captureIdentity(), grantId: crypto.randomUUID(), captureId: crypto.randomUUID(), tabId: 9, frameId: 0 as const, documentId: 'chrome-document' };
+  const secondDraft = await controller.collectCapture(secondGrant);
+  const resourceId = secondDraft.pendingResources[0]!.id;
+  expect(controller.captureResource(secondGrant, resourceId).url).toBe('https://example.org/image.png');
+  release();
+  const oldResult = await firstResult;
+  expect(oldResult.accepted).toBe(false);
+  expect(oldResult.error).toMatch(/superseded|obsolete|stale/i);
+  expect(() => controller.captureResource(firstGrant, resourceId)).toThrow(/grant/i);
+  expect(controller.captureResource(secondGrant, resourceId).url).toBe('https://example.org/image.png');
+});

@@ -7,6 +7,7 @@ export interface ArchiveSource {
   author: string | null;
   publishedAt: string | null;
   warnings: string[];
+  externalLinks?: Array<{ url: string; text: string }>;
 }
 export function sourceMetadata(document: Document): Omit<ArchiveSource, 'roots' | 'kind'> {
   const time = document.querySelector<HTMLMetaElement>('meta[property="article:published_time"]')?.content;
@@ -38,7 +39,7 @@ export function originalSourceText(element: Element | null | undefined): string 
   while (pending.length && text.length < 2000) {
     const node = pending.pop()!;
     if (node.nodeType === 3) text += node.textContent ?? '';
-    else if (node.nodeType === 1 && !(node as Element).hasAttribute('data-pl-owned')) pending.push(...Array.from(node.childNodes).reverse());
+    else if (node.nodeType === 1 && !(node as Element).matches('[data-pl-owned],button,[role="button"],input,textarea,select')) pending.push(...Array.from(node.childNodes).reverse());
   }
   return text.trim().slice(0, 2000);
 }

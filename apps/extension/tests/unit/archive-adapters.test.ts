@@ -73,3 +73,17 @@ it('reads X original metadata without invoking nested custom-element constructor
     expect(constructed).toBe(before);
   } finally { dom.window.close(); }
 });
+it('preserves the main X external card anchor without quote/reply cards or duplicate inline links', async () => {
+  const result = await capture('<main data-testid="primaryColumn"><article data-testid="tweet"><a href="/alice/status/123"><time>Today</time></a><div data-testid="tweetText">Read my article. <a href="https://external.example/inline">Inline source</a></div><div data-testid="card.wrapper"><a href="https://external.example/article"><span>Main external article</span><span role="button">Unrelated card UI</span></a></div><div data-testid="card.wrapper"><a href="https://external.example/inline">Duplicate inline source</a></div><div data-testid="quoteTweet"><div data-testid="card.wrapper"><a href="https://external.example/quoted">Quoted article</a></div></div></article><article data-testid="tweet"><a href="/bob/status/456"><time>Today</time></a><div data-testid="card.wrapper"><a href="https://external.example/reply">Reply article</a></div></article></main>', 'https://x.com/alice/status/123');
+  expect(result.snapshot.html).toContain('href="https://external.example/article"');
+  expect(result.snapshot.html).toContain('Main external article');
+  expect(result.snapshot.html).not.toMatch(/Quoted article|Reply article|Unrelated card UI|Duplicate inline source|external.example\/(?:quoted|reply)/);
+  expect(result.snapshot.html.match(/href="https:\/\/external.example\/inline"/g)).toHaveLength(1);
+  expect(result.snapshot.scope.completeWithinScope).toBe(true);
+});
+it('marks an X external card with no safe representable link incomplete', async () => {
+  const result = await capture('<main data-testid="primaryColumn"><article data-testid="tweet"><a href="/alice/status/123"><time>Today</time></a><div data-testid="tweetText">Read my article.</div><div data-testid="card.wrapper"><a href="javascript:alert(1)">Broken card</a></div></article></main>', 'https://x.com/alice/status/123');
+  expect(result.snapshot.html).not.toContain('javascript:');
+  expect(result.snapshot.scope.completeWithinScope).toBe(false);
+  expect(result.snapshot.scope.warnings.join(' ')).toMatch(/card.*(unavailable|omitted|represent)/i);
+});
