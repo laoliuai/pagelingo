@@ -4,7 +4,8 @@ import { sourceLanguageSchema } from './language.js';
 import { defaultCaptureLimits } from './web-capture.js';
 
 export const webJobSelectionSchema = z.array(blockIdSchema).min(1).max(defaultCaptureLimits.maxBlocks)
-  .refine(value => new Set(value).size === value.length, 'Selection block IDs must be unique');
+  .refine(value => new Set(value).size === value.length, 'Selection block IDs must be unique')
+  .meta({ uniqueItems: true });
 
 export const webJobStatusSchema = z.enum(['queued', 'running', 'paused-config', 'partial', 'completed', 'failed', 'cancelled']);
 export type WebJobStatus = z.infer<typeof webJobStatusSchema>;

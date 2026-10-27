@@ -10,10 +10,71 @@ import { webReadingProgressSchema } from './web-progress.js';
 
 const svgTags = ['svg', 'g', 'defs', 'path', 'use', 'text', 'tspan', 'rect', 'line', 'polyline', 'polygon', 'circle', 'ellipse'] as const;
 const mathTags = ['math', 'mrow', 'mi', 'mn', 'mo', 'mtext', 'mspace', 'ms', 'msub', 'msup', 'msubsup', 'munder', 'mover', 'munderover', 'mfrac', 'msqrt', 'mroot', 'mtable', 'mtr', 'mtd', 'menclose', 'mphantom', 'mpadded', 'semantics', 'annotation'] as const;
-const mathAttributeSchema = z.enum(['id', 'href', 'xlink:href', 'd', 'viewBox', 'xmlns', 'x', 'y', 'x1', 'y1', 'x2', 'y2', 'dx', 'dy', 'width', 'height', 'rx', 'ry', 'r', 'cx', 'cy', 'points', 'transform', 'fill', 'stroke', 'stroke-width', 'fill-rule', 'text-anchor', 'font-size', 'font-family', 'font-weight', 'mathvariant', 'mathsize', 'mathcolor', 'displaystyle', 'scriptlevel', 'stretchy', 'fence', 'separator', 'accent', 'accentunder', 'linethickness', 'rowalign', 'columnalign', 'rowspacing', 'columnspacing', 'columnspan', 'rowspan', 'notation', 'encoding']);
+// Presentation attributes are CSS inputs even when HTML-escaped. Only these
+// literal grammars are supported: no escapes, comments, variables or URL paints.
+const mathNumber = String.raw`[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?`;
+const mathLength = `${mathNumber}(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?`;
+const mathLengthSchema = z.string().regex(new RegExp(`^${mathLength}$`));
+const mathLengthListSchema = z.string().regex(new RegExp(`^${mathLength}(?:[ ,]+${mathLength})*$`));
+const mathFragmentIdSchema = z.string().regex(/^[A-Za-z_][A-Za-z0-9_.:-]*$/);
+const mathPaintSchema = z.string().regex(/^(?:[A-Za-z]+|#[0-9a-fA-F]{3,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{8}|(?:rgb|rgba|hsl|hsla)\([0-9+.,% /-]+\))$/);
+const mathBooleanSchema = z.enum(['true', 'false']);
+const mathFontFamily = String.raw`(?:[A-Za-z][A-Za-z0-9 -]*|'[A-Za-z][A-Za-z0-9 -]*'|"[A-Za-z][A-Za-z0-9 -]*")`;
+const mathAttributesSchema = z.strictObject({
+  id: mathFragmentIdSchema.optional(),
+  href: z.string().regex(/^#[A-Za-z_][A-Za-z0-9_.:-]*$/).optional(),
+  'xlink:href': z.string().regex(/^#[A-Za-z_][A-Za-z0-9_.:-]*$/).optional(),
+  xmlns: z.enum(['http://www.w3.org/2000/svg', 'http://www.w3.org/1998/Math/MathML']).optional(),
+  d: z.string().max(defaultCaptureLimits.maxMathBytes).regex(/^[MmZzLlHhVvCcSsQqTtAa0-9eE+., -]*$/).optional(),
+  viewBox: z.string().regex(new RegExp(`^${mathNumber}(?:[ ,]+${mathNumber}){3}$`)).optional(),
+  x: mathLengthListSchema.optional(),
+  y: mathLengthListSchema.optional(),
+  dx: mathLengthListSchema.optional(),
+  dy: mathLengthListSchema.optional(),
+  x1: mathLengthSchema.optional(),
+  y1: mathLengthSchema.optional(),
+  x2: mathLengthSchema.optional(),
+  y2: mathLengthSchema.optional(),
+  width: mathLengthSchema.optional(),
+  height: mathLengthSchema.optional(),
+  rx: mathLengthSchema.optional(),
+  ry: mathLengthSchema.optional(),
+  r: mathLengthSchema.optional(),
+  cx: mathLengthSchema.optional(),
+  cy: mathLengthSchema.optional(),
+  points: z.string().regex(new RegExp(`^${mathNumber}(?:[ ,]+${mathNumber})+$`)).optional(),
+  transform: z.string().regex(/^(?: *(?:matrix|translate|scale|rotate|skewX|skewY)\([0-9eE+., -]+\) *)+$/).optional(),
+  fill: mathPaintSchema.optional(),
+  stroke: mathPaintSchema.optional(),
+  'stroke-width': mathLengthSchema.optional(),
+  'fill-rule': z.enum(['nonzero', 'evenodd']).optional(),
+  'text-anchor': z.enum(['start', 'middle', 'end']).optional(),
+  'font-size': mathLengthSchema.optional(),
+  'font-family': z.string().regex(new RegExp(`^${mathFontFamily}(?:, *${mathFontFamily})*$`)).optional(),
+  'font-weight': z.string().regex(/^(?:normal|bold|bolder|lighter|[1-9][0-9]{0,2}|1000)$/).optional(),
+  mathvariant: z.enum(['normal', 'bold', 'italic', 'bold-italic', 'double-struck', 'bold-fraktur', 'script', 'bold-script', 'fraktur', 'sans-serif', 'bold-sans-serif', 'sans-serif-italic', 'sans-serif-bold-italic', 'monospace', 'initial', 'tailed', 'looped', 'stretched']).optional(),
+  mathsize: z.union([mathLengthSchema, z.enum(['small', 'normal', 'big'])]).optional(),
+  mathcolor: mathPaintSchema.optional(),
+  displaystyle: mathBooleanSchema.optional(),
+  scriptlevel: z.string().regex(/^[+-]?[0-9]+$/).optional(),
+  stretchy: mathBooleanSchema.optional(),
+  fence: mathBooleanSchema.optional(),
+  separator: mathBooleanSchema.optional(),
+  accent: mathBooleanSchema.optional(),
+  accentunder: mathBooleanSchema.optional(),
+  linethickness: z.union([mathLengthSchema, z.enum(['thin', 'medium', 'thick'])]).optional(),
+  rowalign: z.string().regex(/^(?:top|bottom|center|baseline|axis)(?: +(?:top|bottom|center|baseline|axis))*$/).optional(),
+  columnalign: z.string().regex(/^(?:left|center|right)(?: +(?:left|center|right))*$/).optional(),
+  rowspacing: mathLengthListSchema.optional(),
+  columnspacing: mathLengthListSchema.optional(),
+  columnspan: z.string().regex(/^[1-9][0-9]*$/).optional(),
+  rowspan: z.string().regex(/^[1-9][0-9]*$/).optional(),
+  notation: z.string().regex(/^(?:longdiv|actuarial|radical|box|roundedbox|circle|left|right|top|bottom|updiagonalstrike|downdiagonalstrike|verticalstrike|horizontalstrike|madruwb|phasorangle)(?: +(?:longdiv|actuarial|radical|box|roundedbox|circle|left|right|top|bottom|updiagonalstrike|downdiagonalstrike|verticalstrike|horizontalstrike|madruwb|phasorangle))*$/).optional(),
+  encoding: z.literal('application/x-tex').optional(),
+});
 export const safeMathNodeSchema = z.strictObject({
   id: webLocalIdSchema, tag: z.enum([...svgTags, ...mathTags]),
-  attributes: z.partialRecord(mathAttributeSchema, z.string().max(defaultCaptureLimits.maxMathBytes)),
+  attributes: mathAttributesSchema,
   children: z.array(webLocalIdSchema), text: z.string().max(defaultCaptureLimits.maxMathBytes).optional(),
 });
 export type SafeMathNode = z.infer<typeof safeMathNodeSchema>;
@@ -35,7 +96,7 @@ export const safeMathAstSchema = safeMathAstShapeSchema.superRefine((value, ctx)
       if (!attribute) continue;
       if (key === 'href' || key === 'xlink:href') {
         if (node.tag !== 'use' || !attribute.startsWith('#') || !definitions.has(attribute.slice(1))) fail('Math href must reference a local definition');
-      } else if (/url\s*\(|expression\s*\(|@import|javascript:|[<>\x00-\x1f]/i.test(attribute)) fail('Unsafe math attribute');
+      }
       if (key === 'encoding' && (node.tag !== 'annotation' || attribute !== 'application/x-tex')) fail('Only plain TeX annotations are supported');
     }
     if (node.tag === 'annotation' && (node.children.length || node.attributes.encoding !== 'application/x-tex')) fail('Invalid plain TeX annotation');

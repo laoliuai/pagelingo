@@ -124,54 +124,208 @@
       }
     },
     "language": {
-      "type": "object",
-      "properties": {
-        "language": {
-          "type": "string",
-          "enum": [
-            "zh",
-            "en",
-            "foreign",
-            "mixed",
-            "und"
-          ]
-        },
-        "sourceLanguage": {
-          "anyOf": [
-            {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "language": {
+              "type": "string",
+              "const": "zh"
+            },
+            "sourceLanguage": {
               "type": "string",
               "minLength": 2,
               "maxLength": 63,
-              "pattern": "^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$"
+              "allOf": [
+                {
+                  "pattern": "^(?!(?:[uU][nN][dD]|[mM][uU][lL]|[zZ][xX][xX])(?:-|$))[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$"
+                },
+                {
+                  "pattern": "^[zZ][hH](?:-|$)"
+                }
+              ]
             },
-            {
-              "type": "null"
+            "reason": {
+              "type": "string",
+              "enum": [
+                "no-language",
+                "han-only",
+                "insufficient-text",
+                "other-script",
+                "han-majority",
+                "mixed-script",
+                "english-heuristic",
+                "uncertain",
+                "document-inherited",
+                "user-specified",
+                "script-compatible-hint"
+              ]
             }
-          ]
+          },
+          "required": [
+            "language",
+            "sourceLanguage",
+            "reason"
+          ],
+          "additionalProperties": false
         },
-        "reason": {
-          "type": "string",
-          "enum": [
-            "no-language",
-            "han-only",
-            "insufficient-text",
-            "other-script",
-            "han-majority",
-            "mixed-script",
-            "english-heuristic",
-            "uncertain",
-            "document-inherited",
-            "user-specified",
-            "script-compatible-hint"
-          ]
+        {
+          "type": "object",
+          "properties": {
+            "language": {
+              "type": "string",
+              "const": "en"
+            },
+            "sourceLanguage": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 63,
+              "allOf": [
+                {
+                  "pattern": "^(?!(?:[uU][nN][dD]|[mM][uU][lL]|[zZ][xX][xX])(?:-|$))[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$"
+                },
+                {
+                  "pattern": "^[eE][nN](?:-|$)"
+                }
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "enum": [
+                "no-language",
+                "han-only",
+                "insufficient-text",
+                "other-script",
+                "han-majority",
+                "mixed-script",
+                "english-heuristic",
+                "uncertain",
+                "document-inherited",
+                "user-specified",
+                "script-compatible-hint"
+              ]
+            }
+          },
+          "required": [
+            "language",
+            "sourceLanguage",
+            "reason"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "language": {
+              "type": "string",
+              "const": "foreign"
+            },
+            "sourceLanguage": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 63,
+              "allOf": [
+                {
+                  "pattern": "^(?!(?:[uU][nN][dD]|[mM][uU][lL]|[zZ][xX][xX])(?:-|$))[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$"
+                },
+                {
+                  "pattern": "^(?!(?:[zZ][hH]|[eE][nN])(?:-|$))"
+                }
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "enum": [
+                "no-language",
+                "han-only",
+                "insufficient-text",
+                "other-script",
+                "han-majority",
+                "mixed-script",
+                "english-heuristic",
+                "uncertain",
+                "document-inherited",
+                "user-specified",
+                "script-compatible-hint"
+              ]
+            }
+          },
+          "required": [
+            "language",
+            "sourceLanguage",
+            "reason"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "language": {
+              "type": "string",
+              "const": "mixed"
+            },
+            "sourceLanguage": {
+              "type": "null"
+            },
+            "reason": {
+              "type": "string",
+              "enum": [
+                "no-language",
+                "han-only",
+                "insufficient-text",
+                "other-script",
+                "han-majority",
+                "mixed-script",
+                "english-heuristic",
+                "uncertain",
+                "document-inherited",
+                "user-specified",
+                "script-compatible-hint"
+              ]
+            }
+          },
+          "required": [
+            "language",
+            "sourceLanguage",
+            "reason"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "language": {
+              "type": "string",
+              "const": "und"
+            },
+            "sourceLanguage": {
+              "type": "null"
+            },
+            "reason": {
+              "type": "string",
+              "enum": [
+                "no-language",
+                "han-only",
+                "insufficient-text",
+                "other-script",
+                "han-majority",
+                "mixed-script",
+                "english-heuristic",
+                "uncertain",
+                "document-inherited",
+                "user-specified",
+                "script-compatible-hint"
+              ]
+            }
+          },
+          "required": [
+            "language",
+            "sourceLanguage",
+            "reason"
+          ],
+          "additionalProperties": false
         }
-      },
-      "required": [
-        "language",
-        "sourceLanguage",
-        "reason"
-      ],
-      "additionalProperties": false
+      ]
     },
     "translationStatus": {
       "type": "string",

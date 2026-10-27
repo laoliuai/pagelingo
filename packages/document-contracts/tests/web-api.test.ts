@@ -41,9 +41,9 @@ test('distributes strict portable Web JSON shapes matching the public Zod DTOs',
   const cases = [
     { name: 'web-capture-translation-candidate', schema: contracts.webCaptureTranslationCandidateSchema, value: { schemaVersion: 'web-capture-translation-candidate/1', sourceSnapshotSha256: sha, sourceContentFingerprint: sha, sourceLanguage: 'en', targetLanguage: 'zh', sdkVersion: '0.4.0', promptVersion: '1', protectionVersion: '1', blocks: [{ nodeId: 'source-1', sourceTextSha256: sha, source: { id: 'original-1', kind: 'paragraph', content: [{ type: 'text', text: 'Original' }] }, rawText: '译文' }] } },
     { name: 'web-capture', schema: contracts.webCaptureManifestSchema, value: manifest },
-    { name: 'web-reader-ir', schema: contracts.webReaderIrSchema, value: ir },
+    { name: 'web-reader-ir', schema: contracts.webReaderIrSchema, value: { ...ir, blocks: [{ ...ir.blocks[0], type: 'text', value: { id: blockId, kind: 'paragraph', content: [{ type: 'text', text: 'Original' }] }, bindings: [], safeMath: [], language: ir.metadata.language }] } },
     { name: 'web-reader-translation', schema: contracts.webTranslationSchema, value: translation },
-    { name: 'web-reader-chunk', schema: contracts.webReaderChunkSchema, value: chunk },
+    { name: 'web-reader-chunk', schema: contracts.webReaderChunkSchema, value: { ...chunk, blocks: [{ ...chunk.blocks[0], source: { ...ir.blocks[0], type: 'text', value: { id: blockId, kind: 'paragraph', content: [{ type: 'text', text: 'Original' }] }, bindings: [], safeMath: [], language: ir.metadata.language } }] } },
     { name: 'web-reader-index', schema: contracts.webReaderIndexSchema, value: index },
     { name: 'web-reader-descriptor', schema: contracts.webReaderDescriptorSchema, value: { documentId: uuid, versionId: uuid, source, parseId: ir.parse.id, index, assetMap: {}, snapshots: manifest.snapshots, translationStatus: 'pending', warnings: [], progress: null, restoreHint: null } },
     { name: 'web-reading-position', schema: contracts.webReadingPositionSchema, value: position },
@@ -56,10 +56,62 @@ test('distributes strict portable Web JSON shapes matching the public Zod DTOs',
     { name: 'glossary', schema: contracts.glossaryRevisionSchema, value: { revision: 0, entries: [] } },
     { name: 'web-language', schema: contracts.webLanguageDecisionSchema, value: ir.metadata.language },
   ];
+  const languagePaths: Record<string, Array<Array<string | number>>> = {
+    'web-capture-translation-candidate': [['sourceLanguage'], ['targetLanguage']],
+    'web-reader-ir': [['metadata', 'language', 'sourceLanguage'], ['blocks', 0, 'language', 'sourceLanguage']],
+    'web-reader-index': [['language', 'sourceLanguage']],
+    'web-reader-chunk': [['blocks', 0, 'source', 'language', 'sourceLanguage']],
+    'web-reader-descriptor': [['index', 'language', 'sourceLanguage']],
+    'web-job-request': [['sourceLanguage']],
+    'web-jobs': [['sourceLanguage']],
+    'web-language': [['sourceLanguage']],
+  };
+  const replaceAt = (value: unknown, path: Array<string | number>, replacement: unknown) => {
+    if (path.length === 0) return structuredClone(replacement);
+    const candidate: unknown = structuredClone(value);
+    let target = candidate;
+    for (const part of path.slice(0, -1)) {
+      if (typeof target !== 'object' || target === null) throw new Error('Missing parity fixture path');
+      target = Reflect.get(target, part);
+    }
+    if (typeof target !== 'object' || target === null) throw new Error('Missing parity fixture target');
+    Reflect.set(target, path[path.length - 1], replacement);
+    return candidate;
+  };
   for (const { name, schema, value } of cases) {
     const validate = ajv.compile(JSON.parse(readFileSync(new URL(`../schemas/${name}.schema.json`, import.meta.url), 'utf8')));
     expect(validate(value), `${name}: ${JSON.stringify(validate.errors)}`).toBe(true);
     expect(schema.safeParse(value).success, name).toBe(true);
+    for (const path of languagePaths[name] ?? []) {
+      for (const language of ['und', 'UND-Latn', 'mul', 'MuL-CA', 'zxx', 'ZXX-US']) {
+        const candidate = replaceAt(value, path, language);
+        expect(schema.safeParse(candidate).success, `${name}: ${path.join('.')}=${language}`).toBe(false);
+        expect(validate(candidate), `${name}: ${path.join('.')}=${language}`).toBe(false);
+      }
+    }
+    const decisionPaths = ['web-reader-ir', 'web-reader-index', 'web-reader-chunk', 'web-reader-descriptor', 'web-language'].includes(name)
+      ? (languagePaths[name] ?? []).map(path => path.slice(0, -1)) : [];
+    for (const path of decisionPaths) {
+      const manual = replaceAt(value, path, { language: 'foreign', sourceLanguage: 'pt-BR', reason: 'user-specified' });
+      expect(schema.safeParse(manual).success, `${name}: manual foreign`).toBe(true);
+      expect(validate(manual), `${name}: manual foreign`).toBe(true);
+      for (const sourceLanguage of ['en', 'EN-us', 'zh', 'ZH-Hans']) {
+        const candidate = replaceAt(value, path, { language: 'foreign', sourceLanguage, reason: 'user-specified' });
+        expect(schema.safeParse(candidate).success, `${name}: foreign ${sourceLanguage}`).toBe(false);
+        expect(validate(candidate), `${name}: foreign ${sourceLanguage}`).toBe(false);
+      }
+    }
+    if (name === 'web-job-request' || name === 'web-jobs') {
+      const distinct = replaceAt(value, ['selectionBlockIds'], [blockId, `b_${'b'.repeat(32)}`]);
+      expect(schema.safeParse(distinct).success, `${name}: distinct selection`).toBe(true);
+      expect(validate(distinct), `${name}: distinct selection`).toBe(true);
+      const manual = replaceAt(value, ['sourceLanguage'], 'pt-BR');
+      expect(schema.safeParse(manual).success, `${name}: known manual language`).toBe(true);
+      expect(validate(manual), `${name}: known manual language`).toBe(true);
+      const candidate = replaceAt(value, ['selectionBlockIds'], [blockId, blockId]);
+      expect(schema.safeParse(candidate).success, `${name}: duplicate selection`).toBe(false);
+      expect(validate(candidate), `${name}: duplicate selection`).toBe(false);
+    }
     for (const candidate of [{ ...value, ownerId: uuid }, { ...value, token: 'private' }, null]) {
       expect(validate(candidate), name).toBe(false);
       expect(schema.safeParse(candidate).success, name).toBe(false);

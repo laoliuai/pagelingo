@@ -58,26 +58,40 @@ export function blockLanguage(
 }
 
 /** Conservative known-language override; no registry lookup or language inference. */
-export const sourceLanguageSchema = z.string().min(2).max(63).regex(/^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$/)
-  .refine(value => !['und', 'mul', 'zxx'].includes(value.split('-')[0].toLowerCase()), 'An explicit known source language is required');
-export const webLanguageDecisionSchema = z.strictObject({
-  language: z.enum(['zh', 'en', 'foreign', 'mixed', 'und']),
-  sourceLanguage: sourceLanguageSchema.nullable(),
-  reason: z.enum(['no-language', 'han-only', 'insufficient-text', 'other-script', 'han-majority', 'mixed-script',
-    'english-heuristic', 'uncertain', 'document-inherited', 'user-specified', 'script-compatible-hint']),
-}).refine(value => value.language === 'foreign'
-  ? value.sourceLanguage !== null && !['zh', 'en'].includes(value.sourceLanguage.split('-')[0].toLowerCase())
-  : value.language === 'zh' || value.language === 'en'
-    ? value.sourceLanguage?.split('-')[0].toLowerCase() === value.language
-    : value.sourceLanguage === null,
-'Language and source language must agree');
+export const sourceLanguageSchema = z.string().min(2).max(63)
+  .regex(/^(?!(?:[uU][nN][dD]|[mM][uU][lL]|[zZ][xX][xX])(?:-|$))[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$/,
+    'An explicit known source language is required');
+const webLanguageReasonSchema = z.enum([
+  'no-language', 'han-only', 'insufficient-text', 'other-script', 'han-majority', 'mixed-script',
+  'english-heuristic', 'uncertain', 'document-inherited', 'user-specified', 'script-compatible-hint',
+]);
+// Branches preserve language/source-language agreement in emitted JSON Schema too.
+export const webLanguageDecisionSchema = z.discriminatedUnion('language', [
+  z.strictObject({
+    language: z.literal('zh'),
+    sourceLanguage: sourceLanguageSchema.regex(/^[zZ][hH](?:-|$)/),
+    reason: webLanguageReasonSchema,
+  }),
+  z.strictObject({
+    language: z.literal('en'),
+    sourceLanguage: sourceLanguageSchema.regex(/^[eE][nN](?:-|$)/),
+    reason: webLanguageReasonSchema,
+  }),
+  z.strictObject({
+    language: z.literal('foreign'),
+    sourceLanguage: sourceLanguageSchema.regex(/^(?!(?:[zZ][hH]|[eE][nN])(?:-|$))/),
+    reason: webLanguageReasonSchema,
+  }),
+  z.strictObject({ language: z.literal('mixed'), sourceLanguage: z.null(), reason: webLanguageReasonSchema }),
+  z.strictObject({ language: z.literal('und'), sourceLanguage: z.null(), reason: webLanguageReasonSchema }),
+]);
 export type WebLanguageDecision = z.infer<typeof webLanguageDecisionSchema>;
 
 /** Web-only hints never change the legacy PDF detector or invoke a provider. */
 export function detectWebLanguage(input: string, pageLanguage: string | null = null): WebLanguageDecision {
   const result = detectLanguage(input);
   const sourceLanguage = result.language === 'zh' || result.language === 'en' ? result.language : null;
-  const legacy: WebLanguageDecision = { ...result, sourceLanguage };
+  const legacy = webLanguageDecisionSchema.parse({ ...result, sourceLanguage });
   if (result.language === 'zh' || result.language === 'mixed' || result.reason === 'insufficient-text') return legacy;
   const text = input.replace(/```[\s\S]*?```|`[^`]*`|\$\$[\s\S]*?\$\$|\$[^$\n]*\$|https?:\/\/\S+|mailto:\S+/g, ' ');
   const letters = text.match(/\p{L}/gu) ?? [];

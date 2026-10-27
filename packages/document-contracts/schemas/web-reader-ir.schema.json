@@ -14,54 +14,208 @@
           "minLength": 1
         },
         "language": {
-          "type": "object",
-          "properties": {
-            "language": {
-              "type": "string",
-              "enum": [
-                "zh",
-                "en",
-                "foreign",
-                "mixed",
-                "und"
-              ]
-            },
-            "sourceLanguage": {
-              "anyOf": [
-                {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "language": {
+                  "type": "string",
+                  "const": "zh"
+                },
+                "sourceLanguage": {
                   "type": "string",
                   "minLength": 2,
                   "maxLength": 63,
-                  "pattern": "^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$"
+                  "allOf": [
+                    {
+                      "pattern": "^(?!(?:[uU][nN][dD]|[mM][uU][lL]|[zZ][xX][xX])(?:-|$))[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$"
+                    },
+                    {
+                      "pattern": "^[zZ][hH](?:-|$)"
+                    }
+                  ]
                 },
-                {
-                  "type": "null"
+                "reason": {
+                  "type": "string",
+                  "enum": [
+                    "no-language",
+                    "han-only",
+                    "insufficient-text",
+                    "other-script",
+                    "han-majority",
+                    "mixed-script",
+                    "english-heuristic",
+                    "uncertain",
+                    "document-inherited",
+                    "user-specified",
+                    "script-compatible-hint"
+                  ]
                 }
-              ]
+              },
+              "required": [
+                "language",
+                "sourceLanguage",
+                "reason"
+              ],
+              "additionalProperties": false
             },
-            "reason": {
-              "type": "string",
-              "enum": [
-                "no-language",
-                "han-only",
-                "insufficient-text",
-                "other-script",
-                "han-majority",
-                "mixed-script",
-                "english-heuristic",
-                "uncertain",
-                "document-inherited",
-                "user-specified",
-                "script-compatible-hint"
-              ]
+            {
+              "type": "object",
+              "properties": {
+                "language": {
+                  "type": "string",
+                  "const": "en"
+                },
+                "sourceLanguage": {
+                  "type": "string",
+                  "minLength": 2,
+                  "maxLength": 63,
+                  "allOf": [
+                    {
+                      "pattern": "^(?!(?:[uU][nN][dD]|[mM][uU][lL]|[zZ][xX][xX])(?:-|$))[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$"
+                    },
+                    {
+                      "pattern": "^[eE][nN](?:-|$)"
+                    }
+                  ]
+                },
+                "reason": {
+                  "type": "string",
+                  "enum": [
+                    "no-language",
+                    "han-only",
+                    "insufficient-text",
+                    "other-script",
+                    "han-majority",
+                    "mixed-script",
+                    "english-heuristic",
+                    "uncertain",
+                    "document-inherited",
+                    "user-specified",
+                    "script-compatible-hint"
+                  ]
+                }
+              },
+              "required": [
+                "language",
+                "sourceLanguage",
+                "reason"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "language": {
+                  "type": "string",
+                  "const": "foreign"
+                },
+                "sourceLanguage": {
+                  "type": "string",
+                  "minLength": 2,
+                  "maxLength": 63,
+                  "allOf": [
+                    {
+                      "pattern": "^(?!(?:[uU][nN][dD]|[mM][uU][lL]|[zZ][xX][xX])(?:-|$))[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$"
+                    },
+                    {
+                      "pattern": "^(?!(?:[zZ][hH]|[eE][nN])(?:-|$))"
+                    }
+                  ]
+                },
+                "reason": {
+                  "type": "string",
+                  "enum": [
+                    "no-language",
+                    "han-only",
+                    "insufficient-text",
+                    "other-script",
+                    "han-majority",
+                    "mixed-script",
+                    "english-heuristic",
+                    "uncertain",
+                    "document-inherited",
+                    "user-specified",
+                    "script-compatible-hint"
+                  ]
+                }
+              },
+              "required": [
+                "language",
+                "sourceLanguage",
+                "reason"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "language": {
+                  "type": "string",
+                  "const": "mixed"
+                },
+                "sourceLanguage": {
+                  "type": "null"
+                },
+                "reason": {
+                  "type": "string",
+                  "enum": [
+                    "no-language",
+                    "han-only",
+                    "insufficient-text",
+                    "other-script",
+                    "han-majority",
+                    "mixed-script",
+                    "english-heuristic",
+                    "uncertain",
+                    "document-inherited",
+                    "user-specified",
+                    "script-compatible-hint"
+                  ]
+                }
+              },
+              "required": [
+                "language",
+                "sourceLanguage",
+                "reason"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "language": {
+                  "type": "string",
+                  "const": "und"
+                },
+                "sourceLanguage": {
+                  "type": "null"
+                },
+                "reason": {
+                  "type": "string",
+                  "enum": [
+                    "no-language",
+                    "han-only",
+                    "insufficient-text",
+                    "other-script",
+                    "han-majority",
+                    "mixed-script",
+                    "english-heuristic",
+                    "uncertain",
+                    "document-inherited",
+                    "user-specified",
+                    "script-compatible-hint"
+                  ]
+                }
+              },
+              "required": [
+                "language",
+                "sourceLanguage",
+                "reason"
+              ],
+              "additionalProperties": false
             }
-          },
-          "required": [
-            "language",
-            "sourceLanguage",
-            "reason"
-          ],
-          "additionalProperties": false
+          ]
         }
       },
       "required": [
@@ -908,54 +1062,208 @@
                 }
               },
               "language": {
-                "type": "object",
-                "properties": {
-                  "language": {
-                    "type": "string",
-                    "enum": [
-                      "zh",
-                      "en",
-                      "foreign",
-                      "mixed",
-                      "und"
-                    ]
-                  },
-                  "sourceLanguage": {
-                    "anyOf": [
-                      {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "language": {
+                        "type": "string",
+                        "const": "zh"
+                      },
+                      "sourceLanguage": {
                         "type": "string",
                         "minLength": 2,
                         "maxLength": 63,
-                        "pattern": "^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$"
+                        "allOf": [
+                          {
+                            "pattern": "^(?!(?:[uU][nN][dD]|[mM][uU][lL]|[zZ][xX][xX])(?:-|$))[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$"
+                          },
+                          {
+                            "pattern": "^[zZ][hH](?:-|$)"
+                          }
+                        ]
                       },
-                      {
-                        "type": "null"
+                      "reason": {
+                        "type": "string",
+                        "enum": [
+                          "no-language",
+                          "han-only",
+                          "insufficient-text",
+                          "other-script",
+                          "han-majority",
+                          "mixed-script",
+                          "english-heuristic",
+                          "uncertain",
+                          "document-inherited",
+                          "user-specified",
+                          "script-compatible-hint"
+                        ]
                       }
-                    ]
+                    },
+                    "required": [
+                      "language",
+                      "sourceLanguage",
+                      "reason"
+                    ],
+                    "additionalProperties": false
                   },
-                  "reason": {
-                    "type": "string",
-                    "enum": [
-                      "no-language",
-                      "han-only",
-                      "insufficient-text",
-                      "other-script",
-                      "han-majority",
-                      "mixed-script",
-                      "english-heuristic",
-                      "uncertain",
-                      "document-inherited",
-                      "user-specified",
-                      "script-compatible-hint"
-                    ]
+                  {
+                    "type": "object",
+                    "properties": {
+                      "language": {
+                        "type": "string",
+                        "const": "en"
+                      },
+                      "sourceLanguage": {
+                        "type": "string",
+                        "minLength": 2,
+                        "maxLength": 63,
+                        "allOf": [
+                          {
+                            "pattern": "^(?!(?:[uU][nN][dD]|[mM][uU][lL]|[zZ][xX][xX])(?:-|$))[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$"
+                          },
+                          {
+                            "pattern": "^[eE][nN](?:-|$)"
+                          }
+                        ]
+                      },
+                      "reason": {
+                        "type": "string",
+                        "enum": [
+                          "no-language",
+                          "han-only",
+                          "insufficient-text",
+                          "other-script",
+                          "han-majority",
+                          "mixed-script",
+                          "english-heuristic",
+                          "uncertain",
+                          "document-inherited",
+                          "user-specified",
+                          "script-compatible-hint"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "language",
+                      "sourceLanguage",
+                      "reason"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "language": {
+                        "type": "string",
+                        "const": "foreign"
+                      },
+                      "sourceLanguage": {
+                        "type": "string",
+                        "minLength": 2,
+                        "maxLength": 63,
+                        "allOf": [
+                          {
+                            "pattern": "^(?!(?:[uU][nN][dD]|[mM][uU][lL]|[zZ][xX][xX])(?:-|$))[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$"
+                          },
+                          {
+                            "pattern": "^(?!(?:[zZ][hH]|[eE][nN])(?:-|$))"
+                          }
+                        ]
+                      },
+                      "reason": {
+                        "type": "string",
+                        "enum": [
+                          "no-language",
+                          "han-only",
+                          "insufficient-text",
+                          "other-script",
+                          "han-majority",
+                          "mixed-script",
+                          "english-heuristic",
+                          "uncertain",
+                          "document-inherited",
+                          "user-specified",
+                          "script-compatible-hint"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "language",
+                      "sourceLanguage",
+                      "reason"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "language": {
+                        "type": "string",
+                        "const": "mixed"
+                      },
+                      "sourceLanguage": {
+                        "type": "null"
+                      },
+                      "reason": {
+                        "type": "string",
+                        "enum": [
+                          "no-language",
+                          "han-only",
+                          "insufficient-text",
+                          "other-script",
+                          "han-majority",
+                          "mixed-script",
+                          "english-heuristic",
+                          "uncertain",
+                          "document-inherited",
+                          "user-specified",
+                          "script-compatible-hint"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "language",
+                      "sourceLanguage",
+                      "reason"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "language": {
+                        "type": "string",
+                        "const": "und"
+                      },
+                      "sourceLanguage": {
+                        "type": "null"
+                      },
+                      "reason": {
+                        "type": "string",
+                        "enum": [
+                          "no-language",
+                          "han-only",
+                          "insufficient-text",
+                          "other-script",
+                          "han-majority",
+                          "mixed-script",
+                          "english-heuristic",
+                          "uncertain",
+                          "document-inherited",
+                          "user-specified",
+                          "script-compatible-hint"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "language",
+                      "sourceLanguage",
+                      "reason"
+                    ],
+                    "additionalProperties": false
                   }
-                },
-                "required": [
-                  "language",
-                  "sourceLanguage",
-                  "reason"
-                ],
-                "additionalProperties": false
+                ]
               },
               "safeMath": {
                 "type": "array",
@@ -1043,65 +1351,281 @@
                               },
                               "attributes": {
                                 "type": "object",
-                                "propertyNames": {
-                                  "type": "string",
-                                  "enum": [
-                                    "id",
-                                    "href",
-                                    "xlink:href",
-                                    "d",
-                                    "viewBox",
-                                    "xmlns",
-                                    "x",
-                                    "y",
-                                    "x1",
-                                    "y1",
-                                    "x2",
-                                    "y2",
-                                    "dx",
-                                    "dy",
-                                    "width",
-                                    "height",
-                                    "rx",
-                                    "ry",
-                                    "r",
-                                    "cx",
-                                    "cy",
-                                    "points",
-                                    "transform",
-                                    "fill",
-                                    "stroke",
-                                    "stroke-width",
-                                    "fill-rule",
-                                    "text-anchor",
-                                    "font-size",
-                                    "font-family",
-                                    "font-weight",
-                                    "mathvariant",
-                                    "mathsize",
-                                    "mathcolor",
-                                    "displaystyle",
-                                    "scriptlevel",
-                                    "stretchy",
-                                    "fence",
-                                    "separator",
-                                    "accent",
-                                    "accentunder",
-                                    "linethickness",
-                                    "rowalign",
-                                    "columnalign",
-                                    "rowspacing",
-                                    "columnspacing",
-                                    "columnspan",
-                                    "rowspan",
-                                    "notation",
-                                    "encoding"
-                                  ]
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z_][A-Za-z0-9_.:-]*$"
+                                  },
+                                  "href": {
+                                    "type": "string",
+                                    "pattern": "^#[A-Za-z_][A-Za-z0-9_.:-]*$"
+                                  },
+                                  "xlink:href": {
+                                    "type": "string",
+                                    "pattern": "^#[A-Za-z_][A-Za-z0-9_.:-]*$"
+                                  },
+                                  "xmlns": {
+                                    "type": "string",
+                                    "enum": [
+                                      "http://www.w3.org/2000/svg",
+                                      "http://www.w3.org/1998/Math/MathML"
+                                    ]
+                                  },
+                                  "d": {
+                                    "type": "string",
+                                    "maxLength": 65536,
+                                    "pattern": "^[MmZzLlHhVvCcSsQqTtAa0-9eE+., -]*$"
+                                  },
+                                  "viewBox": {
+                                    "type": "string",
+                                    "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:[ ,]+[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?){3}$"
+                                  },
+                                  "x": {
+                                    "type": "string",
+                                    "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?(?:[ ,]+[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?)*$"
+                                  },
+                                  "y": {
+                                    "type": "string",
+                                    "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?(?:[ ,]+[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?)*$"
+                                  },
+                                  "dx": {
+                                    "type": "string",
+                                    "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?(?:[ ,]+[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?)*$"
+                                  },
+                                  "dy": {
+                                    "type": "string",
+                                    "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?(?:[ ,]+[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?)*$"
+                                  },
+                                  "x1": {
+                                    "type": "string",
+                                    "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?$"
+                                  },
+                                  "y1": {
+                                    "type": "string",
+                                    "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?$"
+                                  },
+                                  "x2": {
+                                    "type": "string",
+                                    "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?$"
+                                  },
+                                  "y2": {
+                                    "type": "string",
+                                    "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?$"
+                                  },
+                                  "width": {
+                                    "type": "string",
+                                    "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?$"
+                                  },
+                                  "height": {
+                                    "type": "string",
+                                    "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?$"
+                                  },
+                                  "rx": {
+                                    "type": "string",
+                                    "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?$"
+                                  },
+                                  "ry": {
+                                    "type": "string",
+                                    "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?$"
+                                  },
+                                  "r": {
+                                    "type": "string",
+                                    "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?$"
+                                  },
+                                  "cx": {
+                                    "type": "string",
+                                    "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?$"
+                                  },
+                                  "cy": {
+                                    "type": "string",
+                                    "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?$"
+                                  },
+                                  "points": {
+                                    "type": "string",
+                                    "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:[ ,]+[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?)+$"
+                                  },
+                                  "transform": {
+                                    "type": "string",
+                                    "pattern": "^(?: *(?:matrix|translate|scale|rotate|skewX|skewY)\\([0-9eE+., -]+\\) *)+$"
+                                  },
+                                  "fill": {
+                                    "type": "string",
+                                    "pattern": "^(?:[A-Za-z]+|#[0-9a-fA-F]{3,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{8}|(?:rgb|rgba|hsl|hsla)\\([0-9+.,% /-]+\\))$"
+                                  },
+                                  "stroke": {
+                                    "type": "string",
+                                    "pattern": "^(?:[A-Za-z]+|#[0-9a-fA-F]{3,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{8}|(?:rgb|rgba|hsl|hsla)\\([0-9+.,% /-]+\\))$"
+                                  },
+                                  "stroke-width": {
+                                    "type": "string",
+                                    "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?$"
+                                  },
+                                  "fill-rule": {
+                                    "type": "string",
+                                    "enum": [
+                                      "nonzero",
+                                      "evenodd"
+                                    ]
+                                  },
+                                  "text-anchor": {
+                                    "type": "string",
+                                    "enum": [
+                                      "start",
+                                      "middle",
+                                      "end"
+                                    ]
+                                  },
+                                  "font-size": {
+                                    "type": "string",
+                                    "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?$"
+                                  },
+                                  "font-family": {
+                                    "type": "string",
+                                    "pattern": "^(?:[A-Za-z][A-Za-z0-9 -]*|'[A-Za-z][A-Za-z0-9 -]*'|\"[A-Za-z][A-Za-z0-9 -]*\")(?:, *(?:[A-Za-z][A-Za-z0-9 -]*|'[A-Za-z][A-Za-z0-9 -]*'|\"[A-Za-z][A-Za-z0-9 -]*\"))*$"
+                                  },
+                                  "font-weight": {
+                                    "type": "string",
+                                    "pattern": "^(?:normal|bold|bolder|lighter|[1-9][0-9]{0,2}|1000)$"
+                                  },
+                                  "mathvariant": {
+                                    "type": "string",
+                                    "enum": [
+                                      "normal",
+                                      "bold",
+                                      "italic",
+                                      "bold-italic",
+                                      "double-struck",
+                                      "bold-fraktur",
+                                      "script",
+                                      "bold-script",
+                                      "fraktur",
+                                      "sans-serif",
+                                      "bold-sans-serif",
+                                      "sans-serif-italic",
+                                      "sans-serif-bold-italic",
+                                      "monospace",
+                                      "initial",
+                                      "tailed",
+                                      "looped",
+                                      "stretched"
+                                    ]
+                                  },
+                                  "mathsize": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?$"
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "small",
+                                          "normal",
+                                          "big"
+                                        ]
+                                      }
+                                    ]
+                                  },
+                                  "mathcolor": {
+                                    "type": "string",
+                                    "pattern": "^(?:[A-Za-z]+|#[0-9a-fA-F]{3,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{8}|(?:rgb|rgba|hsl|hsla)\\([0-9+.,% /-]+\\))$"
+                                  },
+                                  "displaystyle": {
+                                    "type": "string",
+                                    "enum": [
+                                      "true",
+                                      "false"
+                                    ]
+                                  },
+                                  "scriptlevel": {
+                                    "type": "string",
+                                    "pattern": "^[+-]?[0-9]+$"
+                                  },
+                                  "stretchy": {
+                                    "type": "string",
+                                    "enum": [
+                                      "true",
+                                      "false"
+                                    ]
+                                  },
+                                  "fence": {
+                                    "type": "string",
+                                    "enum": [
+                                      "true",
+                                      "false"
+                                    ]
+                                  },
+                                  "separator": {
+                                    "type": "string",
+                                    "enum": [
+                                      "true",
+                                      "false"
+                                    ]
+                                  },
+                                  "accent": {
+                                    "type": "string",
+                                    "enum": [
+                                      "true",
+                                      "false"
+                                    ]
+                                  },
+                                  "accentunder": {
+                                    "type": "string",
+                                    "enum": [
+                                      "true",
+                                      "false"
+                                    ]
+                                  },
+                                  "linethickness": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?$"
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "thin",
+                                          "medium",
+                                          "thick"
+                                        ]
+                                      }
+                                    ]
+                                  },
+                                  "rowalign": {
+                                    "type": "string",
+                                    "pattern": "^(?:top|bottom|center|baseline|axis)(?: +(?:top|bottom|center|baseline|axis))*$"
+                                  },
+                                  "columnalign": {
+                                    "type": "string",
+                                    "pattern": "^(?:left|center|right)(?: +(?:left|center|right))*$"
+                                  },
+                                  "rowspacing": {
+                                    "type": "string",
+                                    "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?(?:[ ,]+[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?)*$"
+                                  },
+                                  "columnspacing": {
+                                    "type": "string",
+                                    "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?(?:[ ,]+[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?)*$"
+                                  },
+                                  "columnspan": {
+                                    "type": "string",
+                                    "pattern": "^[1-9][0-9]*$"
+                                  },
+                                  "rowspan": {
+                                    "type": "string",
+                                    "pattern": "^[1-9][0-9]*$"
+                                  },
+                                  "notation": {
+                                    "type": "string",
+                                    "pattern": "^(?:longdiv|actuarial|radical|box|roundedbox|circle|left|right|top|bottom|updiagonalstrike|downdiagonalstrike|verticalstrike|horizontalstrike|madruwb|phasorangle)(?: +(?:longdiv|actuarial|radical|box|roundedbox|circle|left|right|top|bottom|updiagonalstrike|downdiagonalstrike|verticalstrike|horizontalstrike|madruwb|phasorangle))*$"
+                                  },
+                                  "encoding": {
+                                    "type": "string",
+                                    "const": "application/x-tex"
+                                  }
                                 },
-                                "additionalProperties": {
-                                  "type": "string",
-                                  "maxLength": 65536
-                                }
+                                "additionalProperties": false
                               },
                               "children": {
                                 "type": "array",
@@ -1410,65 +1934,281 @@
                             },
                             "attributes": {
                               "type": "object",
-                              "propertyNames": {
-                                "type": "string",
-                                "enum": [
-                                  "id",
-                                  "href",
-                                  "xlink:href",
-                                  "d",
-                                  "viewBox",
-                                  "xmlns",
-                                  "x",
-                                  "y",
-                                  "x1",
-                                  "y1",
-                                  "x2",
-                                  "y2",
-                                  "dx",
-                                  "dy",
-                                  "width",
-                                  "height",
-                                  "rx",
-                                  "ry",
-                                  "r",
-                                  "cx",
-                                  "cy",
-                                  "points",
-                                  "transform",
-                                  "fill",
-                                  "stroke",
-                                  "stroke-width",
-                                  "fill-rule",
-                                  "text-anchor",
-                                  "font-size",
-                                  "font-family",
-                                  "font-weight",
-                                  "mathvariant",
-                                  "mathsize",
-                                  "mathcolor",
-                                  "displaystyle",
-                                  "scriptlevel",
-                                  "stretchy",
-                                  "fence",
-                                  "separator",
-                                  "accent",
-                                  "accentunder",
-                                  "linethickness",
-                                  "rowalign",
-                                  "columnalign",
-                                  "rowspacing",
-                                  "columnspacing",
-                                  "columnspan",
-                                  "rowspan",
-                                  "notation",
-                                  "encoding"
-                                ]
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "pattern": "^[A-Za-z_][A-Za-z0-9_.:-]*$"
+                                },
+                                "href": {
+                                  "type": "string",
+                                  "pattern": "^#[A-Za-z_][A-Za-z0-9_.:-]*$"
+                                },
+                                "xlink:href": {
+                                  "type": "string",
+                                  "pattern": "^#[A-Za-z_][A-Za-z0-9_.:-]*$"
+                                },
+                                "xmlns": {
+                                  "type": "string",
+                                  "enum": [
+                                    "http://www.w3.org/2000/svg",
+                                    "http://www.w3.org/1998/Math/MathML"
+                                  ]
+                                },
+                                "d": {
+                                  "type": "string",
+                                  "maxLength": 65536,
+                                  "pattern": "^[MmZzLlHhVvCcSsQqTtAa0-9eE+., -]*$"
+                                },
+                                "viewBox": {
+                                  "type": "string",
+                                  "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:[ ,]+[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?){3}$"
+                                },
+                                "x": {
+                                  "type": "string",
+                                  "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?(?:[ ,]+[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?)*$"
+                                },
+                                "y": {
+                                  "type": "string",
+                                  "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?(?:[ ,]+[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?)*$"
+                                },
+                                "dx": {
+                                  "type": "string",
+                                  "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?(?:[ ,]+[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?)*$"
+                                },
+                                "dy": {
+                                  "type": "string",
+                                  "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?(?:[ ,]+[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?)*$"
+                                },
+                                "x1": {
+                                  "type": "string",
+                                  "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?$"
+                                },
+                                "y1": {
+                                  "type": "string",
+                                  "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?$"
+                                },
+                                "x2": {
+                                  "type": "string",
+                                  "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?$"
+                                },
+                                "y2": {
+                                  "type": "string",
+                                  "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?$"
+                                },
+                                "width": {
+                                  "type": "string",
+                                  "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?$"
+                                },
+                                "height": {
+                                  "type": "string",
+                                  "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?$"
+                                },
+                                "rx": {
+                                  "type": "string",
+                                  "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?$"
+                                },
+                                "ry": {
+                                  "type": "string",
+                                  "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?$"
+                                },
+                                "r": {
+                                  "type": "string",
+                                  "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?$"
+                                },
+                                "cx": {
+                                  "type": "string",
+                                  "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?$"
+                                },
+                                "cy": {
+                                  "type": "string",
+                                  "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?$"
+                                },
+                                "points": {
+                                  "type": "string",
+                                  "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:[ ,]+[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?)+$"
+                                },
+                                "transform": {
+                                  "type": "string",
+                                  "pattern": "^(?: *(?:matrix|translate|scale|rotate|skewX|skewY)\\([0-9eE+., -]+\\) *)+$"
+                                },
+                                "fill": {
+                                  "type": "string",
+                                  "pattern": "^(?:[A-Za-z]+|#[0-9a-fA-F]{3,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{8}|(?:rgb|rgba|hsl|hsla)\\([0-9+.,% /-]+\\))$"
+                                },
+                                "stroke": {
+                                  "type": "string",
+                                  "pattern": "^(?:[A-Za-z]+|#[0-9a-fA-F]{3,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{8}|(?:rgb|rgba|hsl|hsla)\\([0-9+.,% /-]+\\))$"
+                                },
+                                "stroke-width": {
+                                  "type": "string",
+                                  "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?$"
+                                },
+                                "fill-rule": {
+                                  "type": "string",
+                                  "enum": [
+                                    "nonzero",
+                                    "evenodd"
+                                  ]
+                                },
+                                "text-anchor": {
+                                  "type": "string",
+                                  "enum": [
+                                    "start",
+                                    "middle",
+                                    "end"
+                                  ]
+                                },
+                                "font-size": {
+                                  "type": "string",
+                                  "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?$"
+                                },
+                                "font-family": {
+                                  "type": "string",
+                                  "pattern": "^(?:[A-Za-z][A-Za-z0-9 -]*|'[A-Za-z][A-Za-z0-9 -]*'|\"[A-Za-z][A-Za-z0-9 -]*\")(?:, *(?:[A-Za-z][A-Za-z0-9 -]*|'[A-Za-z][A-Za-z0-9 -]*'|\"[A-Za-z][A-Za-z0-9 -]*\"))*$"
+                                },
+                                "font-weight": {
+                                  "type": "string",
+                                  "pattern": "^(?:normal|bold|bolder|lighter|[1-9][0-9]{0,2}|1000)$"
+                                },
+                                "mathvariant": {
+                                  "type": "string",
+                                  "enum": [
+                                    "normal",
+                                    "bold",
+                                    "italic",
+                                    "bold-italic",
+                                    "double-struck",
+                                    "bold-fraktur",
+                                    "script",
+                                    "bold-script",
+                                    "fraktur",
+                                    "sans-serif",
+                                    "bold-sans-serif",
+                                    "sans-serif-italic",
+                                    "sans-serif-bold-italic",
+                                    "monospace",
+                                    "initial",
+                                    "tailed",
+                                    "looped",
+                                    "stretched"
+                                  ]
+                                },
+                                "mathsize": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?$"
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "small",
+                                        "normal",
+                                        "big"
+                                      ]
+                                    }
+                                  ]
+                                },
+                                "mathcolor": {
+                                  "type": "string",
+                                  "pattern": "^(?:[A-Za-z]+|#[0-9a-fA-F]{3,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{8}|(?:rgb|rgba|hsl|hsla)\\([0-9+.,% /-]+\\))$"
+                                },
+                                "displaystyle": {
+                                  "type": "string",
+                                  "enum": [
+                                    "true",
+                                    "false"
+                                  ]
+                                },
+                                "scriptlevel": {
+                                  "type": "string",
+                                  "pattern": "^[+-]?[0-9]+$"
+                                },
+                                "stretchy": {
+                                  "type": "string",
+                                  "enum": [
+                                    "true",
+                                    "false"
+                                  ]
+                                },
+                                "fence": {
+                                  "type": "string",
+                                  "enum": [
+                                    "true",
+                                    "false"
+                                  ]
+                                },
+                                "separator": {
+                                  "type": "string",
+                                  "enum": [
+                                    "true",
+                                    "false"
+                                  ]
+                                },
+                                "accent": {
+                                  "type": "string",
+                                  "enum": [
+                                    "true",
+                                    "false"
+                                  ]
+                                },
+                                "accentunder": {
+                                  "type": "string",
+                                  "enum": [
+                                    "true",
+                                    "false"
+                                  ]
+                                },
+                                "linethickness": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?$"
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "thin",
+                                        "medium",
+                                        "thick"
+                                      ]
+                                    }
+                                  ]
+                                },
+                                "rowalign": {
+                                  "type": "string",
+                                  "pattern": "^(?:top|bottom|center|baseline|axis)(?: +(?:top|bottom|center|baseline|axis))*$"
+                                },
+                                "columnalign": {
+                                  "type": "string",
+                                  "pattern": "^(?:left|center|right)(?: +(?:left|center|right))*$"
+                                },
+                                "rowspacing": {
+                                  "type": "string",
+                                  "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?(?:[ ,]+[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?)*$"
+                                },
+                                "columnspacing": {
+                                  "type": "string",
+                                  "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?(?:[ ,]+[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px|em|ex|rem|ch|pt|pc|in|cm|mm|%)?)*$"
+                                },
+                                "columnspan": {
+                                  "type": "string",
+                                  "pattern": "^[1-9][0-9]*$"
+                                },
+                                "rowspan": {
+                                  "type": "string",
+                                  "pattern": "^[1-9][0-9]*$"
+                                },
+                                "notation": {
+                                  "type": "string",
+                                  "pattern": "^(?:longdiv|actuarial|radical|box|roundedbox|circle|left|right|top|bottom|updiagonalstrike|downdiagonalstrike|verticalstrike|horizontalstrike|madruwb|phasorangle)(?: +(?:longdiv|actuarial|radical|box|roundedbox|circle|left|right|top|bottom|updiagonalstrike|downdiagonalstrike|verticalstrike|horizontalstrike|madruwb|phasorangle))*$"
+                                },
+                                "encoding": {
+                                  "type": "string",
+                                  "const": "application/x-tex"
+                                }
                               },
-                              "additionalProperties": {
-                                "type": "string",
-                                "maxLength": 65536
-                              }
+                              "additionalProperties": false
                             },
                             "children": {
                               "type": "array",

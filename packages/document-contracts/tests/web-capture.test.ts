@@ -71,3 +71,34 @@ test('shares a source-bound SDK candidate file instead of translated DOM HTML', 
     expect(contracts.webCaptureTranslationCandidateSchema.safeParse({ ...candidate, ...patch }).success).toBe(false);
   }
 });
+test.each([
+  ['fill', String.raw`u\72l(https://example.com/external.svg#paint)`],
+  ['stroke', String.raw`\75rl(https://example.com/external.svg#paint)`],
+  ['fill', 'var(--external-paint)'],
+  ['stroke', 'env(external-paint)'],
+  ['fill', 'image-set("https://example.com/image.png" 1x)'],
+  ['fill', 'url/**/(https://example.com/external.svg#paint)'],
+  ['fill', 'rgb(from var(--paint) r g b)'],
+  ['font-size', 'calc(1em + 2px)'],
+  ['font-family', String.raw`u\72l(https://example.com/font)`],
+])('rejects escaped or unsupported CSS in SafeMath attribute %s=%s', (attribute, value) => {
+  const ast = { kind: 'svg', roots: ['root'], nodes: [
+    { id: 'root', tag: 'svg', attributes: {}, children: ['path'] },
+    { id: 'path', tag: 'path', attributes: { [attribute]: value }, children: [] },
+  ] };
+  expect(contracts.safeMathAstSchema.safeParse(ast).success).toBe(false);
+});
+test('preserves supported SVG geometry, colors, fonts and local math references', () => {
+  const ast = { kind: 'svg', roots: ['root'], nodes: [
+    { id: 'root', tag: 'svg', attributes: { xmlns: 'http://www.w3.org/2000/svg', viewBox: '0 0 100 100', width: '10em', height: '20px' }, children: ['path', 'label', 'reuse'] },
+    { id: 'path', tag: 'path', attributes: { id: 'glyph', d: 'M0 0L1 1', fill: 'currentColor', stroke: '#123abc', 'stroke-width': '0.2', 'fill-rule': 'evenodd', transform: 'translate(10,20) scale(1.5)' }, children: [] },
+    { id: 'label', tag: 'text', attributes: { x: '1', y: '2', fill: 'rgb(20, 30, 40)', 'font-family': 'Cambria Math, serif', 'font-size': '1em', 'font-weight': '700', 'text-anchor': 'middle' }, children: [], text: 'x' },
+    { id: 'reuse', tag: 'use', attributes: { href: '#glyph', x: '10', y: '10' }, children: [] },
+  ] };
+  expect(contracts.safeMathAstSchema.parse(ast)).toEqual(ast);
+  const math = { kind: 'mathml', roots: ['root'], nodes: [
+    { id: 'root', tag: 'math', attributes: { xmlns: 'http://www.w3.org/1998/Math/MathML', displaystyle: 'true', scriptlevel: '+1', mathcolor: 'blue', mathsize: '1.2em' }, children: ['symbol'] },
+    { id: 'symbol', tag: 'mi', attributes: { mathvariant: 'bold-italic' }, children: [], text: 'x' },
+  ] };
+  expect(contracts.safeMathAstSchema.parse(math)).toEqual(math);
+});

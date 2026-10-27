@@ -35,3 +35,16 @@ test('supports explicit manual foreign languages without expanding automatic det
     expect(contracts.webLanguageDecisionSchema.safeParse({ language: 'foreign', sourceLanguage, reason: 'user-specified' }).success).toBe(false);
   }
 });
+test('keeps portable known-language patterns aligned with case and region exclusions', async () => {
+  const { z } = await import('zod');
+  const { Ajv2020 } = await import('ajv/dist/2020.js');
+  const validate = new Ajv2020({ strict: true }).compile(z.toJSONSchema(contracts.sourceLanguageSchema));
+  for (const language of ['en', 'zh-Hans', 'pt-BR', 'un', 'unda', 'mulan', 'zxxx']) {
+    expect(contracts.sourceLanguageSchema.safeParse(language).success, language).toBe(true);
+    expect(validate(language), language).toBe(true);
+  }
+  for (const language of ['und', 'UND-Latn', 'mul', 'MuL-CA', 'zxx', 'ZXX-US']) {
+    expect(contracts.sourceLanguageSchema.safeParse(language).success, language).toBe(false);
+    expect(validate(language), language).toBe(false);
+  }
+});

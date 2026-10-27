@@ -25,7 +25,7 @@
       "type": "string",
       "minLength": 2,
       "maxLength": 63,
-      "pattern": "^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$"
+      "pattern": "^(?!(?:[uU][nN][dD]|[mM][uU][lL]|[zZ][xX][xX])(?:-|$))[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$"
     },
     "selectionBlockIds": {
       "minItems": 1,
@@ -34,7 +34,8 @@
       "items": {
         "type": "string",
         "pattern": "^b_[a-f0-9]{32}$"
-      }
+      },
+      "uniqueItems": true
     }
   },
   "required": [
