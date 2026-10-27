@@ -228,10 +228,10 @@ lease：heartbeat 5 秒、30 秒失效；claim 使用 SKIP LOCKED 并增加 epoc
 
 **Files:** 新建 `packages/document-renderer/src/{web-translation,web-chunking,web-html,semantic-html}.ts`、`packages/document-renderer/tests/{web-reader,web-translation}.test.ts`；修改该包 `html.ts / translation.ts / index.ts` 与 README；沿用任务0的目录机制。
 **Interfaces:** 提供 §2.3 Web 函数；保持任务0已交付的旧目录兼容，PDF wrapper / 静态文件字节语义不变。
-- [ ] **Step 1:** RED：`accepts_published_s2_catalog_after_upgrade`、`rejects_unknown_catalog_and_changed_legacy_bytes`、`renders_bilingual_cells_without_duplicate_ids`；测试 Web sourceRef 无 PDF 页、20k blocks、512KiB 单块与重复公式实例。
-- [ ] **Step 2:** 提取内容恢复 / 可信 HTML 小模块，PDF wrapper 保持输出；Web 单独处理表格、snapshot 节点引用与双语。Web translation 只通过公共 SDK 规划 / marker 校验 / 解码。
-- [ ] **Step 3:** 运行 `npm run test --workspace @pagelingo/document-renderer --workspace @pagelingo/document-bundle --workspace @pagelingo/pdf-cli`、typecheck 与 Node import smoke。`expect(Math.max(...build.chunks.map(c => c.blocks.length))).toBeLessThanOrEqual(128)`；旧固定包与四个 S2 原包通过，未知历史 hash 仍拒绝。
-- [ ] **Step 4:** 提交 `feat: render archived web content and retain S2 compatibility`。
+- [x] **Step 1:** RED：`accepts_published_s2_catalog_after_upgrade`、`rejects_unknown_catalog_and_changed_legacy_bytes`、`renders_bilingual_cells_without_duplicate_ids`；测试 Web sourceRef 无 PDF 页、20k blocks、512KiB 单块与重复公式实例。
+- [x] **Step 2:** 提取内容恢复 / 可信 HTML 小模块，PDF wrapper 保持输出；Web 单独处理表格、snapshot 节点引用与双语。Web translation 只通过公共 SDK 规划 / marker 校验 / 解码。
+- [x] **Step 3:** 运行 `npm run test --workspace @pagelingo/document-renderer --workspace @pagelingo/document-bundle --workspace @pagelingo/pdf-cli`、typecheck 与 Node import smoke。`expect(Math.max(...build.chunks.map(c => c.blocks.length))).toBeLessThanOrEqual(128)`；旧固定包与四个 S2 原包通过，未知历史 hash 仍拒绝。
+- [x] **Step 4:** 提交 `feat: render archived web content and retain S2 compatibility`。
 
 ### Task 4: 数据迁移与持久仓库
 
