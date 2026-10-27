@@ -145,6 +145,7 @@ ZIP 从私有暂存文件逐项读取，`lazyEntries:true, strictFileNames:true,
 - 导入 API 合同同 Task 7：`CreateBundleImportRequest {targetDocumentId?:string}`，`BundleImport {id,status,epoch,documentId?,readerVersionId?,errorCode?,createdAt,updatedAt}`；status 固定 `created|receiving|validating|completed|failed|cancelled`。创建 / 接收是两个阶段，不能折叠为一个 uploading 状态。`ReaderVersionSummary {id,createdAt,sourceVersionId,parseId,translationStatus,parseCoverage,warnings}`；`ReaderVersionList {items,total,page,pageSize}`，分页默认 1 / 20、上限 100；作为 Task 8 的导出 DTO。
 - `ReadingPosition {readerVersionId, sourceVersionId, parseId, blockId:null|string, blockOffset:0..1, pdfPageIndex, view:'split'|'source'|'content', contentMode:'source'|'translation'}`；offset 是块内垂直相对偏移。`ReadingProgress {position, revision, updatedAt}`；写入必须带 `expectedRevision`，使用文档级 CAS，初始 revision=0。
 - 每个 reader version 保留独立历史位置，文档保存最后成功恢复位置。新版本按相同 parse / block 恢复；找不到时降级到物理页对应片，提示“版本已更新，已定位到原页”，保留旧记录。不以打开页面产生的程序滚动立即写入新进度。
+- `GET /progress` 返回实际最后确认位置；`ReaderDescriptor.progress` 则是所选版本的有效恢复位置，配当前文档级 revision / ack updatedAt。优先该版本历史，否则只按相同 parse / 有效 block 映射，失效时 blockId=null、offset=0 并按物理页恢复。历史位置不能携带旧 revision 作为新的 CAS 确认；读取与恢复不写进度。
 - 用户滚动 / 翻页后 1.5 秒 debounce 保存，持续阅读最多每 5 秒一次；离开时 best effort。409 `PROGRESS_CONFLICT` 不静默重试覆盖，提供继续当前位置的显式操作；401 清理会话与所有在途数据。版本 / 用户切换的旧请求不能更新新状态。
 
 ## 3. 任务
@@ -257,7 +258,7 @@ ZIP 从私有暂存文件逐项读取，`lazyEntries:true, strictFileNames:true,
 
 ### Task 8: 认证的导入、分片、下载与进度 API
 
-**Files:** 新建 `apps/document-service/src/bundle-imports/routes.ts`、`src/readers/{repository,service,routes,asset-response,progress}.ts`、`tests/integration/{reader-routes,reader-progress}.test.ts`；修改 app.ts、documents DTO 与 source-response 中可共享的响应辅助函数。
+**Files:** 新建 `apps/document-service/src/bundle-imports/routes.ts`、`src/readers/{repository,service,routes,asset-response,progress,data}.ts`、`tests/integration/{reader-routes,reader-progress}.test.ts`；修改 app.ts、documents DTO 与 source-response 中可共享的响应辅助函数。
 
 **Interfaces:** 所有路径位于 `/api/v1`，读请求 requireSession，写请求同时 requireWriteRequest；资源与错误响应 no-store：
 
