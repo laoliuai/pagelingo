@@ -144,7 +144,7 @@ ZIP 从私有暂存文件逐项读取，`lazyEntries:true, strictFileNames:true,
 
 执行基线时，既有 Chromium 对话历史测试出现单窗口“文章正在另一个窗口生成回答”的失败；独立重跑通过。原始 trace / 错误与分析保存在本计划 ledger，先用确定性回归验证自身草稿锁与发送请求竞争的假设，再修复。
 
-**Files:** 修改 `apps/extension/src/assistant/controller.ts`，新增 / 扩展 `apps/extension/tests/assistant-controller.test.ts` 中的对应行为测试；只有必要时调整既有 E2E 同步，不靠任意 sleep / retry 掩盖缺陷。
+**Files:** 修改 `apps/extension/src/assistant/controller.ts`，新增 `apps/extension/tests/unit/assistant-controller.test.ts` 中的对应行为测试，可复用 assistant-storage 单测的真实控制器 / 假 IndexedDB 设施；只有必要时调整既有 E2E 同步，不靠任意 sleep / retry 掩盖缺陷。
 
 **Interfaces:** 保持 ReadingAssistant 的公开方法、跨窗口锁拒绝和取消行为；同窗口在先的 setDraft 持久化不得被 send 当成另一个窗口持锁，发送仍绑定调用时文章 / 问题。
 
