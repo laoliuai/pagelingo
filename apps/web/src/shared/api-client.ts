@@ -17,13 +17,14 @@ export function resetApiSession(token: string | null) {
   generation = new AbortController();
   csrfToken = token;
 }
-export async function apiRequest<T>(
+async function request<T>(
   path: string,
   options: {
     method?: string;
     body?: unknown | FormData;
     signal?: AbortSignal;
     idempotencyKey?: string;
+    zip?: File;
   } = {},
 ): Promise<T> {
   if (
@@ -47,12 +48,12 @@ export async function apiRequest<T>(
     signal,
     headers: {
       ...(options.idempotencyKey ? { 'Idempotency-Key': options.idempotencyKey } : {}),
-      ...(!form && options.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+      ...(options.zip ? { 'Content-Type': 'application/zip' } : !form && options.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
       ...(method !== 'GET' && method !== 'HEAD' && csrfToken
         ? { 'X-CSRF-Token': csrfToken }
         : {}),
     },
-    ...(options.body !== undefined
+    ...(options.zip ? { body: options.zip } : options.body !== undefined
       ? { body: form ? (options.body as FormData) : JSON.stringify(options.body) }
       : {}),
   });
@@ -71,6 +72,18 @@ export async function apiRequest<T>(
   const value = response.status === 204 ? undefined : await response.json();
   signal.throwIfAborted();
   return value as T;
+}
+/** JSON/multipart requests share the same identity fence as binary uploads. */
+export function apiRequest<T>(path: string, options: {
+  method?: string; body?: unknown | FormData; signal?: AbortSignal; idempotencyKey?: string;
+} = {}): Promise<T> {
+  return request<T>(path, options);
+}
+/** The browser streams File bytes; callers cannot choose origin, headers or content type. */
+export function uploadBundleContent<T>(importId: string, file: File, signal?: AbortSignal): Promise<T> {
+  if (!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(importId))
+    throw new Error('Invalid import ID');
+  return request<T>(`/api/v1/bundle-imports/${importId}/content`, { method: 'PUT', zip: file, signal });
 }
 export function errorMessage(error: unknown): string {
   if (error instanceof ApiError) {

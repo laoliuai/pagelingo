@@ -1,6 +1,7 @@
 import { FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type { DocumentSummary } from '@pagelingo/document-contracts';
+import { translationLabel } from './import-status';
 import { Badge } from '../../shared/ui/badge';
 export function DocumentRow({ document }: { document: DocumentSummary }) {
   return (
@@ -21,7 +22,8 @@ export function DocumentRow({ document }: { document: DocumentSummary }) {
             )}{' '}
             KB
           </span>
-          <span>等待本地处理</span>
+          <span>{document.reader ? translationLabel(document.reader.translationStatus) : '等待本地处理'}</span>
+          {document.reader?.parseCoverage === 'partial' && <span>解析不完整</span>}
         </div>
       </div>
       <div className="document-status">

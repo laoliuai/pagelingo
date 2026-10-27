@@ -67,7 +67,7 @@ export function UploadDialog() {
   return (
     <Modal
       title="上传 PDF"
-      description="原件仅对当前账号可见。服务器保存后，可直接阅读原件；本地处理尚未开始。"
+      description="原件仅对当前账号可见。保存后可直接阅读 PDF，也可在资料详情导入本地生成的阅读包。"
       open={open}
       onOpenChange={(value) => (value ? setOpen(true) : close())}
       trigger={<Button primary>上传 PDF</Button>}

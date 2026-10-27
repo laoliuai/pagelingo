@@ -722,3 +722,10 @@ input[type='checkbox'] {
 .pdf-scroll canvas[data-rendered='false'] {
   visibility: hidden;
 }
+
+.library-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.reader-status { font-size: 13px; overflow-wrap: anywhere; }
+.reader-status p { margin: 8px 0; }
+.recent-imports { border-top: 1px solid var(--border); margin-top: 20px; padding-top: 12px; }
+.recent-imports h3 { font-size: 13px; }
+.recent-imports button { display: block; margin-top: 8px; }

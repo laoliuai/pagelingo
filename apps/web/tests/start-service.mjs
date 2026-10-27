@@ -5,6 +5,7 @@ import { join, resolve } from 'node:path';
 import { openDatabase } from '../../document-service/dist/db/database.js';
 import { migrateDatabase } from '../../document-service/dist/db/migrate.js';
 import { bootstrapAdmin } from '../../document-service/dist/cli/bootstrap-admin.js';
+import { defaultBundleLimits } from '@pagelingo/document-contracts';
 import { createApp } from '../../document-service/dist/app.js';
 const url = process.env.PAGELINGO_TEST_DATABASE_URL;
 if (!url) throw new Error('An isolated test PostgreSQL URL is required');
@@ -42,6 +43,7 @@ try {
       dataDir,
       webDir: resolve('dist'),
       maxPdfBytes: 1024 * 1024,
+      bundleLimits: { ...defaultBundleLimits, maxPdfBytes: 1024 * 1024, maxArchiveBytes: 4 * 1024 * 1024 },
       keyring: { activeKeyId: 'test', keys: { test: randomBytes(32) } },
     },
     outboundFetch: async () => {
