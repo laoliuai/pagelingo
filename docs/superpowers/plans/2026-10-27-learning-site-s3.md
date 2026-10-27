@@ -260,10 +260,12 @@ lease：heartbeat 5 秒、30 秒失效；claim 使用 SKIP LOCKED 并增加 epoc
 
 **Files:** 新建 `apps/document-service/src/web-captures/{service,routes,staging,publication,validation-worker}.ts`、`apps/document-service/src/web-readers/{service,routes,assets}.ts`、测试 helpers / integration；修改 service `documents/{repository,service,routes}.ts`、`cli/cleanup-staging.ts`、`app.ts / config.ts`。
 **Interfaces:** 实现 captures / snapshots / reader 私有 API；create → 独立文件 PUT → commit。commit 在可终止 worker 中复检与投影，不信任客户端 Reader IR 或译文格式树。
-- [ ] **Step 1:** RED：中断单文件后 missingFileIds 正确、同 key 不同 manifest 冲突、commit 丢响应可重取 completed；同 URL 内容变了建版本，相同内容不重复建源；web 不能绑定 PDF 目标。
-- [ ] **Step 2:** 实现独占暂存、实际 hash / MIME、完整性状态、不可变对象与短事务发布。可选译文逐单元 SDK 校验，只接收与原文绑定匹配的结果；不匹配不丢原文、不标完成。
-- [ ] **Step 3:** 新增 `tests/integration/{web-captures,web-reader-routes}.test.ts` 并用现有 DB runner 执行：取消 / revoke / cleanup 竞态、对象最后时刻丢失、越权、HTML attachment、资源闭包、旧 current 不退化；`expect(modelCalls).toBe(0)`。长验证期间用户锁可用。
-- [ ] **Step 4:** 提交 `feat: receive and publish private web captures`。
+- [x] **Step 1:** RED：中断单文件后 missingFileIds 正确、同 key 不同 manifest 冲突、commit 丢响应可重取 completed；同 URL 内容变了建版本，相同内容不重复建源；web 不能绑定 PDF 目标。
+- [x] **Step 2:** 实现独占暂存、实际 hash / MIME、完整性状态、不可变对象与短事务发布。可选译文逐单元 SDK 校验，只接收与原文绑定匹配的结果；不匹配不丢原文、不标完成。
+- [x] **Step 3:** 新增 `tests/integration/{web-captures,web-reader-routes}.test.ts` 并用现有 DB runner 执行：取消 / revoke / cleanup 竞态、对象最后时刻丢失、越权、HTML attachment、资源闭包、旧 current 不退化；`expect(modelCalls).toBe(0)`。长验证期间用户锁可用。
+- [x] **Step 4:** 提交 `feat: receive and publish private web captures`。
+
+任务6已通过独立审查与修复复审。工作区787项、完整数据库184项在最后局部修正前通过；后续渲染器83项、网页集成18项及最终发布修复25项、相关类型检查与构建通过。浏览器全量56/57，失败用例及其所属14项测试随后在原时限下通过，原因尚未确认；原失败截图在复跑时丢失，日志和错误文字已保留。最终冻结源码的全量验证仍由任务13执行。
 
 ### Task 7: 浏览器原文采集与四类来源
 
