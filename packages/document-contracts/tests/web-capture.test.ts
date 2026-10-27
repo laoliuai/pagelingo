@@ -1,3 +1,5 @@
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { expect, test } from 'vitest';
 import * as contracts from '../src/index.js';
 import { file, manifest, sha } from './web-fixtures.js';
@@ -101,4 +103,13 @@ test('preserves supported SVG geometry, colors, fonts and local math references'
     { id: 'symbol', tag: 'mi', attributes: { mathvariant: 'bold-italic' }, children: [], text: 'x' },
   ] };
   expect(contracts.safeMathAstSchema.parse(math)).toEqual(math);
+});
+
+test.each(['zod', 'json-schema'])('bounds adversarial transform validation in %s', kind => {
+  const result = spawnSync(process.execPath, [fileURLToPath(new URL('./web-transform-probe.mjs', import.meta.url)), kind], {
+    encoding: 'utf8', timeout: 3000,
+  });
+  expect(result.error, result.stderr).toBeUndefined();
+  expect(result.status, result.stderr).toBe(0);
+  expect(JSON.parse(result.stdout)).toEqual({ invalid: [false, false, false], valid: [true, true, true, true] });
 });

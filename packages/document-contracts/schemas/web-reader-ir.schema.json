@@ -1446,7 +1446,7 @@
                                   },
                                   "transform": {
                                     "type": "string",
-                                    "pattern": "^(?: *(?:matrix|translate|scale|rotate|skewX|skewY)\\([0-9eE+., -]+\\) *)+$"
+                                    "pattern": "^ *(?:(?:matrix|translate|scale|rotate|skewX|skewY)\\([0-9eE+., -]+\\) *)+$"
                                   },
                                   "fill": {
                                     "type": "string",
@@ -2029,7 +2029,7 @@
                                 },
                                 "transform": {
                                   "type": "string",
-                                  "pattern": "^(?: *(?:matrix|translate|scale|rotate|skewX|skewY)\\([0-9eE+., -]+\\) *)+$"
+                                  "pattern": "^ *(?:(?:matrix|translate|scale|rotate|skewX|skewY)\\([0-9eE+., -]+\\) *)+$"
                                 },
                                 "fill": {
                                   "type": "string",

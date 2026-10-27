@@ -43,7 +43,7 @@ const mathAttributesSchema = z.strictObject({
   cx: mathLengthSchema.optional(),
   cy: mathLengthSchema.optional(),
   points: z.string().regex(new RegExp(`^${mathNumber}(?:[ ,]+${mathNumber})+$`)).optional(),
-  transform: z.string().regex(/^(?: *(?:matrix|translate|scale|rotate|skewX|skewY)\([0-9eE+., -]+\) *)+$/).optional(),
+  transform: z.string().regex(/^ *(?:(?:matrix|translate|scale|rotate|skewX|skewY)\([0-9eE+., -]+\) *)+$/).optional(),
   fill: mathPaintSchema.optional(),
   stroke: mathPaintSchema.optional(),
   'stroke-width': mathLengthSchema.optional(),
