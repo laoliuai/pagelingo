@@ -67,6 +67,7 @@
 - `normalizeCaptureUrl(url)` 只去除已知 `utm_* / fbclid / gclid / msclkid` 追踪参数，保留其余 query / hash；不复用 SDK 的缓存 URL 归一化，不用候选 canonical 自动合并不同来源。归档 URL 只允许 HTTP/HTTPS，禁止 userinfo。
 - source 的 SHA 是最终来源 manifest 的实际字节 SHA；`contentFingerprint` 只用于同 owner、来源身份与 scope 下的去重。它基于服务器规范化的正文、结构、资源摘要与缺失状态，排除 captureId / 采集时间 / 上传尝试。相同 URL 不同内容建新 source；相同内容复用 source，保留新的收藏事件；不跨用户去重。
 - Web IR 复用 `TranslationBlock`、格式 / protected 语义和树状容器；新增网页表格 / 行 / 单元格。Web sourceRef 为 `{ nodeId, quote, prefix, suffix }`，nodeId 在固定快照内唯一；重复段落仍有不同 block ID。Web parse ID 仍用 `p_<sha256>`，但来自 source manifest / projector / config 摘要，不伪造 Python 或 PDF 信息。
+- Web text block 可带 `headingLevel:1..6`，由 projector 从真实 h1–h6 保留，含合成文本段；不加入 SDK value 或 PDF 合同。无此元数据时渲染器按结构层级降级。
 - `WebReaderIR.source.kind='web'`，无 pages。`WebLanguageDecision` 为 zh / en / foreign / mixed / und，附 sourceLanguage 与 reason；foreign 只扩展 Web 合同，PDF 既有四值语言合同与判断不变。
 - `WebTranslation` 复用现有单元 / block 结果模型，绑定实际 Web IR 字节 SHA。新增适配器使用 SDK `planUnits / validateStructure / decodeTranslation`；模型提供的 HTML / 格式树不作源依据。
 - 已有插件译文另用 `WebCaptureTranslationCandidate`（`web-capture-translation-candidate/1`），不绑定尚未生成的服务端 IR。它携带原文 snapshot / fingerprint、语种与 SDK / prompt / protection 版本及逐块 `{nodeId,sourceTextSha256,source:TranslationBlock,rawText}`；文本摘要为 UTF-8 `naturalText(source.content)`，不归一化空白，rawText 为 glossary 恢复后的完整 SDK result.text。服务器逐块比较自己的原文投影并重放 SDK 校验；不支持或不匹配只跳过候选并警告，原文照常保存。候选最多20,000块、单块512 KiB、文件16 MiB；draft 携带结构 DTO，不传译文 DOM HTML。
@@ -133,8 +134,10 @@ type WebReadingPosition = {
 };
 type WebReadingProgress = { position: WebReadingPosition; revision: number; updatedAt: string };
 // WebReaderIndex 使用 chunks/toc/blockLocations，blockLocations 提供 chunkId/nodeId/previewId；
-// WebReaderChunk 使用 id/parseId/sourceSha256/blocks/nodes/roots/assets，均无 PDF pageIndices。
+// WebReaderChunk 使用 id/parseId/sourceSha256/blocks/contextBlockIds/nodes/roots/assets，均无 PDF pageIndices。
 ```
+
+`buildWebReader(ir,translation)` 不持有快照 index，输出的 previewId 可为 null；来源定位以 descriptor.snapshots 与 source node ID 查找为准，不猜预览 ID。跨分片的表头 / caption 可重复携带原块，明确列入 `contextBlockIds`；每个主块只属于一个分片，上下文副本也计入块数 / 字节预算，不能产生新的翻译单元或冒充主进度 / TOC 锚点。上下文 DOM / SVG ID 按 chunk / 显示侧限定。
 
 ### 2.4 API 与状态
 
