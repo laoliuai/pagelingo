@@ -2,8 +2,7 @@ import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { dirname } from 'node:path';
 import {
-  rendererVersion,
-  rendererSha256,
+  resolveTrustedCatalog,
   createStaticFilePlan,
   type ReaderBuild,
 } from '@pagelingo/document-renderer';
@@ -19,14 +18,11 @@ export async function validateStaticFiles(
   limits: BundleLimits,
   checkpoint: () => Promise<void>,
 ): Promise<Set<string>> {
-  check(
-    manifest.renderer.version === rendererVersion &&
-      manifest.renderer.codeSha256 === rendererSha256,
-  );
+  const catalog = resolveTrustedCatalog(manifest.renderer);
   const plan = createStaticFilePlan(build, {
     title: manifest.title,
     originalFilename: manifest.originalFilename,
-  });
+  }, catalog);
   const files = new Map(manifest.files.map((f) => [f.path, f]));
   const allowed = new Set<string>();
   let total = 0;

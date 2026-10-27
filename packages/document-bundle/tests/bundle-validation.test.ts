@@ -380,3 +380,48 @@ it.each(['assets/figure#1.png', 'assets/read #1/a&b[2]+,.png'])(
     expect(imageCount).toBeGreaterThan(0);
   },
 );
+
+const oldFixturePath = new URL('./fixtures/s2-final/reader.zip', import.meta.url);
+async function oldFixture(): Promise<Map<string, Buffer>> {
+  const archive = createArchiveFileSource(oldFixturePath.pathname, limits);
+  const files = new Map<string, Buffer>();
+  for (const { path } of await archive.list()) {
+    const parts: Uint8Array[] = [];
+    for await (const part of archive.read(path)) parts.push(part);
+    files.set(path, Buffer.concat(parts));
+  }
+  return files;
+}
+
+describe('published S2 compatibility', () => {
+  it('validates the immutable 0.1.0 bundle after the current catalog changes', async () => {
+    const bytes = await readFile(oldFixturePath);
+    expect(bytes.length).toBe(904836);
+    expect(hash(bytes)).toBe('4bb9c04d33dd57a43e64b21f2921b916fb2c451ced57a73f75cacf9e9712c136');
+    const result = await validateBundle(createArchiveFileSource(oldFixturePath.pathname, limits), { limits });
+    expect(result.packageId).toBe('00000000-0000-4000-8000-000000000003');
+    expect(result.manifestSha256).toBe('b08b1d2defbd46f1c8289ad12eaf53a43924c6426147dc6bf06f0750333540eb');
+  });
+
+  it.each([
+    'assets/offline-runtime.js', 'assets/reader.css', 'assets/katex/katex.min.css',
+    'assets/katex/fonts/KaTeX_Main-Regular.woff2',
+    'render/index.html', 'render/data/index.js', 'render/data/c_000001.js',
+  ])('rejects old %s changed with a matching manifest hash', async (path) => {
+    const files = await oldFixture();
+    files.set(path, Buffer.concat([files.get(path)!, Buffer.from('\n/* forged */')]));
+    updateManifest(files);
+    await expect(validateBundle(source(files), { limits })).rejects.toMatchObject({ code: 'INVALID_BUNDLE' });
+  });
+
+  it.each([
+    { version: '0.1.0', codeSha256: '0'.repeat(64) },
+    { version: '0.0.9', codeSha256: '3bfbbf4ce02a787185643792d617f80cb960261d108ad0ce224b0909ea4d47c3' },
+  ])('rejects unknown historical renderer identity $version / $codeSha256', async (renderer) => {
+    const files = await oldFixture();
+    const manifest = JSON.parse(files.get('manifest.json')!.toString());
+    manifest.renderer = renderer;
+    files.set('manifest.json', json(manifest));
+    await expect(validateBundle(source(files), { limits })).rejects.toMatchObject({ code: 'INVALID_BUNDLE' });
+  });
+});

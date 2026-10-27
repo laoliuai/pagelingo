@@ -28,6 +28,7 @@ COPY --from=build /app/packages/document-contracts/dist ./packages/document-cont
 COPY --from=build /app/packages/document-renderer/package.json ./packages/document-renderer/package.json
 COPY --from=build /app/packages/document-renderer/dist ./packages/document-renderer/dist
 COPY --from=build /app/packages/document-renderer/static ./packages/document-renderer/static
+COPY --from=build /app/packages/document-renderer/compat ./packages/document-renderer/compat
 COPY --from=build /app/packages/document-bundle/package.json ./packages/document-bundle/package.json
 COPY --from=build /app/packages/document-bundle/dist ./packages/document-bundle/dist
 COPY --from=build /app/apps/document-service/package.json ./apps/document-service/package.json

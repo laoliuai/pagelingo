@@ -20,7 +20,7 @@
   },
   "dependencies": {
     "@pagelingo/document-contracts": "0.2.0",
-    "@pagelingo/document-renderer": "0.1.0",
+    "@pagelingo/document-renderer": "0.2.0",
     "@pagelingo/translation-core": "0.4.0",
     "yauzl": "3.4.0",
     "yazl": "3.3.1"

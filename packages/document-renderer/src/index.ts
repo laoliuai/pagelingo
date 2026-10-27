@@ -7,3 +7,5 @@ export type { RenderedChunk, RenderOptions, TrustedReaderHtml } from './html.js'
 export { createStaticFilePlan } from './static.js';
 export type { OfflineMetadata, StaticFilePlan, GeneratedStaticFile, TrustedAsset } from './static.js';
 export { rendererVersion, rendererSha256, trustedStaticAssets } from './static-catalog.js';
+export { resolveTrustedCatalog } from './catalog-registry.js';
+export type { TrustedRendererCatalog } from './catalog-registry.js';

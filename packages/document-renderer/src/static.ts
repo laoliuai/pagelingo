@@ -1,3 +1,4 @@
+import type { TrustedRendererCatalog } from './catalog-registry.js';
 import type { ReaderBuild } from './chunking.js';
 import { renderChunk } from './html.js';
 import { escapeHtml } from './math.js';
@@ -17,7 +18,13 @@ export interface StaticFilePlan {
 const registrationJson = (value: unknown): string => JSON.stringify(value).replace(/[<&\u2028\u2029]/g, char => ({'<':'\\u003c','&':'\\u0026','\u2028':'\\u2028','\u2029':'\\u2029'}[char]!));
 
 /** Iteration materializes only the next file. No DOM, filesystem or font IO here. */
-export function createStaticFilePlan(build: ReaderBuild, metadata: OfflineMetadata): StaticFilePlan {
+export function createStaticFilePlan(build: ReaderBuild, metadata: OfflineMetadata, catalog?: TrustedRendererCatalog): StaticFilePlan {
+  if (catalog) return {
+    rendererVersion: catalog.version,
+    rendererSha256: catalog.codeSha256,
+    trustedAssets: catalog.trustedAssets,
+    generatedFiles: catalog.generateFiles(build, metadata),
+  };
   return {
     rendererVersion, rendererSha256, trustedAssets: trustedStaticAssets,
     generatedFiles: { *[Symbol.iterator](): Iterator<GeneratedStaticFile> {

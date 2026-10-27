@@ -82,3 +82,30 @@ Offline status keeps parse/translation/mock labels and a warning count. Native
 collapsed details preserve every diagnostic as text, with keyboard access and a
 20vh scroll region when expanded; per-chunk notices remain visible. The explicit
 offline smoke checks hundreds of warnings without filling the initial viewport.
+
+## Published S2 compatibility
+
+`resolveTrustedCatalog({version, codeSha256})` accepts the current catalog and
+exactly the published S2 identity `0.1.0` /
+`3bfbbf4ce02a787185643792d617f80cb960261d108ad0ce224b0909ea4d47c3`.
+Unknown version/hash pairs throw. Pass the result as the optional third argument
+to `createStaticFilePlan(build, metadata, catalog)` when validating a historical
+bundle. Omitting it continues to produce the current renderer version.
+
+The S2 catalog retains its own static HTML, chunk HTML, math and style generation
+under `src/compat/s2-0.1.0/`. Its asset descriptors point to frozen package files
+under `compat/s2-0.1.0/`, including KaTeX CSS, fonts and license. These bytes and
+the immutable own-content ZIP under `document-bundle/tests/fixtures/s2-final/`
+are compatibility baselines; never regenerate them from current renderer code.
+Validation still checks every generated file and every pinned asset, including
+installed asset bytes. A matching manifest hash does not authorize changed code.
+The pinned KaTeX rendering dependency is part of this contract; future dependency
+upgrades must continue passing the fixed ZIP and published corpus checks.
+
+After `npm run build:bundle`, run
+`node scripts/check-s2-compat.mjs --input <file-or-dir> --output <new-dir>`
+from the repository root. The command recursively finds ZIP archives, validates
+them in place without parsing or rewriting, and writes `report.json` with each
+archive's before/after SHA-256, manifest identity and source hashes. The output
+must be a new directory outside a directory input. Original S2 corpus inputs
+remain read-only; place reports in a separate run directory.

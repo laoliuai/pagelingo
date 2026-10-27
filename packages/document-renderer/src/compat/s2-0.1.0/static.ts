@@ -1,19 +1,8 @@
-import type { ReaderBuild } from './chunking.js';
+import type { ReaderBuild } from '../../chunking.js';
 import { renderChunk } from './html.js';
 import { escapeHtml } from './math.js';
-import { rendererVersion, rendererSha256, trustedStaticAssets } from './static-catalog.js';
-export interface OfflineMetadata { title: string; originalFilename: string }
-export interface GeneratedStaticFile { path: string; mediaType: string; content: string }
-export interface TrustedAsset {
-  path: string; mediaType: string; bytes: number; sha256: string;
-  /** Resolve relative to the installed package, then verify bytes/hash before writing. */
-  source: { package: '@pagelingo/document-renderer' | 'katex'; path: string };
-}
-export interface StaticFilePlan {
-  rendererVersion: string; rendererSha256: string;
-  trustedAssets: readonly TrustedAsset[];
-  generatedFiles: Iterable<GeneratedStaticFile>;
-}
+import { rendererVersion, rendererSha256, trustedStaticAssets } from './catalog.js';
+import type { OfflineMetadata, GeneratedStaticFile, StaticFilePlan } from '../../static.js';
 const registrationJson = (value: unknown): string => JSON.stringify(value).replace(/[<&\u2028\u2029]/g, char => ({'<':'\\u003c','&':'\\u0026','\u2028':'\\u2028','\u2029':'\\u2029'}[char]!));
 
 /** Iteration materializes only the next file. No DOM, filesystem or font IO here. */
