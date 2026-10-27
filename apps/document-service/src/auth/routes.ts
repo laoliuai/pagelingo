@@ -7,6 +7,7 @@ import { dummyPasswordHash, hashPassword, verifyPassword } from './passwords.js'
 import { cookieName, cookieOptions, createSession, readSession, sessionSeconds } from './sessions.js';
 import type { UserRow } from './sessions.js';
 import { lockLoginWindow } from './rate-limit.js';
+import { revokeOwnerDevices, revokeSessionDevices } from '../devices/repository.js';
 
 function body<T>(schema: z.ZodType<T>, request: FastifyRequest): T {
   requireJson(request);
@@ -45,9 +46,14 @@ export function registerAuthRoutes(app: FastifyInstance): void {
     await db.transaction(async client => {
       await assertActorCurrent(client, actor);
       if (input.allDevices) {
+        await revokeOwnerDevices(client, actor.userId);
         await client.query('UPDATE users SET auth_version = auth_version + 1, updated_at = now() WHERE id = $1', [actor.userId]);
         await client.query('DELETE FROM sessions WHERE user_id = $1', [actor.userId]);
-      } else { await client.query('DELETE FROM sessions WHERE token_hash = $1', [actor.sessionHash]); }
+      } else {
+        const session = (await client.query<{ id: string }>('SELECT id FROM sessions WHERE token_hash=$1', [actor.sessionHash])).rows[0]!;
+        await revokeSessionDevices(client, actor.userId, session.id);
+        await client.query('DELETE FROM sessions WHERE token_hash = $1', [actor.sessionHash]);
+      }
     });
     reply.clearCookie(cookieName(config), cookieOptions(config));
     return { user: null, csrfToken: null };
@@ -63,6 +69,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       if (!await verifyPassword(input.currentPassword, user.password_hash)) throw new ServiceError(401, 'INVALID_CREDENTIALS', 'Invalid username or password');
       const encoded = await hashPassword(input.newPassword);
       await client.query('UPDATE users SET password_hash = $2, auth_version = auth_version + 1, updated_at = now() WHERE id = $1', [actor.userId, encoded]);
+      await revokeOwnerDevices(client, actor.userId);
       await client.query('DELETE FROM sessions WHERE user_id = $1', [actor.userId]);
     });
     reply.clearCookie(cookieName(config), cookieOptions(config));

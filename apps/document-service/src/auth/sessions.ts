@@ -40,6 +40,8 @@ export async function createSession(client: PoolClient, user: UserRow) {
   return { token, view: { user: publicUser(user), csrfToken } };
 }
 export async function readSession(request: FastifyRequest) {
+  // Authorization is an explicit credential choice. Never downgrade it to Cookie.
+  if (request.headers.authorization !== undefined) return null;
   const { db, config } = request.server.authContext;
   const token = request.cookies[cookieName(config)];
   if (!token || !/^[a-zA-Z0-9_-]{43}$/.test(token)) return null;

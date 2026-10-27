@@ -11,6 +11,7 @@ import type { UserRow } from '../auth/sessions.js';
 import type { Database } from '../db/database.js';
 import { ServiceError } from '../errors.js';
 import { auditUserChange, insertUser, listUsers, lockManagedAccounts, updateActive, updatePassword } from './repository.js';
+import { revokeOwnerDevices } from '../devices/repository.js';
 
 function parse<T>(schema: z.ZodType<T>, value: unknown): T {
   const parsed = schema.safeParse(value);
@@ -73,6 +74,7 @@ export function createUsersService(db: Database) {
           if (count <= 1) throw new ServiceError(409, 'LAST_ADMIN', 'The last active administrator cannot be disabled');
         }
         const row = await updateActive(client, id, input.active);
+        if (!input.active) await revokeOwnerDevices(client, id);
         await auditUserChange(client, actor.userId, id, input.active ? 'enable' : 'disable');
         return publicUser(row);
       });
@@ -93,6 +95,7 @@ export function createUsersService(db: Database) {
       await authorized(actor, id, async (client, rows) => {
         resetTarget(rows, id);
         await updatePassword(client, id, encoded);
+        await revokeOwnerDevices(client, id);
         await auditUserChange(client, actor.userId, id, 'reset-password');
       });
     },

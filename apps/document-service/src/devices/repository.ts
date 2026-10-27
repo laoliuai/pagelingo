@@ -45,3 +45,6 @@ export async function revokeDevice(client: PoolClient, ownerId: string, id: stri
 export async function revokeSessionDevices(client: PoolClient, ownerId: string, sessionId: string): Promise<number> {
   return (await client.query('UPDATE devices SET revoked_at=clock_timestamp() WHERE owner_id=$1 AND pairing_session_id=$2 AND revoked_at IS NULL', [ownerId,sessionId])).rowCount!;
 }
+export async function revokeOwnerDevices(client: PoolClient, ownerId: string): Promise<void> {
+  await client.query('UPDATE devices SET revoked_at=clock_timestamp() WHERE owner_id=$1 AND revoked_at IS NULL', [ownerId]);
+}

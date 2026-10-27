@@ -15,6 +15,7 @@ import { Badge } from '../../shared/ui/badge';
 import { Feedback } from '../../shared/ui/toast';
 import { Confirm } from '../../shared/ui/alert-dialog';
 import { ChangePassword } from '../auth/change-password';
+import { DevicesPanel } from './devices-panel';
 function ProviderForm({ profile }: { profile: ProviderProfile }) {
   const { user } = useSession();
   const queryClient = useQueryClient();
@@ -262,6 +263,7 @@ export function ProviderPage() {
       {profile.isPending && <p role="status">加载配置…</p>}
       <Feedback message={profile.error ? errorMessage(profile.error) : ''} error />
       {profile.data && <ProviderForm profile={profile.data} />}
+      <DevicesPanel />
       <ChangePassword />
     </>
   );

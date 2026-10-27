@@ -10,6 +10,7 @@ import { ServiceError } from './errors.js';
 import { registerAuthRoutes } from './auth/routes.js';
 import { registerUsersRoutes } from './users/routes.js';
 import { registerProvidersRoutes } from './providers/routes.js';
+import { registerDevicesRoutes } from './devices/routes.js';
 import { createOutboundFetch } from './network/safe-fetch.js';
 import type { FastifyInstance } from 'fastify';
 import type { ErrorResponse } from '@pagelingo/document-contracts';
@@ -36,6 +37,7 @@ export async function createApp({ db, config, outboundFetch }: AppOptions): Prom
   });
   await registerStaticSite(app, config);
   registerAuthRoutes(app);
+  registerDevicesRoutes(app);
   registerUsersRoutes(app);
   registerProvidersRoutes(app, providerFetch);
   const store = createLocalObjectStore(config.dataDir);

@@ -44,6 +44,6 @@ export async function assertActorCurrent(client: PoolClient, actor: Actor): Prom
     throw new ServiceError(401, 'UNAUTHORIZED', 'Authentication required');
   }
   const session = await client.query(`SELECT id FROM sessions WHERE token_hash = $1 AND user_id = $2
-    AND auth_version = $3 AND expires_at > now()`, [actor.sessionHash, actor.userId, actor.authVersion]);
+    AND auth_version = $3 AND expires_at > clock_timestamp() FOR UPDATE`, [actor.sessionHash, actor.userId, actor.authVersion]);
   if (!session.rowCount) throw new ServiceError(401, 'UNAUTHORIZED', 'Authentication required');
 }

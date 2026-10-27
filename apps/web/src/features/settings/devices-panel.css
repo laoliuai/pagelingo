@@ -1,0 +1,46 @@
+.devices-panel {
+  margin-top: 24px;
+}
+.device-pairing {
+  margin-top: 20px;
+  padding: 16px;
+  background: var(--page);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.device-pairing .field {
+  margin-bottom: 8px;
+}
+.device-pairing input {
+  width: 100%;
+  min-width: 0;
+  font-family: monospace;
+}
+.device-list {
+  list-style: none;
+  padding: 0;
+  margin: 24px 0 0;
+}
+.device-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 0;
+  border-top: 1px solid var(--border);
+}
+.device-details {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.device-details strong {
+  margin-right: 12px;
+}
+.device-details p {
+  margin: 8px 0 0;
+}
+@media (max-width: 480px) {
+  .device-list li {
+    flex-wrap: wrap;
+  }
+}
