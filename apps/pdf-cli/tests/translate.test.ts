@@ -87,4 +87,5 @@ test('many unique SDK batches retain bounded full snapshots and bytes while ever
     expect(sizes.reduce((sum, size) => sum + size, 0)).toBeLessThanOrEqual(6 * finalBytes);
     validateReaderTranslation(f.ir, result.snapshot);
   }
-});
+  // The two runs perform 146 durable checkpoint writes plus cache/snapshot fsyncs.
+}, 20_000);
