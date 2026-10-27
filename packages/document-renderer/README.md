@@ -156,6 +156,12 @@ formatting, code, images, KaTeX and validated SVG/MathML are restored. Reader
 colors come from the site theme. A bilingual block has one primary anchor;
 context anchors and table-cell IDs include chunk scope, and every formula
 instance includes source/translation and inline occurrence scope. Table spans,
-scopes and local header relationships survive neighboring chunks. Source-only
+scopes and local header relationships survive neighboring chunks. Whole rows
+stay together when their complete context fits; unavoidable row cuts retain
+empty copies of original cell nodes at source grid positions. Row-group headers
+and incoming spanning cells repeat as flagged context, with derived row spans
+clipped to the included source rows. Empty grid cells have no source-block
+anchor and are hidden from accessibility navigation. Legacy heading fallback
+levels are derived from the full source hierarchy before chunk pruning. Source-only
 reasons and display-budget warnings remain visible as escaped text. Snapshot
 preview HTML is a separate artifact and is never rendered by these functions.

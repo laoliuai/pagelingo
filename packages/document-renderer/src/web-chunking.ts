@@ -2,6 +2,7 @@ import { webReaderIrSchema, webReaderChunkSchema, type WebReaderIR, type WebTran
 import { validateWebGraph } from '@pagelingo/web-capture';
 import { validateWebTranslation, type ValidatedWebTranslation } from './web-translation.js';
 import { jsonBytes } from './chunking.js';
+import { planWebTables } from './web-tables.js';
 import { naturalText } from './semantic-html.js';
 export interface WebReaderBuild { index: WebReaderIndex; chunks: WebReaderChunk[] }
 
@@ -29,6 +30,7 @@ export function buildWebReader(input: WebReaderIR, translation?: WebTranslation 
     const result = n.kind === 'block' ? [n.blockId] : n.children.flatMap(nodeBlocks);
     descendants.set(id, result); return result;
   };
+  const tables = planWebTables(ir, nodes, parents, nodeBlocks);
   const firstRows = new Map<string, string | null>();
   const firstRow = (id: string): string | null => {
     if (firstRows.has(id)) return firstRows.get(id)!;
@@ -55,16 +57,22 @@ export function buildWebReader(input: WebReaderIR, translation?: WebTranslation 
     for (const id of chain) {
       const n = nodes.get(id)!;
       if (n.kind === 'table') { if (n.captionBlockId) addContext(n.captionBlockId); for (const ref of tableHeaders.get(n.id) ?? []) addContext(ref); }
-      if (n.kind === 'table-row') for (const ref of rowHeaders.get(n.id) ?? []) addContext(ref);
+      if (n.kind === 'table-row') for (const ref of [...rowHeaders.get(n.id) ?? [], ...tables.rowGroupBlocks(n.id)]) addContext(ref);
       if (n.kind === 'table-cell') for (const header of n.headerNodeIds) for (const ref of nodeBlocks(header)) addContext(ref);
     }
     dependencies.set(block.id, [...context]);
   }
   const makeChunk = (primary: string[]): WebReaderChunk => {
-    const all = new Set(primary), pending = [...primary];
-    while (pending.length) for (const dependency of dependencies.get(pending.pop()!) ?? []) if (!all.has(dependency)) {
-      all.add(dependency); pending.push(dependency);
-      if (all.size > 128) throw new Error('Table context exceeds chunk block budget');
+    if (primary.length > 128) throw new Error('Table unit exceeds chunk block budget');
+    const all = new Set(primary), semantic = new Set<string>(), pending = [...primary];
+    for (const blockId of primary) for (const nodeId of chains.get(blockId)!) if (nodes.get(nodeId)!.kind === 'table-row') for (const dependency of tables.spanningBlocks.get(nodeId) ?? []) if (!all.has(dependency)) { all.add(dependency); pending.push(dependency); if (all.size > 128) throw new Error('Spanning table context exceeds chunk block budget'); }
+    while (pending.length) {
+      const origin = pending.pop()!;
+      for (const dependency of dependencies.get(origin) ?? []) {
+        if (primary.includes(origin) || dependency !== origin) semantic.add(dependency);
+        if (!all.has(dependency)) { all.add(dependency); pending.push(dependency); }
+        if (all.size > 128) throw new Error('Table context exceeds chunk block budget');
+      }
     }
     const ordered = [...all].sort((a, b) => order.get(a)! - order.get(b)!);
     const primarySet = new Set(primary);
@@ -82,19 +90,29 @@ export function buildWebReader(input: WebReaderIR, translation?: WebTranslation 
       }
       const refs = block.type === 'image' ? [block.assetId] : block.type === 'math' ? block.fallbackAssetId ? [block.fallbackAssetId] : [] : block.type === 'text' ? block.bindings.flatMap(b => b.kind === 'protected' && b.object.type === 'asset' ? [b.object.assetId] : []) : [];
       for (const ref of refs) if (!usedAssets.has(ref)) { usedAssets.add(ref); chunk.assets.push(assets.get(ref)!); }
-      chunk.blocks.push({ source: block, translation: valid.blocks.get(id) ?? null, sourceOnlyReason: valid.sourceOnlyReasons.get(id) ?? null });
+      const source = block.type === 'text' && block.value.kind === 'heading' && block.headingLevel === undefined
+        ? { ...block, headingLevel: Math.min(6, Math.max(1, chain.filter(id => { const n = nodes.get(id)!; return n.kind === 'section' && n.headingBlockId; }).length)) } : block;
+      chunk.blocks.push({ source, translation: valid.blocks.get(id) ?? null, sourceOnlyReason: valid.sourceOnlyReasons.get(id) ?? null });
     }
+    tables.normalize(chunk, primarySet, semantic);
     return chunk;
   };
   const fits = (chunk: WebReaderChunk): boolean => chunk.blocks.length <= 128 && jsonBytes(chunk) <= (chunk.blocks.length === 1 ? 512 * 1024 : 256 * 1024);
   let primary: string[] = [], chunk: WebReaderChunk | undefined;
-  for (const block of ir.blocks) {
+  const append = (unit: string[]): void => {
     let candidate: WebReaderChunk | undefined;
-    try { candidate = makeChunk([...primary, block.id]); } catch (error) { if (!primary.length) throw error; }
-    if (candidate && fits(candidate)) { primary.push(block.id); chunk = candidate; continue; }
-    if (chunk) { webReaderChunkSchema.parse(chunk); chunks.push(chunk); }
-    primary = [block.id]; chunk = makeChunk(primary);
-    if (!fits(chunk)) throw new Error('Web block and required table context exceed chunk byte budget');
+    try { candidate = makeChunk([...primary, ...unit]); } catch (error) { if (!primary.length && unit.length === 1) throw error; }
+    if (candidate && fits(candidate)) { primary.push(...unit); chunk = candidate; return; }
+    if (chunk) { webReaderChunkSchema.parse(chunk); chunks.push(chunk); chunk = undefined; primary = []; }
+    try { candidate = makeChunk(unit); } catch (error) { if (unit.length === 1) throw error; candidate = undefined; }
+    if (candidate && fits(candidate)) { primary = [...unit]; chunk = candidate; return; }
+    if (unit.length > 1) { for (const id of unit) append([id]); return; }
+    throw new Error('Web block and required table context exceed chunk byte budget');
+  };
+  for (let index = 0; index < ir.blocks.length;) {
+    const first = ir.blocks[index], row = tables.rowByBlock.get(first.id), unit = [first.id]; index++;
+    if (row) while (index < ir.blocks.length && tables.rowByBlock.get(ir.blocks[index].id) === row) unit.push(ir.blocks[index++].id);
+    append(unit);
   }
   if (chunk) { webReaderChunkSchema.parse(chunk); chunks.push(chunk); }
   const blockLocations: WebReaderIndex['blockLocations'] = Object.create(null);

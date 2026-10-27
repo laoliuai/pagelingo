@@ -106,7 +106,7 @@ export function renderWebChunk(input: WebReaderChunk, options: WebRenderOptions)
     else if (n.kind === 'table-row') { tag = 'tr'; check(n.children.every(id => nodes.get(id)?.kind === 'table-cell'), 'Invalid table row'); }
     else if (n.kind === 'table-cell') {
       tag = n.header ? 'th' : 'td';
-      extra = ` id="${cellId(n.id)}" rowspan="${n.rowSpan}" colspan="${n.colSpan}"${n.scope ? ` scope="${n.scope}"` : ''}`;
+      extra = `${n.children.length ? '' : ' aria-hidden="true"'} id="${cellId(n.id)}" rowspan="${n.rowSpan}" colspan="${n.colSpan}"${n.scope ? ` scope="${n.scope}"` : ''}`;
       const headers = n.headerNodeIds.filter(id => { const h = nodes.get(id); return h?.kind === 'table-cell' && h.header; });
       if (headers.length) extra += ` headers="${headers.map(cellId).join(' ')}"`;
     } else if (n.kind === 'list') { tag = n.ordered ? 'ol' : 'ul'; if (n.ordered) extra = ` start="${n.start ?? 1}"`; }

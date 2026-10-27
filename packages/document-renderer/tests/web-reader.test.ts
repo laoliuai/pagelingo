@@ -1,7 +1,7 @@
 import { it, expect } from 'vitest';
 import { webReaderChunkSchema } from '@pagelingo/document-contracts';
 import { buildWebReader, renderWebChunk } from '../src/index.js';
-import { webBook, webSnapshot, id } from './web-fixtures.js';
+import { webBook, webSnapshot, webTable, id } from './web-fixtures.js';
 const options = { mode: 'bilingual' as const, resolveAsset: (id: string) => `/assets/${id}` };
 it('renders bilingual cells without duplicate IDs and retains explicit heading levels', () => {
   const ir = webBook(3);
@@ -182,4 +182,81 @@ it('marks documents without translatable natural text not-required without a tra
   expect(build.chunks[0].blocks.map(b => b.sourceOnlyReason)).toEqual(['language-not-required', null]);
   const html = renderWebChunk(build.chunks[0], { ...options, mode: 'source' });
   expect(html).toContain('katex'); expect(html).toContain('const original = 1;');
+});
+it('keeps complete multi-column rows together at a chunk boundary', () => {
+  const ir = webTable(45, 3), build = buildWebReader(ir);
+  expect(build.index.chunks.map(c => c.blockIds.length)).toEqual([126, 9]);
+  for (const chunk of build.chunks) for (const row of chunk.nodes.filter(n => n.kind === 'table-row')) expect(row.children).toHaveLength(3);
+  expect(renderWebChunk(build.chunks[1], options)).toContain('Row42Col0');
+});
+it('preserves original cell positions when one row must span chunks', () => {
+  const ir = webTable(1, 130, false), build = buildWebReader(ir);
+  expect(build.chunks.map(c => c.blocks.length)).toEqual([128, 2]);
+  const last = build.chunks[1], row = last.nodes.find(n => n.kind === 'table-row')!;
+  expect(row.children).toHaveLength(130);
+  const cells = new Map(last.nodes.filter(n => n.kind === 'table-cell').map(n => [n.id, n]));
+  expect(cells.get(row.children[0])?.children).toEqual([]); expect(cells.get(row.children[127])?.children).toEqual([]);
+  expect(cells.get(row.children[128])?.children).toEqual([id('n', 129)]);
+  const html = renderWebChunk(last, options); expect(html.match(/<td\b/g)).toHaveLength(130); expect(html).toContain('Row0Col128');
+});
+it('repeats rowgroup and spanning header context with clipped spans in cropped grids', () => {
+  const ir = webTable(140, 1, false), group = ir.nodes.find(n => n.kind === 'group')!, firstRow = ir.nodes.find(n => n.kind === 'table-row')!, header = ir.nodes.find(n => n.kind === 'table-cell')!;
+  if (header.kind !== 'table-cell') throw Error('fixture');
+  header.header = true; header.scope = 'rowgroup'; header.rowSpan = 140;
+  // The source span occupies column0; all following source cells occupy column1.
+  const build = buildWebReader(ir), last = build.chunks[1];
+  expect(last.contextBlockIds).toContain(ir.blocks[0].id);
+  const repeated = last.nodes.find(n => n.id === header.id); expect(repeated?.kind).toBe('table-cell');
+  if (repeated?.kind !== 'table-cell') throw Error('repeated header missing');
+  expect(repeated.rowSpan).toBe(13); expect(repeated.scope).toBe('rowgroup');
+  expect(last.nodes.find(n => n.id === group.id)?.children[0]).toBe(firstRow.id);
+  const html = renderWebChunk(last, options); expect(html).toContain('scope="rowgroup"'); expect(html).toContain('rowspan="13"');
+  expect(html).toContain('reader-context'); expect(html).not.toContain(` data-block-id="${ir.blocks[0].id}"`);
+});
+it('repeats an implicit spanning row header after its original row leaves the chunk', () => {
+  const ir = webTable(140, 1, false), header = ir.nodes.find(n => n.kind === 'table-cell')!;
+  if (header.kind !== 'table-cell') throw Error('fixture'); header.header = true; header.scope = 'row'; header.rowSpan = 140;
+  const last = buildWebReader(ir).chunks[1];
+  expect(last.contextBlockIds).toContain(ir.blocks[0].id);
+  const repeated = last.nodes.find(n => n.id === header.id); if (repeated?.kind !== 'table-cell') throw Error('header missing');
+  expect(repeated.rowSpan).toBe(12);
+});
+it('keeps legacy full-source heading depth after ancestor headings leave the chunk', () => {
+  const ir = webBook(130), leaves = [...ir.nodes], outer = ir.blocks[0], inner = ir.blocks[129];
+  if (outer.type !== 'text' || inner.type !== 'text') throw Error('fixture'); outer.value.kind = 'heading'; inner.value.kind = 'heading';
+  ir.roots = [id('n', 1000)]; ir.nodes = [{ id: id('n', 1000), kind: 'section', headingBlockId: outer.id, children: [...leaves.slice(0, 129).map(n => n.id), id('n', 1001)] }, ...leaves.slice(0, 129), { id: id('n', 1001), kind: 'section', headingBlockId: inner.id, children: [leaves[129].id] }, leaves[129]];
+  const build = buildWebReader(ir), html = renderWebChunk(build.chunks[1], options);
+  expect(build.index.toc.map(h => h.depth)).toEqual([1, 2]); expect(html).toContain('<h2>'); expect(html).not.toContain('<h1>');
+  expect(outer.headingLevel).toBeUndefined(); expect(inner.headingLevel).toBeUndefined();
+});
+it('continues an ordinary spanning cell at its source column with exact context content', () => {
+  const ir = webTable(140, 2, false), cells = ir.nodes.filter(n => n.kind === 'table-cell'), spanning = cells[1];
+  spanning.rowSpan = 140; spanning.colSpan = 2;
+  const build = buildWebReader(ir), last = build.chunks.at(-1)!;
+  expect(last.contextBlockIds).toEqual([ir.blocks[1].id]);
+  expect(last.blocks.find(b => b.source.id === ir.blocks[1].id)?.source).toEqual(ir.blocks[1]);
+  const row = last.nodes.find(n => n.kind === 'table-row')!, cellMap = new Map(last.nodes.filter(n => n.kind === 'table-cell').map(n => [n.id, n]));
+  expect(row.children).toHaveLength(3); expect(row.children[1]).toBe(spanning.id);
+  expect(cellMap.get(spanning.id)?.colSpan).toBe(2); expect(cellMap.get(spanning.id)?.rowSpan).toBe(13);
+  const html = renderWebChunk(last, options); expect(html).toContain('Row0Col1'); expect(html).toContain('colspan="2"');
+  expect(html).not.toContain(` data-block-id="${ir.blocks[1].id}"`); expect(spanning.rowSpan).toBe(140);
+});
+it('retains a nonspanning rowgroup header only within its own source group', () => {
+  const ir = webTable(280, 1, false), group = ir.nodes.find(n => n.kind === 'group')!, table = ir.nodes.find(n => n.kind === 'table')!, header = ir.nodes.find(n => n.kind === 'table-cell')!;
+  if (header.kind !== 'table-cell') throw Error('fixture'); header.header = true; header.scope = 'rowgroup';
+  const secondId = id('n', 500000), second = { id: secondId, kind: 'group' as const, children: group.children.splice(140) };
+  ir.nodes.push(second); table.children.push(secondId);
+  const build = buildWebReader(ir), middle = build.chunks[1], last = build.chunks.at(-1)!;
+  expect(middle.contextBlockIds).toContain(ir.blocks[0].id); expect(last.contextBlockIds).not.toContain(ir.blocks[0].id);
+  const repeated = middle.nodes.find(n => n.id === header.id); if (repeated?.kind !== 'table-cell') throw Error('group header missing'); expect(repeated.rowSpan).toBe(1);
+  expect(renderWebChunk(middle, options)).toContain('scope="rowgroup"'); expect(renderWebChunk(last, options)).not.toContain('scope="rowgroup"');
+});
+it('preserves colspan positions when a row crosses the chunk byte limit', () => {
+  const ir = webTable(1, 3, false); for (const b of ir.blocks) if (b.type === 'text') b.value.content = [{ type: 'text', text: 'x'.repeat(120 * 1024) }];
+  const cell = ir.nodes.filter(n => n.kind === 'table-cell')[0]; cell.colSpan = 2;
+  const build = buildWebReader(ir), last = build.chunks[1], row = last.nodes.find(n => n.kind === 'table-row')!;
+  expect(build.chunks.map(c => c.blocks.length)).toEqual([2, 1]); expect(row.children).toHaveLength(3);
+  const placeholder = last.nodes.find(n => n.id === cell.id); if (placeholder?.kind !== 'table-cell') throw Error('placeholder missing');
+  expect(placeholder.children).toEqual([]); expect(placeholder.colSpan).toBe(2);
+  expect(renderWebChunk(last, { ...options, mode: 'source' })).toContain('aria-hidden="true"');
 });

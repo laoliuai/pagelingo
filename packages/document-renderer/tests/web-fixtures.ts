@@ -27,3 +27,19 @@ export function webSnapshot(ir: WebReaderIR, completed = false): WebTranslation 
   t.status = plan.inputs.length ? completed ? 'completed' : 'pending' : 'not-required'; t.generationKind = completed ? 'mock' : 'none';
   return t;
 }
+export function webTable(rows: number, columns: number, headers = true): WebReaderIR {
+  const ir = webBook(rows * columns), leaves = [...ir.nodes];
+  const tableId = id('n', 100000), groupId = id('n', 100001);
+  ir.roots = [tableId]; ir.nodes = [{ id: tableId, kind: 'table', captionBlockId: null, children: [groupId] }, { id: groupId, kind: 'group', children: [] }];
+  for (let row = 0; row < rows; row++) {
+    const rowId = id('n', 200000 + row); ir.nodes[1].children.push(rowId);
+    const rowNode = { id: rowId, kind: 'table-row' as const, children: [] as string[] }; ir.nodes.push(rowNode);
+    for (let col = 0; col < columns; col++) {
+      const index = row * columns + col, cellId = id('n', 300000 + index);
+      rowNode.children.push(cellId);
+      ir.nodes.push({ id: cellId, kind: 'table-cell', header: headers && row === 0, scope: headers && row === 0 ? 'col' : null, rowSpan: 1, colSpan: 1, headerNodeIds: [], children: [leaves[index].id] }, leaves[index]);
+      const block = ir.blocks[index]; if (block.type === 'text') block.value.content = [{ type: 'text', text: `Row${row}Col${col}` }];
+    }
+  }
+  return ir;
+}
