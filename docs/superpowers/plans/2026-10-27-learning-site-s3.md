@@ -155,7 +155,7 @@ type WebReadingProgress = { position: WebReadingPosition; revision: number; upda
 | `POST /api/v1/captures` | session 或有 scope 的 device；manifest、可选 targetDocumentId、translationIntent；Idempotency-Key 必填 |
 | `GET /api/v1/captures/:id` | 返回状态、已收文件与 missingFileIds、最终 document / source / reader / job ID |
 | `PUT .../:id/files/:fileId`、`POST .../:id/commit`、`POST .../:id/cancel` | 文件独立校验 / 幂等，最后统一提交；文件传一半重传该文件 |
-| `POST /api/v1/documents/links` | 始终先保存链接；分类为支持的公开 article 时排 fetch job，失败仍有条目 |
+| `POST /api/v1/documents/links` | session 或 links:write device，UUID Idempotency-Key 必填；JSON合同不变，同 owner/key/输入返回原结果，变更输入409；始终先保存链接，支持的公开 article 排 fetch job，失败仍有条目 |
 | `GET /api/v1/documents/:id/web-reader`、`.../web-reader/versions` | session，默认当前版本，显式 versionId 可历史阅读 |
 | `GET .../web-reader/versions/:versionId/chunks/:chunkId`、`.../assets/:assetId` | session，仅已发布注册资源；返回 no-store，普通阅读不出站 |
 | `GET .../web-snapshots/:sourceVersionId/manifest`、`.../files/:fileId` | session；只读归档数据，HTML / CSS 原件 attachment + octet-stream + nosniff，不在主站执行 |
@@ -184,6 +184,8 @@ nodeId / anchor / 资源映射根据最终清洗结果建立并再次验证，�
 ### 2.6 持久化、发布和任务规则
 
 只新增迁移 006，不改 001–005。扩展 documents 的 kind / 可空网页文件名，沿用 assets / source_versions 存实际 manifest 对象；新增持久单行 site_metadata UUID、web source metadata、web parse / translation / reader versions / chunks / progress、captures / files、devices / pairing、glossary revisions / preferences、fetch jobs / translation jobs / checkpoints / owner cache 与两个 web_worker_slots。设备记录配对 session 的标识以便普通 logout 定向撤销，但会话自然到期清理不自动删除独立设备。复合 FK 带 owner / document / source / parse；不可变产物保留 UPDATE 拒绝，账号停用不能被旧任务恢复。
+
+链接请求以 owner/key 保存不可变请求摘要及结果；公开抓取另有按 owner/job 固定的不可变 acquisition，保存不同的 capture/ingestion UUID 与实际原文资产、manifest身份。下载原文先注册为受 GC 引用保护的 assets，再由可终止 worker 读取并提取，重试复用原字节。captures 的来源精确区分 session/device/fetch_job，fetch_job_id 绑定真实 owner/document/job/authVersion，与完成结果 job_id 分开；内部发布使用当前 JobLease，不能伪造会话或设备身份。重活在事务外，最终授权/lease/epoch/依赖复检和注册在短事务内。
 
 PDF 的 current_reader FK 保持；新增 current_web_reader FK 与 kind / 单指针约束。网页另记 latest captured source 与 requested job：新源总可历史查看，当前可读 source / reader 一起切换，不能混用。重复 capture 不回滚当前版本。沿用 S2 的双轴保护：旧完整译文不被待译 / 失败替换，已有部分成果不被空结果替换；新的未晋升版本仍可显式选择。
 
