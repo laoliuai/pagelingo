@@ -142,3 +142,14 @@ test('represents immutable manual job language and bounded unique block selectio
   expect(contracts.webJobSchema.parse(job)).toEqual(job);
   expect(contracts.webJobSchema.safeParse({ ...job, ownerId: uuid }).success).toBe(false);
 });
+test('preserves and validates every own hostile Web asset-map key', async () => {
+  const { ir, sha, blockId } = await import('./web-fixtures.js');
+  const fixture = { documentId: uuid, versionId: uuid, source: { documentId: uuid, sourceVersionId: uuid, manifestAssetId: uuid, sha256: sha, snapshotSha256: sha, bytes: 100 }, parseId: ir.parse.id,
+    index: { parseId: ir.parse.id, sourceSha256: sha, chunks: [{ id: 'c_000001', blockIds: [blockId], bytes: 100 }], toc: [], blockLocations: {}, language: ir.metadata.language, translationStatus: 'pending', generationKind: 'none', assetIds: [], warnings: [] },
+    snapshots: manifest.snapshots, translationStatus: 'pending', warnings: [], progress: null, restoreHint: null };
+  const assetMap = Object.fromEntries(['__proto__', 'constructor', 'toString'].map(key => [key, uuid]));
+  const result = contracts.webReaderDescriptorSchema.parse({ ...fixture, assetMap });
+  expect(Object.keys(result.assetMap)).toEqual(['__proto__', 'constructor', 'toString']);
+  expect(result.assetMap.__proto__).toBe(uuid);
+  expect(contracts.webReaderDescriptorSchema.safeParse({ ...fixture, assetMap: Object.fromEntries([['__proto__', 'not-a-uuid']]) }).success).toBe(false);
+});

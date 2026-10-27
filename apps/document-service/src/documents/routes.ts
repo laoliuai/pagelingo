@@ -64,7 +64,7 @@ export function registerDocumentsRoutes(app: FastifyInstance, store: ObjectStore
     return document;
   });
   app.get('/api/v1/documents/:id/source', async (request, reply) => {
-    const actor = await requireSession(request); const document = await service.get(actor, id(request));
+    const actor = await requireSession(request); const document = await service.getPdf(actor, id(request));
     const asset = await service.getAsset(actor, document.source.assetId);
     return sendSource(request, reply, store, asset, parse(sourceQuery, request.query).download === 'true');
   });

@@ -46,3 +46,16 @@ it('does not fabricate completion for an unselected foreign paragraph', () => {
   expect(validateWebTranslation(ir, t).sourceOnlyReasons.get(ir.blocks[1].id)).toBe('manual-choice');
   t.status = 'completed'; expect(() => validateWebTranslation(ir, t)).toThrow();
 });
+it('replays an imported whole-block proof without model job/profile metadata', () => {
+  const ir = webBook(1), model = webSnapshot(ir, true), source = ir.blocks[0];
+  if (source.type !== 'text' || model.blocks[0].status !== 'translated') throw Error('fixture');
+  const imported = { schemaVersion: 'web-imported-translation/1', id: model.id, generationKind: 'import',
+    sourceSha256: ir.source.manifestSha256, parseId: ir.parse.id, readerIrSha256: model.readerIrSha256,
+    sourceSnapshotSha256: ir.source.snapshotSha256, sourceContentFingerprint: 'a'.repeat(64),
+    sdkVersion: model.sdkVersion, promptVersion: model.promptVersion, protectionVersion: model.protectionVersion,
+    sourceLanguage: 'en', targetLanguage: 'zh', status: 'completed',
+    blocks: [{ blockId: source.id, nodeId: source.sourceRefs[0].nodeId, sourceTextSha256: 'a'.repeat(64), source: source.value, rawText: model.blocks[0].rawText }],
+  };
+  expect(validateWebTranslation(ir, imported as never).blocks.get(source.id)?.content).toEqual(source.value.content);
+  expect(() => validateWebTranslation(ir, { ...imported, blocks: [{ ...imported.blocks[0], source: { ...source.value, content: [{ type: 'text', text: 'Wrong source' }] } }] } as never)).toThrow();
+});

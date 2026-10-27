@@ -13,7 +13,7 @@ export interface WebCaptureRow {
   save_status: 'original-saved' | 'partial-resources' | null; error_code: string | null; warnings: string[]; created_at: Date; updated_at: Date;
 }
 export interface CaptureFileRow {
-  id: string; descriptor: CaptureFile; received_sha256: string | null; received_bytes: string | null; received_at: Date | null;
+  id: string; descriptor: CaptureFile; staging_key: string | null; upload_token: string | null; upload_until: Date | null; received_sha256: string | null; received_bytes: string | null; received_at: Date | null;
 }
 /** All mutations run in the caller's transaction after user/device/session revalidation. */
 export async function insertWebCapture(client: PoolClient, input: WebCaptureInput): Promise<void> {
@@ -29,7 +29,7 @@ export async function findWebCaptureByKey(client: PoolClient, ownerId: string, k
   return (await client.query<WebCaptureRow>('SELECT * FROM web_captures WHERE owner_id=$1 AND idempotency_key=$2', [ownerId,key])).rows[0];
 }
 export async function listCaptureFiles(client: PoolClient, ownerId: string, id: string): Promise<CaptureFileRow[]> {
-  return (await client.query<CaptureFileRow>('SELECT id,descriptor,received_sha256,received_bytes,received_at FROM web_capture_files WHERE owner_id=$1 AND capture_id=$2 ORDER BY id', [ownerId,id])).rows;
+  return (await client.query<CaptureFileRow>('SELECT id,descriptor,staging_key,upload_token,upload_until,received_sha256,received_bytes,received_at FROM web_capture_files WHERE owner_id=$1 AND capture_id=$2 ORDER BY id', [ownerId,id])).rows;
 }
 export async function recordCaptureFile(client: PoolClient, ownerId: string, id: string, epoch: number, fileId: string, sha256: string, bytes: number): Promise<boolean> {
   const capture = (await client.query(`SELECT 1 FROM web_captures WHERE owner_id=$1 AND id=$2 AND epoch=$3

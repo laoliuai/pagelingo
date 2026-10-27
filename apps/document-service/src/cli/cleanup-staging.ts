@@ -1,3 +1,4 @@
+import { expireWebCaptureStaging } from '../web-captures/cleanup.js';
 import { lstat, readdir, realpath, unlink } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -14,7 +15,8 @@ export async function cleanupStaging({ db, dataDir }: { db: Database; dataDir: s
   const root = resolve(dataDir); const store = createLocalObjectStore(root);
   const cutoff = Date.now() - 24 * 3600_000; const removed = { objects: 0, staging: 0 };
   await db.transaction(client => expireImports(client));
-  for (const kind of ['objects', 'staging', 'bundle-staging'] as const) {
+  await expireWebCaptureStaging(db);
+  for (const kind of ['objects', 'staging', 'bundle-staging', 'web-staging'] as const) {
     const ageCutoff = kind === 'bundle-staging' ? Date.now() - 15 * 60_000 : cutoff;
     const directory = join(root, kind);
     try {
@@ -36,6 +38,12 @@ export async function cleanupStaging({ db, dataDir }: { db: Database; dataDir: s
           // Recheck after lock acquisition; actively written staging files remain fresh.
           const current = await lstat(path).catch(error => { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined; throw error; });
           if (!current?.isFile() || current.isSymbolicLink() || current.mtimeMs >= ageCutoff) return;
+          if (kind === 'web-staging') {
+            const active = await client.query(`SELECT f.id FROM web_capture_files f JOIN web_captures c ON (c.owner_id,c.id)=(f.owner_id,f.capture_id)
+              WHERE (f.staging_key=$1 OR f.upload_token=$1) AND c.status IN ('created','receiving','validating','failed')
+              AND c.updated_at >= clock_timestamp()-interval '24 hours'`, [key]);
+            if (active.rowCount) return;
+          }
           if (kind === 'bundle-staging') {
             const active = await client.query(`SELECT id FROM bundle_imports WHERE staging_key=$1
               AND status IN ('created','receiving','validating') AND heartbeat_at >= now() - interval '15 minutes'`, [key]);

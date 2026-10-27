@@ -1,4 +1,4 @@
-import type { WebReaderIR, WebTranslation } from '@pagelingo/document-contracts';
+import type { WebReaderIR, WebModelTranslation } from '@pagelingo/document-contracts';
 import { planUnits } from '@pagelingo/translation-core';
 import { snapshot, fixture, id } from './fixtures.js';
 import { toWebTranslationDocument } from '../src/index.js';
@@ -18,9 +18,9 @@ export function webBook(count = 2): WebReaderIR {
   }
   return ir;
 }
-export function webSnapshot(ir: WebReaderIR, completed = false): WebTranslation {
+export function webSnapshot(ir: WebReaderIR, completed = false): WebModelTranslation {
   const base = snapshot(fixture());
-  const t: WebTranslation = { ...base, schemaVersion: 'web-reader-translation/1', parseId: ir.parse.id, sourceSha256: ir.source.manifestSha256, selectionBlockIds: ir.blocks.filter(b => b.type === 'text').map(b => b.id) };
+  const t: WebModelTranslation = { ...base, schemaVersion: 'web-reader-translation/1', parseId: ir.parse.id, sourceSha256: ir.source.manifestSha256, selectionBlockIds: ir.blocks.filter(b => b.type === 'text').map(b => b.id) };
   const plan = planUnits(toWebTranslationDocument(ir, t.selectionBlockIds), t.targetLanguage, t.profile, t.budget, t);
   t.units = plan.units.map(u => ({ id: u.id, blockId: plan.inputs[u.blockIndex].id, part: u.part, status: completed ? 'covered-by-block' : 'pending' }));
   t.blocks = plan.inputs.map(input => completed ? { blockId: input.id, status: 'translated', rawText: input.protectedText } : { blockId: input.id, status: 'source-only', reason: 'pending' });

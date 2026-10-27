@@ -8,7 +8,7 @@ export interface WebSourceInput {
   snapshotSha256: string; url: string; scope: CaptureScope; contentFingerprint: string; metadata: Record<string, unknown>;
 }
 export interface WebParseInput { ownerId: string; documentId: string; sourceVersionId: string; parseId: string; irAssetId: string; irSha256: string }
-export interface WebTranslationInput { id: string; ownerId: string; documentId: string; sourceVersionId: string; parseId: string; jobId: string; translationAssetId: string; sha256: string }
+export interface WebTranslationInput { id: string; ownerId: string; documentId: string; sourceVersionId: string; parseId: string; jobId: string | null; generationKind?: 'model' | 'import'; translationAssetId: string; sha256: string }
 export interface WebReaderVersionInput {
   id: string; ownerId: string; documentId: string; sourceVersionId: string; parseId: string; translationId: string | null;
   indexAssetId: string; translationStatus: ReaderTranslationStatus; warnings: string[];
@@ -37,7 +37,7 @@ export async function insertWebParse(client: PoolClient, input: WebParseInput): 
   await client.query('INSERT INTO web_parse_runs (owner_id,document_id,source_version_id,id,ir_asset_id,ir_sha256) VALUES ($1,$2,$3,$4,$5,$6)', [input.ownerId,input.documentId,input.sourceVersionId,input.parseId,input.irAssetId,input.irSha256]);
 }
 export async function insertWebTranslation(client: PoolClient, input: WebTranslationInput): Promise<void> {
-  await client.query('INSERT INTO web_translation_runs (id,owner_id,document_id,source_version_id,parse_id,job_id,translation_asset_id,sha256) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)', [input.id,input.ownerId,input.documentId,input.sourceVersionId,input.parseId,input.jobId,input.translationAssetId,input.sha256]);
+  await client.query('INSERT INTO web_translation_runs (id,owner_id,document_id,source_version_id,parse_id,job_id,translation_asset_id,sha256,generation_kind) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)', [input.id,input.ownerId,input.documentId,input.sourceVersionId,input.parseId,input.jobId,input.translationAssetId,input.sha256,input.generationKind ?? 'model']);
 }
 export async function insertWebReaderVersion(client: PoolClient, input: WebReaderVersionInput): Promise<void> {
   await client.query(`INSERT INTO web_reader_versions (id,owner_id,document_id,source_version_id,parse_id,translation_id,index_asset_id,translation_status,warnings)
@@ -67,9 +67,9 @@ export async function findWebSourceFile(client: PoolClient, ownerId: string, doc
   return (await client.query<WebAssetRow>(`SELECT a.id,a.object_key,a.sha256,a.bytes,a.media_type FROM web_source_files f JOIN assets a ON (a.owner_id,a.document_id,a.id)=(f.owner_id,f.document_id,f.asset_id)
     WHERE f.owner_id=$1 AND f.document_id=$2 AND f.source_version_id=$3 AND f.id=$4`, [ownerId,documentId,sourceId,fileId])).rows[0];
 }
-export async function findWebReaderAsset(client: PoolClient, ownerId: string, documentId: string, versionId: string, localId: string): Promise<WebAssetRow | undefined> {
+export async function findWebReaderAsset(client: PoolClient, ownerId: string, documentId: string, versionId: string, localId: string, byAsset = false): Promise<WebAssetRow | undefined> {
   return (await client.query<WebAssetRow>(`SELECT a.id,a.object_key,a.sha256,a.bytes,a.media_type FROM web_reader_assets f JOIN assets a ON (a.owner_id,a.document_id,a.id)=(f.owner_id,f.document_id,f.asset_id)
-    WHERE f.owner_id=$1 AND f.document_id=$2 AND f.reader_version_id=$3 AND f.local_id=$4`, [ownerId,documentId,versionId,localId])).rows[0];
+    WHERE f.owner_id=$1 AND f.document_id=$2 AND f.reader_version_id=$3 AND ${byAsset ? 'f.asset_id' : 'f.local_id'}=$4`, [ownerId,documentId,versionId,localId])).rows[0];
 }
 export async function findWebReaderChunk(client: PoolClient, ownerId: string, documentId: string, versionId: string, chunkId: string): Promise<WebAssetRow | undefined> {
   return (await client.query<WebAssetRow>(`SELECT a.id,a.object_key,a.sha256,a.bytes,a.media_type FROM web_reader_chunks f JOIN assets a ON (a.owner_id,a.document_id,a.id)=(f.owner_id,f.document_id,f.data_asset_id)

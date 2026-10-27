@@ -1,5 +1,5 @@
-import { webReaderIrSchema, webTranslationSchema, defaultCaptureLimits, type WebReaderIR, type WebTranslation } from '@pagelingo/document-contracts';
-import type { TranslationDocument } from '@pagelingo/translation-core';
+import { webReaderIrSchema, webTranslationSchema, defaultCaptureLimits, type WebReaderIR, type WebTranslation, type WebImportedTranslation } from '@pagelingo/document-contracts';
+import { encodeBlock, validateStructure, decodeTranslation, PROMPT_VERSION, PROTECTION_VERSION, type TranslationDocument, type TranslationBlock } from '@pagelingo/translation-core';
 import { validateWebGraph } from '@pagelingo/web-capture';
 import { replayTranslation, type ValidatedTranslation } from './translation.js';
 export type ValidatedWebTranslation = ValidatedTranslation;
@@ -22,6 +22,7 @@ export function validateWebTranslation(irInput: WebReaderIR, input: WebTranslati
   const ir = webReaderIrSchema.parse(irInput); validateWebGraph(ir);
   const t = webTranslationSchema.parse(input);
   check(t.sourceSha256 === ir.source.manifestSha256 && t.parseId === ir.parse.id, 'Web translation identity mismatch');
+  if (t.generationKind === 'import') return replayImportedTranslation(ir, t);
   const document = toWebTranslationDocument(ir, t.selectionBlockIds, t.sourceLanguage ?? undefined);
   const selected = new Set(t.selectionBlockIds), texts = ir.blocks.filter(b => b.type === 'text');
   const textIds = new Set(texts.map(b => b.id)), results = new Map(t.blocks.map(b => [b.blockId, b]));
@@ -68,4 +69,27 @@ export function validateWebTranslation(irInput: WebReaderIR, input: WebTranslati
     check(t.blocks.some(b => b.status === 'source-only' && (b.reason === t.status || (t.status === 'pending' && b.reason === 'manual-choice'))), 'Status needs matching source-only reason');
   }
   return replayTranslation(document, t);
+}
+
+/** Import replay deliberately uses whole-block SDK protection, not fabricated unit budgets. */
+function replayImportedTranslation(ir: WebReaderIR, t: WebImportedTranslation): ValidatedWebTranslation {
+  check(t.sdkVersion === '0.4.0' && t.promptVersion === PROMPT_VERSION && t.protectionVersion === PROTECTION_VERSION, 'Unsupported import versions');
+  check(t.sourceSnapshotSha256 === ir.source.snapshotSha256, 'Import snapshot mismatch');
+  const texts = ir.blocks.filter(b => b.type === 'text');
+  const blocks = new Map<string, TranslationBlock>();
+  const sourceOnlyReasons = new Map<string, 'language-not-required' | 'pending'>();
+  const byId = new Map(texts.map(b => [b.id, b]));
+  for (const proof of t.blocks) {
+    const source = byId.get(proof.blockId);
+    check(source && !blocks.has(source.id) && source.sourceRefs.some(r => r.nodeId === proof.nodeId), 'Import source identity mismatch');
+    check(JSON.stringify({ ...proof.source, id: source.id }) === JSON.stringify(source.value), 'Import original structure mismatch');
+    const encoded = encodeBlock(source.value);
+    check(validateStructure(encoded, proof.rawText).length === 0, 'Invalid imported markers');
+    blocks.set(source.id, { ...source.value, content: decodeTranslation(encoded, proof.rawText) });
+  }
+  for (const source of texts) if (!blocks.has(source.id)) sourceOnlyReasons.set(source.id,
+    ir.metadata.language.language === 'zh' || source.language.language === 'zh' || source.language.reason === 'no-language' ? 'language-not-required' : 'pending');
+  const complete = ![...sourceOnlyReasons.values()].includes('pending');
+  check(t.status === (complete ? 'completed' : 'partial'), 'Invalid import completion status');
+  return { blocks, sourceOnlyReasons };
 }

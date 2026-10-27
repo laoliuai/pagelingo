@@ -1,3 +1,4 @@
+import { libraryDocument, libraryList } from './library.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { documentListQuerySchema } from '@pagelingo/document-contracts';
 import { z } from 'zod';
@@ -6,7 +7,7 @@ import type { Actor } from '../auth/guards.js';
 import type { Database } from '../db/database.js';
 import { ServiceError } from '../errors.js';
 import type { ObjectStore } from '../storage/object-store.js';
-import { claimIngestion, findDocument, findSamePdf, insertDocument, listDocuments, lockIngestion, lockObjectPublication, summary } from './repository.js';
+import { claimIngestion, findDocument, findSamePdf, insertDocument, lockIngestion, lockObjectPublication, summary } from './repository.js';
 
 export interface SavePdfInput {
   idempotencyKey: string; title?: string; originalFilename: string; body: AsyncIterable<Uint8Array>;
@@ -81,9 +82,13 @@ export function createDocumentsService({ db, store, maxPdfBytes = 256 * 1024 * 1
     },
     async list(actor: Actor, query: { q?: string; page: number; pageSize: number }) {
       const parsed = documentListQuerySchema.safeParse(query); if (!parsed.success) throw invalid();
-      return db.transaction(async client => { await assertActorCurrent(client, actor); return listDocuments(client, actor.userId, parsed.data); });
+      return db.transaction(async client => { await assertActorCurrent(client, actor); return libraryList(client, actor.userId, parsed.data); });
     },
-    async get(actor: Actor, id: string) { return summary(await owned(actor, id)); },
+    async get(actor: Actor, id: string) {
+      if (!idSchema.safeParse(id).success) throw new ServiceError(404, 'NOT_FOUND', 'Document not found');
+      return db.transaction(async client => { await assertActorCurrent(client, actor); return libraryDocument(client, actor.userId, id); });
+    },
+    async getPdf(actor: Actor, id: string) { return summary(await owned(actor, id)); },
     async getAsset(actor: Actor, id: string) { return owned(actor, id, true); },
   };
 }

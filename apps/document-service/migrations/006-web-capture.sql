@@ -143,7 +143,7 @@ CREATE TABLE web_owner_cache (
 );
 CREATE TABLE web_translation_runs (
   id uuid PRIMARY KEY, owner_id uuid NOT NULL, document_id uuid NOT NULL, source_version_id uuid NOT NULL,
-  parse_id text NOT NULL, job_id uuid NOT NULL, translation_asset_id uuid NOT NULL, sha256 text NOT NULL,
+  parse_id text NOT NULL, job_id uuid, generation_kind text NOT NULL DEFAULT 'model' CHECK (generation_kind IN ('model','import')), translation_asset_id uuid NOT NULL, sha256 text NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (owner_id,document_id,source_version_id,parse_id,id),
   FOREIGN KEY (owner_id,document_id,source_version_id,parse_id,job_id) REFERENCES web_jobs(owner_id,document_id,source_version_id,parse_id,id),
@@ -231,6 +231,7 @@ CREATE TABLE web_captures (
 );
 CREATE TABLE web_capture_files (
   owner_id uuid NOT NULL, capture_id uuid NOT NULL, id text NOT NULL, descriptor jsonb NOT NULL,
+  staging_key uuid, upload_token uuid, upload_until timestamptz,
   received_sha256 text CHECK (received_sha256 ~ '^[a-f0-9]{64}$'), received_bytes bigint CHECK (received_bytes >= 0), received_at timestamptz,
   PRIMARY KEY (owner_id,capture_id,id),
   FOREIGN KEY (owner_id,capture_id) REFERENCES web_captures(owner_id,id),
@@ -301,3 +302,7 @@ CREATE CONSTRAINT TRIGGER web_capture_job_reader_identity
   AFTER INSERT OR UPDATE ON web_captures
   FOR EACH ROW WHEN (NEW.job_id IS NOT NULL)
   EXECUTE FUNCTION assert_capture_job_reader_identity();
+
+ALTER TABLE web_translation_runs ADD CHECK ((generation_kind='import' AND job_id IS NULL) OR (generation_kind='model' AND job_id IS NOT NULL));
+
+ALTER TABLE web_translation_runs ADD FOREIGN KEY (owner_id,document_id,source_version_id,parse_id) REFERENCES web_parse_runs(owner_id,document_id,source_version_id,id);

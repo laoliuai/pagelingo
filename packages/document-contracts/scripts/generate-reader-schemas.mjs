@@ -14,6 +14,7 @@ for (const [name, schema] of [
   ['web-capture-translation-candidate', contracts.webCaptureTranslationCandidateShapeSchema],
   ['web-reader-ir', contracts.webReaderIrShapeSchema],
   ['web-reader-translation', contracts.webTranslationShapeSchema],
+  ['web-imported-translation', contracts.webImportedTranslationShapeSchema],
   ['web-reader-index', contracts.webReaderIndexShapeSchema],
   ['web-reader-chunk', contracts.webReaderChunkShapeSchema],
   ['web-reader-descriptor', contracts.webReaderDescriptorShapeSchema],

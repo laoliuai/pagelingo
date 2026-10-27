@@ -5,6 +5,8 @@ import multipart from '@fastify/multipart';
 import { createLocalObjectStore } from './storage/local-object-store.js';
 import { registerDocumentsRoutes } from './documents/routes.js';
 import { registerBundleImportsRoutes } from './bundle-imports/routes.js';
+import { registerWebReadersRoutes } from './web-readers/routes.js';
+import { registerWebCapturesRoutes } from './web-captures/routes.js';
 import { registerReadersRoutes } from './readers/routes.js';
 import { ServiceError } from './errors.js';
 import { registerAuthRoutes } from './auth/routes.js';
@@ -44,6 +46,8 @@ export async function createApp({ db, config, outboundFetch }: AppOptions): Prom
   registerDocumentsRoutes(app, store);
   registerBundleImportsRoutes(app, store);
   registerReadersRoutes(app, store);
+  registerWebCapturesRoutes(app, store);
+  registerWebReadersRoutes(app, store);
   app.get('/health/live', async () => ({ status: 'ok' }));
   app.get('/health/ready', async (request, reply) => {
     try {

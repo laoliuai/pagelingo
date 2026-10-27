@@ -1,4 +1,4 @@
-import { readerIrSchema, readerTranslationSchema, validateReaderTranslationReferences, validateReaderGraph, type ReaderIR, type ReaderTranslation, type WebTranslation } from '@pagelingo/document-contracts';
+import { readerIrSchema, readerTranslationSchema, validateReaderTranslationReferences, validateReaderGraph, type ReaderIR, type ReaderTranslation, type WebModelTranslation } from '@pagelingo/document-contracts';
 import { planUnits, validateStructure, decodeTranslation, stripContinuation, PROMPT_VERSION, PROTECTION_VERSION, type TranslationDocument, type TranslationBlock } from '@pagelingo/translation-core';
 
 export interface ValidatedTranslation {
@@ -30,7 +30,7 @@ export function validateReaderTranslation(irInput: ReaderIR, input: ReaderTransl
 }
 
 /** Common SDK planning, marker verification and decode for PDF and Web adapters. */
-export function replayTranslation(document: TranslationDocument, translation: ReaderTranslation | WebTranslation): ValidatedTranslation {
+export function replayTranslation(document: TranslationDocument, translation: ReaderTranslation | WebModelTranslation): ValidatedTranslation {
   check(translation.sdkVersion === '0.4.0' && translation.promptVersion === PROMPT_VERSION && translation.protectionVersion === PROTECTION_VERSION, 'Unsupported SDK/prompt/protection version');
   const plan = planUnits(document, translation.targetLanguage, translation.profile, translation.budget, translation);
   const units = new Map(translation.units.map(unit => [unit.id, unit]));

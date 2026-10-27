@@ -1,8 +1,9 @@
+import { webGenerationKindSchema } from './web-translation.js';
 import { z } from 'zod';
 import { translationBlockSchema, type InlineContent } from '@pagelingo/translation-core';
 import { blockIdSchema, nodeIdSchema, parseCoverageSchema, parseIdSchema, safeNonnegativeIntegerSchema, sha256Schema, withJsonDepthLimit } from './reader-common.js';
 import { readerBindingSchema, readerNodeSchema } from './reader.js';
-import { readerTranslationStatusSchema, generationKindSchema } from './reader-translation.js';
+import { readerTranslationStatusSchema } from './reader-translation.js';
 import { webLanguageDecisionSchema } from './language.js';
 import { bundlePathSchema } from './reader-common.js';
 import { defaultCaptureLimits, snapshotPreviewIndexSchema, webLocalIdSchema } from './web-capture.js';
@@ -212,15 +213,30 @@ export const webReaderIndexShapeSchema = z.strictObject({
   chunks: z.array(z.strictObject({ id: webReaderChunkIdSchema, blockIds: z.array(blockIdSchema).max(defaultCaptureLimits.maxChunkBlocks), bytes: safeNonnegativeIntegerSchema.max(defaultCaptureLimits.maxOversizedBlockBytes) })),
   toc: z.array(z.strictObject({ nodeId: nodeIdSchema, parentId: nodeIdSchema.nullable(), blockId: blockIdSchema, title: z.string(), depth: z.number().int().min(1).max(defaultCaptureLimits.maxDepth) })),
   blockLocations: z.record(blockIdSchema, z.strictObject({ chunkId: webReaderChunkIdSchema, nodeId: webLocalIdSchema, previewId: webLocalIdSchema.nullable() })),
-  language: webLanguageDecisionSchema, translationStatus: readerTranslationStatusSchema, generationKind: generationKindSchema,
+  language: webLanguageDecisionSchema, translationStatus: readerTranslationStatusSchema, generationKind: webGenerationKindSchema,
   assetIds: z.array(webLocalIdSchema), warnings: z.array(z.string().min(1)),
 });
 export const webReaderIndexSchema = withJsonDepthLimit(webReaderIndexShapeSchema);
 export type WebReaderIndex = z.infer<typeof webReaderIndexSchema>;
 export const webReaderDescriptorShapeSchema = z.strictObject({
   documentId: z.uuid(), versionId: z.uuid(), source: webSourceIdentitySchema, parseId: parseIdSchema,
-  index: webReaderIndexShapeSchema, assetMap: z.record(webLocalIdSchema, z.uuid()), snapshots: snapshotPreviewIndexSchema,
+  index: webReaderIndexShapeSchema, assetMap: z.record(webLocalIdSchema, z.uuid()).refine(value => Object.keys(value).length <= defaultCaptureLimits.maxFiles, 'Asset map limit').meta({ maxProperties: defaultCaptureLimits.maxFiles }), snapshots: snapshotPreviewIndexSchema,
   translationStatus: readerTranslationStatusSchema, warnings: z.array(z.string().min(1)), progress: webReadingProgressSchema.nullable(), restoreHint: z.literal('version-updated-source-start').nullable(),
 });
-export const webReaderDescriptorSchema = withJsonDepthLimit(webReaderDescriptorShapeSchema);
+// Zod records intentionally drop __proto__. Local resource IDs are arbitrary data,
+// so validate all own entries explicitly and restore a safe dictionary after shape parsing.
+export const webReaderDescriptorSchema = withJsonDepthLimit(z.unknown().transform((input, context) => {
+  const result = webReaderDescriptorShapeSchema.safeParse(input);
+  if (!result.success) { context.issues.push({ code: 'custom', input, message: 'Invalid Web Reader descriptor' }); return z.NEVER; }
+  const raw = (input as { assetMap: Record<string, unknown> }).assetMap;
+  if (Object.keys(raw).length > defaultCaptureLimits.maxFiles) { context.issues.push({ code: 'custom', input, message: 'Web asset map limit' }); return z.NEVER; }
+  const entries: Array<[string, string]> = [];
+  for (const [key, value] of Object.entries(raw)) {
+    const id = webLocalIdSchema.safeParse(key), asset = z.uuid().safeParse(value);
+    if (!id.success || !asset.success) { context.issues.push({ code: 'custom', input, message: 'Invalid Web asset mapping' }); return z.NEVER; }
+    entries.push([id.data, asset.data]);
+  }
+  result.data.assetMap = Object.fromEntries(entries);
+  return result.data;
+}));
 export type WebReaderDescriptor = z.infer<typeof webReaderDescriptorSchema>;

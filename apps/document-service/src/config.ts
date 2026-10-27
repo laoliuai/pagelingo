@@ -1,4 +1,4 @@
-import type { BundleLimits } from '@pagelingo/document-contracts';
+import { captureLimitsSchema, defaultCaptureLimits, type CaptureLimits, type BundleLimits } from '@pagelingo/document-contracts';
 import { readBundleLimits } from './bundle-imports/limits.js';
 import { isIP } from 'node:net';
 import { resolve } from 'node:path';
@@ -14,6 +14,7 @@ export interface RuntimeConfig {
   keyring: { activeKeyId: string; keys: Readonly<Record<string, Uint8Array>> };
   maxPdfBytes: number;
   bundleLimits: BundleLimits;
+  captureLimits: CaptureLimits;
 }
 
 export function readConfig(env: NodeJS.ProcessEnv): RuntimeConfig {
@@ -63,6 +64,7 @@ export function readConfig(env: NodeJS.ProcessEnv): RuntimeConfig {
     dataDir: resolve(required('PAGELINGO_DATA_DIR')), databaseUrl,
     ...(env.PAGELINGO_WEB_DIR ? { webDir: resolve(env.PAGELINGO_WEB_DIR) } : {}),
     keyring: { activeKeyId, keys: Object.freeze(keys) },
+    captureLimits: captureLimitsSchema.parse({ ...defaultCaptureLimits, ...JSON.parse(env.PAGELINGO_CAPTURE_LIMITS_JSON ?? '{}') }),
     maxPdfBytes, bundleLimits: readBundleLimits(env.PAGELINGO_BUNDLE_LIMITS_JSON, maxPdfBytes),
   };
   // A config can be passed accidentally to structured logging; expose no fields.

@@ -343,7 +343,8 @@
       "enum": [
         "model",
         "mock",
-        "none"
+        "none",
+        "import"
       ]
     },
     "assetIds": {

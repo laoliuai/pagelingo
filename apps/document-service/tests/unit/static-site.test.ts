@@ -1,4 +1,4 @@
-import { defaultBundleLimits } from '@pagelingo/document-contracts';
+import { defaultCaptureLimits, defaultBundleLimits } from '@pagelingo/document-contracts';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -26,7 +26,7 @@ it('serves a WASM-only evaluation policy and caches only built assets even under
       databaseUrl: 'postgresql://unused/test',
       webDir,
       keyring: { activeKeyId: 'test', keys: { test: new Uint8Array(32) } },
-      maxPdfBytes: 1024, bundleLimits: { ...defaultBundleLimits, maxPdfBytes: 1024 },
+      captureLimits: { ...defaultCaptureLimits }, maxPdfBytes: 1024, bundleLimits: { ...defaultBundleLimits, maxPdfBytes: 1024 },
     };
     await registerStaticSite(app, config);
     const shell = await app.inject('/index.html');

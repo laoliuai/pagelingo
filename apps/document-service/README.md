@@ -327,3 +327,49 @@ See [S2 validation](../../docs/learning-site-s2-validation.md) and
 [reader workflow](../../docs/pdf-reader-workflow.md) for explicit local corpus inputs,
 offline resource checks, capacity measurements and upgrade/restart scope.
 Default checks use mocks and do not install Python/models or call paid APIs.
+
+## S3 private Web captures
+
+Capture ingestion accepts either a session (Origin/CSRF on writes) or a paired
+device with the required capture scope. Explicit Authorization never falls back
+to a cookie. `POST /api/v1/captures` takes the strict `CreateWebCaptureRequest`;
+`Idempotency-Key` must equal the manifest's persistent client `captureId` UUID.
+The returned `id` is a separate server ingestion UUID. Resume with
+`GET /api/v1/captures/:id`, PUT each missing file to `/:id/files/:fileId` using
+its declared Content-Type, then POST `/:id/commit`. File retries restart that
+file, not a byte range. POST `/:id/cancel` fences outstanding work. Repeating a
+completed create/commit returns its durable result after a lost acknowledgement.
+
+Actual file bytes/hash, images, resource closure, sanitization, previews, source
+projection and imported SDK result proofs are checked on the server. CPU work
+runs in a terminable worker outside user locks. Files are published immutably
+before a short guarded reference transaction. Source-only, Chinese and no-Key
+captures require no model call. `translationIntent` is retained; the default app
+has no paid-job publication hook installed and never starts historical backlog.
+Imported proofs use `web-imported-translation/1` rather than invented model-job
+metadata. A later import can add a Reader to an existing source; the rare
+`CAPTURE_REBASE_REQUIRED` conflict means retry commit on the same ingestion.
+
+The library/get APIs return the PDF|Web summary union. Existing PDF source,
+asset and Reader APIs remain PDF-only. Web reading routes are session-only:
+
+- `GET /api/v1/documents/:id/web-reader` (optional `versionId`)
+- `GET /api/v1/documents/:id/web-reader/versions` (`page`, `pageSize`)
+- `GET /api/v1/documents/:id/web-reader/versions/:versionId/chunks/:chunkId`
+- `GET /api/v1/documents/:id/web-reader/versions/:versionId/assets/:assetId`
+- `GET /api/v1/documents/:id/web-snapshots/:sourceVersionId/manifest`
+- `GET /api/v1/documents/:id/web-snapshots/:sourceVersionId/files/:fileId`
+- `GET / PUT /api/v1/documents/:id/web-progress`
+
+The descriptor maps local resource IDs to registered asset UUIDs. Only those
+UUIDs are usable through the version's image endpoint. HTML/CSS downloads use
+attachment, application/octet-stream and nosniff; previews must be displayed by
+the isolated client adapter, never as live main-origin HTML. Reads are no-store
+and make no network/model calls. Progress PUT uses `{expectedRevision,position}`
+and document-wide CAS; 409 does not overwrite another reader's position.
+
+`PAGELINGO_CAPTURE_LIMITS_JSON` may tighten `defaultCaptureLimits` but cannot raise
+the frozen ceilings. The default file-request timeout is 20 seconds and worker
+validation deadline is 60 seconds. Cleanup retains every published asset/history
+reference, waits at least 24 hours before collecting orphan objects, and clears
+stale unfinished upload references so missing files can be uploaded again.
