@@ -1,6 +1,6 @@
 # S2 execution rulings
 
-The controller recorded these decisions while executing the approved plan. Each entry states the decision, why it was made, and the cost if wrong. They preserve the execution record after temporary review artifacts are removed; the approved specification and reconciled plan remain the requirements.
+The controller recorded these decisions while executing the approved plan. Each entry preserves the decision, reason and cost if wrong. The approved specification and reconciled plan remain the requirements. R44–R57 explicitly resolve every final-review declined-to-judge item; R58 records the bounded corrective exception for the newly discovered valid-input reader crash.
 
 - R1 — Task 1 may migrate existing S1 DTO producers/fixtures to reader:null, actual reader lookup stays Task 7 — strict DTO change otherwise breaks the staged build — cost if wrong: small reversible producer edit.
 
@@ -87,3 +87,35 @@ The controller recorded these decisions while executing the approved plan. Each 
 - R42 — Task12actualofflineLLMscreenshotshows292indexwarnings joinedinto#status, enormousheader. FixNOWbeforeformalexport: compacttruthfultranslation/parse/mockstatus+warningcount,nativeaccessiblecollapsedwarningdetails withalloriginaltext andboundedexpandedscroll; keepmetadata/indexwarnings andperchunknotices intact. ActualmanywarningbrowserRED→GREEN compactinitialheader/keyboardexpand/fullcontent, unmodifiedcaptures. Controllerreadruntime:96joinboundary. Reason: observedactualreaderusabilityandavoidlatertrustedcatalogre-export; costifwrong: smallUItemplate/runtime/CSS+catalogdigest update, currentformalbundlesreexport/focusedregressionrequired. Finishrunningchecksitebeforebuildwriters; reportearlierbroadchecks chronologyandrerunjustifiedchecksafterchangedproductioncode. SeparatefrominheritedsiteM1(finaltriagepending).
 
 - R43 — ResolveTask12CannotVerify as explicitboundaries, not establishedcodegaps: A14originalfileavailability/integrity demonstratedbyactualfileURIresponse+fullsourcehash+independentPDFiumregionpixels, sitePDF.jsrenderingseparatelyproven; headlessnativeiframeRASTER remainsunverifiedandmustnotbeclaimed. Semanticqualityrequiresseparatelyauthorizedrealproviderandisexplicitlyexcludedbyapprovedmockscope; LinuxChromium/currentpreviews aredeclaredsupportedtestscope(R18), nofuturepreview/nonLinuxclaim. Reason: distinguishmandatoryartifact/readabilityevidencefromunmadevisual/quality/platformclaims; costifwrong: targetednative-browserverification/fixbeforeclaimingthatvisualsupport, realtranslationevaluationstillneeded. Finalreviewmayjudgeexpectationsindependently; no findingdiscarded.
+
+- R44 — Final declined item 1 accepted: real-provider Chinese semantic quality stays outside approved mock-only execution; no real API was called. Reason: do not infer semantic quality from echo output. Cost if wrong: separate explicitly configured provider evaluation/rework before a quality claim. See R43.
+
+- R45 — Final declined item 2 accepted: headless native-PDF raster remains explicitly unverified, distinct from demonstrated source bytes/file access/PDFium/site PDF.js. Reason: blank headless capture proves neither native success nor defect. Cost if wrong: targeted headed/native-viewer verification and fix before visual-support claim. See R43.
+
+- R46 — Final declined item 3 accepted: enhanced parser/model accuracy beyond existing verified P0/final previews is not an S2 acceptance claim; retained limitations must be visible (I3 will fix disclosure). Reason: no new inference or accuracy study occurred. Cost if wrong: separate quality evaluation/parser improvement.
+
+- R47 — Final declined item 4 accepted: future legacy schemas and a new Docling projector remain unsupported, fail clearly rather than report success. Reason: approved adapter is verified MinerU previews. Cost if wrong: future versioned adapter work.
+
+- R48 — Final declined item 5 accepted: local adapters are explicitly Linux/proc/flock-first; browser/ZIP format portability does not imply portable local CLI. Reason: R18/R23 fail-closed IO boundary. Cost if wrong: portable safe directory/lock adapter before non-Linux claim.
+
+- R49 — Final declined item 6 accepted: browser evidence covers Linux Chromium only; other engines remain unverified. Reason: no cross-browser success was asserted. Cost if wrong: engine-specific tests/fixes before expanded browser support.
+
+- R50 — Final declined item 7 accepted: Python/models/legacy KaTeX require explicit preparation, not automatic installation/download. Reason: approved no-download default and existing setup workflow. Cost if wrong: user performs documented preparation; later installer can be designed separately.
+
+- R51 — Final declined item 8 accepted: arbitrary prose/opaque raw universal secret detection is not promised; positive config/env selection and known-runtime-field/sentinel checks remain mandatory. Reason: source text must not be silently rewritten and no universal scan was demonstrated. Cost if wrong: additional content review/detection for unknown user-supplied secrets.
+
+- R52 — Final declined item 9 accepted: abrupt-exit/network-loss progress flush is best effort, ordinary debounce/CAS/restoration/stale fences remain required. Reason: transport cannot guarantee unacknowledged exit delivery. Cost if wrong: last unsent movement may be lost; explicit acknowledged saves remain authoritative.
+
+- R53 — Final declined item 10 accepted: prerelease admission requires current trusted renderer catalog; already admitted persisted versions remain readable and old local runs can be re-exported. Reason: preserve active-content trust rather than accept arbitrary historical code. Cost if wrong: re-export older bundles or design future versioned catalog compatibility.
+
+- R54 — Final declined item 11 accepted: webpage/extension collection and site background translation belong to later stages; existing extension regressions/local PDF flow are covered here. Reason: approved S2 boundary. Cost if wrong: implement those workflows in the scheduled later phase.
+
+- R55 — Final declined item 12 accepted: tags/collections/trash/full backup-restore/cross-host disaster recovery stay in later stages; individual offline PDF export is not a full-service backup claim. Reason: approved S2 scope. Cost if wrong: later management/recovery implementation and validation.
+
+- R56 — Final declined item 13 accepted: owned Docker upgrade/restart and declared limits do not establish a public rollout or live SLO/capacity. Reason: neither deployment nor load testing occurred. Cost if wrong: separate rollout/load evidence and operational fixes before those claims.
+
+- R57 — Final declined item 14 accepted: existing inlineDynamicImports/color/deprecation notices are tracked nonblocking tooling output, not demonstrated new runtime defects; final checks/audit passed. Reason: unchanged notices with passing evidence. Cost if wrong: later toolchain cleanup or investigation if an actual failure appears.
+
+- R58 — Allow ONE strictly bounded extra corrective round for final N1/I3 valid-input reader crash, despite local SDD final-review reference single-wave cap. Higher-priority developer autonomy/completeness instructions and user authorization to continue necessary S2 fixes already authorize this reversible correction; do not present an incomplete/crashing reader as ready merely to obey a workflow cap or ask repeated permission for an authorized fix. Original reviewer proved inherited-object lookup, clear minimal own-property/Map correction plus focused valid inherited-name regression; preserve I1/I2/M1 gates, no new broad wave/features/catalog changes. Reason: confirmed load-bearing reader availability failure has an unambiguous small fix. Cost if wrong: one extra focused patch/re-review and explicit workflow exception; no remote/user-data/irreversible effect. Readfix-loopagainbeforecontinuation; resumeoriginalfixer, appendreport, freshN1-onlyreview.
+
+Cost clarifications: R13 has the same reversible prerelease DTO/schema/fixture correction cost as R12. R32 trades slower failure detection in one real-I/O test for its measured fsync workload; no assertion or global timeout was relaxed.
