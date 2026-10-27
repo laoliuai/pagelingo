@@ -16,8 +16,8 @@
     "build": "npm run build:extension",
     "build:extension": "npm run build:sdk && npm run build --workspace @pagelingo/extension",
     "package:extension": "npm run build && node scripts/package-extension.mjs",
-    "typecheck": "npm run build:contracts && npm run typecheck --workspaces --if-present",
-    "test": "npm run build:contracts && npm run test --workspaces --if-present",
+    "typecheck": "npm run build:renderer && npm run typecheck --workspaces --if-present",
+    "test": "npm run build:renderer && npm run test --workspaces --if-present",
     "test:sdk": "npm run build:sdk && npm run test --workspace @pagelingo/translation-core",
     "test:extension": "npm run build:sdk && npm run test --workspace @pagelingo/extension",
     "test:watch": "npm run build:sdk && npm run test:watch --workspace @pagelingo/extension",
@@ -37,7 +37,7 @@
     "pdf:lint": "uv run --directory services/document-parser --locked --no-sync ruff check src tests",
     "pdf:test": "uv run --directory services/document-parser --locked --no-sync pytest -q",
     "build:contracts": "npm run build:sdk && npm run build --workspace @pagelingo/document-contracts",
-    "build:service": "npm run build:contracts && npm run build --workspace @pagelingo/document-service",
+    "build:service": "npm run build:renderer && npm run build --workspace @pagelingo/document-service",
     "test:service": "npm run build:contracts && npm run test --workspace @pagelingo/document-service",
     "test:service:db": "npm run build:contracts && node scripts/with-test-postgres.mjs -- npm run test:integration --workspace @pagelingo/document-service --",
     "site:admin": "node --env-file=.env.site-dev.local --import tsx apps/document-service/src/cli/bootstrap-admin.ts",
@@ -47,7 +47,8 @@
     "dev:site": "node scripts/dev-site.mjs",
     "site:keygen": "node scripts/create-site-secrets.mjs",
     "site:db": "docker compose --project-name pagelingo-site-dev --env-file .env.site-dev.local -f deploy/compose.site.yml -f deploy/compose.site-dev.yml up -d --wait db",
-    "check:site": "node scripts/with-test-postgres.mjs -- node scripts/test-site.mjs --check"
+    "check:site": "node scripts/with-test-postgres.mjs -- node scripts/test-site.mjs --check",
+    "build:renderer": "npm run build:contracts && npm run build --workspace @pagelingo/document-renderer"
   },
   "engines": {
     "node": ">=24.0.0"

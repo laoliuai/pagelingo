@@ -53,8 +53,9 @@ export function validateReaderTranslationReferences(ir: ReaderIR, input: ReaderT
   for (const id of selected) {
     const result = results.get(id)!;
     const blockParts = parts.get(id) ?? [];
-    // SDK plan failures may have zero units, but must be reported as failed, never completed.
-    check(blockParts.length > 0 || (result.status === 'source-only' && result.reason === 'failed'), 'Missing translation units');
+    // SDK plan failures have zero units. A validated complete-block cache may supersede
+    // that failure; the renderer checks the actual SDK plan and full-block markers.
+    check(blockParts.length > 0 || result.status === 'translated' || (result.status === 'source-only' && result.reason === 'failed'), 'Missing translation units');
     check(blockParts.every((part, index) => part === index), 'Missing, duplicate or unordered unit parts');
     const statuses = unitStatuses.get(id) ?? [];
     if (result.status === 'translated') check(statuses.every(status => status === 'completed' || status === 'covered-by-block'), 'Translated block has unfinished units');
