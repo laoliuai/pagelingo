@@ -199,6 +199,8 @@ lease：heartbeat 5 秒、30 秒失效；claim 使用 SKIP LOCKED 并增加 epoc
 
 为使有界发布和取消终结在重启后保持幂等，迁移 006 的 web_jobs 增加内部字段 `publication_milestone`（integer，默认 -1，范围 -1..4：尚未发布 / 首个完成 / 25% / 50% / 75% / 终结）与可空 `finalized_epoch`（有效 epoch 范围且不超过当前 epoch）。发布引用与标记在同一短事务提交，标记只在已确认检查点和当前授权校验后推进。相同输入重试保留已发布进度节点；新 epoch 的终结仍需按当前检查点处理，旧 finalized_epoch 不能使新结果被跳过。终结器在渲染前后核对 active owner / authVersion、终结状态与 epoch、检查点输入及确认版本，重试或新 epoch 围栏旧终结器。两字段不改变公共 DTO、不可变输入或原 PDF 合同；对象 / SDK / renderer 工作仍在事务外。
 
+终结器失败只重试检查点回放与发布，不增加模型重试。每个进程按 job/epoch 保存有界失败退避（1 秒起、指数增长至 60 秒、最多 1024 项）；待重试项在数据库候选查询的 LIMIT 前按相同 job/epoch 排除，让后面的有效任务继续终结。新 epoch 不沿用旧终结失败延迟，成功即清除记录；进程重启可重新尝试，最终提交仍受持久 epoch/检查点/授权围栏保护。不得吞掉失败后每个轮询立即重建同一产物，也不复用 SDK 的 429 冷却字段。
+
 并发限额跨进程由数据库 slot lease 实施，不只用进程内 semaphore。先以 user 行锁串行同 owner 领取，再领取空闲 / 已过期 slot 与 job；不能在复用 slot 时锁另一个 owner。所有检查点 / 发布还验证 slot 身份与 epoch；过期旧 job 由按 owner 的回收过程重新排队，释放 slot 必须匹配旧 job/token，不能清掉后来者。运行态 owner 唯一约束防并发超领，测试必须启动两个独立 worker。
 
 阅读中固定已打开的 readerVersion；新译文只提示可切换，不自动重挂正文。Web position 为 `{readerVersionId,sourceVersionId,parseId,blockId,blockOffset,view:'content'|'snapshot',contentMode:'source'|'translation'|'bilingual'}`，无 pdfPageIndex。按所选版本历史恢复；新来源用唯一 quote + prefix/suffix 映射，不唯一则降级到起点并提示，旧记录保留。只记录主正文位置；被动布局 / 恢复零 PUT；沿用 debounce 1500ms / maxWait 5000ms、串行 CAS、显式冲突继续。
