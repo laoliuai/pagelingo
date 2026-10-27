@@ -204,13 +204,13 @@ ZIP 从私有暂存文件逐项读取，`lazyEntries:true, strictFileNames:true,
 
 **Interfaces:** `processPdf(options:{sourcePath,runDir,pythonPath?,p0RunDir?,previewDir?,katexDir?,modelDir?,pages?}, deps?:ProcessDependencies): Promise<LocalRun>`；`adaptLegacyPreview(input:{run:VerifiedP0Run,preview:VerifiedPreview,inspection:PdfInspection}): Promise<ReaderIR>`；`detectLanguage(text:string): LanguageDecision`。local-run.ts 定义本地类型，VerifiedP0Run / VerifiedPreview 对应现有通过 manifest 校验的版本，PdfInspection 对应 Python inspect 输出。LocalRun 的 config.json 保存工作流 UUID、输入 hash / 配置摘要与阶段路径；正式 IR 一次生成后只读。
 
-- [ ] **Step 1:** 从自有小 fixture 生成 legacy 结构，写失败测试：caption 与 image 分离、提示框 / 嵌套列表 / 原强调保留；KaTeX 的原始 `data-docvortex-latex` 只转一次 protected math，不把渲染后的双份 MathML / HTML 再当正文；重复文字稳定但不同 ID。原文 sample / partial 保持原状态，旧 preview 的 `translated:false` 不能变成完成译文。
-- [ ] **Step 2:** 运行 `npm run test --workspace @pagelingo/pdf-cli -- --run tests/legacy-preview.test.ts tests/process.test.ts`，确认失败。
-- [ ] **Step 3:** 实现输入 manifest / source hash 复验；通过 parse5 消费已投影的语义节点与原始绑定，绝不翻译 normalized.text 或复制旧 CSS。rawRef / layout repair 与来源证据可逐个追踪；未校准 / 冲突来源降为 page。剔除页眉页脚但保留真实标题、图注 / 脚注、列表编号、角色标签；不支持的可见结构明确 warning 并保留 source-only 或区域图。
-- [ ] **Step 4:** 实现 Python 调用：新解析运行 `<python> -m pagelingo_parser parse <source> --parser mineru --output <new-run>/parser --model-dir <models> --pages <selection>`；原 P0 run 可只读复用。没有 preview 时调用现有 `export-mineru-preview.py`，输出到全新目录；katexDir 必须是现有 prepare-preview-renderer.py 产生且含父目录 integrity.json 的 KaTeX 0.19.0 package，默认查找本仓库 data/pdf-p0/render-deps 下的已准备目录，缺失时输出显式准备命令，不自动下载。需要安装的 Python 环境 / 权重按现有 setup 单独准备，不在 npm install / 普通测试下载。子进程只收到必要的非敏感环境，Key 不随继承环境进入 parser；SIGINT 终止自有进程并保存失败 / 部分状态。CLI 返回非零时仍检验 run.json，合法 partial 不直接丢弃。
-- [ ] **Step 5:** 测试中文 / 英文 / mixed / 短文本与代码规则；测试原 run / preview 输入 hash 前后一致。provenance 仅复制实际产生的 raw / source-layout / 必要资产；运行元数据的路径字段改为包内相对路径，非规范文件名映射为规范名称，记录原 hash、字段 pointer、文件名映射和投影 hash。原字节不变的记录标 original，有路径投影的标 sanitized-copy，原输入始终只读。不修改正文中的 `/usr/bin/...` 示例，不收集 worker.log / env / credentials。未知运行路径字段拒绝完整导出并指出字段，不做全字符串替换。
-- [ ] **Step 6:** 运行 CLI 全部模拟子进程测试与 typecheck；额外通过已安装 Python 只读 inspect 四旋转 fixture，按独立 PDFium 红色像素范围验证变换。
-- [ ] **Step 7:** 提交 `feat: project local PDF runs into reader IR`。
+- [x] **Step 1:** 从自有小 fixture 生成 legacy 结构，写失败测试：caption 与 image 分离、提示框 / 嵌套列表 / 原强调保留；KaTeX 的原始 `data-docvortex-latex` 只转一次 protected math，不把渲染后的双份 MathML / HTML 再当正文；重复文字稳定但不同 ID。原文 sample / partial 保持原状态，旧 preview 的 `translated:false` 不能变成完成译文。
+- [x] **Step 2:** 运行 `npm run test --workspace @pagelingo/pdf-cli -- --run tests/legacy-preview.test.ts tests/process.test.ts`，确认失败。
+- [x] **Step 3:** 实现输入 manifest / source hash 复验；通过 parse5 消费已投影的语义节点与原始绑定，绝不翻译 normalized.text 或复制旧 CSS。rawRef / layout repair 与来源证据可逐个追踪；未校准 / 冲突来源降为 page。剔除页眉页脚但保留真实标题、图注 / 脚注、列表编号、角色标签；不支持的可见结构明确 warning 并保留 source-only 或区域图。
+- [x] **Step 4:** 实现 Python 调用：新解析运行 `<python> -m pagelingo_parser parse <source> --parser mineru --output <new-run>/parser --model-dir <models> --pages <selection>`；原 P0 run 可只读复用。没有 preview 时调用现有 `export-mineru-preview.py`，输出到全新目录；katexDir 必须是现有 prepare-preview-renderer.py 产生且含父目录 integrity.json 的 KaTeX 0.19.0 package，默认查找本仓库 data/pdf-p0/render-deps 下的已准备目录，缺失时输出显式准备命令，不自动下载。需要安装的 Python 环境 / 权重按现有 setup 单独准备，不在 npm install / 普通测试下载。子进程只收到必要的非敏感环境，Key 不随继承环境进入 parser；SIGINT 终止自有进程并保存失败 / 部分状态。CLI 返回非零时仍检验 run.json，合法 partial 不直接丢弃。
+- [x] **Step 5:** 测试中文 / 英文 / mixed / 短文本与代码规则；测试原 run / preview 输入 hash 前后一致。provenance 仅复制实际产生的 raw / source-layout / 必要资产；运行元数据的路径字段改为包内相对路径，非规范文件名映射为规范名称，记录原 hash、字段 pointer、文件名映射和投影 hash。原字节不变的记录标 original，有路径投影的标 sanitized-copy，原输入始终只读。不修改正文中的 `/usr/bin/...` 示例，不收集 worker.log / env / credentials。未知运行路径字段拒绝完整导出并指出字段，不做全字符串替换。
+- [x] **Step 6:** 运行 CLI 全部模拟子进程测试与 typecheck；额外通过已安装 Python 只读 inspect 四旋转 fixture，按独立 PDFium 红色像素范围验证变换。
+- [x] **Step 7:** 提交 `feat: project local PDF runs into reader IR`。
 
 ### Task 5: 本地 SDK 翻译、检查点与恢复
 
