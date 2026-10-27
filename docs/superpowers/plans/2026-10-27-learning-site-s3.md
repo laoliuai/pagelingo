@@ -199,7 +199,7 @@ lease：heartbeat 5 秒、30 秒失效；claim 使用 SKIP LOCKED 并增加 epoc
 
 为使有界发布和取消终结在重启后保持幂等，迁移 006 的 web_jobs 增加内部字段 `publication_milestone`（integer，默认 -1，范围 -1..4：尚未发布 / 首个完成 / 25% / 50% / 75% / 终结）与可空 `finalized_epoch`（有效 epoch 范围且不超过当前 epoch）。发布引用与标记在同一短事务提交，标记只在已确认检查点和当前授权校验后推进。相同输入重试保留已发布进度节点；新 epoch 的终结仍需按当前检查点处理，旧 finalized_epoch 不能使新结果被跳过。终结器在渲染前后核对 active owner / authVersion、终结状态与 epoch、检查点输入及确认版本，重试或新 epoch 围栏旧终结器。两字段不改变公共 DTO、不可变输入或原 PDF 合同；对象 / SDK / renderer 工作仍在事务外。
 
-终结器失败只重试检查点回放与发布，不增加模型重试。每个进程按 job/epoch 保存有界失败退避（1 秒起、指数增长至 60 秒、最多 1024 项）；待重试项在数据库候选查询的 LIMIT 前按相同 job/epoch 排除，让后面的有效任务继续终结。新 epoch 不沿用旧终结失败延迟，成功即清除记录；进程重启可重新尝试，最终提交仍受持久 epoch/检查点/授权围栏保护。不得吞掉失败后每个轮询立即重建同一产物，也不复用 SDK 的 429 冷却字段。
+终结器失败只重试检查点回放与发布，不增加模型重试。每个进程按 job/epoch 保存有界失败退避（1 秒起、指数增长至 60 秒、最多 1024 项）；待重试项在数据库候选查询的 LIMIT 前按相同 job/epoch 排除，让后面的有效任务继续终结。候选遍历使用独立的稳定 UUID 游标并在末尾回绕，缓存逐出不能重置遍历进度而饿死后续任务。新 epoch 不沿用旧终结失败延迟，成功即清除记录；进程重启可重新尝试，最终提交仍受持久 epoch/检查点/授权围栏保护。不得吞掉失败后每个轮询立即重建同一产物，也不复用 SDK 的 429 冷却字段。
 
 并发限额跨进程由数据库 slot lease 实施，不只用进程内 semaphore。先以 user 行锁串行同 owner 领取，再领取空闲 / 已过期 slot 与 job；不能在复用 slot 时锁另一个 owner。所有检查点 / 发布还验证 slot 身份与 epoch；过期旧 job 由按 owner 的回收过程重新排队，释放 slot 必须匹配旧 job/token，不能清掉后来者。运行态 owner 唯一约束防并发超领，测试必须启动两个独立 worker。
 
@@ -324,10 +324,10 @@ lease：heartbeat 5 秒、30 秒失效；claim 使用 SKIP LOCKED 并增加 epoc
 
 **Files:** 新建 `apps/document-service/src/web-jobs/{lease,state-store,cache,translation-runner,publication,finalize}.ts`、`apps/document-service/src/worker/main.ts`、测试 fixtures；修改 service `app.ts` 的 job 入队连接、dev-site / test-site worker 生命周期、Docker / Compose 构建与 worker 服务。
 **Interfaces:** 实现 claim / SDK state-store / cache / runWebJob；worker 调用 fetch runner 或 translation runner。API 只入队和授权，不以请求生命周期托管模型调用。
-- [ ] **Step 1:** RED：停止浏览器后继续；杀进程恢复只补未完成单元；两用户缓存 / 用量隔离；同 capture 重投只建一个自动任务；两个独立 worker 下 `expect(maxRunningGlobal).toBeLessThanOrEqual(2)`、`expect(maxRunningPerOwner).toBe(1)`，SDK429冷却跨重启保留。
-- [ ] **Step 2:** SDK TranslationEngine + owner cache + 原子 checkpoint；有界部分可读版本；fresh owner/profile/lease 围栏、流式 abort、不可变对象与短事务发布。取消终结器从最后确认 checkpoint 保留部分结果，旧 epoch 写入抛 CheckpointConflictError。
-- [ ] **Step 3:** 新增 integration `tests/integration/{web-jobs,web-job-restart,web-publication}.test.ts`，经 DB runner + 独立 mock-worker 子进程验证换 Key、停用、取消、lease、旧 job 迟到与清理竞态；`expect(replayedCompletedUnitRequests).toBe(0)`、`expect(currentVersionAfterLateOldPublish).toBe(newVersion)`；Key 不进入任何序列化状态 / 日志。
-- [ ] **Step 4:** 开发与 Compose 启动独立 worker；使用同持久卷 / 数据库 / 运行时密钥，验证 schema 后领取。测试用可注入 mock Provider entry，不在生产加“允许私网 / 忽略验证”环境开关。提交 `feat: translate archived web documents with durable workers`。
+- [x] **Step 1:** RED：停止浏览器后继续；杀进程恢复只补未完成单元；两用户缓存 / 用量隔离；同 capture 重投只建一个自动任务；两个独立 worker 下 `expect(maxRunningGlobal).toBeLessThanOrEqual(2)`、`expect(maxRunningPerOwner).toBe(1)`，SDK429冷却跨重启保留。
+- [x] **Step 2:** SDK TranslationEngine + owner cache + 原子 checkpoint；有界部分可读版本；fresh owner/profile/lease 围栏、流式 abort、不可变对象与短事务发布。取消终结器从最后确认 checkpoint 保留部分结果，旧 epoch 写入抛 CheckpointConflictError。
+- [x] **Step 3:** 新增 integration `tests/integration/{web-jobs,web-job-restart,web-publication}.test.ts`，经 DB runner + 独立 mock-worker 子进程验证换 Key、停用、取消、lease、旧 job 迟到与清理竞态；`expect(replayedCompletedUnitRequests).toBe(0)`、`expect(currentVersionAfterLateOldPublish).toBe(newVersion)`；Key 不进入任何序列化状态 / 日志。
+- [x] **Step 4:** 开发与 Compose 启动独立 worker；使用同持久卷 / 数据库 / 运行时密钥，验证 schema 后领取。测试用可注入 mock Provider entry，不在生产加“允许私网 / 忽略验证”环境开关。提交 `feat: translate archived web documents with durable workers`。
 
 ### Task 12: 网页资料库、阅读、快照与进度
 
