@@ -196,28 +196,28 @@ lease：heartbeat 5 秒、30 秒失效；claim 使用 SKIP LOCKED 并增加 epoc
 
 **Files:** 新建 `packages/document-bundle/tests/fixtures/s2-final/`、`scripts/check-s2-compat.mjs`、`packages/document-renderer/src/catalog-registry.ts`、`packages/document-renderer/compat/s2-0.1.0/`；修改 `packages/document-renderer/src/static.ts`、其 catalog 生成脚本与 package files、`packages/document-bundle/src/static-assets.ts`、`packages/document-bundle/tests/bundle-validation.test.ts`、`apps/document-service/Dockerfile` 的 compat COPY、workspace 版本 / lockfile。真实 S2 包只读使用 `data/pdf-s2/final-fix/current/`。
 **Interfaces:** 首先冻结自有内容的 S2 0.1.0 / 3bf… 小包、历史运行时 / CSS 与 metadata；实现 `resolveTrustedCatalog` 和可选 catalog 参数，renderer 当前版本升 0.2.0。`check-s2-compat.mjs --input <file-or-dir> --output <new-dir>` 支持只读遍历 ZIP；不以新代码重建旧 fixture 冒充兼容。
-- [ ] **Step 1:** 在任何合同 / renderer 改动前生成含列表 / 代码 / 公式 / 重复段落的固定 S2 fixture，保存 UUID / bytes / hash。为目录改变写 RED：旧包在仅当前目录策略下会被拒绝，旧 fixture 不能变。
-- [ ] **Step 2:** 实现当前目录与唯一已发布 S2 目录选择，仍验证固定资产与逐个生成文件；`await expect(validateBundle(oldFixtureSource, options)).resolves.toBeDefined()`。篡改旧运行时并同步修改文件声明 hash 后仍须拒绝；未知历史 codeSha 同样拒绝。
-- [ ] **Step 3:** 运行 `npm run test --workspace @pagelingo/document-renderer --workspace @pagelingo/document-bundle --workspace @pagelingo/pdf-cli` 与兼容脚本，四个 S2 包在升级后通过；记录原输入 hash，不重新解析、不写旧目录。
-- [ ] **Step 4:** 提交 `feat: retain published S2 renderer compatibility`。本任务必须早于任务1，避免新合同立即破坏固定旧包测试。
+- [x] **Step 1:** 在任何合同 / renderer 改动前生成含列表 / 代码 / 公式 / 重复段落的固定 S2 fixture，保存 UUID / bytes / hash。为目录改变写 RED：旧包在仅当前目录策略下会被拒绝，旧 fixture 不能变。
+- [x] **Step 2:** 实现当前目录与唯一已发布 S2 目录选择，仍验证固定资产与逐个生成文件；`await expect(validateBundle(oldFixtureSource, options)).resolves.toBeDefined()`。篡改旧运行时并同步修改文件声明 hash 后仍须拒绝；未知历史 codeSha 同样拒绝。
+- [x] **Step 3:** 运行 `npm run test --workspace @pagelingo/document-renderer --workspace @pagelingo/document-bundle --workspace @pagelingo/pdf-cli` 与兼容脚本，四个 S2 包在升级后通过；记录原输入 hash，不重新解析、不写旧目录。
+- [x] **Step 4:** 提交 `feat: retain published S2 renderer compatibility`。本任务必须早于任务1，避免新合同立即破坏固定旧包测试。
 
 ### Task 1: 网页合同、语言与输入预算
 
 **Files:** 新建 `packages/document-contracts/src/{web-capture,web-reader,web-translation,web-api,web-progress,devices,web-jobs,save-preferences,glossary,language,language-words}.ts` 与领域 schemas；新建 `packages/document-contracts/tests/{web-capture,web-reader,web-api,web-language}.test.ts`；修改该包 `documents.ts`、`index.ts`、现有 schema 生成脚本、各依赖版本；修改 `apps/pdf-cli/src/language.ts` 为共享纯函数薄适配。
 **Interfaces:** 产出 §2 DTO、schema、limits；共享 `detectLanguage / blockLanguage / naturalText` 保持现有 PDF 判断结果，不能把原 CLI 的 fs 字典读取带进浏览器。
-- [ ] **Step 1:** RED：`accepts_web_refs_without_pdf_pages`、`preserves_pdf_v1_shape`、`retains_query_and_hash`；`expect('pdfPageIndex' in webPosition).toBe(false)`，URL 合同接受并保留 query / hash，归一化实现由任务2交付。测试 byte SHA / fingerprint 区别、缺资源声明、重复 ID、过深 JSON、伪 owner、超限及 mixed / und。
-- [ ] **Step 2:** 实现 strict 合同 / schema parity；将既有词典生成 `language-words.ts` 纯数据并测试与原 fixture 一致，使其字节也进入代码目录摘要；保留既有中文 / 英文规则。Web 仅对不少于40字母、原规则非 mixed/zh/短文、页面语言提示与脚本一致的 fr/de/es（Latin≥90%）、ru（Cyrillic≥90%）、ko（Hangul≥80%）、ja（Hiragana/Katakana≥20%）认定 foreign；其余 und 手动选择。中文提示与英文 meta 冲突仍零自动调用，语言识别永不请求模型。
-- [ ] **Step 3:** 运行 `npm run test --workspace @pagelingo/document-contracts --workspace @pagelingo/pdf-cli`、两包 typecheck 与 schema 生成核对；PDF 原有语言 fixtures 输出不变。
-- [ ] **Step 4:** 提交 `feat: define web capture and reader contracts`。
+- [x] **Step 1:** RED：`accepts_web_refs_without_pdf_pages`、`preserves_pdf_v1_shape`、`retains_query_and_hash`；`expect('pdfPageIndex' in webPosition).toBe(false)`，URL 合同接受并保留 query / hash，归一化实现由任务2交付。测试 byte SHA / fingerprint 区别、缺资源声明、重复 ID、过深 JSON、伪 owner、超限及 mixed / und。
+- [x] **Step 2:** 实现 strict 合同 / schema parity；将既有词典生成 `language-words.ts` 纯数据并测试与原 fixture 一致，使其字节也进入代码目录摘要；保留既有中文 / 英文规则。Web 仅对不少于40字母、原规则非 mixed/zh/短文、页面语言提示与脚本一致的 fr/de/es（Latin≥90%）、ru（Cyrillic≥90%）、ko（Hangul≥80%）、ja（Hiragana/Katakana≥20%）认定 foreign；其余 und 手动选择。中文提示与英文 meta 冲突仍零自动调用，语言识别永不请求模型。
+- [x] **Step 3:** 运行 `npm run test --workspace @pagelingo/document-contracts --workspace @pagelingo/pdf-cli`、两包 typecheck 与 schema 生成核对；PDF 原有语言 fixtures 输出不变。
+- [x] **Step 4:** 提交 `feat: define web capture and reader contracts`。
 
 ### Task 2: 共用快照清洗与 Web IR 投影
 
 **Files:** 新建 `packages/web-capture/{package.json,tsconfig.json,README.md}`、`packages/web-capture/src/{index,browser,node,sanitize,styles,resources,safe-math,projector,graph,fingerprint,snapshot-previews}.ts`、`packages/web-capture/tests/{sanitize,projector,resources,snapshot-previews}.test.ts`、`packages/web-capture/tests/browser/snapshot.test.ts`；修改 root scripts / lockfile。
 **Interfaces:** 实现 §2.3 web-capture 接口；根 entry 仅纯数据，browser entry 不引入 Node，node entry 使用 jsdom；输出服务器与插件可重放的规范化快照。
-- [ ] **Step 1:** RED：`removes_active_content_after_resource_rewrite`、`preserves_tables_math_and_repeat_ids`、`fingerprint_ignores_capture_time_not_content`。`expect(normalizeCaptureUrl('https://e.test/a?id=7&utm_source=x#part')).toBe('https://e.test/a?id=7#part')`；覆盖 namespace mutation、恶意 CSS、__proto__、表单值、外部 SVG use、两个相同 SVG 的引用隔离。
-- [ ] **Step 2:** 实现克隆 → 结构 / URL / 样式处理 → 最终 DOMPurify 清洗及复检；SafeMathAst / 图片真实字节和结构预算，按源块 / 资源预算切分预览并保留祖先 / 表格上下文；只在副本运行 Readability。未支持内容保留可回溯材料和具体警告。
-- [ ] **Step 3:** 在新包定义并运行 `test / typecheck / test:browser` scripts，Node + Chromium 同语义 / source mapping；`expect(executedScripts).toBe(0)`、`expect(unregisteredRequests).toEqual([])`。未知格式不得伪完整；browser bundle 不含 node: / jsdom。
-- [ ] **Step 4:** 提交 `feat: sanitize and project archived web documents`。
+- [x] **Step 1:** RED：`removes_active_content_after_resource_rewrite`、`preserves_tables_math_and_repeat_ids`、`fingerprint_ignores_capture_time_not_content`。`expect(normalizeCaptureUrl('https://e.test/a?id=7&utm_source=x#part')).toBe('https://e.test/a?id=7#part')`；覆盖 namespace mutation、恶意 CSS、__proto__、表单值、外部 SVG use、两个相同 SVG 的引用隔离。
+- [x] **Step 2:** 实现克隆 → 结构 / URL / 样式处理 → 最终 DOMPurify 清洗及复检；SafeMathAst / 图片真实字节和结构预算，按源块 / 资源预算切分预览并保留祖先 / 表格上下文；只在副本运行 Readability。未支持内容保留可回溯材料和具体警告。
+- [x] **Step 3:** 在新包定义并运行 `test / typecheck / test:browser` scripts，Node + Chromium 同语义 / source mapping；`expect(executedScripts).toBe(0)`、`expect(unregisteredRequests).toEqual([])`。未知格式不得伪完整；browser bundle 不含 node: / jsdom。
+- [x] **Step 4:** 提交 `feat: sanitize and project archived web documents`。
 
 ### Task 3: 共用语义渲染与 Web Reader
 
@@ -225,7 +225,7 @@ lease：heartbeat 5 秒、30 秒失效；claim 使用 SKIP LOCKED 并增加 epoc
 **Interfaces:** 提供 §2.3 Web 函数；保持任务0已交付的旧目录兼容，PDF wrapper / 静态文件字节语义不变。
 - [ ] **Step 1:** RED：`accepts_published_s2_catalog_after_upgrade`、`rejects_unknown_catalog_and_changed_legacy_bytes`、`renders_bilingual_cells_without_duplicate_ids`；测试 Web sourceRef 无 PDF 页、20k blocks、512KiB 单块与重复公式实例。
 - [ ] **Step 2:** 提取内容恢复 / 可信 HTML 小模块，PDF wrapper 保持输出；Web 单独处理表格、snapshot 节点引用与双语。Web translation 只通过公共 SDK 规划 / marker 校验 / 解码。
-- [ ] **Step 3:** 运行 `npm run test --workspace @pagelingo/document-renderer --workspace @pagelingo/document-bundle --workspace @pagelingo/pdf-cli`、typecheck 与 Node import smoke。`expect(Math.max(...build.chunks.map(c => c.blockIds.length))).toBeLessThanOrEqual(128)`；旧固定包与四个 S2 原包通过，未知历史 hash 仍拒绝。
+- [ ] **Step 3:** 运行 `npm run test --workspace @pagelingo/document-renderer --workspace @pagelingo/document-bundle --workspace @pagelingo/pdf-cli`、typecheck 与 Node import smoke。`expect(Math.max(...build.chunks.map(c => c.blocks.length))).toBeLessThanOrEqual(128)`；旧固定包与四个 S2 原包通过，未知历史 hash 仍拒绝。
 - [ ] **Step 4:** 提交 `feat: render archived web content and retain S2 compatibility`。
 
 ### Task 4: 数据迁移与持久仓库
@@ -325,7 +325,7 @@ lease：heartbeat 5 秒、30 秒失效；claim 使用 SKIP LOCKED 并增加 epoc
 
 需求映射：A02 → 4–6/8/11–13；A03 → 9/11；A04 → 2/7/8/12/13；A05 → 6/9–13；A06 的当前 X 内容与范围 → 7/8/13，资料发现关系留在 S4；A12 → 6/8/9/11/13；A13 网页进度和窄屏 → 12/13，管理操作留在 S4；A15 升级 / 重启 → 4/13，完整灾备留在 S5；A16 → 0/3/13。
 
-2026-10-27 已完成计划自身审查：S3 需求均映射至上述任务；核对了生产入口、SDK 方法及测试路径；将旧包兼容提前到任何合同修改之前；固定浏览器 / Node entry 边界、任务租约类型和跨进程并发规则，并为五类 Review Focus 指定回归。本文为实现计划，所有任务仍未开始，所列验收结果必须在实现后取得。
+2026-10-27 已完成计划自身审查：S3 需求均映射至上述任务；核对了生产入口、SDK 方法及测试路径；将旧包兼容提前到任何合同修改之前；固定浏览器 / Node entry 边界、任务租约类型和跨进程并发规则，并为五类 Review Focus 指定回归。编写时尚未开始实现；当前执行进度以各任务勾选和验证记录为准，所列验收结果必须在实现后取得。
 
 用户已审核并批准此 S3 具体计划，按任务顺序实现与审查。需要改变公开协议或阶段边界时记录明确决定，不以工作流检查点反复中断已授权实现。
 
