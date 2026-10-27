@@ -1,10 +1,9 @@
 import type { CaptureLimits, SanitizedSnapshot, WebReaderNode } from '@pagelingo/document-contracts';
 import { attr, check, elements, isElement, isText, readSnapshot, textOf, type Element, type Node, type Parent } from './tree.js';
+import { containerTags as containers, structuralTags as structural } from './policy.js';
 import { mathAst } from './safe-math.js';
 export interface SemanticUnit { id: string; nodeId: string; element: Element; content: Node[] }
 export interface SemanticProjection { root: Parent; units: SemanticUnit[]; nodes: WebReaderNode[]; roots: string[] }
-const containers = new Set('article section main div blockquote aside header footer nav ul ol li dl dt dd table thead tbody tfoot tr th td figure'.split(' '));
-const structural = new Set([...containers, ...'p h1 h2 h3 h4 h5 h6 pre caption figcaption hr'.split(' ')]);
 /** One source-order pass shared by IR and previews. IDs depend on snapshot order,
  * never on the manifest (which itself contains the preview block IDs). */
 export function semanticProjection(snapshot: SanitizedSnapshot, limits: CaptureLimits): SemanticProjection {
@@ -36,7 +35,7 @@ export function semanticProjection(snapshot: SanitizedSnapshot, limits: CaptureL
     let pending: Node[] = [];
     const flush = () => { const child = unit(element, pending); if (child) node.children.push(child); pending = []; };
     for (const child of element.childNodes) {
-      if (isElement(child) && structural.has(child.tagName)) {
+      if (isElement(child) && (structural.has(child.tagName) || attr(child, 'data-pl-run') === '1')) {
         flush(); const childId = visit(child); if (childId) node.children.push(childId);
       } else pending.push(child);
     }

@@ -78,6 +78,13 @@ bytes, after checking that they decode to the same strict manifest object.
    accept client translation HTML; downstream candidate replay uses SDK encoding,
    validation and decoding against the server-projected source.
 
+Original `data-pl-source` wrappers are unwrapped before hidden-state removal, so
+source, bilingual and translation-only extension modes archive the same source.
+Mixed container text runs receive stable `data-pl-run` spans before node IDs are
+assigned; each independently previewed run therefore has its own replayable anchor.
+Required header groups are examined once per closure, all examined edges are
+charged, and an oversized group stops expansion before HTML rendering.
+
 Snapshots retain semantic tables and explicit header bindings, emphasis, links,
 code, and source formulas. Explicit `$$...$$`, `\(...\)`, `\[...\]`, MathML TeX
 annotations and `script[type="math/tex"]` become protected TeX input for the shared
@@ -86,7 +93,8 @@ Formula references are isolated per source instance and expansion is bounded.
 Unknown formulas receive a visible fallback and a specific warning; no TeX is
 inferred. Page-level language hints are conservative and no detector calls a model.
 
-The image inspector verifies actual digest/length, encoded structure, dimensions,
+The image inspector verifies actual digest/length, encoded structure (including
+JPEG frame/SOS headers, scan data and marker framing), dimensions,
 GIF frame count and pixel ceilings for PNG/JPEG/WebP/GIF. It is **not a full codec
 decoder**; consumers must report a subsequent decode failure as unavailable, not
 claim an image rendered. Animated PNG/WebP and external SVG images are unsupported.

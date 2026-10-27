@@ -99,6 +99,7 @@ export async function projectWebReader(snapshot: SanitizedSnapshot, input: WebCa
   check(byteLength(JSON.stringify(ir)) <= limits.maxIrBytes, 'IR byte budget exceeded'); validateWebGraph(ir); return ir;
 }
 function kindFor(unit: SemanticUnit): BlockKind {
-  const tag = unit.element.tagName;
+  const tag = attr(unit.element, 'data-pl-run') === '1' && unit.element.parentNode && isElement(unit.element.parentNode)
+    ? unit.element.parentNode.tagName : unit.element.tagName;
   return /^h[1-6]$/.test(tag) ? 'heading' : ['td', 'th'].includes(tag) ? 'table-cell' : ['caption', 'figcaption'].includes(tag) ? 'caption' : tag === 'li' ? 'list-item' : tag === 'blockquote' ? 'quote' : 'paragraph';
 }

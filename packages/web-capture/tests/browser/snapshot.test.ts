@@ -70,3 +70,57 @@ test('inspects actual PNG, JPEG and WebP bytes produced and decoded by Chromium'
   });
   expect(result).toEqual(['image/png', 'image/jpeg', 'image/webp'].map(mediaType => ({ mediaType, width: 7, height: 5, decodedWidth: 7, decodedHeight: 5 })));
 });
+test('captures the same original source in each live extension display mode without changing it', async ({ page }) => {
+  await page.goto(origin);
+  const expected = sanitizeNodeSnapshot(snapshotInput('<p>Original <strong>evidence</strong></p>'));
+  const results = await page.evaluate(input => {
+    const element = document.createElement('p');
+    element.innerHTML = '<span data-pl-source="b">Original <strong>evidence</strong></span><span data-pl-owned="translation">译文</span>';
+    document.body.append(element);
+    const source = element.querySelector<HTMLElement>('[data-pl-source]')!;
+    const translation = element.querySelector<HTMLElement>('[data-pl-owned]')!;
+    return ['translation', 'source', 'bilingual'].map(mode => {
+      source.style.display = mode === 'translation' ? 'none' : 'contents';
+      translation.style.display = mode === 'source' ? 'none' : 'block';
+      const before = element.outerHTML;
+      const snapshot = window.Capture.sanitizeBrowserSnapshot({ ...input, html: before });
+      const replay = window.Capture.sanitizeBrowserSnapshot({ html: snapshot.html, url: snapshot.sourceUrl, scope: snapshot.scope }, undefined, snapshot.resources);
+      return { snapshot, replay, unchanged: element.outerHTML === before };
+    });
+  }, snapshotInput(''));
+  for (const result of results) {
+    expect(result.snapshot).toEqual(expected);
+    expect(result.replay).toEqual(expected);
+    expect(result.unchanged).toBe(true);
+  }
+});
+test('each native mixed-content block resolves to a preview containing its own anchor and quote', async ({ page }) => {
+  await page.goto(origin);
+  const input = snapshotInput('<div>Before<p>Middle</p>After</div>');
+  const snapshot = sanitizeNodeSnapshot(input);
+  const draft = await manifestFor(snapshot);
+  const result = await page.evaluate(async ({ input, draft }) => {
+    const capture = window.Capture;
+    const snapshot = capture.sanitizeBrowserSnapshot(input);
+    const previews = await capture.buildSnapshotPreviews(snapshot, draft, {
+      maxHtmlBytes: 8388608, maxResourceBytes: 16777216, maxTotalBytes: 67108864, maxFiles: 256,
+      maxResourceOrigins: 16, maxDomNodes: 50000, maxDepth: 64, maxBlocks: 20000, maxIrBytes: 16777216,
+      maxImageDimension: 16384, maxImagePixels: 32000000, maxGifFrames: 128, maxGifFramePixels: 64000000,
+      maxMathNodes: 4096, maxMathBytes: 65536, maxChunkBlocks: 128, maxChunkBytes: 262144,
+      maxOversizedBlockBytes: 524288, maxPreviewBlocks: 1, maxPreviewHtmlBytes: 524288,
+      maxPreviewResourceBytes: 33554432, requestTimeoutMs: 20000, maxRedirects: 5,
+      outboxInitialBackoffMs: 2000, outboxMaxBackoffMs: 300000, outboxMaxAttempts: 5,
+    });
+    const manifest = { ...draft, files: [...draft.files, ...previews.files.map(file => file.descriptor)], snapshots: previews.index };
+    const ir = await capture.projectWebReader(snapshot, manifest, { manifestBytes: capture.canonicalManifestBytes(manifest), assets: [] });
+    return ir.blocks.map(block => {
+      const ref = block.sourceRefs[0];
+      const location = capture.resolveSnapshotAnchor(previews.index, ref.nodeId)!;
+      const preview = previews.index.previews.find(value => value.id === location.previewId)!;
+      const html = previews.files.find(value => value.descriptor.id === preview.fileId)!.html;
+      const template = document.createElement('template'); template.innerHTML = html;
+      return { quote: ref.quote, anchoredText: template.content.querySelector(`#${location.anchorId}`)?.textContent, included: preview.blockIds.includes(block.id) };
+    });
+  }, { input, draft });
+  expect(result).toEqual(['Before', 'Middle', 'After'].map(quote => ({ quote, anchoredText: quote, included: true })));
+});

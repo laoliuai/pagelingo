@@ -63,3 +63,24 @@ Read-only saved-blog smoke (no network/resource downloads): agent article 193 bl
 New focused package source, unit/browser tests, configs and README; root build/test scripts/lock; narrow contracts role + schema/parity changes; current renderer catalog only. The README documents publication/replay order and caller-owned iframe isolation, resource acquisition, deadlines, and file persistence.
 
 The image inspector checks actual SHA/length, encoded framing and dimension/frame budgets, not complete compressed-pixel decoding. Animated PNG/WebP and external SVG images are deliberately unsupported. Display callers must preserve missing-resource/decode warnings. CSS acquisition, browser scope detection, storage/auth/transport, iframe mounting, reader chunk/window behavior and actual translation execution belong to subsequent tasks. No merge/push performed.
+
+## Fix round 1 — review I1–I4
+
+FIX_BASE: `64e626a4f1059675bbec1a57f6190f484f860318`. All four Important findings fixed; public signatures/DTOs unchanged.
+
+- I1: unwrap the extension's original-source spans on the private parse tree before hidden-content removal. Source, bilingual and translation-only modes now yield identical source HTML/IDs/warnings, and replay is unchanged. Root text anchoring runs after unwrapping so capturing the hidden wrapper itself also retains a valid scope anchor. Covered by `sanitize.test.ts` and actual live-mode browser checks that assert the page itself remains unchanged.
+- I2: canonicalize independently splittable mixed-content runs into stable `data-pl-run` spans before final node IDs are assigned. Shared structural rules make projector and preview consume those exact source anchors; replay preserves them and block kinds inherit their source container. `projector.test.ts` verifies distinct stable refs; `snapshot-previews.test.ts` and Chromium verify every block resolves to a preview containing its own quote/anchor and block ID.
+- I3: charge context-index construction, target discovery and each examined closure edge. Cache per-node context targets, expand each target once per closure, and reject oversized groups/closures before enumerating/rendering all their material. Reuse a rejected single-unit candidate instead of rebuilding it. A bounded 40-header operation regression now passes; the 40/80-header read-only probes used 437/596 `Set.has` calls versus the review's 152,037/1,116,717, while preserving zero previews and one warning per omitted unit (41/81).
+- I4: extract readable JPEG framing validation into `src/jpeg.ts`. Validate frame/component headers, SOS length/selectors/parameters, nonempty scan data, stuffing/restart/next-marker transitions and terminal EOI, including progressive scan framing. No pixel decoder added. `resources.test.ts` rejects missing/truncated SOS/scan/marker inputs and preserves dimensions/digest for a 762-byte JPEG generated locally by Chromium from a 7×5 solid-color canvas. The browser's real JPEG decode check also still passes.
+
+RED: focused sanitizer/projector/preview/resources run produced 8 expected assertion failures across I1–I4; the exact hidden translation-only shape separately returned an empty paragraph. The 40-header regression observed 152,037 calls before the change. Four malformed JPEG payloads (including `ffd8ffc0000b080001000101011100ffdaffd9`) were incorrectly accepted before the JPEG fix. The standalone hidden-wrapper scope regression also observed missing node IDs before moving root-text anchoring.
+
+GREEN/final checks, all exit 0 after the final source change:
+
+- `npm run test --workspace @pagelingo/web-capture` — 36 tests / 7 files passed.
+- `npm run typecheck --workspace @pagelingo/web-capture` — passed.
+- `npm run build --workspace @pagelingo/web-capture` — passed.
+- `npm run test:browser --workspace @pagelingo/web-capture` — 5 actual Chromium tests passed, including live extension modes, every mixed-content anchor, network/script absence, bundle boundaries and raster decode dimensions.
+- `git diff --check` — clean. Self-review checked the four changed routines, shared structural/attribute handoff, JPEG byte cursor progress and generated fixture provenance.
+
+Only capture package source/tests/docs and this report changed. Contracts, renderer catalog inputs, fixed S2 assets/generators/fixtures and original inputs are untouched, so no catalog regeneration or repeat of the previously passing 727-test workspace/compatibility suite was needed. No live network, models or subagents used. Existing FORCE_COLOR/NO_COLOR environment noise remains; M1/M2 cleanup outside the touched routines was deferred as instructed. Full compressed-pixel decoding remains the documented caller-owned limitation.

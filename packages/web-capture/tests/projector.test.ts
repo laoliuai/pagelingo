@@ -64,3 +64,11 @@ it('snapshots manifest bytes before awaiting hashes', async () => {
   const result = projectWebReader(snapshot, manifest, options); options.manifestBytes.fill(0);
   expect((await result).source.manifestSha256).toBe(await sha256(original));
 });
+it('gives separately splittable mixed-content runs unique stable source anchors', async () => {
+  const snapshot = sanitizeNodeSnapshot(snapshotInput('<div>Before<p>Middle</p>After</div>'));
+  const manifest = await manifestFor(snapshot);
+  const ir = await projectWebReader(snapshot, manifest, projectionOptions(manifest));
+  expect(ir.blocks.map(block => block.sourceRefs[0].quote)).toEqual(['Before', 'Middle', 'After']);
+  expect(new Set(ir.blocks.map(block => block.sourceRefs[0].nodeId)).size).toBe(3);
+  expect(sanitizeNodeSnapshot({ html: snapshot.html, url: snapshot.sourceUrl, scope: snapshot.scope }, undefined, snapshot.resources)).toEqual(snapshot);
+});

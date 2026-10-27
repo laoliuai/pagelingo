@@ -1,9 +1,9 @@
 import { snapshotInputSchema, sanitizedSnapshotSchema, pendingCaptureResourceSchema, type CaptureLimits, type PendingCaptureResource, type SanitizedSnapshot, type SnapshotInput } from '@pagelingo/document-contracts';
 import { normalizeCaptureUrl } from './fingerprint.js';
 import { sanitizeMath } from './safe-math.js';
-import { htmlTags, forbidden } from './policy.js';
+import { htmlTags, forbidden, containerTags, structuralTags } from './policy.js';
 import { sanitizeStyle } from './styles.js';
-import { attr, byteLength, check, detach, elements, isElement, isText, limitsFor, parseBounded, serialize, setAttr, textOf, type Element } from './tree.js';
+import { attr, byteLength, check, detach, elements, isElement, isText, limitsFor, parseBounded, serialize, setAttr, textOf, type Element, type Parent, type Node } from './tree.js';
 
 /** The runtime entry supplies DOMPurify; the root entry never imports a DOM. */
 export interface SnapshotEnvironment { sanitizeHtml(html: string): string; limits?: CaptureLimits; resources?: readonly PendingCaptureResource[] }
@@ -14,10 +14,6 @@ export function sanitizeSnapshot(value: SnapshotInput, environment: SnapshotEnvi
   check(byteLength(value.html) <= limits.maxHtmlBytes, 'HTML byte budget exceeded');
   const input = snapshotInputSchema.parse(value);
   const root = parseBounded(input.html, limits);
-  if (root.childNodes.some(node => isText(node) && node.value.trim())) {
-    const wrapper: Element = { tagName: 'div', nodeName: 'div', namespaceURI: 'http://www.w3.org/1999/xhtml' as Element['namespaceURI'], attrs: [], childNodes: root.childNodes, parentNode: root };
-    for (const child of wrapper.childNodes) child.parentNode = wrapper; root.childNodes = [wrapper];
-  }
   const warnings = new Set(input.scope.warnings); const warn = (message: string) => { warnings.add(message); };
   check((environment.resources?.length ?? 0) <= limits.maxFiles, 'Replay resource budget exceeded');
   const registry = new Map((environment.resources ?? []).map(resource => { const parsed = pendingCaptureResourceSchema.parse(resource); return [parsed.id, parsed] as const; }));
@@ -26,6 +22,18 @@ export function sanitizeSnapshot(value: SnapshotInput, environment: SnapshotEnvi
   const mathMembers = new Set<Element>(); let mathIndex = 0;
   for (const node of elements(root)) {
     if (!node.parentNode || mathMembers.has(node)) continue;
+    // The extension hides this wrapper in translation-only mode. Its children
+    // are the original source, so unwrap it before ordinary hidden-state removal.
+    if (node.tagName === 'span' && node.namespaceURI === 'http://www.w3.org/1999/xhtml'
+      && attr(node, 'data-pl-source') !== undefined && attr(node, 'data-pl-owned') === undefined) {
+      const parent = node.parentNode;
+      const index = parent.childNodes.indexOf(node);
+      parent.childNodes.splice(index, 1, ...node.childNodes);
+      for (const child of node.childNodes) child.parentNode = parent;
+      node.childNodes = [];
+      node.parentNode = null;
+      continue;
+    }
     if (node.tagName === 'script' && /^math\/tex(?:;\s*mode=display)?$/i.test(attr(node, 'type') ?? '')) {
       const latex = textOf(node);
       check(byteLength(latex) <= limits.maxMathBytes, 'Math source byte budget exceeded');
@@ -53,6 +61,7 @@ export function sanitizeSnapshot(value: SnapshotInput, environment: SnapshotEnvi
     }
     if (node.namespaceURI !== 'http://www.w3.org/1999/xhtml' || !htmlTags.has(tag)) { warn(`Unsupported source element: ${tag}`); detach(node); continue; }
     const original = [...node.attrs]; node.attrs = [];
+    if (tag === 'span' && original.some(item => item.name === 'data-pl-run' && item.value === '1')) setAttr(node, 'data-pl-run', '1');
     const sourceId = original.find(item => item.name === 'id')?.value;
     if (sourceId) setAttr(node, 'data-pl-source-id', sourceId);
     if (tag === 'th' || tag === 'td') {
@@ -89,9 +98,14 @@ export function sanitizeSnapshot(value: SnapshotInput, environment: SnapshotEnvi
       }
     }
   }
+  if (root.childNodes.some(node => isText(node) && node.value.trim())) {
+    const wrapper: Element = { tagName: 'div', nodeName: 'div', namespaceURI: 'http://www.w3.org/1999/xhtml' as Element['namespaceURI'], attrs: [], childNodes: root.childNodes, parentNode: root };
+    for (const child of wrapper.childNodes) child.parentNode = wrapper; root.childNodes = [wrapper];
+  }
   // Network-bearing attributes are gone before DOMPurify gets a native document.
   const first = environment.sanitizeHtml(serialize(root));
   const normalized = parseBounded(first, limits);
+  anchorMixedRuns(normalized);
   let sequence = 0; const sourceIds = new Map<string, Element | null>();
   for (const node of elements(normalized)) {
     // Formula descendants retain only fragment IDs, not reader anchors.
@@ -136,4 +150,34 @@ export function sanitizeSnapshot(value: SnapshotInput, environment: SnapshotEnvi
     scope: { ...input.scope, rootNodeId: nodeIds[0] ?? input.scope.rootNodeId, completeWithinScope: complete, warnings: [...warnings] },
     nodeIds, resources: resources.filter(resource => used.has(resource.id)), warnings: [...warnings],
   });
+}
+
+/** A container may produce several independently previewed text runs. Give each
+ * run its own final source element before IDs are assigned; replay keeps it. */
+function anchorMixedRuns(root: Parent): void {
+  const isStructural = (node: Node): boolean => isElement(node)
+    && (structuralTags.has(node.tagName) || attr(node, 'data-pl-run') === '1');
+  for (const element of elements(root)) {
+    if (!containerTags.has(element.tagName) || !element.childNodes.some(isStructural)) continue;
+    const children: Element['childNodes'] = [];
+    let pending: Element['childNodes'] = [];
+    const flush = () => {
+      if (!pending.length) return;
+      if (pending.some(node => isElement(node) || (isText(node) && node.value.trim()))) {
+        const run: Element = {
+          tagName: 'span', nodeName: 'span', namespaceURI: element.namespaceURI,
+          attrs: [{ name: 'data-pl-run', value: '1' }], childNodes: pending, parentNode: element,
+        };
+        for (const child of pending) child.parentNode = run;
+        children.push(run);
+      } else children.push(...pending);
+      pending = [];
+    };
+    for (const child of element.childNodes) {
+      if (isStructural(child)) { flush(); children.push(child); }
+      else pending.push(child);
+    }
+    flush();
+    element.childNodes = children;
+  }
 }

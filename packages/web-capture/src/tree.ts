@@ -57,7 +57,8 @@ export function readSnapshot(snapshot: SanitizedSnapshot, limits: CaptureLimits)
     if (node.namespaceURI === 'http://www.w3.org/1999/xhtml') {
       check(htmlTags.has(node.tagName), 'Active or unsafe snapshot element');
       for (const item of node.attrs) {
-        check(['id', 'data-pl-node', 'data-pl-resource', 'data-pl-headers', 'title', 'alt', 'lang', 'dir', 'colspan', 'rowspan', 'scope', 'start', 'style', 'href'].includes(item.name), 'Unsafe snapshot attribute');
+        check(['id', 'data-pl-node', 'data-pl-run', 'data-pl-resource', 'data-pl-headers', 'title', 'alt', 'lang', 'dir', 'colspan', 'rowspan', 'scope', 'start', 'style', 'href'].includes(item.name), 'Unsafe snapshot attribute');
+        if (item.name === 'data-pl-run') check(node.tagName === 'span' && item.value === '1', 'Unsafe source run marker');
         if (item.name === 'href') { const url = new URL(item.value); check(node.tagName === 'a' && ['https:', 'http:', 'mailto:'].includes(url.protocol) && !url.username && !url.password, 'Unsafe snapshot link'); }
         if (item.name === 'style') check(sanitizeStyle(item.value) === item.value, 'Unsafe snapshot style');
       }

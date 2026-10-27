@@ -62,3 +62,33 @@ it('rejects forged math reference expansion before emitting active SVG previews'
   const draft = await manifestFor(snapshot);
   await expect(buildSnapshotPreviews(snapshot, draft, { ...defaultCaptureLimits, maxMathNodes: 15 })).rejects.toThrow(/math|expansion/i);
 });
+it('resolves every mixed-content block to the preview containing its own source material', async () => {
+  const snapshot = sanitizeNodeSnapshot(snapshotInput('<div>Before<p>Middle</p>After</div>'));
+  const draft = await manifestFor(snapshot);
+  const built = await buildSnapshotPreviews(snapshot, draft, { ...defaultCaptureLimits, maxPreviewBlocks: 1 });
+  const manifest = { ...draft, files: [...draft.files, ...built.files.map(file => file.descriptor)], snapshots: built.index };
+  const ir = await projectWebReader(snapshot, manifest, projectionOptions(manifest));
+  expect(built.files).toHaveLength(3);
+  for (const block of ir.blocks) {
+    const ref = block.sourceRefs[0];
+    const location = resolveSnapshotAnchor(built.index, ref.nodeId)!;
+    const preview = built.index.previews.find(item => item.id === location.previewId)!;
+    const html = built.files.find(file => file.descriptor.id === preview.fileId)!.html;
+    expect(html).toContain(ref.quote);
+    expect(html).toContain(`id="${location.anchorId}"`);
+    expect(preview.blockIds).toContain(block.id);
+  }
+});
+it('bounds examined header-context work before rebuilding oversized closures', async () => {
+  const snapshot = sanitizeNodeSnapshot(snapshotInput(`<table><thead><tr>${Array.from({ length: 40 }, (_, i) => `<th>Header ${i}</th>`).join('')}</tr></thead><tbody><tr><td>Value</td></tr></tbody></table>`));
+  const draft = await manifestFor(snapshot);
+  const original = Set.prototype.has; let calls = 0;
+  Set.prototype.has = function (value: unknown) { calls++; return original.call(this, value); };
+  try {
+    const built = await buildSnapshotPreviews(snapshot, draft, { ...defaultCaptureLimits, maxPreviewBlocks: 1 });
+    expect(built.files).toEqual([]);
+    expect(built.warnings).toHaveLength(41);
+  } finally { Set.prototype.has = original; }
+  // Includes shared schemas/parsing; the old forty-header probe exceeded 150k.
+  expect(calls).toBeLessThan(15000);
+});

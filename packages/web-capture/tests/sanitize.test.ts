@@ -51,3 +51,17 @@ it('replays sanitized snapshots without changing node IDs, resource bindings or 
   const second = sanitizeNodeSnapshot({ html: first.html, url: first.sourceUrl, scope: first.scope }, undefined, first.resources);
   expect(second).toEqual(first);
 });
+it('unwraps original wrappers before hiding rules in every extension display mode', () => {
+  const expected = sanitizeNodeSnapshot(input('<p>Original <strong>evidence</strong></p>'));
+  for (const mode of ['translation', 'source', 'bilingual']) {
+    const html = `<p><span data-pl-source="b" style="display:${mode === 'translation' ? 'none' : 'contents'}">Original <strong>evidence</strong></span><span data-pl-owned="translation" style="display:${mode === 'source' ? 'none' : 'block'}">译文</span></p>`;
+    const snapshot = sanitizeNodeSnapshot(input(html));
+    expect(snapshot).toEqual(expected);
+    expect(sanitizeNodeSnapshot({ html: snapshot.html, url: snapshot.sourceUrl, scope: snapshot.scope }, undefined, snapshot.resources)).toEqual(expected);
+  }
+});
+it('keeps a source anchor when the captured scope is the hidden original wrapper itself', () => {
+  const expected = sanitizeNodeSnapshot(input('Original evidence'));
+  const snapshot = sanitizeNodeSnapshot(input('<span data-pl-source="b" style="display:none">Original evidence</span>'));
+  expect(snapshot).toEqual(expected);
+});

@@ -1,4 +1,5 @@
 import { captureFileSchema, webReaderAssetSchema, webCaptureManifestSchema, type WebCaptureManifest, type PendingCaptureResource, type CaptureFile, type CaptureLimits, type WebReaderAsset } from '@pagelingo/document-contracts';
+import { inspectJpeg } from './jpeg.js';
 import { sha256 } from './fingerprint.js';
 import { check, limitsFor } from './tree.js';
 interface Dimensions { width: number; height: number; frames: number }
@@ -49,17 +50,9 @@ export async function inspectImageResource(input: Uint8Array, descriptor: Captur
     }
     check(ended && data && offset === bytes.length, 'Truncated or trailing PNG format');
   } else if (bytes[0] === 255 && bytes[1] === 216) {
-    mediaType = 'image/jpeg'; let offset = 2; let scan = false;
-    check(bytes.at(-2) === 255 && bytes.at(-1) === 217, 'Truncated JPEG format');
-    while (offset < bytes.length - 2) {
-      check(bytes[offset++] === 255, 'Invalid JPEG marker format'); while (bytes[offset] === 255) offset++;
-      need(offset + 1); const marker = bytes[offset++];
-      if (marker === 218) { scan = true; break; }
-      need(offset + 2); const size = view.getUint16(offset); check(size >= 2, 'Invalid JPEG segment format'); need(offset + size);
-      if ([192, 193, 194].includes(marker)) { check(size >= 8, 'Invalid JPEG frame format'); result = dimensions(view.getUint16(offset + 5), view.getUint16(offset + 3)); }
-      offset += size;
-    }
-    check(scan && result, 'Invalid JPEG frame or scan format');
+    mediaType = 'image/jpeg';
+    const jpeg = inspectJpeg(bytes);
+    result = dimensions(jpeg.width, jpeg.height);
   } else if (ascii(0, 4) === 'RIFF' && ascii(8, 12) === 'WEBP') {
     mediaType = 'image/webp'; need(20); check(view.getUint32(4, true) + 8 === bytes.length, 'Truncated WEBP format');
     let offset = 12; let image = false; let canvas: Dimensions | undefined;

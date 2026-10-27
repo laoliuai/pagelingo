@@ -29,3 +29,19 @@ it('rejects a WebP extended canvas that exceeds the decoded-pixel budget', async
   put('VP8L', 30); view.setUint32(34, 5, true); bytes[38] = 47;
   await expect(inspectImageResource(bytes, await file(bytes, 'image/webp'))).rejects.toThrow(/dimension|pixel|canvas/i);
 });
+it.each([
+  'ffd8ffc0000b080001000101011100ffdaffd9',
+  'ffd8ffc0000b080001000101011100ffda000801ffd9',
+  'ffd8ffc0000b080001000101011100ffda0008010100003f00ffd9',
+  'ffd8ffc0000b080001000101011100ffda0008010100003f0001ff',
+  'ffd8ffc0000b080001000101011100ffda0008010100003f0001ff00ffdbffd9',
+])('rejects missing/truncated JPEG scan framing: %s', async hex => {
+  const bytes = Uint8Array.from(Buffer.from(hex, 'hex'));
+  await expect(inspectImageResource(bytes, await file(bytes, 'image/jpeg'))).rejects.toThrow(/JPEG|truncated/i);
+});
+it('preserves the dimensions and digest of a real Chromium-encoded JPEG', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const jpeg = new Uint8Array(await readFile(new URL('./fixtures/chromium-7x5.jpg', import.meta.url)));
+  const descriptor = await file(jpeg, 'image/jpeg');
+  expect(await inspectImageResource(jpeg, descriptor)).toMatchObject({ width: 7, height: 5, frames: 1, sha256: descriptor.sha256, mediaType: 'image/jpeg' });
+});
