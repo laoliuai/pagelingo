@@ -23,6 +23,8 @@ for (const [name, schema] of [
   ['web-api', contracts.createWebCaptureRequestShapeSchema],
   ['devices', contracts.deviceDtoSchema],
   ['web-jobs', contracts.webJobSchema],
+  ['web-job-list', contracts.webJobListSchema],
+  ['web-job-list-query', contracts.webJobListQuerySchema],
   ['web-job-request', contracts.createWebJobRequestSchema],
   ['save-preferences', contracts.savePreferencesSchema],
   ['glossary', contracts.glossaryRevisionSchema],

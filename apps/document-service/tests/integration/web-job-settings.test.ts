@@ -472,3 +472,41 @@ it('canonicalizes a proper subset and manual language while retaining immutable 
   for (const sourceLanguage of ['und-US', 'mul-Latn', 'zxx-US'])
     expect((await t.request(url, 'POST', t.input(s, { sourceLanguage }))).statusCode).toBe(400);
 });
+it('discovers owned jobs with bounded stable cursor pages and no job mutations or model calls', async () => {
+  const t = await setup(); const saved = await t.save(); await t.profile();
+  const ids: string[] = [];
+  for (const sourceLanguage of ['en', 'fr', 'de']) {
+    const response = await t.request(`/api/v1/documents/${saved.documentId}/web-jobs`, 'POST', t.input(saved, { sourceLanguage }));
+    expect(response.statusCode).toBe(201); ids.push(response.json().id);
+  }
+  // Add tied immutable rows in the disposable fixture; no UPDATE bypass of input guards.
+  const tied = await t.db.pool.query(`INSERT INTO web_jobs (id,owner_id,document_id,auth_version,kind,input_sha256,source_version_id,parse_id,profile_revision,glossary_revision,source_language,created_at) SELECT gen_random_uuid(),owner_id,document_id,auth_version,kind,repeat(n::text,64),source_version_id,parse_id,profile_revision,glossary_revision,source_language,'2027-01-01 00:00:00.123456+00' FROM web_jobs CROSS JOIN generate_series(1,3) n WHERE id=$1 RETURNING id`, [ids[0]]);
+  const expected = [...tied.rows.map(row => row.id).sort().reverse(), ...ids.reverse()];
+  const before = (await t.db.pool.query('SELECT * FROM web_jobs ORDER BY id')).rows;
+  const path = `/api/v1/documents/${saved.documentId}/web-jobs?limit=1&sourceVersionId=${saved.sourceVersionId}&parseId=${saved.parseId}`;
+  const seen: string[] = []; let cursor = '';
+  do {
+    const response = await t.request(path + (cursor ? `&cursor=${cursor}` : ''));
+    expect(response.statusCode, response.body).toBe(200);
+    const page = response.json(); expect(page.items).toHaveLength(1);
+    expect(Object.keys(page.items[0])).not.toContain('owner_id'); seen.push(page.items[0].id); cursor = page.nextCursor;
+  } while (cursor);
+  expect(seen).toEqual(expected);
+  expect((await t.request(path + '&cursor=00000000-0000-4000-8000-000000000000')).statusCode).toBe(400);
+  expect((await t.request(`/api/v1/documents/${saved.documentId}/web-jobs?limit=51`)).statusCode).toBe(400);
+  expect((await t.request(`/api/v1/documents/${saved.documentId}/web-jobs?parseId=${saved.parseId}`)).statusCode).toBe(400);
+  expect((await t.request(`/api/v1/documents/${saved.documentId}/web-jobs?sourceVersionId=00000000-0000-4000-8000-000000000000`)).statusCode).toBe(404);
+  expect((await t.app.inject({ url: path, headers: { authorization: 'Bearer invalid-device', cookie: t.session.cookie } })).statusCode).toBe(401);
+  expect((await t.db.pool.query('SELECT * FROM web_jobs ORDER BY id')).rows).toEqual(before);
+  expect(t.calls()).toBe(0);
+});
+it('job discovery distinguishes an empty owned Web document from another owner or non-Web document', async () => {
+  const t = await setup(); const saved = await t.save();
+  const path = `/api/v1/documents/${saved.documentId}/web-jobs`;
+  const empty = await t.request(path); expect(empty.statusCode).toBe(200); expect(empty.json()).toEqual({ items: [], nextCursor: null });
+  expect((await t.request('/api/v1/admin/users', 'POST', { username: 'list-other', password: 'another password 123456' })).statusCode).toBe(201);
+  const other = await login(t.app, 'list-other', 'another password 123456');
+  expect((await t.app.inject({ url: path, headers: { cookie: other.cookie } })).statusCode).toBe(404);
+  expect((await t.request('/api/v1/documents/00000000-0000-4000-8000-000000000000/web-jobs')).statusCode).toBe(404);
+  expect((await t.db.pool.query('SELECT id FROM web_jobs')).rowCount).toBe(0); expect(t.calls()).toBe(0);
+});

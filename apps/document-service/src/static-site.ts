@@ -20,6 +20,8 @@ export async function registerStaticSite(
         imgSrc: ["'self'", 'blob:', 'data:'],
         fontSrc: ["'self'", 'data:'],
         workerSrc: ["'self'", 'blob:'],
+        // Archived previews are opaque, scriptless Blob frames with their own deny-by-default CSP.
+        frameSrc: ['blob:'],
         objectSrc: ["'none'"],
         baseUri: ["'none'"],
         frameAncestors: ["'none'"],

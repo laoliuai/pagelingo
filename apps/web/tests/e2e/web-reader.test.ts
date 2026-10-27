@@ -1,0 +1,146 @@
+import { test, expect } from '@playwright/test';
+import { newReader } from './library-helpers';
+import { archive } from './web-helpers';
+test('mixed library opens actual archived Web source in three modes without model or passive writes', async ({ page }) => {
+  await newReader(page, 'web-source');
+  const value = await archive(page);
+  let puts = 0, jobs = 0;
+  page.on('request', request => { if (request.method() === 'PUT' && request.url().includes('/web-progress')) puts++; if (request.method() === 'POST' && request.url().includes('/web-jobs')) jobs++; });
+  await page.reload();
+  await page.getByRole('link', { name: 'Test article', exact: true }).click();
+  const body = page.getByLabel('正文，可独立滚动');
+  await expect(body).toContainText('这是已经归档');
+  await page.waitForTimeout(1700); expect(puts).toBe(0);
+  for (const mode of ['translation', 'bilingual', 'source']) {
+    await page.getByLabel('正文模式', { exact: true }).selectOption(mode);
+    await expect(body).toContainText('这是已经归档');
+  }
+  await page.waitForTimeout(1700); puts = 0;
+  await page.goto(`/library/${value.documentId}`);
+  await expect(body).toContainText('这是已经归档');
+  await page.waitForTimeout(1700);
+  expect(puts).toBe(0); expect(jobs).toBe(0);
+});
+test('link dialog saves a typed link-only repository through the real API', async ({ page }) => {
+  await newReader(page, 'web-link');
+  await page.getByRole('button', { name: '添加链接', exact: true }).click();
+  await page.getByLabel('网页地址').fill('https://github.com/example/project');
+  await page.getByLabel('链接标题').fill('项目资料');
+  await page.getByRole('button', { name: '保存链接', exact: true }).click();
+  await expect(page.getByRole('dialog')).toBeHidden();
+  await page.getByRole('link', { name: '项目资料', exact: true }).click();
+  await expect(page.getByText('仅保存链接', { exact: false })).toBeVisible();
+});
+test('explicit selected translation uses current revisions and discovers a new immutable version without replacing the opened text', async ({ page }) => {
+  const { defaultProviderProfile } = await import('@pagelingo/document-contracts');
+  const { origin } = await import('./library-helpers');
+  await newReader(page, 'web-job');
+  const value = await archive(page, '<article><h1>A guide to archived reading</h1><p>The reader can save the original article and read the source without any translation. This is a useful document about the software and the system.</p><p>The second paragraph has more information for the reader about how this system works and why it is useful.</p></article>');
+  const session = await (await page.request.get('/api/v1/auth/session')).json();
+  const { revision, hasApiKey, ...settings } = defaultProviderProfile;
+  expect((await page.request.put('/api/v1/settings/provider', { headers: { Origin: origin, 'X-CSRF-Token': session.csrfToken }, data: { expectedRevision: 0, settings: { ...settings, baseUrl: 'https://mock.example/v1', model: 'test-model' }, key: { action: 'replace', value: 'test-only-key' } } })).status()).toBe(200);
+  await page.goto(`/library/${value.documentId}`);
+  const reader = page.getByRole('region', { name: '网页阅读器', exact: true });
+  await expect(reader).toHaveAttribute('data-version-id', value.readerVersionId);
+  await expect(page.getByLabel('选择翻译段落')).toHaveCount(0);
+  await page.getByText('翻译任务', { exact: true }).click();
+  await page.getByRole('button', { name: '选择翻译段落', exact: true }).click();
+  await page.getByLabel('选择翻译段落').nth(1).check();
+  await page.getByLabel('源语言').fill('en');
+  await page.getByRole('button', { name: '开始新一轮翻译', exact: true }).click();
+  await expect(page.getByRole('button', { name: '切换到新版本', exact: true })).toBeVisible();
+  await expect(reader).toHaveAttribute('data-version-id', value.readerVersionId);
+  const jobs = await (await page.request.get(`/api/v1/documents/${value.documentId}/web-jobs`)).json();
+  expect(jobs.items[0].selectionBlockIds).toHaveLength(1); expect(jobs.items[0].sourceLanguage).toBe('en');
+  await page.getByRole('button', { name: '切换到新版本', exact: true }).click();
+  await expect(reader).not.toHaveAttribute('data-version-id', value.readerVersionId);
+  await expect(page.getByLabel('阅读版本', { exact: true })).toHaveValue(await reader.getAttribute('data-version-id') ?? '');
+  await page.reload();
+  await page.getByText('翻译任务', { exact: true }).click();
+  await expect(page.getByLabel('任务状态')).toContainText('已完成');
+});
+test('20000 Web blocks retain at most three chunks and table context never duplicates canonical anchors', async ({ page }) => {
+  test.setTimeout(90_000); // Actual 20k capture/project/publish capacity exercise, not UI wait inflation.
+  await newReader(page, 'web-window');
+  const value = await archive(page, '<article>' + Array.from({ length: 20000 }, (_, i) => `<p>长文段落${i}</p>`).join('') + '</article>');
+  await page.goto(`/library/${value.documentId}`);
+  const body = page.getByLabel('正文，可独立滚动'); await expect(body).toContainText('长文段落0');
+  await page.getByLabel('正文分片', { exact: true }).fill('100');
+  await page.getByRole('button', { name: '跳转正文', exact: true }).click();
+  await expect(body).toContainText('长文段落12672');
+  expect(await body.locator('[data-reader-chunk]').count()).toBeLessThanOrEqual(3);
+  expect(Number(await body.getAttribute('data-cached-chunks'))).toBeLessThanOrEqual(3);
+  expect(await body.locator('[data-block-id]').count()).toBeLessThanOrEqual(384);
+  const ids = await body.locator('[data-block-id]').evaluateAll(nodes => nodes.map(node => node.getAttribute('data-block-id')));
+  expect(new Set(ids).size).toBe(ids.length);
+  await page.getByRole('button', { name: '定位快照', exact: true }).first().click();
+  await expect(page.locator('iframe')).toHaveCount(1);
+});
+test('imported Chinese translation and formula remain usable without the source site', async ({ page }) => {
+  const { withCandidates } = await import('../../../document-service/tests/helpers/web-capture');
+  const { uploadArchive } = await import('./web-helpers');
+  const { createHash } = await import('node:crypto');
+  await newReader(page, 'web-import');
+  const fixture = await withCandidates('<article><h1>Archived reading</h1><p>The original text is available offline.</p><math><mfrac><mi>x</mi><mn>2</mn></mfrac></math></article>');
+  const payload = JSON.parse(fixture.translation.toString());
+  for (const block of payload.blocks) block.rawText = block.rawText.replace('The original text is available offline.', '离线中文译文完整保留。');
+  fixture.translation = Buffer.from(JSON.stringify(payload));
+  const file = fixture.manifest.files.find(file => file.id === 'translation')!; file.bytes = fixture.translation.length; file.sha256 = createHash('sha256').update(fixture.translation).digest('hex');
+  const value = await uploadArchive(page, fixture);
+  await page.route('https://example.com/**', route => route.abort());
+  await page.goto(`/library/${value.documentId}`);
+  const body = page.getByLabel('正文，可独立滚动');
+  await expect(body).toContainText('The original text is available offline.');
+  await page.getByLabel('正文模式', { exact: true }).selectOption('translation'); await expect(body).toContainText('离线中文译文完整保留。');
+  await expect(body).not.toContainText('The original text is available offline.');
+  await page.getByLabel('正文模式', { exact: true }).selectOption('bilingual'); await expect(body).toContainText('The original text is available offline.'); await expect(body).toContainText('离线中文译文完整保留。');
+  await expect(body.locator('math')).toHaveCount(2); await expect(body.locator('math').first()).toBeVisible();
+  const mathIds = await body.locator('math').evaluateAll(nodes => nodes.map(node => node.id)); expect(new Set(mathIds).size).toBe(2);
+});
+test('native image decode failure is explicit even when archived header inspection accepted it', async ({ page }) => {
+  const { capture } = await import('../../../document-service/tests/helpers/web-capture'); const { uploadArchive } = await import('./web-helpers'); const { createHash } = await import('node:crypto');
+  await newReader(page, 'web-codec');
+  const good = Buffer.from(await page.evaluate(() => { const canvas = document.createElement('canvas'); canvas.width = 4; canvas.height = 4; return canvas.toDataURL('image/png').split(',')[1]; }), 'base64');
+  const bad = Buffer.from(good); bad[24] = 3; // Invalid PNG bit depth; dimensions/framing remain intact.
+  const fixture = capture('<article><p>归档图片</p><img data-pl-resource="r_1" alt="原始插图"></article>');
+  fixture.manifest.files.push({ id: 'image', path: 'image.png', role: 'image', mediaType: 'image/png', bytes: bad.length, sha256: createHash('sha256').update(bad).digest('hex') });
+  fixture.manifest.resources.push({ id: 'r_1', url: 'https://example.com/image.png', role: 'image', status: 'available', fileId: 'image' });
+  const value = await uploadArchive(page, { ...fixture, image: bad });
+  expect(value.saveStatus).toBe('original-saved');
+  await page.goto(`/library/${value.documentId}`);
+  await expect(page.locator('img[alt="原始插图"]')).toBeAttached();
+  const imageState = await page.locator('img[alt="原始插图"]').evaluate(async (image: HTMLImageElement) => { try { await image.decode(); return { decoded: true, width: image.naturalWidth }; } catch { return { decoded: false, complete: image.complete, width: image.naturalWidth }; } });
+  expect(imageState.decoded, JSON.stringify(imageState)).toBe(false);
+  await expect(page.getByLabel('正文，可独立滚动')).toContainText('归档图片无法解码或已缺失');
+  await page.getByRole('button', { name: '定位快照', exact: true }).last().click();
+  await expect(page.getByText('归档图片无法读取或解码：image', { exact: true })).toBeVisible();
+});
+test('cancel can precede partial publication; explicit refresh discovers it while current paragraph stays pinned and changed profile requires a new run', async ({ page }) => {
+  const { defaultProviderProfile } = await import('@pagelingo/document-contracts'); const { origin } = await import('./library-helpers');
+  await newReader(page, 'web-cancel');
+  const value = await archive(page, '<article>' + Array.from({ length: 12 }, (_, i) => `<p>The reader can save the original article and read the source without any translation. This paragraph number ${i} explains how the software and the system work.</p>`).join('') + '</article>');
+  const session = await (await page.request.get('/api/v1/auth/session')).json(); const headers = { Origin: origin, 'X-CSRF-Token': session.csrfToken };
+  const { revision, hasApiKey, ...defaults } = defaultProviderProfile;
+  const configure = (expectedRevision: number) => page.request.put('/api/v1/settings/provider', { headers, data: { expectedRevision, settings: { ...defaults, baseUrl: 'https://mock.example/v1', model: `test-${expectedRevision}` }, key: { action: 'replace', value: 'test-only-key' } } });
+  expect((await configure(0)).status()).toBe(200);
+  expect((await page.request.post('/__test/web-publication/hold')).status()).toBe(200);
+  try {
+    await page.goto(`/library/${value.documentId}`); await page.getByText('翻译任务', { exact: true }).click(); await page.getByRole('button', { name: '开始新一轮翻译', exact: true }).click();
+    await expect.poll(async () => (await (await page.request.get('/__test/web-publication')).json()).held).toBe(true);
+    await expect(page.getByRole('button', { name: '取消任务', exact: true })).toBeVisible();
+    const response = page.waitForResponse(response => response.url().endsWith('/cancel') && response.request().method() === 'POST');
+    await page.getByRole('button', { name: '取消任务', exact: true }).click();
+    const cancelled = await (await response).json(); expect(cancelled.status).toBe('cancelled'); expect(cancelled.readerVersionId).toBeNull();
+    await page.request.post('/__test/web-publication/release');
+    await page.getByRole('button', { name: '刷新任务与成果', exact: true }).click();
+    await expect(page.getByRole('button', { name: '切换到新版本', exact: true })).toBeVisible();
+    await expect(page.getByRole('region', { name: '网页阅读器', exact: true })).toHaveAttribute('data-version-id', value.readerVersionId);
+    expect((await (await page.request.get(`/api/v1/web-jobs/${cancelled.id}`)).json()).status).toBe('cancelled');
+    expect((await configure(1)).status()).toBe(200);
+    await page.getByRole('button', { name: '按原配置重试', exact: true }).click();
+    await expect(page.getByRole('alert')).toContainText('模型配置已变化');
+    const start = page.waitForResponse(response => response.url().endsWith('/web-jobs') && response.request().method() === 'POST');
+    await page.getByRole('button', { name: '开始新一轮翻译', exact: true }).click();
+    const newer = await (await start).json(); expect(newer.id).not.toBe(cancelled.id); expect(newer.profileRevision).toBe(2);
+  } finally { await page.request.post('/__test/web-publication/release'); }
+});

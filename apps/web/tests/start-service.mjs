@@ -17,6 +17,7 @@ let db, app, dataDir, worker;
 const testKey = randomBytes(32);
 let modelCalls = 0;
 let closing = false;
+let publicationHeld = false;
 async function close() {
   if (closing) return;
   closing = true;
@@ -71,6 +72,16 @@ try {
       });
     },
   });
+  app.post('/__test/web-publication/:mode', async request => {
+    const hold = request.params.mode === 'hold'; publicationHeld = false;
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => { worker.off('message', listener); reject(new Error('Worker control timeout')); }, 5000);
+      const listener = message => { if (message.type === 'publication-control-ack' && message.hold === hold) { clearTimeout(timer); worker.off('message', listener); resolve(); } };
+      worker.on('message', listener); worker.send({ type: 'publication-control', hold });
+    });
+    return { hold };
+  });
+  app.get('/__test/web-publication', async () => ({ held: publicationHeld }));
   app.get('/__test/metrics', async () => ({ modelCalls }));
   // Fault injection operates on this runner's disposable real object store only.
   app.post('/__test/missing-source/:id', async (request, reply) => {
@@ -87,10 +98,11 @@ try {
   });
   await app.listen({ host: '127.0.0.1', port: 4338 });
   worker = spawn(process.execPath, ['--import', 'tsx', resolve('../document-service/tests/helpers/mock-worker-process.ts'), schema], {
-    env: { PATH: process.env.PATH, PAGELINGO_SITE_MODE: 'test', PAGELINGO_SITE_ORIGIN: 'http://127.0.0.1:4338', PAGELINGO_DATA_DIR: dataDir, DATABASE_URL: url,
+    env: { PATH: process.env.PATH, TEST_WORKER_PUBLICATION_CONTROL: '1', PAGELINGO_SITE_MODE: 'test', PAGELINGO_SITE_ORIGIN: 'http://127.0.0.1:4338', PAGELINGO_DATA_DIR: dataDir, DATABASE_URL: url,
       PAGELINGO_MASTER_KEY_ID: 'test', PAGELINGO_MASTER_KEYS_JSON: JSON.stringify({ test: testKey.toString('base64') }) },
-    stdio: ['ignore', 'inherit', 'inherit'],
+    stdio: ['ignore', 'inherit', 'inherit', 'ipc'],
   });
+  worker.on('message', message => { if (message.type === 'publication-held') publicationHeld = true; });
   worker.on('exit', () => { if (!closing) void close().then(() => process.exit(1)); });
   for (const signal of ['SIGINT', 'SIGTERM'])
     process.once(signal, () => {

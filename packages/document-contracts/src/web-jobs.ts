@@ -25,3 +25,11 @@ export const webJobSchema = z.strictObject({
 export type WebJob = z.infer<typeof webJobSchema>;
 export const retryWebJobRequestSchema = z.strictObject({ profileRevision: safeNonnegativeIntegerSchema, glossaryRevision: safeNonnegativeIntegerSchema });
 export type RetryWebJobRequest = z.infer<typeof retryWebJobRequestSchema>;
+
+export const webJobListSchema = z.strictObject({ items: z.array(webJobSchema).max(50), nextCursor: z.uuid().nullable() });
+export type WebJobList = z.infer<typeof webJobListSchema>;
+export const webJobListQuerySchema = z.strictObject({
+  sourceVersionId: z.uuid().optional(), parseId: parseIdSchema.optional(), cursor: z.uuid().optional(),
+  limit: z.union([z.number(), z.string().regex(/^[0-9]+$/)]).pipe(z.coerce.number()).pipe(z.number().int().min(1).max(50)).default(10),
+}).refine(value => !value.parseId || !!value.sourceVersionId, 'Parse filter requires a source');
+export type WebJobListQuery = z.infer<typeof webJobListQuerySchema>;

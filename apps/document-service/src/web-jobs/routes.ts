@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import {
-  createWebJobRequestSchema,
+  createWebJobRequestSchema, webJobListQuerySchema,
   retryWebJobRequestSchema,
   savePreferencesUpdateSchema,
 } from '@pagelingo/document-contracts';
@@ -11,6 +11,8 @@ import { emptyQuery } from '../glossary/routes.js';
 import type { ObjectStore } from '../storage/object-store.js';
 import { ServiceError } from '../errors.js';
 import { createSavePreferencesService } from './preferences.js';
+import { listWebJobs } from './list.js';
+import { assertActorCurrent } from '../auth/guards.js';
 import { createWebJobsService } from './service.js';
 function parse<T>(schema: z.ZodType<T>, value: unknown): T {
   const p = schema.safeParse(value);
@@ -46,6 +48,13 @@ export function registerWebJobsRoutes(app: FastifyInstance, store: ObjectStore):
           parse(createWebJobRequestSchema, request.body),
         ),
       );
+  });
+  app.get('/api/v1/documents/:id/web-jobs', async request => {
+    if (request.headers.authorization) throw new ServiceError(401, 'UNAUTHORIZED', 'Session required');
+    const actor = await requireSession(request);
+    const id = parse(z.strictObject({ id: z.uuid() }), request.params).id;
+    const query = parse(webJobListQuerySchema, request.query);
+    return app.authContext.db.transaction(async client => { await assertActorCurrent(client, actor); return listWebJobs(client, actor.userId, id, query); });
   });
   app.get('/api/v1/web-jobs/:id', async (request) => {
     const actor = await requireSession(request);

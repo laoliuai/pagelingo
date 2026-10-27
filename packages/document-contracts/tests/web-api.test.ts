@@ -153,3 +153,13 @@ test('preserves and validates every own hostile Web asset-map key', async () => 
   expect(result.assetMap.__proto__).toBe(uuid);
   expect(contracts.webReaderDescriptorSchema.safeParse({ ...fixture, assetMap: Object.fromEntries([['__proto__', 'not-a-uuid']]) }).success).toBe(false);
 });
+test('job discovery contracts reject unbounded pages, caller ownership and malformed cursors in runtime and portable shapes', async () => {
+  expect(contracts.webJobListSchema.parse({ items: [], nextCursor: null })).toEqual({ items: [], nextCursor: null });
+  expect(contracts.webJobListSchema.safeParse({ items: [], nextCursor: 'not-a-uuid' }).success).toBe(false);
+  expect(contracts.webJobListQuerySchema.parse({ limit: '50' })).toEqual({ limit: 50 });
+  for (const input of [{ limit: 51 }, { limit: 0 }, { cursor: 'bad' }, { ownerId: uuid }, { parseId: `p_${'a'.repeat(64)}` }]) expect(contracts.webJobListQuerySchema.safeParse(input).success).toBe(false);
+  const { readFileSync } = await import('node:fs'); const { Ajv2020 } = await import('ajv/dist/2020.js'); const addFormats = (await import('ajv-formats')).default.default;
+  const ajv = new Ajv2020({ strict: true }); addFormats(ajv);
+  const validate = ajv.compile(JSON.parse(readFileSync(new URL('../schemas/web-job-list.schema.json', import.meta.url), 'utf8')));
+  expect(validate({ items: [], nextCursor: null })).toBe(true); expect(validate({ items: [], nextCursor: null, ownerId: uuid })).toBe(false);
+});

@@ -8,7 +8,7 @@ test('empty private library uploads real PDF, persists and searches with URL sta
   await newReader(page, 'library');
   await expect(page.getByText('还没有资料')).toBeVisible();
   await expect(page.getByText('共 0 份资料', { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: /链接|网页|文章/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '添加链接', exact: true })).toBeVisible();
   await upload(page);
   await expect(page.getByText('原文已保存', { exact: true })).toBeVisible();
   await expect(page.getByText('等待本地处理', { exact: true })).toBeVisible();

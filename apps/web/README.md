@@ -56,3 +56,42 @@ See [S2 validation](../../docs/learning-site-s2-validation.md) and
 [reader workflow](../../docs/pdf-reader-workflow.md) for explicit local corpus inputs,
 offline resource checks, capacity measurements and upgrade/restart scope.
 Default checks use mocks and do not install Python/models or call paid APIs.
+
+## Archived Web reading
+
+The mixed library accepts links and opens server-published Web sources in original,
+translation or paragraph bilingual mode. Saving a link does not request a model.
+Repository/paper links remain links; public article acquisition runs independently.
+The opened Reader version stays pinned when newer translations arrive. Version and
+job refresh controls discover results, and switching versions is explicit.
+
+Translation controls accept an explicit source-language code and optional selected
+text paragraphs. Enter paragraph selection from the translation controls; ordinary
+reading keeps these checkboxes hidden. Start uses freshly read provider/glossary
+revisions. Retry keeps the original revisions; `PROFILE_CHANGED` requires an explicit
+new run. Cancellation may return before a confirmed partial Reader is published:
+the UI follows terminal results briefly and retains an explicit refresh action.
+
+The content cache holds at most three chunks. Only canonical source blocks own
+progress, TOC and selection anchors; repeated table context does not. Progress uses
+the shared serial CAS writer (1.5 s debounce / 5 s maximum wait). Passive restores
+never write. Conflicts pause saving until “从当前位置继续”; account/version changes
+fence late responses. Web positions contain no PDF coordinates.
+The Web library continuation link uses the server's progress mapped to the current
+Reader. Retained historical positions restore when that version is selected
+explicitly. A confirmed exit save refreshes the captured account's library row.
+
+Source location opens one bounded preview in a scriptless opaque Blob frame.
+The parent verifies immutable preview/resource bytes and SHA-256, embeds only
+registered raster bytes, disables external anchors, and uses a restrictive frame
+CSP. Native raster decoding can still fail after header validation; both content
+and preview show explicit resource warnings. Blob URLs are revoked on preview,
+source/version/account change and logout. Full archived originals remain available
+as attachments; arbitrary long originals are never mounted in a hidden frame.
+
+The 20,000-block capacity fixture uses compact paragraphs within the existing
+50,000 parser-allocation and 16 MiB IR budgets; it is not a promise that every
+20,000-paragraph input fits those independent limits.
+
+Selected actual desktop and 390×844 viewport captures in both themes are in
+[S3 Web Reader validation](../../docs/superpowers/specs/assets/2026-10-27-s3-validation/).

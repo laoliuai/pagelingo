@@ -1,5 +1,5 @@
 import { ReaderWarnings } from '../reader/reader-warnings';
-import type { BundleImport, PdfDocumentSummary, ReaderDescriptor } from '@pagelingo/document-contracts';
+import type { BundleImport, PdfDocumentSummary, ReaderDescriptor, WebDocumentSummary } from '@pagelingo/document-contracts';
 
 export const activeImport = (value?: BundleImport | null) =>
   !!value && ['created', 'receiving', 'validating'].includes(value.status);
@@ -35,4 +35,11 @@ export function ImportStatus({ result }: { result: BundleImport }) {
     failed: '阅读包导入失败',
   };
   return <p role="status">{labels[result.status]}</p>;
+}
+
+export function webSaveLabel(status: WebDocumentSummary['saveStatus']) {
+  return { 'link-only': '仅保存链接', 'original-saved': '原文已保存', 'partial-resources': '原文已保存，部分资源缺失' }[status];
+}
+export function webProcessingLabel(status: WebDocumentSummary['processingStatus']) {
+  return { 'link-only': '等待网页归档', 'fetch-queued': '等待获取原文', fetching: '正在获取原文', 'fetch-failed': '原文获取失败，链接已保留', 'awaiting-config': '原文可读，模型尚未配置', 'reader-ready': '归档正文可读' }[status];
 }

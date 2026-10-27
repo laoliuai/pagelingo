@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { ReaderIndex } from '@pagelingo/document-contracts';
 import { Button } from '../../shared/ui/button';
-export function ReaderToc({ index, onSelect }: { index: ReaderIndex; onSelect: (id: string) => void }) {
+export function ReaderToc({ index, onSelect }: { index: Pick<ReaderIndex, 'toc'>; onSelect: (id: string) => void }) {
   const [open, setOpen] = useState(() => window.innerWidth >= 768); const [expanded, setExpanded] = useState(new Set<string>()); const [page, setPage] = useState(0);
   const entries = useMemo(() => {
     const parents = new Map(index.toc.map(entry => [entry.nodeId, entry.parentId]));

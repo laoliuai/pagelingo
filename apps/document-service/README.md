@@ -488,3 +488,17 @@ Run `npm run worker --workspace @pagelingo/document-service` after building the 
 The database permits two running Web jobs globally and one per owner. Workers renew 30-second leases every five seconds and recover expired jobs with a new epoch. Confirmed SDK checkpoints, owner-scoped cache writes, usage, and 429 cooldown commit atomically. Readers are immutable and published at bounded progress milestones and termination; cancellation or configuration changes retain confirmed work with fresh authorization. An explicitly retried job reuses its immutable input and confirmed units; changing configuration requires a new run. Failed/unconfirmed requests may need repetition after a crash, but confirmed completed units are not replayed.
 
 Production model calls use the public SDK over pinned HTTPS with bounded streaming responses, no redirects or query credentials. Every request resolves the current matching profile; an active database monitor aborts work after cancellation, revocation, or profile changes. Finalizing confirmed text needs no provider key. Test worker entries require test mode and explicit mock provider/fetch dependencies; mock Reader artifacts are marked `mock` and do not establish translation quality. Development/browser test lifecycles use isolated databases, generated test keys, and those mocks.
+
+### Web job discovery
+
+`GET /api/v1/documents/:id/web-jobs` is a session-only, owner-scoped read. It returns
+`{items: WebJob[], nextCursor: string | null}` with `limit` defaulting to 10 (1–50).
+Optional `sourceVersionId` and `parseId` bind the list to an archived source/parse;
+`parseId` requires a source. Without these filters the list includes fetch and
+translation jobs. Pass the last returned cursor UUID to continue the descending
+`created_at, id` keyset. Cursor timestamps are compared inside PostgreSQL, retaining
+microsecond precision. Wrong documents/sources/parses return 404; malformed or
+out-of-scope cursors return 400. Device credentials cannot use this endpoint.
+Discovery never decrypts configuration, changes job status, starts work or finalizes
+results. The Reader uses the opened immutable source/parse, so reload and another
+browser can recover existing jobs without creating one.

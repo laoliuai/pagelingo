@@ -10,6 +10,7 @@ import { Input } from '../../shared/ui/input';
 import { Feedback } from '../../shared/ui/toast';
 import { DocumentRow } from './document-row';
 import { BundleImportDialog } from './bundle-import-dialog';
+import { LinkDialog } from './link-dialog';
 import { UploadDialog } from './upload-dialog';
 export function LibraryPage() {
   const { user } = useSession();
@@ -36,7 +37,7 @@ export function LibraryPage() {
       <PageHeader
         title="资料库"
         description="保存值得阅读的资料，慢慢理解。仅当前账号可见。"
-        action={<div className="library-actions"><BundleImportDialog onImported={() => {}} /><UploadDialog /></div>}
+        action={<div className="library-actions"><LinkDialog /><BundleImportDialog onImported={() => {}} /><UploadDialog /></div>}
       />
       <form className="library-search" onSubmit={searchLibrary}>
         <Input
@@ -66,7 +67,7 @@ export function LibraryPage() {
           ) : (
             <div className="empty-state">
               <h2>{q ? '没有匹配的资料' : '还没有资料'}</h2>
-              <p>{q ? '试试其他标题关键词。' : '上传 PDF 或导入阅读包，开始你的阅读。'}</p>
+              <p>{q ? '试试其他标题关键词。' : '添加网页链接、上传 PDF 或导入阅读包，开始你的阅读。'}</p>
             </div>
           )}
           <div className="pagination" aria-label="资料分页">

@@ -10,6 +10,14 @@ const db = openDatabase(config.databaseUrl, process.argv[2] || undefined);
 const controller = new AbortController();
 for (const signal of ['SIGINT','SIGTERM'] as const) process.once(signal, () => controller.abort());
 let calls = 0;
+let holdPublication = false;
+const releases = new Set<() => void>();
+if (process.env.TEST_WORKER_PUBLICATION_CONTROL === '1') process.on('message', (message: { type?: string; hold?: boolean }) => {
+  if (message.type !== 'publication-control') return;
+  holdPublication = message.hold === true;
+  if (!holdPublication) { for (const release of releases) release(); releases.clear(); }
+  process.send?.({ type: 'publication-control-ack', hold: holdPublication });
+});
 const provider: TranslationProvider = {
   async generate(request, signal) { return (await this.generateDetailed!(request,signal)).output; },
   async generateDetailed(request, signal) {
@@ -24,6 +32,7 @@ const provider: TranslationProvider = {
 const baseStore=createLocalObjectStore(config.dataDir);
 const store={...baseStore,async putImmutable(...args:Parameters<typeof baseStore.putImmutable>) {
   const stored=await baseStore.putImmutable(...args);
+  if (holdPublication) { process.send?.({ type: 'publication-held' }); await new Promise<void>(resolve => { releases.add(resolve); controller.signal.addEventListener('abort', () => { releases.delete(resolve); resolve(); }, { once: true }); }); }
   if(process.env.TEST_WORKER_HOLD_PUBLICATION === '1') { process.send?.({type:'publication',pid:process.pid}); await sleep(86400000,undefined,{signal:controller.signal}); }
   return stored;
 }};
