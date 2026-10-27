@@ -65,7 +65,7 @@
 - manifest 含来源 URL、候选 canonical、类型 / 来源、标题 / 作者 / 来源时间 / 采集时间、scope、原文 HTML 文件描述、资源描述、可获取的原 CSS 及可选现有译文；每个实际文件都含 `id/path/bytes/sha256/mediaType/role`。每个资源（含缺失项）明确 `role:image|css`，可用资源须与文件角色相符。不含 owner、Token、Key、请求头或 DOM 运行对象。
 - scope 区分 article / x-post / answer，并含 `completeWithinScope` 和警告。只保存单条回答 / 主帖不代表整个问题 / 线程；展开不足、不可读 frame、closed Shadow DOM、付费或未加载区域明确标记。
 - `normalizeCaptureUrl(url)` 只去除已知 `utm_* / fbclid / gclid / msclkid` 追踪参数，保留其余 query / hash；不复用 SDK 的缓存 URL 归一化，不用候选 canonical 自动合并不同来源。来源、导航及 canonical URL 只允许 HTTP/HTTPS，禁止 userinfo。资源另用专用 URL 合同，支持 HTTP(S)、有界 PNG/JPEG/WebP/GIF base64 data 图片和与来源同 origin 的 blob:http(s)；data/blob 不用页面 URL 归一化，只在绑定当前文档的授权采集中解析成实际字节，不能成为服务端通用 fetch。
-- source 的 SHA 是最终来源 manifest 的实际字节 SHA；`contentFingerprint` 只用于同 owner、来源身份与 scope 下的去重。它基于服务器规范化的正文、结构、资源摘要与缺失状态，排除 captureId / 采集时间 / 上传尝试。相同 URL 不同内容建新 source；相同内容复用 source，保留新的收藏事件；不跨用户去重。
+- source 的 SHA 是最终来源 manifest 的实际字节 SHA；`contentFingerprint` 只用于同 owner、来源身份与 scope 下的去重。它基于服务器规范化的正文、结构、资源摘要与缺失状态，排除 captureId / 采集时间 / 上传尝试。可用 blob 图片用 `{kind:'document-blob',origin}` 加实际文件摘要表示指纹来源，忽略临时 UUID；manifest 保留完整 locator，缺失 blob 仍保留精确地址与原因。HTTP/data 行为不变。相同 URL 不同内容建新 source；相同内容复用 source，保留新的收藏事件；不跨用户去重。
 - Web IR 复用 `TranslationBlock`、格式 / protected 语义和树状容器；新增网页表格 / 行 / 单元格。Web sourceRef 为 `{ nodeId, quote, prefix, suffix }`，nodeId 在固定快照内唯一；重复段落仍有不同 block ID。Web parse ID 仍用 `p_<sha256>`，但来自 source manifest / projector / config 摘要，不伪造 Python 或 PDF 信息。
 - Web text block 可带 `headingLevel:1..6`，由 projector 从真实 h1–h6 保留，含合成文本段；不加入 SDK value 或 PDF 合同。无此元数据时渲染器按结构层级降级。
 - `WebReaderIR.source.kind='web'`，无 pages。`WebLanguageDecision` 为 zh / en / foreign / mixed / und，附 sourceLanguage 与 reason；foreign 只扩展 Web 合同，PDF 既有四值语言合同与判断不变。
