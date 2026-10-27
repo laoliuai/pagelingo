@@ -140,6 +140,20 @@ ZIP 从私有暂存文件逐项读取，`lazyEntries:true, strictFileNames:true,
 
 ## 3. 任务
 
+### Task 0: 修复基线中草稿保存与发送的竞争
+
+执行基线时，既有 Chromium 对话历史测试出现单窗口“文章正在另一个窗口生成回答”的失败；独立重跑通过。原始 trace / 错误与分析保存在本计划 ledger，先用确定性回归验证自身草稿锁与发送请求竞争的假设，再修复。
+
+**Files:** 修改 `apps/extension/src/assistant/controller.ts`，新增 / 扩展 `apps/extension/tests/assistant-controller.test.ts` 中的对应行为测试；只有必要时调整既有 E2E 同步，不靠任意 sleep / retry 掩盖缺陷。
+
+**Interfaces:** 保持 ReadingAssistant 的公开方法、跨窗口锁拒绝和取消行为；同窗口在先的 setDraft 持久化不得被 send 当成另一个窗口持锁，发送仍绑定调用时文章 / 问题。
+
+- [ ] **Step 1:** 用可控存储 / 锁 gate 复现 setDraft 尚未完成就 send，当前实现无模型请求且提示跨窗口冲突的失败。
+- [ ] **Step 2:** 验证确定性 RED，并追踪锁与 promise 的实际释放顺序；如假设不成立，先报告证据，不试探性修改。
+- [ ] **Step 3:** 在 ReadingAssistant 做最小同步修复，保留真实另一窗口持锁时拒绝发送、取消和文章切换语义。
+- [ ] **Step 4:** 运行 controller 对应单测、扩展 typecheck 与原历史 Chromium 用例；控制方随后重跑全部基线。
+- [ ] **Step 5:** 提交 `fix: wait for pending assistant drafts before sending`，独立审查后继续 Task 1。
+
 ### Task 1: 正式 Reader、译文与来源合同
 
 **Files:** 新建 `packages/document-contracts/src/{reader,reader-source,reader-translation,bundle,reader-api,progress}.ts`，`schemas/{reader-ir,reader-translation,document-bundle}.schema.json`，`tests/reader-contracts.test.ts`，`fixtures/reader-v1/`；修改 `src/{documents,index}.ts`、package.json 与内部版本引用。
