@@ -242,16 +242,16 @@ lease：heartbeat 5 秒、30 秒失效；claim 使用 SKIP LOCKED 并增加 epoc
 - [x] **Step 3:** 用 `npm run test:service:db -- --run tests/integration/web-database.test.ts` 在独立 schema 验证迁移重放 / rollback / 约束；`expect(oldMigrationChecksumsAfter).toEqual(before)`，旧 PDF 数据 / Range / reader FK 仍通过。
 - [x] **Step 4:** 提交 `feat: persist private web captures and job state`。
 
-任务4验证记录：28项新增数据库回归、类型检查和构建通过；整套151/152，旧PDF幂等测试超时后单独复跑通过。完整套件的干净运行留在任务13最终整体验证，不能以单测复跑冒充全量通过。
+任务4验证记录：28项新增数据库回归、类型检查和构建通过；整套151/152，旧PDF幂等测试超时后单独复跑通过。任务5在无本任务并行负载、单worker运行下取得170/170通过（设备期限常量修正前）；最终源码冻结后的全量运行仍在任务13执行，不以单测复跑冒充全量通过。
 
 ### Task 5: 配对、设备授权与设置入口
 
 **Files:** 新建 `apps/document-service/src/devices/{service,routes,guards}.ts`、`apps/web/src/features/settings/devices-panel.tsx`、对应 service / web tests；修改 service `auth/routes.ts / users/service.ts / app.ts`、web `features/settings/provider-page.tsx`。
 **Interfaces:** 实现 §2.4 device API 与 CapturePrincipal。随机配对码至少 128bit、token 256bit，数据库只存摘要；配对创建 / 消费绑定 user authVersion 与原会话。
-- [ ] **Step 1:** RED：一次性消费并发只能成功一次、5 分钟过期、限流、token 不可读 Key / admin / Reader；普通 logout 撤销该 session 配对设备，allDevices / 密码重置 / 停用撤销全部旧 authVersion。
-- [ ] **Step 2:** 实现配对、列表、撤销及 scope 鉴权；无效 Bearer 不回退 Cookie；设备认证不放宽 session Origin / CSRF。
-- [ ] **Step 3:** 新增 `tests/integration/devices.test.ts` 与 web `tests/e2e/devices.test.ts`，通过现有 DB / site runner 执行；`expect(secondExchange.statusCode).toBe(401)`、`expect(otherOwner.statusCode).toBe(404)`。撤销后的最后文件 / commit 不发布，设置读取与日志无完整 token / Key。
-- [ ] **Step 4:** 提交 `feat: pair and revoke capture devices`。
+- [x] **Step 1:** RED：一次性消费并发只能成功一次、5 分钟过期、限流、token 不可读 Key / admin / Reader；普通 logout 撤销该 session 配对设备，allDevices / 密码重置 / 停用撤销全部旧 authVersion。
+- [x] **Step 2:** 实现配对、列表、撤销及 scope 鉴权；无效 Bearer 不回退 Cookie；设备认证不放宽 session Origin / CSRF。
+- [x] **Step 3:** 新增 `tests/integration/devices.test.ts` 与 web `tests/e2e/devices.test.ts`，通过现有 DB / site runner 执行；`expect(secondExchange.statusCode).toBe(401)`、`expect(otherOwner.statusCode).toBe(404)`。撤销后的最后文件 / commit 不发布，设置读取与日志无完整 token / Key。
+- [x] **Step 4:** 提交 `feat: pair and revoke capture devices`。
 
 ### Task 6: 采集接收、原文版本与私有资源 API
 
