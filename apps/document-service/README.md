@@ -244,3 +244,63 @@ version + chunk ID to a generated JSON asset. `reading_state` starts at revision
 0 with null position; later progress writes use its document-wide CAS and
 `reading_positions` for each version's history. Position JSON repeats the
 source/parse/reader identities, constrained to agree with the compound refs.
+
+## Private Reader HTTP API
+
+All routes use `/api/v1`, require a current session and return `Cache-Control:
+no-store`, including errors and HEAD/Range responses. Writes also require the
+site Origin and session CSRF token. Administrator sessions have no additional
+access to another user's documents. Client owner fields and unknown query/body
+fields are rejected.
+
+`GET /bundle-imports/limits` returns the effective `BundleLimits`.
+`POST /bundle-imports` takes `{targetDocumentId?}` and `Idempotency-Key`, returning
+201 with `BundleImport`. `GET /bundle-imports` returns the newest 20 own imports;
+`GET /bundle-imports/:id` returns one. `PUT /bundle-imports/:id/content` accepts
+an `application/zip` stream after authentication and CSRF checks, without
+buffering the archive. It returns the completed import, or a sanitized error
+whose durable status can be queried. A completed import rejects PUT with 409
+`BUNDLE_IMPORT_COMPLETED`; `POST /bundle-imports/:id/cancel` takes `{}`.
+Internal `BUNDLE_SOURCE_CONFLICT` is publicly `SOURCE_MISMATCH` in both errors
+and import status views. Validation errors retain `INVALID_BUNDLE`,
+`BUNDLE_TOO_LARGE`, `BUNDLE_MISSING_RESOURCE`, and `BUNDLE_IDENTITY_CONFLICT`.
+
+`GET /documents/:id/reader?versionId=...` returns `ReaderDescriptor`; omitted
+versionId selects the protected current version. `GET /documents/:id/reader-versions`
+returns `ReaderVersionList` with `page=1`, `pageSize=20` defaults and pageSize at
+most 100. Stored historical versions remain accessible even when import did not
+promote them. The descriptor retains source identity, structured index,
+translation/parse status, generation-kind and warnings. Its assetMap maps logical
+asset IDs to server UUIDs, resolved through this version's validated ReaderIR
+images and registered bundle files.
+
+`GET /documents/:id/readers/:versionId/chunks/:chunkId` returns a schema-validated
+`ReaderChunk`. `GET/HEAD /documents/:id/readers/:versionId/assets/:assetId` serves
+only this version's referenced PNG/JPEG/WebP with nosniff. HTML, JS, CSS, fonts,
+provenance, and arbitrary asset UUIDs are unavailable through this route.
+`GET/HEAD /documents/:id/readers/:versionId/bundle` streams the exact verified ZIP
+as an attachment. Both binary routes share original-PDF Range, HEAD, ETag and
+416 behavior; authentication and object existence precede metadata. These read
+routes do not invoke a parser, renderer build, translation model or bundle worker.
+JSON reads verify the immutable registered size, SHA-256 and contract schema;
+tightening future upload byte budgets does not hide already published versions.
+
+`GET /documents/:id/progress` returns the actual last acknowledged
+`ReadingProgress`, or null before the first save. `PUT` takes
+`{expectedRevision,position}` and uses document-wide CAS, starting at revision 0.
+A successful write increments revision and preserves that version's history in
+the same transaction. A stale revision returns 409 `PROGRESS_CONFLICT` without
+changing any position or state row. A historical-version save with a fresh
+global revision is valid. Source/parse/reader/block identities, page bounds and
+offsets are validated; independent PDF and content scrolling means a saved PDF
+page need not match the text block's source page.
+
+Descriptor progress is an **effective restoration**, distinct from GET progress:
+prefer the selected version's saved history; otherwise reuse the last position's
+block only when parse and block still match. Otherwise return the physical page
+(clamped to source page count), blockId=null, blockOffset=0 and
+`restoreHint='version-updated-source-page'`. This effective position always carries
+the current document-global acknowledgement revision and updatedAt, including
+when its coordinates came from older version history. Opening/restoring performs
+no write. The UI must wait for deliberate reading interaction before saving;
+409 requires an explicit user decision instead of an automatic overwrite retry.
