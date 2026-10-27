@@ -87,8 +87,8 @@ Web Reader 分片最多 128 blocks / 256 KiB，单超大块最多 512 KiB；正�
 | 所属 | 公开给后续任务的接口 |
 | --- | --- |
 | contracts | 上述 DTO / schema、`CaptureLimits / defaultCaptureLimits`；不导出服务端凭据或会话内部对象 |
-| web-capture | `sanitizeSnapshot(input: SnapshotInput, environment: SnapshotEnvironment): SanitizedSnapshot`；`projectWebReader(snapshot: SanitizedSnapshot, manifest: WebCaptureManifest): WebReaderIR`；`validateWebGraph(ir): void`；`normalizeCaptureUrl(url): string`；`captureContentFingerprint(snapshot, resources): Promise<string>` |
-| web-capture | `buildSnapshotPreviews(snapshot, limits): SnapshotPreviewIndex`；`resolveSnapshotAnchor(index, nodeId): {previewId,anchorId}|null`，预览 ID / node ID / 资源闭包进入不可变 source manifest |
+| web-capture | `sanitizeSnapshot(input: SnapshotInput, environment: SnapshotEnvironment): SanitizedSnapshot`；`projectWebReader(snapshot, manifest, options: WebProjectionOptions): Promise<WebReaderIR>`；`validateWebGraph(ir): void`；`normalizeCaptureUrl(url): string`；`captureContentFingerprint(snapshot, resources): Promise<string>` |
+| web-capture | `buildSnapshotPreviews(snapshot, resourceResolvedManifestDraft, limits): Promise<SnapshotPreviewBuild>`；`inspectImageResource(bytes, file, limits): Promise<WebReaderAsset>`；`resolveSnapshotAnchor(index, nodeId): {previewId,anchorId}|null`，预览 ID / node ID / 资源闭包进入不可变 source manifest |
 | web-capture/browser | `sanitizeBrowserSnapshot(input: SnapshotInput): SanitizedSnapshot`；使用原生 DOM，不包含站点适配或 Chrome I/O，也不导入 jsdom |
 | web-capture/node | `extractPublicArticle(html, url): SanitizedSnapshot`；禁脚本 / 子资源的 jsdom + Readability；仅在可终止 worker 内运行 |
 | renderer | `toWebTranslationDocument(ir, selection, sourceLanguage?): TranslationDocument`；`validateWebTranslation(ir, translation): ValidatedWebTranslation`；`buildWebReader(ir, translation): WebReaderBuild`；`renderWebChunk(chunk, { mode, resolveAsset }): TrustedReaderHtml`，mode 为 source / translation / bilingual |
@@ -104,6 +104,10 @@ Web Reader 分片最多 128 blocks / 256 KiB，单超大块最多 512 KiB；正�
 `TranslationStateStore` 的准确 SDK 方法为 `load()`、`save(checkpoint, cacheWrites)`；`TranslationCache` 为 `get / putMany / delete`。数据库适配器原子保存检查点与缓存，失败围栏抛出 SDK `CheckpointConflictError`，不能降级到仅内存执行。
 
 `JobLease` 是任务4在 service repository 中定义的内部类型，不是客户端 DTO：共同字段为 jobId / ownerId / authVersion / epoch / leaseOwner / leaseUntil / slotId / slotEpoch；按 kind 区分 fetch-link（documentId / url）与 translate（documentId / sourceVersionId / parseId / profileRevision / glossaryRevision）。repository 同时提供 `assertJobLeaseCurrent(client, lease)`；任务9/10不依赖尚未实现的 worker main，claim / heartbeat 编排由任务11完成。
+
+预览先以资源已经解析、预览为空的 manifest draft 构建，`SnapshotPreviewBuild` 返回 `{index:SnapshotPreviewIndex,files:Array<{descriptor:CaptureFile,html:string}>}`，包含实际预览字节摘要及资源预算。将生成文件与 index 加入最终 manifest 后再投影 IR，避免预览与来源摘要循环依赖。`WebProjectionOptions` 为 `{manifestBytes:Uint8Array,assets:readonly WebReaderAsset[],limits?:CaptureLimits}`；核对这些实际字节解析后的合同与参数一致，来源 SHA 使用实际 manifestBytes。资源检查核对实际字节 / SHA / 图片元数据，局部资产 ID 对应 CaptureFile.id。node / block ID 不依赖最终 manifest SHA。摘要相关函数用原生 WebCrypto 异步计算，不伪造同步摘要。
+
+root 的 `SnapshotEnvironment` 只注入字符串输入 / 输出的清洗能力；DOMPurify / DOM 对象留在 browser / node adapter。root 用 parse5 处理纯数据树并进行清洗前后检查，不新增 SanitizedSnapshot tree 字段。
 
 关键 DTO 的字段名固定如下，其余嵌套 schema 在任务 1 的对应模块定义：
 
