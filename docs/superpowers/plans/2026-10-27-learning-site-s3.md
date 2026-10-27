@@ -69,6 +69,7 @@
 - Web IR 复用 `TranslationBlock`、格式 / protected 语义和树状容器；新增网页表格 / 行 / 单元格。Web sourceRef 为 `{ nodeId, quote, prefix, suffix }`，nodeId 在固定快照内唯一；重复段落仍有不同 block ID。Web parse ID 仍用 `p_<sha256>`，但来自 source manifest / projector / config 摘要，不伪造 Python 或 PDF 信息。
 - `WebReaderIR.source.kind='web'`，无 pages。`WebLanguageDecision` 为 zh / en / foreign / mixed / und，附 sourceLanguage 与 reason；foreign 只扩展 Web 合同，PDF 既有四值语言合同与判断不变。
 - `WebTranslation` 复用现有单元 / block 结果模型，绑定实际 Web IR 字节 SHA。新增适配器使用 SDK `planUnits / validateStructure / decodeTranslation`；模型提供的 HTML / 格式树不作源依据。
+- 已有插件译文另用 `WebCaptureTranslationCandidate`（`web-capture-translation-candidate/1`），不绑定尚未生成的服务端 IR。它携带原文 snapshot / fingerprint、语种与 SDK / prompt / protection 版本及逐块 `{nodeId,sourceTextSha256,source:TranslationBlock,rawText}`；文本摘要为 UTF-8 `naturalText(source.content)`，不归一化空白，rawText 为 glossary 恢复后的完整 SDK result.text。服务器逐块比较自己的原文投影并重放 SDK 校验；不支持或不匹配只跳过候选并警告，原文照常保存。候选最多20,000块、单块512 KiB、文件16 MiB；draft 携带结构 DTO，不传译文 DOM HTML。
 - `WebDocumentSummary` 与原 PDF summary 构成 `DocumentSummary` union。网页 `source` 可为 null（仅链接），不能让 PDF 原件路由返回网页 manifest。`kind` 保留 V1 的 article / x-post / repository / paper / pdf；S3 后两种来源只作链接记录。
 
 ### 2.2 大小与可读性预算
@@ -151,6 +152,8 @@ type WebReadingProgress = { position: WebReadingPosition; revision: number; upda
 设备仅有 `captures:write / captures:read / links:write / preferences:read`；不能访问 provider / admin / 全资料库 / Reader / 原件接口。有 Authorization 时必须验证该设备，不得失败后退回 Cookie 身份。Cookie 写操作仍要求 Origin / CSRF；设备请求 `credentials:'omit'`，不启用任意网页凭 Cookie 跨域写入。
 
 capture 状态：created → receiving → validating → completed，或 failed / cancelled；completed 附 `saveStatus=original-saved|partial-resources`。仅链接是文档状态，不伪装已完成采集。job 状态：queued / running / paused-config / partial / completed / failed / cancelled；未配置 Key 时不创建可执行付费任务，文档显示 awaiting-config。
+
+手动创建 job 可指定 `sourceLanguage` 与 `selectionBlockIds`。语种使用2–63字符的保守 BCP47 形式，und / mul / zxx 不能表示明确语种；自动识别范围不扩大。选择存在时必须非空、唯一、最多20,000个 block ID，服务器按固定 IR 核对成员并归一到阅读顺序；不指定则整篇。确定后的语种与选择随不可变 job 输入持久化并参与身份摘要，WebJob DTO 用 null 表示未覆盖语种 / 整篇选择。默认 mixed / und / 短文仍需用户明确选择语种，中文默认零调用。
 
 ### 2.5 原件、快照与渲染
 
