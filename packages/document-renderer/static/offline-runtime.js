@@ -14,6 +14,15 @@
   function paint() {
     if (!index) return;
     const container = byId('content');
+    const pane = byId('content-pane');
+    const viewport = pane.getBoundingClientRect();
+    // Registrations may arrive in either order. Preserve what the user sees now,
+    // including scrolls made after an explicit jump has already been fulfilled.
+    const visibleBlock = [...container.querySelectorAll('[data-block-id]')].find(block => {
+      const rect = block.getBoundingClientRect();
+      return rect.bottom > viewport.top && rect.top < viewport.bottom;
+    });
+    const anchor = visibleBlock ? { id: visibleBlock.id, offset: visibleBlock.getBoundingClientRect().top - viewport.top } : undefined;
     container.replaceChildren();
     for (const info of index.chunks.slice(Math.max(0, current - 1), current + 2)) {
       const data = entries.get(info.id);
@@ -27,9 +36,11 @@
       }
       container.append(section);
     }
-    if (targetBlock) {
-      const target = byId(targetBlock);
-      if (target) { target.scrollIntoView(); targetBlock = undefined; }
+    const target = targetBlock && byId(targetBlock);
+    if (target) { target.scrollIntoView(); targetBlock = undefined; }
+    else if (anchor) {
+      const restored = byId(anchor.id);
+      if (restored) pane.scrollTop += restored.getBoundingClientRect().top - pane.getBoundingClientRect().top - anchor.offset;
     }
     byId('location').textContent = `${current + 1} / ${index.chunks.length}`;
     byId('previous').disabled = current === 0;
