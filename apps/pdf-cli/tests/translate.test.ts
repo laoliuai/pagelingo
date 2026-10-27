@@ -65,3 +65,26 @@ test('SDK zero-unit planning failure stays source-only unless a verified complet
   expect(covered.snapshot.metrics.requests).toBe(0);
   validateReaderTranslation(f.ir, covered.snapshot);
 });
+
+test('many unique SDK batches retain bounded full snapshots and bytes while every SDK transition stays durable', async () => {
+  const { readdir, stat } = await import('node:fs/promises');
+  const { atomicWrite } = await import('../src/file-checkpoints.js');
+  for (const count of [24, 48]) {
+    const f = await readyRun(Array.from({ length: count }, (_, index) => `<p>${english} Unique paragraph ${index}.</p>`).join(''));
+    let checkpointWrites = 0;
+    const result = await translateRun({ runDir: f.runDir, selection: 'all', provider: providerConfig, resume: false, newJob: false, budget: { maxBatchBlocks: 1 } }, {
+      provider: echoProvider, generationKind: 'mock', checkpointWrite: async (...args) => { checkpointWrites++; await atomicWrite(...args); },
+    });
+    const snapshotDirectory = join(f.runDir, 'translation/jobs', result.job.jobId, 'snapshots');
+    const names = await readdir(snapshotDirectory);
+    const sizes = await Promise.all(names.map(async name => (await stat(join(snapshotDirectory, name))).size));
+    const finalBytes = (await stat(join(f.runDir, result.snapshotPath))).size;
+    expect(result.snapshot.status).toBe('completed');
+    expect(result.snapshot.metrics.requests).toBe(count);
+    expect(checkpointWrites).toBe(2 * count + 1);
+    expect(names.length).toBeLessThanOrEqual(6);
+    expect(names.length).toBeLessThan(count / 3);
+    expect(sizes.reduce((sum, size) => sum + size, 0)).toBeLessThanOrEqual(6 * finalBytes);
+    validateReaderTranslation(f.ir, result.snapshot);
+  }
+});

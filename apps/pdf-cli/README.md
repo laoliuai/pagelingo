@@ -138,6 +138,18 @@ It never exposes partly written state as completed. The processing `config.json`
 remains immutable after projection; its translationStatus is the original
 projection decision. Consumers use this translation result's snapshot status.
 
+SDK checkpoints still persist every transition. Full immutable snapshots publish
+at creation, first successful block, and absolute 25%/50%/75% completion milestones,
+then once at completion or cancellation. Crossed milestones coalesce into one
+publication per batch; a completed batch uses the final publication. An
+uninterrupted first execution therefore retains at most six full snapshots
+regardless of batch count. Resume reads the last published completion count and does not repeat past
+milestones. Each explicit cancelled/resumed invocation can retain one additional
+terminal snapshot. Disk/epoch failure preserves the last published snapshot; the
+raw SDK checkpoint may contain newer verified results which resume recovers.
+No prior immutable snapshot is overwritten or deleted. Zero-selection jobs publish
+one initial snapshot and perform no SDK translation.
+
 - `translation/current.json` points to a job UUID.
 - `translation/jobs/<jobId>/job.json` holds immutable safe configuration/hash.
 - `translation/jobs/<jobId>/checkpoint.json` is the original SDK checkpoint,

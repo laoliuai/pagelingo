@@ -152,3 +152,43 @@ test('atomic publication rechecks fencing after temporary-file fsync and preserv
   expect(await readFile(path, 'utf8')).toBe('previous checkpoint');
   expect((await readdir(f.root)).filter(name => name.endsWith('.tmp'))).toEqual([]);
 });
+
+test('cancellation between publication milestones publishes verified progress and resumes only unfinished work', async () => {
+  const f = await readyRun(Array.from({ length: 24 }, (_, index) => `<p>${english} Unique paragraph ${index}.</p>`).join(''));
+  const controller = new AbortController(); let requests = 0;
+  const stopped = await translateRun(opts(f.runDir), { signal: controller.signal, generationKind: 'mock', provider: { generate: async request => {
+    if (++requests === 5) controller.abort();
+    return echo(request);
+  } } });
+  expect(stopped.snapshot.status).toBe('partial');
+  expect(stopped.snapshot.blocks.filter(block => block.status === 'translated')).toHaveLength(4);
+  expect((await readdir(join(f.runDir, 'translation/jobs', stopped.job.jobId, 'snapshots'))).length).toBeLessThanOrEqual(3);
+  const before = await readFile(join(f.runDir, stopped.snapshotPath));
+  const resumedIds: string[] = [];
+  const completed = await translateRun({ ...opts(f.runDir), resume: true }, { generationKind: 'mock', provider: { generate: async request => {
+    resumedIds.push(...request.data.blocks.map(block => block.id)); return echo(request);
+  } } });
+  expect(completed.snapshot.status).toBe('completed');
+  expect(resumedIds).toEqual(Array.from({ length: 20 }, (_, index) => `u${index + 4}:0`));
+  expect(await readFile(join(f.runDir, stopped.snapshotPath))).toEqual(before);
+});
+test('disk failure between milestones retains the published snapshot and newer SDK results for resume', async () => {
+  const f = await readyRun(Array.from({ length: 24 }, (_, index) => `<p>${english} Unique paragraph ${index}.</p>`).join(''));
+  await expect(translateRun(opts(f.runDir), { generationKind: 'mock', provider: echoProvider, checkpointWrite: async (...args) => {
+    const checkpoint = JSON.parse(Buffer.from(args[1]).toString('utf8'));
+    if (checkpoint.metrics.requests === 6) throw new Error('ENOSPC');
+    await atomicWrite(...args);
+  } })).rejects.toThrow('TRANSLATION_DISK_WRITE_FAILED');
+  const published = await loadTranslationRun(f.runDir);
+  expect(published.snapshot.blocks.filter(block => block.status === 'translated')).toHaveLength(1);
+  const checkpoint = JSON.parse(await readFile(join(f.runDir, published.checkpointPath), 'utf8'));
+  expect(Object.keys(checkpoint.blocks)).toHaveLength(5);
+  const before = await readFile(join(f.runDir, published.snapshotPath));
+  const resumedIds: string[] = [];
+  const completed = await translateRun({ ...opts(f.runDir), resume: true }, { generationKind: 'mock', provider: { generate: async request => {
+    resumedIds.push(...request.data.blocks.map(block => block.id)); return echo(request);
+  } } });
+  expect(completed.snapshot.status).toBe('completed');
+  expect(resumedIds).toEqual(Array.from({ length: 19 }, (_, index) => `u${index + 5}:0`));
+  expect(await readFile(join(f.runDir, published.snapshotPath))).toEqual(before);
+});

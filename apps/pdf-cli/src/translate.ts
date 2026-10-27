@@ -110,6 +110,8 @@ export async function translateRun(options: TranslateRunOptions, deps: Translati
     await privateDirectory(join(options.runDir, paths.directory, 'snapshots'));
     const cache = new FileTranslationCache(join(options.runDir, 'translation/cache'), lock);
     const store = new FileCheckpointStore(join(options.runDir, paths.checkpointPath), lock, cache, deps.checkpointWrite);
+    let published: LocalTranslationResult | undefined;
+    let publishedCompleted = 0;
     const saveSnapshot = async (cancelled = false): Promise<LocalTranslationResult> => {
       await lock!.assertCurrent();
       const checkpoint = await store.load();
@@ -120,22 +122,32 @@ export async function translateRun(options: TranslateRunOptions, deps: Translati
       await atomicWrite(join(options.runDir, snapshotPath), bytes, true, () => lock!.assertCurrent());
       await lock!.assertCurrent();
       await atomicWrite(join(options.runDir, paths.latestPath), serializeBundleJson({ snapshotId: snapshot.id, sha256: hash(bytes) }), false, () => lock!.assertCurrent());
-      return { job, snapshot, jobPath: paths.jobPath, checkpointPath: paths.checkpointPath, snapshotPath, snapshotSha256: hash(bytes),
+      publishedCompleted = snapshot.blocks.filter(block => block.status === 'translated').length;
+      published = { job, snapshot, jobPath: paths.jobPath, checkpointPath: paths.checkpointPath, snapshotPath, snapshotSha256: hash(bytes),
         warnings: snapshot.blocks.some(block => block.status === 'source-only' && block.reason === 'manual-choice') ? ['MANUAL_SELECTION_REQUIRED'] : [] };
+      return published;
     };
     if (job.jobId !== previousId) {
       await lock.assertCurrent();
       await atomicWrite(join(options.runDir, paths.jobPath), serializeBundleJson(job), true, () => lock!.assertCurrent());
       await saveSnapshot();
       await atomicWrite(join(options.runDir, 'translation/current.json'), serializeBundleJson({ jobId: job.jobId }), false, () => lock!.assertCurrent());
+    } else {
+      published = await loadTranslationRun(options.runDir);
+      publishedCompleted = published.snapshot.blocks.filter(block => block.status === 'translated').length;
     }
     const signal = deps.signal ?? new AbortController().signal;
-    if (!selectionBlockIds.length) return await saveSnapshot();
+    if (!selectionBlockIds.length) return published!;
     const provider = safeProvider(deps.provider ?? createLocalProvider(resolved, config.budget.maxOutputTokens));
     const engine = new TranslationEngine(provider, { reliability: { identity: { endpoint: resolved.baseUrl, model: resolved.model, generation: { kind: generationKind } },
       budget: job.budget, cache, state: store, maxRetries: job.maxRetries, backoffMs: job.backoffMs } });
     try {
-      for await (const _batch of engine.translate(document, { targetLanguage: job.targetLanguage, profile: job.profile, glossary: job.glossary, glossaryDomain: job.glossaryDomain, signal })) await saveSnapshot();
+      for await (const batch of engine.translate(document, { targetLanguage: job.targetLanguage, profile: job.profile, glossary: job.glossary, glossaryDomain: job.glossaryDomain, signal })) {
+        // SDK transitions are already durable. Publish whole-book replay only at
+        // first success and absolute quartiles; resume never repeats old milestones.
+        const milestones = [1, ...[0.25, 0.5, 0.75].map(fraction => Math.ceil(batch.total * fraction))];
+        if (batch.completed < batch.total && milestones.some(count => publishedCompleted < count && batch.completed >= count)) await saveSnapshot();
+      }
     } catch (error) {
       if (error instanceof CheckpointConflictError) throw error;
       if (!signal.aborted) throw new LocalTranslationError('TRANSLATION_SDK_FAILED');
