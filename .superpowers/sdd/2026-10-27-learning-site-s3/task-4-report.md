@@ -87,3 +87,23 @@ The 20 focused tests cover populated S2 PDF/source/Reader preservation beside We
 Files: new 006 migration; five new repository modules listed above; new `tests/integration/web-database.test.ts` and test-only `tests/helpers/web-lease-process.ts`; changed `src/db/migrate.ts`, `src/documents/repository.ts`, migration-count assertions in `tests/integration/database.test.ts` and `tests/integration/reader-routes.test.ts`; this report. Pinned renderer assets/generators, fixtures, original corpus, 001–005, models and credentials were not edited. No merge/push or process stops.
 
 Known concerns: none beyond the explicitly deferred authentication, publication-policy, Provider integration and worker orchestration handoffs above. Repository transaction preconditions are mandatory for consumers.
+
+## Fix round 1 — capture translation-job identity
+
+Review base: `d56917dc7919218d9cf962366e0a0222c1d17325`. Reproduced the Important finding: a completed capture could associate its Reader with a translation job for another source, or another parse of the same source, within the same document.
+
+Changed only `migrations/006-web-capture.sql` and `tests/integration/web-database.test.ts` plus this report. Added immediate database constraint trigger `web_capture_job_reader_identity` / function `assert_capture_job_reader_identity`. On capture INSERT/UPDATE with a nonnull translation job, it compares the immutable job's `(source_version_id, parse_id)` with the registered Reader's identity and rejects mismatch with SQLSTATE `23503`. Existing composite FKs continue to enforce owner/document/source/Reader membership and retain the referenced rows. Job and Reader identity UPDATE rejection makes the constraint stable after capture completion. Valid null-job source-only completion and matching-job completion remain supported. Existing fetch-job owner/document rules are unchanged.
+
+Consumer fields/API changes: **none**. `CaptureCompletion`, `WebCaptureRow`, `completeWebCapture` and other repository exports remain unchanged; existing transaction/auth assumptions also remain unchanged. Deferred lease formatting was not touched.
+
+Verification:
+
+- RED: `npm run test:service:db -- --run tests/integration/web-database.test.ts` — 6 failed / 22 passed (`/tmp/pagelingo-task4-fix1-red2.log`). Each source/parse mismatch succeeded unexpectedly through repository completion, direct SQL INSERT, and direct SQL UPDATE; the positive matching/null-job controls passed.
+- GREEN: same command — **28/28 passed**, 6.02s (`/tmp/pagelingo-task4-fix1-green.log`). Tests also confirm rejected repository transactions preserve the validating capture with no job.
+- `npm run typecheck --workspace @pagelingo/document-service` — PASS, exit 0.
+- `npm run build --workspace @pagelingo/document-service` — PASS, exit 0.
+- Final full `npm run test:service:db` — **151 passed / 1 failed**, 137.25s (`/tmp/pagelingo-task4-fix1-db-final.log`). The sole failure was existing `bundle-imports.test.ts > atomic private bundle publication > is idempotent by request and package and never moves current back to an older package`, exceeding its unchanged 15-second timeout (15.067s), with no assertion/constraint failure. All 28 Web tests passed in that run.
+- Targeted timeout investigation: inspected the existing PDF-only test (multiple bundle builds/imports; no Web capture mutation), then ran `npm run test:service:db -- --run tests/integration/bundle-imports.test.ts -t 'is idempotent by request and package and never moves current back to an older package'` — **1 passed / 21 skipped**, 10.48s total runner duration, exit 0 (`/tmp/pagelingo-task4-fix1-timeout-recheck.log`). The unchanged timeout passes in isolation, supporting timing contention in the full run. No unrelated test or timeout edits; the full suite was not rerun.
+- `git diff --check` — PASS. Migrations 001–005 have no diff against the fix base.
+
+Self-review: checked both direct write paths, the nullable-job path, source versus parse comparison independently, existing FK composition, and immutable referenced identities. No repository-only validation substitute, new consumer fields, legacy migration edits, unrelated formatting, or production-data changes. No known remaining concern for this finding.

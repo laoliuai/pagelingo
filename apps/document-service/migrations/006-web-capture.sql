@@ -280,3 +280,24 @@ $$;
 ALTER TABLE web_jobs ADD CHECK (selection_block_ids IS NULL OR valid_web_selection(selection_block_ids));
 -- The full source/parse FK intentionally skips fetch jobs; their result still needs owner/document fencing.
 ALTER TABLE web_jobs ADD FOREIGN KEY (owner_id,document_id,reader_version_id) REFERENCES web_reader_versions(owner_id,document_id,id);
+-- A capture's associated translation job must translate the saved Reader's exact identity.
+-- Those job/Reader columns are immutable; existing FKs retain both referenced rows.
+CREATE FUNCTION assert_capture_job_reader_identity() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM web_jobs j
+    JOIN web_reader_versions r ON (r.owner_id,r.document_id,r.id) =
+      (NEW.owner_id,NEW.document_id,NEW.reader_version_id)
+    WHERE (j.owner_id,j.document_id,j.id) = (NEW.owner_id,NEW.document_id,NEW.job_id)
+      AND j.kind = 'translate'
+      AND (j.source_version_id,j.parse_id) IS DISTINCT FROM (r.source_version_id,r.parse_id)
+  ) THEN
+    RAISE EXCEPTION 'Capture translation job must match Reader source and parse'
+      USING ERRCODE='23503', CONSTRAINT='web_capture_job_reader_identity';
+  END IF;
+  RETURN NEW;
+END; $$;
+CREATE CONSTRAINT TRIGGER web_capture_job_reader_identity
+  AFTER INSERT OR UPDATE ON web_captures
+  FOR EACH ROW WHEN (NEW.job_id IS NOT NULL)
+  EXECUTE FUNCTION assert_capture_job_reader_identity();

@@ -367,3 +367,68 @@ it('fences fetch job reader results by owner/document even with nullable source/
   await expect(db.pool.query('UPDATE web_jobs SET reader_version_id=$1 WHERE id=$2',[g.r,id])).rejects.toMatchObject({code:'23503'});
   await db.pool.query('UPDATE web_jobs SET reader_version_id=$1 WHERE id=$2',[f.r,id]);
 });
+
+async function captureJobIdentityFixture(db: Database, differentSource: boolean) {
+  const f = await jobFixture(db);
+  const sourceId = differentSource ? randomUUID() : f.s;
+  const parseId = `p_${'d'.repeat(64)}`, readerId = randomUUID();
+  if (differentSource) {
+    await db.pool.query("INSERT INTO source_versions (id,owner_id,document_id,asset_id,sha256,bytes) VALUES ($1,$2,$3,$4,repeat('a',64),10)", [sourceId,f.o,f.d,f.a]);
+    await db.pool.query("INSERT INTO web_sources (owner_id,document_id,source_version_id,url,scope,content_fingerprint,snapshot_sha256) VALUES ($1,$2,$3,'https://example.com/new','{}',repeat('d',64),repeat('c',64))", [f.o,f.d,sourceId]);
+  }
+  const readers = await import('../../src/web-readers/repository.js');
+  await db.transaction(async c => {
+    await readers.insertWebParse(c, { ownerId:f.o,documentId:f.d,sourceVersionId:sourceId,parseId,irAssetId:f.a,irSha256:'a'.repeat(64) });
+    await readers.insertWebReaderVersion(c, { id:readerId,ownerId:f.o,documentId:f.d,sourceVersionId:sourceId,parseId,translationId:null,indexAssetId:f.a,translationStatus:'pending',warnings:[] });
+  });
+  const captureId = randomUUID(), id = randomUUID();
+  await db.pool.query(`INSERT INTO web_captures
+    (id,capture_id,owner_id,auth_version,session_id,idempotency_key,request_hash,manifest,translation_intent,staging_key,status)
+    VALUES ($1,$2,$3,1,$4,$5,repeat('d',64),'{}','none',$6,'validating')`, [id,captureId,f.o,randomUUID(),captureId,randomUUID()]);
+  return { ...f,captureId:id,sourceId,readerId };
+}
+it.each(['source','parse'])('rejects capture completion with a translation job for a different %s', async identity => {
+  const differentSource = identity === 'source';
+  const db = await database(), f = await captureJobIdentityFixture(db,differentSource);
+  const captures = await import('../../src/web-captures/repository.js');
+  await expect(db.transaction(c => captures.completeWebCapture(c,f.o,f.captureId,0,{
+    documentId:f.d,sourceVersionId:f.sourceId,readerVersionId:f.readerId,jobId:f.id,saveStatus:'original-saved',warnings:[],
+  }))).rejects.toMatchObject({ code:'23503' });
+  expect((await db.pool.query('SELECT status,job_id FROM web_captures WHERE id=$1', [f.captureId])).rows[0]).toEqual({ status:'validating',job_id:null });
+});
+it.each([
+  ['source','INSERT'], ['source','UPDATE'], ['parse','INSERT'], ['parse','UPDATE'],
+])('rejects a different %s in direct SQL capture %s', async (identity,operation) => {
+  const db = await database(), f = await captureJobIdentityFixture(db,identity === 'source');
+  if (operation === 'UPDATE') {
+    await expect(db.pool.query(`UPDATE web_captures SET status='completed',document_id=$2,source_version_id=$3,
+      reader_version_id=$4,job_id=$5,save_status='original-saved' WHERE id=$1`, [f.captureId,f.d,f.sourceId,f.readerId,f.id])).rejects.toMatchObject({ code:'23503' });
+  } else {
+    const id = randomUUID(), captureId = randomUUID();
+    await expect(db.pool.query(`INSERT INTO web_captures
+      (id,capture_id,owner_id,auth_version,session_id,idempotency_key,request_hash,manifest,translation_intent,staging_key,status,document_id,source_version_id,reader_version_id,job_id,save_status)
+      VALUES ($1,$2,$3,1,$4,$5,repeat('d',64),'{}','none',$6,'completed',$7,$8,$9,$10,'original-saved')`,
+    [id,captureId,f.o,randomUUID(),captureId,randomUUID(),f.d,f.sourceId,f.readerId,f.id])).rejects.toMatchObject({ code:'23503' });
+  }
+});
+it.each(['source','parse'])('retains matching and null-job capture completion beside another %s', async identity => {
+  const differentSource = identity === 'source';
+  const db = await database(), f = await captureJobIdentityFixture(db,differentSource);
+  const captures = await import('../../src/web-captures/repository.js');
+  await db.transaction(async c => {
+    expect(await captures.completeWebCapture(c,f.o,f.captureId,0,{
+      documentId:f.d,sourceVersionId:f.sourceId,readerVersionId:f.readerId,jobId:null,saveStatus:'original-saved',warnings:[],
+    })).toBe(true);
+    expect(await captures.findWebCapture(c,f.o,f.captureId)).toMatchObject({ status:'completed',source_version_id:f.sourceId,reader_version_id:f.readerId,job_id:null });
+  });
+  const matching = randomUUID(), captureId = randomUUID();
+  await db.pool.query(`INSERT INTO web_captures
+    (id,capture_id,owner_id,auth_version,session_id,idempotency_key,request_hash,manifest,translation_intent,staging_key,status)
+    VALUES ($1,$2,$3,1,$4,$5,repeat('d',64),'{}','translate',$6,'validating')`, [matching,captureId,f.o,randomUUID(),captureId,randomUUID()]);
+  await db.transaction(async c => {
+    expect(await captures.completeWebCapture(c,f.o,matching,0,{
+      documentId:f.d,sourceVersionId:f.s,readerVersionId:f.r,jobId:f.id,saveStatus:'original-saved',warnings:[],
+    })).toBe(true);
+    expect(await captures.findWebCapture(c,f.o,matching)).toMatchObject({ status:'completed',source_version_id:f.s,reader_version_id:f.r,job_id:f.id });
+  });
+});
