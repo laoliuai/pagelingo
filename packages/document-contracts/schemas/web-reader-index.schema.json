@@ -1,0 +1,226 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "parseId": {
+      "type": "string",
+      "pattern": "^p_[a-f0-9]{64}$"
+    },
+    "sourceSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "chunks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^c_(?!000000)[0-9]{6}$"
+          },
+          "blockIds": {
+            "maxItems": 128,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^b_[a-f0-9]{32}$"
+            }
+          },
+          "bytes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 524288
+          }
+        },
+        "required": [
+          "id",
+          "blockIds",
+          "bytes"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "toc": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "nodeId": {
+            "type": "string",
+            "pattern": "^n_[a-f0-9]{32}$"
+          },
+          "parentId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^n_[a-f0-9]{32}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "blockId": {
+            "type": "string",
+            "pattern": "^b_[a-f0-9]{32}$"
+          },
+          "title": {
+            "type": "string"
+          },
+          "depth": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 64
+          }
+        },
+        "required": [
+          "nodeId",
+          "parentId",
+          "blockId",
+          "title",
+          "depth"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "blockLocations": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^b_[a-f0-9]{32}$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "chunkId": {
+            "type": "string",
+            "pattern": "^c_(?!000000)[0-9]{6}$"
+          },
+          "nodeId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          },
+          "previewId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "chunkId",
+          "nodeId",
+          "previewId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "language": {
+      "type": "object",
+      "properties": {
+        "language": {
+          "type": "string",
+          "enum": [
+            "zh",
+            "en",
+            "foreign",
+            "mixed",
+            "und"
+          ]
+        },
+        "sourceLanguage": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 63,
+              "pattern": "^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "no-language",
+            "han-only",
+            "insufficient-text",
+            "other-script",
+            "han-majority",
+            "mixed-script",
+            "english-heuristic",
+            "uncertain",
+            "document-inherited",
+            "user-specified",
+            "script-compatible-hint"
+          ]
+        }
+      },
+      "required": [
+        "language",
+        "sourceLanguage",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    "translationStatus": {
+      "type": "string",
+      "enum": [
+        "not-required",
+        "pending",
+        "partial",
+        "completed",
+        "failed",
+        "cancelled"
+      ]
+    },
+    "generationKind": {
+      "type": "string",
+      "enum": [
+        "model",
+        "mock",
+        "none"
+      ]
+    },
+    "assetIds": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 240
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "required": [
+    "parseId",
+    "sourceSha256",
+    "chunks",
+    "toc",
+    "blockLocations",
+    "language",
+    "translationStatus",
+    "generationKind",
+    "assetIds",
+    "warnings"
+  ],
+  "additionalProperties": false,
+  "$id": "https://pagelingo.dev/schemas/web-reader-index/1",
+  "$comment": "Shape validation only. Reader graph, translation references, SDK replay, resource closure and actual byte hashes require their dedicated validators."
+}

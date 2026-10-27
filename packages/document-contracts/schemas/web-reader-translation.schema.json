@@ -1,0 +1,477 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "web-reader-translation/1"
+    },
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "jobId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "sourceSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "parseId": {
+      "type": "string",
+      "pattern": "^p_[a-f0-9]{64}$"
+    },
+    "readerIrSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "sdkVersion": {
+      "type": "string",
+      "minLength": 1
+    },
+    "promptVersion": {
+      "type": "string",
+      "minLength": 1
+    },
+    "protectionVersion": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sourceLanguage": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "targetLanguage": {
+      "type": "string",
+      "minLength": 1
+    },
+    "profile": {
+      "type": "string",
+      "enum": [
+        "technical",
+        "academic"
+      ]
+    },
+    "budget": {
+      "type": "object",
+      "properties": {
+        "maxInputTokens": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "maxOutputTokens": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "contextWindowTokens": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "maxBatchBlocks": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "reserveTokens": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "maxInputTokens",
+        "maxOutputTokens",
+        "contextWindowTokens"
+      ],
+      "additionalProperties": false
+    },
+    "glossary": {
+      "maxItems": 5000,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "target": {
+            "type": "string",
+            "maxLength": 240
+          },
+          "policy": {
+            "type": "string",
+            "enum": [
+              "keep",
+              "translate",
+              "first-bilingual",
+              "prefer-source"
+            ]
+          },
+          "domain": {
+            "type": "string",
+            "enum": [
+              "all",
+              "machine-learning",
+              "software-engineering",
+              "physics",
+              "general-technical"
+            ]
+          }
+        },
+        "required": [
+          "source",
+          "target",
+          "policy",
+          "domain"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "glossaryDomain": {
+      "type": "string",
+      "enum": [
+        "all",
+        "machine-learning",
+        "software-engineering",
+        "physics",
+        "general-technical"
+      ]
+    },
+    "glossarySha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "selectionBlockIds": {
+      "maxItems": 100000,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^b_[a-f0-9]{32}$"
+      }
+    },
+    "provider": {
+      "type": "object",
+      "properties": {
+        "model": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "endpointFingerprint": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "model",
+        "endpointFingerprint"
+      ],
+      "additionalProperties": false
+    },
+    "generationKind": {
+      "type": "string",
+      "enum": [
+        "model",
+        "mock",
+        "none"
+      ]
+    },
+    "metrics": {
+      "type": "object",
+      "properties": {
+        "requests": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "retries": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "cacheHits": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "promptTokens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "completionTokens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "totalTokens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "usageRequests": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "startedAt": {
+          "type": "number",
+          "minimum": 0
+        },
+        "elapsedMs": {
+          "type": "number",
+          "minimum": 0
+        },
+        "firstResultMs": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "requests",
+        "retries",
+        "cacheHits",
+        "promptTokens",
+        "completionTokens",
+        "totalTokens",
+        "usageRequests",
+        "startedAt",
+        "elapsedMs"
+      ],
+      "additionalProperties": false
+    },
+    "blocks": {
+      "maxItems": 100000,
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "blockId": {
+                "type": "string",
+                "pattern": "^b_[a-f0-9]{32}$"
+              },
+              "status": {
+                "type": "string",
+                "const": "translated"
+              },
+              "rawText": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "blockId",
+              "status",
+              "rawText"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "blockId": {
+                "type": "string",
+                "pattern": "^b_[a-f0-9]{32}$"
+              },
+              "status": {
+                "type": "string",
+                "const": "source-only"
+              },
+              "reason": {
+                "type": "string",
+                "enum": [
+                  "language-not-required",
+                  "manual-choice",
+                  "pending",
+                  "failed",
+                  "cancelled"
+                ]
+              }
+            },
+            "required": [
+              "blockId",
+              "status",
+              "reason"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "units": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^u[0-9]+:[0-9]+$"
+              },
+              "blockId": {
+                "type": "string",
+                "pattern": "^b_[a-f0-9]{32}$"
+              },
+              "part": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "status": {
+                "type": "string",
+                "const": "completed"
+              },
+              "rawText": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "id",
+              "blockId",
+              "part",
+              "status",
+              "rawText"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^u[0-9]+:[0-9]+$"
+              },
+              "blockId": {
+                "type": "string",
+                "pattern": "^b_[a-f0-9]{32}$"
+              },
+              "part": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "status": {
+                "type": "string",
+                "const": "covered-by-block"
+              }
+            },
+            "required": [
+              "id",
+              "blockId",
+              "part",
+              "status"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^u[0-9]+:[0-9]+$"
+              },
+              "blockId": {
+                "type": "string",
+                "pattern": "^b_[a-f0-9]{32}$"
+              },
+              "part": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "failed",
+                  "cancelled"
+                ]
+              },
+              "error": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "blockId",
+              "part",
+              "status"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "not-required",
+        "pending",
+        "partial",
+        "completed",
+        "failed",
+        "cancelled"
+      ]
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "id",
+    "jobId",
+    "sourceSha256",
+    "parseId",
+    "readerIrSha256",
+    "sdkVersion",
+    "promptVersion",
+    "protectionVersion",
+    "sourceLanguage",
+    "targetLanguage",
+    "profile",
+    "budget",
+    "glossary",
+    "glossaryDomain",
+    "glossarySha256",
+    "selectionBlockIds",
+    "provider",
+    "generationKind",
+    "metrics",
+    "blocks",
+    "units",
+    "status"
+  ],
+  "additionalProperties": false,
+  "$id": "https://pagelingo.dev/schemas/web-reader-translation/1",
+  "$comment": "Shape validation only. Reader graph, translation references, SDK replay, resource closure and actual byte hashes require their dedicated validators."
+}

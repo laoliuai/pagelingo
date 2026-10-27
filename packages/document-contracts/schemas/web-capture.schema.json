@@ -1,0 +1,448 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "web-capture/1"
+    },
+    "captureId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^https?:\\/\\/(?![^/?#]*@)[^/?#\\s\\x00-\\x1f\\x7f]+[^\\s\\x00-\\x1f\\x7f]*$"
+        },
+        "canonicalUrl": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 8192,
+              "pattern": "^https?:\\/\\/(?![^/?#]*@)[^/?#\\s\\x00-\\x1f\\x7f]+[^\\s\\x00-\\x1f\\x7f]*$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "article",
+            "x-post",
+            "answer"
+          ]
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "extension",
+            "public-fetch"
+          ]
+        }
+      },
+      "required": [
+        "url",
+        "canonicalUrl",
+        "kind",
+        "method"
+      ],
+      "additionalProperties": false
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "author": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 2000
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "publishedAt": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "capturedAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+        }
+      },
+      "required": [
+        "title",
+        "author",
+        "publishedAt",
+        "capturedAt"
+      ],
+      "additionalProperties": false
+    },
+    "scope": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "article",
+            "x-post",
+            "answer"
+          ]
+        },
+        "rootNodeId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "completeWithinScope": {
+          "type": "boolean"
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "rootNodeId",
+        "completeWithinScope",
+        "warnings"
+      ],
+      "additionalProperties": false
+    },
+    "htmlFileId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 240
+    },
+    "files": {
+      "minItems": 1,
+      "maxItems": 256,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240,
+            "allOf": [
+              {
+                "pattern": "^[\\x20-\\x7e]+$"
+              },
+              {
+                "pattern": "^[^\\\\:%\"*<>?|]+$"
+              },
+              {
+                "pattern": "^(?!\\/)(?!.*\\/$)(?!.*\\/\\/)(?!.*(?:^|\\/)\\.{1,2}(?:\\/|$))(?!.*(?:^|\\/)(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][0-9]|[lL][pP][tT][0-9])(?:\\.|\\/|$))(?!.*(?:[. ]\\/|[. ]$)).+$"
+              }
+            ]
+          },
+          "bytes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 16777216
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "mediaType": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "html",
+              "image",
+              "css",
+              "translation",
+              "preview"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "path",
+          "bytes",
+          "sha256",
+          "mediaType",
+          "role"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "resources": {
+      "maxItems": 50000,
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              },
+              "url": {
+                "type": "string",
+                "maxLength": 8192,
+                "pattern": "^https?:\\/\\/(?![^/?#]*@)[^/?#\\s\\x00-\\x1f\\x7f]+[^\\s\\x00-\\x1f\\x7f]*$"
+              },
+              "status": {
+                "type": "string",
+                "const": "available"
+              },
+              "fileId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              }
+            },
+            "required": [
+              "id",
+              "url",
+              "status",
+              "fileId"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              },
+              "url": {
+                "type": "string",
+                "maxLength": 8192,
+                "pattern": "^https?:\\/\\/(?![^/?#]*@)[^/?#\\s\\x00-\\x1f\\x7f]+[^\\s\\x00-\\x1f\\x7f]*$"
+              },
+              "status": {
+                "type": "string",
+                "const": "missing"
+              },
+              "reason": {
+                "type": "string",
+                "enum": [
+                  "unavailable",
+                  "unsupported",
+                  "blocked",
+                  "too-large",
+                  "timeout",
+                  "not-loaded",
+                  "invalid"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "url",
+              "status",
+              "reason"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "stylesheetFileIds": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 240
+      }
+    },
+    "snapshots": {
+      "type": "object",
+      "properties": {
+        "previews": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              },
+              "fileId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              },
+              "nodeIds": {
+                "maxItems": 50000,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 240
+                }
+              },
+              "blockIds": {
+                "maxItems": 128,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "resourceFileIds": {
+                "maxItems": 256,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 240
+                }
+              },
+              "htmlBytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 524288
+              },
+              "resourceBytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 33554432
+              }
+            },
+            "required": [
+              "id",
+              "fileId",
+              "nodeIds",
+              "blockIds",
+              "resourceFileIds",
+              "htmlBytes",
+              "resourceBytes"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "nodeLocations": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          },
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "previewId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              },
+              "anchorId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              }
+            },
+            "required": [
+              "previewId",
+              "anchorId"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "previews",
+        "nodeLocations"
+      ],
+      "additionalProperties": false
+    },
+    "existingTranslation": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "fileId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 240
+            },
+            "sourceSnapshotSha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "sourceContentFingerprint": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "targetLanguage": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 40
+            }
+          },
+          "required": [
+            "fileId",
+            "sourceSnapshotSha256",
+            "sourceContentFingerprint",
+            "targetLanguage"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "captureId",
+    "source",
+    "metadata",
+    "scope",
+    "htmlFileId",
+    "files",
+    "resources",
+    "stylesheetFileIds",
+    "snapshots",
+    "existingTranslation"
+  ],
+  "additionalProperties": false,
+  "$id": "https://pagelingo.dev/schemas/web-capture/1",
+  "$comment": "Shape validation only. Reader graph, translation references, SDK replay, resource closure and actual byte hashes require their dedicated validators."
+}

@@ -1,14 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import type { PoolClient } from 'pg';
-import type { DocumentSummary } from '@pagelingo/document-contracts';
+import type { PdfDocumentSummary } from '@pagelingo/document-contracts';
 import { ServiceError } from '../errors.js';
 import type { StoredObject } from '../storage/object-store.js';
 
 export interface DocumentRow {
   id: string; title: string; original_filename: string; created_at: Date;
   source_version_id: string; asset_id: string; sha256: string; bytes: string; object_key: string;
-  reader_version_id: string | null; translation_status: NonNullable<DocumentSummary['reader']>['translationStatus'];
-  parse_coverage: NonNullable<DocumentSummary['reader']>['parseCoverage']; reader_warnings: string[];
+  reader_version_id: string | null; translation_status: NonNullable<PdfDocumentSummary['reader']>['translationStatus'];
+  parse_coverage: NonNullable<PdfDocumentSummary['reader']>['parseCoverage']; reader_warnings: string[];
 }
 const documentSelect = `SELECT d.id, d.title, d.original_filename, d.created_at,
   s.id AS source_version_id, s.asset_id, s.sha256, s.bytes, a.object_key,
@@ -19,7 +19,7 @@ const documentSelect = `SELECT d.id, d.title, d.original_filename, d.created_at,
   LEFT JOIN reader_versions r ON (r.owner_id,r.document_id,r.id)=(d.owner_id,d.id,d.current_reader_version_id)
   LEFT JOIN translation_runs t ON (t.owner_id,t.id)=(r.owner_id,r.translation_id)
   LEFT JOIN parse_runs p ON (p.owner_id,p.id)=(r.owner_id,r.parse_id)`;
-export function summary(row: DocumentRow): DocumentSummary {
+export function summary(row: DocumentRow): PdfDocumentSummary {
   return { id: row.id, kind: 'pdf', title: row.title, originalFilename: row.original_filename,
     createdAt: row.created_at.toISOString(), source: { documentId: row.id,
       sourceVersionId: row.source_version_id, assetId: row.asset_id, sha256: row.sha256, bytes: Number(row.bytes) },

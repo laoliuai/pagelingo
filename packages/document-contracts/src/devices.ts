@@ -1,0 +1,14 @@
+import { z } from 'zod';
+export const deviceScopeSchema = z.enum(['captures:write', 'captures:read', 'links:write', 'preferences:read']);
+export type DeviceScope = z.infer<typeof deviceScopeSchema>;
+export const deviceDtoSchema = z.strictObject({ id: z.uuid(), name: z.string().min(1).max(120), createdAt: z.iso.datetime(), expiresAt: z.iso.datetime(), revokedAt: z.iso.datetime().nullable() });
+export type DeviceDTO = z.infer<typeof deviceDtoSchema>;
+export const deviceSchema = deviceDtoSchema;
+export const pairingCodeSchema = z.strictObject({ code: z.string().min(1).max(200), expiresAt: z.iso.datetime() });
+export type PairingCode = z.infer<typeof pairingCodeSchema>;
+export const deviceExchangeRequestSchema = z.strictObject({ code: z.string().min(1).max(200), deviceName: z.string().min(1).max(120), extensionId: z.string().min(1).max(200), extensionVersion: z.string().min(1).max(80) });
+export type DeviceExchangeRequest = z.infer<typeof deviceExchangeRequestSchema>;
+export const deviceExchangeResultSchema = z.strictObject({ token: z.string().min(1), device: deviceDtoSchema, owner: z.strictObject({ id: z.uuid(), username: z.string().min(1) }), siteId: z.uuid() });
+export type DeviceExchangeResult = z.infer<typeof deviceExchangeResultSchema>;
+export const deviceListSchema = z.strictObject({ items: z.array(deviceDtoSchema) });
+export type DeviceList = z.infer<typeof deviceListSchema>;

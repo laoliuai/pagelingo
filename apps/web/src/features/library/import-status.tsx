@@ -1,10 +1,10 @@
 import { ReaderWarnings } from '../reader/reader-warnings';
-import type { BundleImport, DocumentSummary, ReaderDescriptor } from '@pagelingo/document-contracts';
+import type { BundleImport, PdfDocumentSummary, ReaderDescriptor } from '@pagelingo/document-contracts';
 
 export const activeImport = (value?: BundleImport | null) =>
   !!value && ['created', 'receiving', 'validating'].includes(value.status);
 
-export function translationLabel(status: NonNullable<DocumentSummary['reader']>['translationStatus']) {
+export function translationLabel(status: NonNullable<PdfDocumentSummary['reader']>['translationStatus']) {
   return {
     'not-required': '无需翻译，原文可读',
     pending: '原文可读，译文待处理',
@@ -14,7 +14,7 @@ export function translationLabel(status: NonNullable<DocumentSummary['reader']>[
     cancelled: '原文可读，译文处理已取消',
   }[status];
 }
-export function ReaderStatus({ reader }: { reader: NonNullable<DocumentSummary['reader']> | ReaderDescriptor }) {
+export function ReaderStatus({ reader }: { reader: NonNullable<PdfDocumentSummary['reader']> | ReaderDescriptor }) {
   return (
     <div className="reader-status">
       <p>{translationLabel(reader.translationStatus)}</p>

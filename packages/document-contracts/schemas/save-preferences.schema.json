@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "revision": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "autoTranslate": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "revision",
+    "autoTranslate"
+  ],
+  "additionalProperties": false,
+  "$id": "https://pagelingo.dev/schemas/save-preferences/1",
+  "$comment": "Shape validation only. Reader graph, translation references, SDK replay, resource closure and actual byte hashes require their dedicated validators."
+}

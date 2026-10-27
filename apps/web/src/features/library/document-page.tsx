@@ -36,7 +36,7 @@ export function DocumentPage() {
         error
       />
       {query.isError && <Button onClick={() => void query.refetch()}>重试加载</Button>}
-      {query.data && (
+      {query.data?.kind === 'pdf' && (
         <>
           <PageHeader
             title={query.data.title}

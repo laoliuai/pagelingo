@@ -130,7 +130,7 @@ describe('provider profile contracts', () => {
 
 describe('document contracts', () => {
   it('requires immutable source identity and fixed initial PDF states', () => {
-    expect(documentSummarySchema.parse(summary).source.sha256).toMatch(/^[a-f0-9]{64}$/);
+    expect(sourceIdentitySchema.parse(documentSummarySchema.parse(summary).source).sha256).toMatch(/^[a-f0-9]{64}$/);
     expect(documentSummarySchema.safeParse({ ...summary, source: undefined }).success).toBe(false);
     expect(documentSummarySchema.safeParse({ ...summary, processingStatus: 'completed' }).success).toBe(false);
     expect(documentSummarySchema.safeParse({ ...summary, saveStatus: 'pending' }).success).toBe(false);

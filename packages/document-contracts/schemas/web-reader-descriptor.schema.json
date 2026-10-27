@@ -1,0 +1,533 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "documentId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "versionId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "documentId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+        },
+        "sourceVersionId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+        },
+        "manifestAssetId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "bytes": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "snapshotSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "documentId",
+        "sourceVersionId",
+        "manifestAssetId",
+        "sha256",
+        "bytes",
+        "snapshotSha256"
+      ],
+      "additionalProperties": false
+    },
+    "parseId": {
+      "type": "string",
+      "pattern": "^p_[a-f0-9]{64}$"
+    },
+    "index": {
+      "type": "object",
+      "properties": {
+        "parseId": {
+          "type": "string",
+          "pattern": "^p_[a-f0-9]{64}$"
+        },
+        "sourceSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "chunks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^c_(?!000000)[0-9]{6}$"
+              },
+              "blockIds": {
+                "maxItems": 128,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^b_[a-f0-9]{32}$"
+                }
+              },
+              "bytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 524288
+              }
+            },
+            "required": [
+              "id",
+              "blockIds",
+              "bytes"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "toc": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "nodeId": {
+                "type": "string",
+                "pattern": "^n_[a-f0-9]{32}$"
+              },
+              "parentId": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^n_[a-f0-9]{32}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "blockId": {
+                "type": "string",
+                "pattern": "^b_[a-f0-9]{32}$"
+              },
+              "title": {
+                "type": "string"
+              },
+              "depth": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 64
+              }
+            },
+            "required": [
+              "nodeId",
+              "parentId",
+              "blockId",
+              "title",
+              "depth"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "blockLocations": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^b_[a-f0-9]{32}$"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "chunkId": {
+                "type": "string",
+                "pattern": "^c_(?!000000)[0-9]{6}$"
+              },
+              "nodeId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              },
+              "previewId": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 240
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "chunkId",
+              "nodeId",
+              "previewId"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "language": {
+          "type": "object",
+          "properties": {
+            "language": {
+              "type": "string",
+              "enum": [
+                "zh",
+                "en",
+                "foreign",
+                "mixed",
+                "und"
+              ]
+            },
+            "sourceLanguage": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 2,
+                  "maxLength": 63,
+                  "pattern": "^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "enum": [
+                "no-language",
+                "han-only",
+                "insufficient-text",
+                "other-script",
+                "han-majority",
+                "mixed-script",
+                "english-heuristic",
+                "uncertain",
+                "document-inherited",
+                "user-specified",
+                "script-compatible-hint"
+              ]
+            }
+          },
+          "required": [
+            "language",
+            "sourceLanguage",
+            "reason"
+          ],
+          "additionalProperties": false
+        },
+        "translationStatus": {
+          "type": "string",
+          "enum": [
+            "not-required",
+            "pending",
+            "partial",
+            "completed",
+            "failed",
+            "cancelled"
+          ]
+        },
+        "generationKind": {
+          "type": "string",
+          "enum": [
+            "model",
+            "mock",
+            "none"
+          ]
+        },
+        "assetIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          }
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "required": [
+        "parseId",
+        "sourceSha256",
+        "chunks",
+        "toc",
+        "blockLocations",
+        "language",
+        "translationStatus",
+        "generationKind",
+        "assetIds",
+        "warnings"
+      ],
+      "additionalProperties": false
+    },
+    "assetMap": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 240
+      },
+      "additionalProperties": {
+        "type": "string",
+        "format": "uuid",
+        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+      }
+    },
+    "snapshots": {
+      "type": "object",
+      "properties": {
+        "previews": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              },
+              "fileId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              },
+              "nodeIds": {
+                "maxItems": 50000,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 240
+                }
+              },
+              "blockIds": {
+                "maxItems": 128,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "resourceFileIds": {
+                "maxItems": 256,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 240
+                }
+              },
+              "htmlBytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 524288
+              },
+              "resourceBytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 33554432
+              }
+            },
+            "required": [
+              "id",
+              "fileId",
+              "nodeIds",
+              "blockIds",
+              "resourceFileIds",
+              "htmlBytes",
+              "resourceBytes"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "nodeLocations": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          },
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "previewId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              },
+              "anchorId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              }
+            },
+            "required": [
+              "previewId",
+              "anchorId"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "previews",
+        "nodeLocations"
+      ],
+      "additionalProperties": false
+    },
+    "translationStatus": {
+      "type": "string",
+      "enum": [
+        "not-required",
+        "pending",
+        "partial",
+        "completed",
+        "failed",
+        "cancelled"
+      ]
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "progress": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "position": {
+              "type": "object",
+              "properties": {
+                "readerVersionId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "sourceVersionId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "parseId": {
+                  "type": "string",
+                  "pattern": "^p_[a-f0-9]{64}$"
+                },
+                "blockId": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^b_[a-f0-9]{32}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "blockOffset": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "view": {
+                  "type": "string",
+                  "enum": [
+                    "content",
+                    "snapshot"
+                  ]
+                },
+                "contentMode": {
+                  "type": "string",
+                  "enum": [
+                    "source",
+                    "translation",
+                    "bilingual"
+                  ]
+                }
+              },
+              "required": [
+                "readerVersionId",
+                "sourceVersionId",
+                "parseId",
+                "blockId",
+                "blockOffset",
+                "view",
+                "contentMode"
+              ],
+              "additionalProperties": false
+            },
+            "revision": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "updatedAt": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+            }
+          },
+          "required": [
+            "position",
+            "revision",
+            "updatedAt"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "restoreHint": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "version-updated-source-start"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "documentId",
+    "versionId",
+    "source",
+    "parseId",
+    "index",
+    "assetMap",
+    "snapshots",
+    "translationStatus",
+    "warnings",
+    "progress",
+    "restoreHint"
+  ],
+  "additionalProperties": false,
+  "$id": "https://pagelingo.dev/schemas/web-reader-descriptor/1",
+  "$comment": "Shape validation only. Reader graph, translation references, SDK replay, resource closure and actual byte hashes require their dedicated validators."
+}

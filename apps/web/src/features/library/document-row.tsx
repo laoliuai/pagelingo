@@ -10,7 +10,8 @@ export function DocumentRow({ document }: { document: DocumentSummary }) {
   const { user, epoch } = useSession();
   const progress = useQuery({ queryKey: [user!.id, 'reading-progress', document.id, epoch],
     queryFn: async ({ signal }) => { const value = await apiRequest(`/api/v1/documents/${document.id}/progress`, { signal }); return value === null ? null : readingProgressSchema.parse(value); },
-    enabled: !!document.reader, gcTime: 0 });
+    enabled: document.kind === 'pdf' && !!document.reader, gcTime: 0 });
+  if (document.kind !== 'pdf') return null;
   return (
     <article className="document-row">
       <div className="source-icon">

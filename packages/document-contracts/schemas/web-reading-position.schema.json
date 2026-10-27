@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "readerVersionId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "sourceVersionId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "parseId": {
+      "type": "string",
+      "pattern": "^p_[a-f0-9]{64}$"
+    },
+    "blockId": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^b_[a-f0-9]{32}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "blockOffset": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "view": {
+      "type": "string",
+      "enum": [
+        "content",
+        "snapshot"
+      ]
+    },
+    "contentMode": {
+      "type": "string",
+      "enum": [
+        "source",
+        "translation",
+        "bilingual"
+      ]
+    }
+  },
+  "required": [
+    "readerVersionId",
+    "sourceVersionId",
+    "parseId",
+    "blockId",
+    "blockOffset",
+    "view",
+    "contentMode"
+  ],
+  "additionalProperties": false,
+  "$id": "https://pagelingo.dev/schemas/web-reading-position/1",
+  "$comment": "Shape validation only. Reader graph, translation references, SDK replay, resource closure and actual byte hashes require their dedicated validators."
+}

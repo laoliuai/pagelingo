@@ -1,6 +1,6 @@
 # 文档协议
 
-`@pagelingo/document-contracts@0.2.0` 是可独立构建的 ESM workspace，提供学习网站 API 的 strict Zod schema 和 TypeScript DTO；未知字段会被拒绝。现有 [P0 解析评测 JSON Schema](schemas/parser-evaluation.schema.json)，Python 评测入口实际校验此规范；它保留上游 payload、来源和资产用于比较候选，不等于正式 Reader IR。正式 PDF Reader 合同见下文；原 P0 产物与 Schema 保持原版本。
+`@pagelingo/document-contracts@0.3.0` 是可独立构建的 ESM workspace，提供学习网站 API 的 strict Zod schema 和 TypeScript DTO；未知字段会被拒绝。现有 [P0 解析评测 JSON Schema](schemas/parser-evaluation.schema.json)，Python 评测入口实际校验此规范；它保留上游 payload、来源和资产用于比较候选，不等于正式 Reader IR。正式 PDF Reader 合同见下文；原 P0 产物与 Schema 保持原版本。
 
 2026-10-12 增加 [PDF 来源布局补充 Schema](schemas/pdf-source-layout.schema.json)。P0 离线包中的 `source-layout.json` 实际通过该 Schema 校验，保存源运行、PDFium 字符索引区间、视觉行、阅读顺序、歧义、段落缩进和容器引用。字符区间使用半开区间，叶节点互斥拥有字符，容器只引用成员；PDFium 索引不是 PDF 内容流 glyph ID。它仍是 `experimental-supplement`，供检查和后续协议设计参考，不代替正式 Reader IR。
 
@@ -67,3 +67,22 @@ PDF pageIndex 从 0 开始。bbox 已是旋转后有效 CropBox、左上原点�
 包导入创建请求是 `{targetDocumentId?: string}`：`{}` 新建资料，提供 UUID 时向已有 PDF 导入。响应 `BundleImport` 包含必需的 `id,status,epoch,createdAt,updatedAt`，以及可选的 `documentId,readerVersionId,errorCode`；状态依次使用 `created | receiving | validating | completed | failed | cancelled`，创建与接收保持独立。`epoch` 是非负 safe integer 围栏值，不接受客户端 owner。`readerVersionSummarySchema` / `ReaderVersionSummary`、`readerVersionListSchema` / `ReaderVersionList` 和 `readerVersionListQuerySchema` / `ReaderVersionListQuery` 提供版本摘要与分页合同，查询默认第 1 页、每页 20，最多 100。
 
 外部链接分两步验证：Zod 与分发 JSON Schema 使用同一个 portable pattern，仅允许小写 `http://` / `https://` 加非空 authority，或非空 `mailto:`，并拒绝空白、ASCII 控制字符和 DEL。这个 shape 不声称完整解析 IPv6 authority、主机编码或端口；例如 `https://[bad` 在两种 shape 校验中都属于待进一步检查的候选。`validateReaderGraph` 必须继续用 WHATWG URL parser 检查实际 URL 合法性，拒绝这些非法 authority / 端口，且不访问网络。合法 HTTP、HTTPS、mailto、IPv6 和国际化链接保留。只有通过 shape + graph 的 IR 可供 renderer / 导入器消费，不能将 shape 成功当作合法链接或可阅读 IR 的证明。
+
+
+## Web Reader / capture v1
+
+`webCaptureManifestSchema` / `WebCaptureManifest`（`web-capture/1`）描述限定范围的原件、资源与预览；`files` 的每项有 `id/path/bytes/sha256/mediaType/role`。`source.url` 保留 query / hash，`source.canonicalUrl` 只是候选身份。`scope` 的完整性、`WebSaveStatus` 与 `ReaderTranslationStatus` 分开。可用资源通过 `fileId` 引用文件，不可用资源必须记录 `reason`。Zod 除 shape 外校验 ID / 路径唯一性、文件闭包、预览资源预算与 scope 说明；真实字节摘要、DOM ID、图像解码与服务器投影仍由适配层校验。
+
+`webReaderIrSchema` / `WebReaderIR`（`web-reader-ir/1`）复用 SDK `TranslationBlock`、已有 protected 语义和 Reader 容器，新增 `table/table-row/table-cell`；来源引用为 `{nodeId,quote,prefix,suffix}`，没有 PDF pages、Python provenance 或伪造 bbox。`SafeMathAst` 是有界的平面 SVG / MathML 节点树，限定标签、属性与本 fragment 引用。text block 的 `safeMath` 用 `bindingId` 对接已有 protected asset/literal binding 与 SDK literal inline；没有新增 SDK protected kind。独立 math block 使用互斥的 `latex` / `ast`。
+
+`webTranslationSchema` / `WebTranslation`（`web-reader-translation/1`）沿用 PDF 的逐单元 / block 重放模型，并绑定实际 Web IR 字节 SHA。`WebReaderIndex/Chunk/Descriptor` 提供 chunk、TOC、`blockLocations`、快照预览与 assetMap；`WebReadingPosition` 的 view 为 content/snapshot，contentMode 支持 source/translation/bilingual，没有 pdfPageIndex。普通读取、授权与实际图闭包由后续适配器实现，本包仅导出纯数据与确定性校验。
+
+`DocumentSummary` 是 `PdfDocumentSummary | WebDocumentSummary`。PDF v1 JSON shape 不变；Web source 可为 null，repository/paper 在 S3 只保存链接。消费 PDF 原件和 PDF Reader 的代码必须先按 kind 缩窄。
+
+`devices`、`web-api`、`web-jobs`、`save-preferences` 与 `glossary` 定义配对 / 交换、捕获状态 / 上传文件状态、任务状态与修订写请求。设备范围只含 captures:write/captures:read/links:write/preferences:read。偏好 GET 允许 session 或 preferences:read device；PUT 仅 session。实际身份与 CSRF 检查属于服务，client owner 字段被 strict schema 拒绝。
+
+`defaultCaptureLimits` 提供冻结的默认结构 / 文件 / 图片 / GIF / 公式 / chunk / preview / HTTP / outbox 预算，适配层必须执行有效预算并保留超限证据。`detectLanguage/blockLanguage/naturalText` 从 CLI 移到浏览器可用的纯模块；原 PDF 输出不变。`detectWebLanguage` 在原规则之外仅信任满足脚本阈值的明确页面语言提示，不调用模型。词典通过 `node packages/document-contracts/scripts/generate-language-words.mjs` 从冻结 fixture 生成，等价测试保护顺序和词内容。
+
+Web JSON Schema 与 PDF schema 使用同一 `schemas:generate:reader` 命令生成。它们提供 portable shape；跨字段关系、真实 URL 解析、引用闭包、UTF-8 字节限制及 protected 语义仍需运行对应 Zod 校验和后续 Web graph validator。生成命令不修改原 P0、PDF v1 或已发布的 S2 文件。
+
+手动翻译入口 `CreateWebJobRequest` 可显式携带 `sourceLanguage?: string` 和 `selectionBlockIds?: string[]`。语言采用 2–63 字符的保守 BCP47-like 结构，排除 und/mul/zxx；foreign 也排除 zh/en primary subtags。自动检测的语言范围保持不变。非空 selection 最多 20,000 个唯一 block ID，省略表示全篇；实际成员校验和按固定 IR 阅读顺序规范化由 job 服务执行。`WebJob` 必需的 nullable `sourceLanguage` / `selectionBlockIds` 保存已解析的不可变任务输入，服务必须将它们持久化并纳入输入 hash、重试、缓存和发布身份。und/mixed/短文本的显式人工选择检查也必须由持有 IR 的服务执行。

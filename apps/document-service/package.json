@@ -13,7 +13,7 @@
     "admin": "tsx src/cli/bootstrap-admin.ts"
   },
   "dependencies": {
-    "@pagelingo/document-contracts": "0.2.0",
+    "@pagelingo/document-contracts": "0.3.0",
     "@pagelingo/translation-core": "0.4.0",
     "zod": "4.6.7",
     "fastify": "5.12.7",
