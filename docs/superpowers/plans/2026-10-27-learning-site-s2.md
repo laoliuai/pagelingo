@@ -218,12 +218,12 @@ ZIP 从私有暂存文件逐项读取，`lazyEntries:true, strictFileNames:true,
 
 **Interfaces:** `translateRun(options:{runDir,selection:'auto'|'all'|'none',sourceLanguage?,provider:LocalProviderConfig,resume:boolean,newJob:boolean}, deps?:TranslationDependencies): Promise<LocalTranslationResult>`；文件适配实现 SDK `TranslationStateStore` / `TranslationCache`。默认目标 zh-CN、profile academic，预算 input=8192 / output=8192 / context=32768 / maxBatchBlocks=4 / reserve=512，SDK maxRetries=2，可显式配置。
 
-- [ ] **Step 1:** 写失败测试：中文 auto 的 mock `requests === 0`；mixed / und auto 保留原文并提示手工选择；英文包含短标题、中文引语、公式 / 术语 / 超长段落，短标题继承文档语言、中文引语不请求，其余经 SDK 分片后完成。模拟第二个请求中断，恢复只请求没有已验证结果的单元；429 cooldown 和已完成 block 来自 SDK，适配器不另做重试循环。
-- [ ] **Step 2:** 运行 `npm run test --workspace @pagelingo/pdf-cli -- --run tests/translate.test.ts tests/recovery.test.ts tests/secrets.test.ts`，确认失败。
-- [ ] **Step 3:** 使用 `TranslationEngine` + reliability 保存原始 checkpoint；本地互斥依赖 Linux `/usr/bin/flock`（util-linux），父进程持有 FileHandle、经共享 FD3 短命加锁后继续持锁，释放前等待受保护写入完成，不自动安装；同一 job 用 exclusive lock / epoch 防止双进程写入，失去 epoch 以 CheckpointConflictError 停止。本地 state 适配的持久化写失败也必须转换为可停止 SDK 的 CheckpointConflictError，保留最后成功检查点并给出稳定磁盘错误，不能降级为仅内存成功后导出完成。文件通过同目录临时文件 + fsync + rename 原子替换，0600；完整结果 / 原件不覆盖。配置 hash 变化要求显式 new-job；取消后的迟到 Provider 结果不能进入新快照。
-- [ ] **Step 4:** 安全配置仅允许显式键名，从 `--api-key-env`（默认 `PAGELINGO_LLM_API_KEY`）读取 Key，不能用 CLI 明文参数；沿用公共 SDK Provider 传输策略：远端 HTTPS，本机 localhost / 127.0.0.1 / [::1] 可 HTTP，拒绝 URL userinfo / query / fragment。导出只使用 allowlist 的 model、endpointFingerprint、预算、术语和用量；异常 / 日志使用稳定错误码，不输出请求 header、原始异常对象和 Key。CLI 保留已知静态 process 用法 / KaTeX 准备提示，未知异常使用稳定 fallback，translate 不回显任意异常消息。
-- [ ] **Step 5:** 用唯一假 Key 标记验证日志、checkpoint、cache metadata、source IR / translation snapshot 与子进程 env 不泄露；模拟完成缓存命中、坏缓存、磁盘写失败、重试耗尽 / 部分成功、取消和恢复，源文与已有成功块始终可读。运行 CLI 全部测试。
-- [ ] **Step 6:** 提交 `feat: translate PDF runs with durable checkpoints`。
+- [x] **Step 1:** 写失败测试：中文 auto 的 mock `requests === 0`；mixed / und auto 保留原文并提示手工选择；英文包含短标题、中文引语、公式 / 术语 / 超长段落，短标题继承文档语言、中文引语不请求，其余经 SDK 分片后完成。模拟第二个请求中断，恢复只请求没有已验证结果的单元；429 cooldown 和已完成 block 来自 SDK，适配器不另做重试循环。
+- [x] **Step 2:** 运行 `npm run test --workspace @pagelingo/pdf-cli -- --run tests/translate.test.ts tests/recovery.test.ts tests/secrets.test.ts`，确认失败。
+- [x] **Step 3:** 使用 `TranslationEngine` + reliability 保存原始 checkpoint；SDK 每次状态迁移仍持久化，完整快照按首次成功 / 25% / 50% / 75% 与终态保存：首次完整执行最多 6 份，与批次数无关；resume 不重复旧进度里程碑，每次显式取消 / 恢复可另留一份不可变终态；本地互斥依赖 Linux `/usr/bin/flock`（util-linux），父进程持有 FileHandle、经共享 FD3 短命加锁后继续持锁，释放前等待受保护写入完成，不自动安装；同一 job 用 exclusive lock / epoch 防止双进程写入，失去 epoch 以 CheckpointConflictError 停止。本地 state 适配的持久化写失败也必须转换为可停止 SDK 的 CheckpointConflictError，保留最后成功检查点并给出稳定磁盘错误，不能降级为仅内存成功后导出完成。文件通过同目录临时文件 + fsync + rename 原子替换，0600；完整结果 / 原件不覆盖。配置 hash 变化要求显式 new-job；取消后的迟到 Provider 结果不能进入新快照。
+- [x] **Step 4:** 安全配置仅允许显式键名，从 `--api-key-env`（默认 `PAGELINGO_LLM_API_KEY`）读取 Key，不能用 CLI 明文参数；沿用公共 SDK Provider 传输策略：远端 HTTPS，本机 localhost / 127.0.0.1 / [::1] 可 HTTP，拒绝 URL userinfo / query / fragment。导出只使用 allowlist 的 model、endpointFingerprint、预算、术语和用量；异常 / 日志使用稳定错误码，不输出请求 header、原始异常对象和 Key。CLI 保留已知静态 process 用法 / KaTeX 准备提示，未知异常使用稳定 fallback，translate 不回显任意异常消息。
+- [x] **Step 5:** 用唯一假 Key 标记验证日志、checkpoint、cache metadata、source IR / translation snapshot 与子进程 env 不泄露；模拟完成缓存命中、坏缓存、磁盘写失败、重试耗尽 / 部分成功、取消和恢复，源文与已有成功块始终可读。运行 CLI 全部测试。
+- [x] **Step 6:** 提交 `feat: translate PDF runs with durable checkpoints`。
 
 ### Task 6: 离线阅读包、CLI 入口与完整性自检
 
