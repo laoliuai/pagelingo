@@ -147,6 +147,7 @@ ZIP 从私有暂存文件逐项读取，`lazyEntries:true, strictFileNames:true,
 - `ReadingPosition {readerVersionId, sourceVersionId, parseId, blockId:null|string, blockOffset:0..1, pdfPageIndex, view:'split'|'source'|'content', contentMode:'source'|'translation'}`；offset 是块内垂直相对偏移。`ReadingProgress {position, revision, updatedAt}`；写入必须带 `expectedRevision`，使用文档级 CAS，初始 revision=0。
 - 每个 reader version 保留独立历史位置，文档保存最后成功恢复位置。新版本按相同 parse / block 恢复；找不到时降级到物理页对应片，提示“版本已更新，已定位到原页”，保留旧记录。不以打开页面产生的程序滚动立即写入新进度。
 - `GET /progress` 返回实际最后确认位置；`ReaderDescriptor.progress` 则是所选版本的有效恢复位置，配当前文档级 revision / ack updatedAt。优先该版本历史，否则只按相同 parse / 有效 block 映射，失效时 blockId=null、offset=0 并按物理页恢复。历史位置不能携带旧 revision 作为新的 CAS 确认；读取与恢复不写进度。
+- 默认无 versionId 的资料入口打开 CURRENT reader，并消费其有效恢复位置；显式 `?versionId=` 优先。资料库“继续上次阅读”是按实际最后确认 readerVersionId 的明确入口，不自动用历史版本覆盖默认当前版本。
 - 用户滚动 / 翻页后 1.5 秒 debounce 保存，持续阅读最多每 5 秒一次；离开时 best effort。409 `PROGRESS_CONFLICT` 不静默重试覆盖，提供继续当前位置的显式操作；401 清理会话与所有在途数据。版本 / 用户切换的旧请求不能更新新状态。
 
 ## 3. 任务
@@ -333,7 +334,7 @@ ZIP 从私有暂存文件逐项读取，`lazyEntries:true, strictFileNames:true,
 - [ ] **Step 3:** 从 file:// 断网打开论文及长书导出包；遍历全部分片验证图片 / 字体 / 公式资源，无 HTTP(S) 请求，PDF 原件完整可打开 / 下载。检查包中无假 Key、已知运行路径字段或外部 CDN 依赖。原 P0 run / 已发布 ZIP 的前后 manifest hash 一致。
 - [ ] **Step 4:** 在 S1 数据库上应用 005，完成导入 / 进度保存后重建 API 容器；验证登录、原件、分片、译文、下载和进度仍在，未登录 / 另一账号均无法读。更新 Dockerfile 复制 / 构建新共享包，但服务镜像不安装 Python、解析模型或本地 CLI 环境。
 - [ ] **Step 5:** 运行 `npm ci`、`npm run check`、`npm run check:site`、`npm run check:pdf-reader -- <明确的本地样本参数>` 和 `npm audit`；Python / P0 工具改动则追加 `npm run pdf:lint`、`npm run pdf:test` 及原布局验证。所有命令记录退出码、样本范围和未验项。视觉改动保存截图；默认测试没有真实付费请求。
-- [ ] **Step 6:** 整分支审查覆盖 Review Focus 及 A07–A10 / A14，修正实质问题并针对修改复验。
+- [ ] **Step 6（控制方最终阶段）:** 本任务实现、验收与逐任务审查后，由控制方按 SDD final phase 执行一次整分支审查，覆盖 Review Focus 及 A07–A10 / A14，修正实质问题并针对修改复验。实现子代理不另做重复整分支审查；本项在最终审查通过后才勾选。
 - [ ] **Step 7:** 提交 `docs: document S2 reader workflow and validation`。合入 / 推送按照用户的后续集成选择执行，不自动删除宿主管理的 worktree。
 
 ## 4. 自检与执行交接
