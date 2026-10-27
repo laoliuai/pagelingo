@@ -1,12 +1,33 @@
-import { webReaderIrSchema, webReaderChunkSchema, type WebReaderIR, type WebTranslation, type WebReaderChunk, type WebReaderIndex, type WebReaderNode } from '@pagelingo/document-contracts';
+import { webReaderIrSchema, webReaderChunkSchema, type WebReaderIR, type WebTranslation, type WebImportedTranslation, type WebReaderChunk, type WebReaderIndex, type WebReaderNode } from '@pagelingo/document-contracts';
 import { validateWebGraph } from '@pagelingo/web-capture';
 import { validateWebTranslation, type ValidatedWebTranslation } from './web-translation.js';
 import { jsonBytes } from './chunking.js';
 import { planWebTables } from './web-tables.js';
 import { naturalText } from './semantic-html.js';
 export interface WebReaderBuild { index: WebReaderIndex; chunks: WebReaderChunk[] }
+export interface WebImportedReaderBuild { build: WebReaderBuild; translation: WebImportedTranslation | null; rejectedBlockIds: string[] }
 
 export function buildWebReader(input: WebReaderIR, translation?: WebTranslation | null): WebReaderBuild {
+  return planWebReader(input, translation);
+}
+
+/** Replay imports and diagnose minimal source/context closures using the normal fixed chunk limits.
+ * At most two full planning/replay passes; rejected proofs never alter source IR or surviving proofs.
+ */
+export function buildWebImportedReader(ir: WebReaderIR, imported: WebImportedTranslation): WebImportedReaderBuild {
+  const rejected = new Set<string>();
+  const diagnostic = planWebReader(ir, imported, rejected);
+  if (!rejected.size) return { build: diagnostic, translation: imported, rejectedBlockIds: [] };
+  const blocks = imported.blocks.filter(proof => !rejected.has(proof.blockId));
+  const accepted = new Set(blocks.map(proof => proof.blockId));
+  const pending = ir.blocks.some(block => block.type === 'text' && !accepted.has(block.id)
+    && ir.metadata.language.language !== 'zh' && block.language.language !== 'zh' && block.language.reason !== 'no-language');
+  const translation: WebImportedTranslation | null = blocks.length ? { ...imported, blocks, status: pending ? 'partial' : 'completed' } : null;
+  // Diagnostic chunks can omit failing primary blocks. Only the complete normal build escapes.
+  return { build: buildWebReader(ir, translation), translation, rejectedBlockIds: imported.blocks.filter(proof => rejected.has(proof.blockId)).map(proof => proof.blockId) };
+}
+
+function planWebReader(input: WebReaderIR, translation?: WebTranslation | null, rejected?: Set<string>): WebReaderBuild {
   const ir = webReaderIrSchema.parse(input); validateWebGraph(ir);
   const valid: ValidatedWebTranslation = translation == null
     ? { blocks: new Map(), sourceOnlyReasons: new Map(ir.blocks.flatMap(block => block.type === 'text'
@@ -107,6 +128,12 @@ export function buildWebReader(input: WebReaderIR, translation?: WebTranslation 
     try { candidate = makeChunk(unit); } catch (error) { if (unit.length === 1) throw error; candidate = undefined; }
     if (candidate && fits(candidate)) { primary = [...unit]; chunk = candidate; return; }
     if (unit.length > 1) { for (const id of unit) append([id]); return; }
+    if (rejected && candidate) {
+      // Only an actual minimal byte overflow is recoverable. Graph, context-count and other
+      // structural errors still throw. Removing every import in this closure makes it source-only.
+      const implicated = candidate.blocks.filter(entry => valid.blocks.has(entry.source.id));
+      if (implicated.length) { for (const entry of implicated) rejected.add(entry.source.id); return; }
+    }
     throw new Error('Web block and required table context exceed chunk byte budget');
   };
   for (let index = 0; index < ir.blocks.length;) {

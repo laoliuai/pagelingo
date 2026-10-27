@@ -147,3 +147,29 @@ it('skips an imported block that cannot fit a Reader chunk while retaining other
   const saved = await t.commit(id); expect(saved.statusCode, saved.body).toBe(200); expect(saved.json().warnings.length).toBeGreaterThan(0);
   const reader = (await t.app.inject({ url: `/api/v1/documents/${saved.json().documentId}/web-reader`, headers: t.headers })).json(); expect(reader.translationStatus).toBe('partial'); expect(reader.index.generationKind).toBe('import');
 });
+it.each([false, true])('prunes multiple aggregate table-context imports while preserving unrelated proofs and exact source bytes (retained=%s)', async retained => {
+  const { withCandidates } = await import('../helpers/web-capture.js'); const { createHash } = await import('node:crypto'); const t = await setup();
+  const table = (label: string) => `<table><tr><th>${label} heading</th></tr><tr><td>${label} body paragraph is readable original English text.</td></tr></table>`;
+  const html = `<article>${table('First')}${table('Second')}${table('Good')}<p>An unrelated paragraph has a valid existing translated result.</p></article>`;
+  let original: { sourceVersionId: string; readerVersionId: string } | undefined;
+  if (retained) { const value = capture(html); const id = (await t.create(value)).json().id; await t.put(id, value.body); original = (await t.commit(id)).json(); }
+  const value = await withCandidates(html), payload = JSON.parse(value.translation.toString());
+  payload.blocks[0].rawText = '译'.repeat(100000); payload.blocks[2].rawText = '文'.repeat(100000);
+  value.translation = Buffer.from(JSON.stringify(payload)); const file = value.manifest.files.find(f => f.id === 'translation')!;
+  file.bytes = value.translation.length; file.sha256 = createHash('sha256').update(value.translation).digest('hex');
+  const id = (await t.create(value)).json().id; await t.put(id, value.body);
+  await t.app.inject({ method: 'PUT', url: `/api/v1/captures/${id}/files/translation`, headers: { ...t.headers, 'content-type': 'application/json' }, payload: value.translation });
+  const response = await t.commit(id); expect(response.statusCode, response.body).toBe(200); const saved = response.json();
+  if (original) { expect(saved.sourceVersionId).toBe(original.sourceVersionId); expect(saved.readerVersionId).not.toBe(original.readerVersionId); }
+  expect(saved.warnings.some((warning: string) => warning.includes('context'))).toBe(true);
+  const reader = (await t.app.inject({ url: `/api/v1/documents/${saved.documentId}/web-reader?versionId=${saved.readerVersionId}`, headers: t.headers })).json();
+  expect(reader.translationStatus).toBe('partial'); expect(reader.index.generationKind).toBe('import');
+  expect(Object.keys(reader.index.blockLocations)).toHaveLength(7);
+  const row = (await t.db.pool.query(`SELECT p.ir_sha256,a.object_key FROM web_translation_runs t JOIN web_parse_runs p ON (p.owner_id,p.document_id,p.source_version_id,p.id)=(t.owner_id,t.document_id,t.source_version_id,t.parse_id) JOIN assets a ON a.id=t.translation_asset_id WHERE t.document_id=$1 ORDER BY t.created_at DESC LIMIT 1`, [saved.documentId])).rows[0];
+  const { createLocalObjectStore } = await import('../../src/storage/local-object-store.js'); const chunks: Buffer[] = [];
+  for await (const bytes of createLocalObjectStore(t.config.dataDir).read(row.object_key)) chunks.push(Buffer.from(bytes));
+  const artifact = JSON.parse(Buffer.concat(chunks).toString());
+  expect(artifact.readerIrSha256).toBe(row.ir_sha256); expect(artifact.status).toBe('partial');
+  expect(artifact.blocks.map((b: { nodeId: string }) => b.nodeId)).toEqual(payload.blocks.slice(4).map((b: { nodeId: string }) => b.nodeId));
+  expect((await t.db.pool.query('SELECT id FROM source_versions')).rows).toHaveLength(1); expect(t.modelCalls()).toBe(0);
+});

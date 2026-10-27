@@ -1,13 +1,19 @@
 import { constants } from 'node:fs';
 import { open } from 'node:fs/promises';
 import { parentPort, workerData } from 'node:worker_threads';
-import { webCaptureManifestSchema, webReaderIrSchema, type WebReaderAsset } from '@pagelingo/document-contracts';
+import { webCaptureManifestSchema, webReaderIrSchema, type WebReaderAsset, type WebReaderIR, type WebImportedTranslation } from '@pagelingo/document-contracts';
 import { sanitizeNodeSnapshot } from '@pagelingo/web-capture/node';
 import { canonicalManifestBytes, sha256, normalizeCaptureUrl, replayResourcesFromManifest, captureContentFingerprint, buildSnapshotPreviews, inspectImageResource, projectWebReader } from '@pagelingo/web-capture';
 import { importCandidates } from './candidates.js';
-import { buildWebReader } from '@pagelingo/document-renderer';
+import { buildWebReader, buildWebImportedReader } from '@pagelingo/document-renderer';
 import type { ValidationInput, PreparedCapture } from './worker-client.js';
 function check(value: unknown): asserts value { if (!value) throw new Error('Invalid capture'); }
+function prepareReader(ir: WebReaderIR, imported: WebImportedTranslation | null, warnings: string[]) {
+  if (!imported) return { translation: null, build: buildWebReader(ir, null) };
+  const result = buildWebImportedReader(ir, imported);
+  for (const id of result.rejectedBlockIds) warnings.push(`Translation candidate exceeds Reader source/context budget: ${id}`);
+  return { translation: result.translation, build: result.build };
+}
 async function prepare(input: ValidationInput): Promise<PreparedCapture> {
   const manifest = webCaptureManifestSchema.parse(input.manifest); const limits = input.limits;
   check(manifest.files.length <= limits.maxFiles && manifest.files.reduce((n, f) => n + f.bytes, 0) <= limits.maxTotalBytes);
@@ -43,7 +49,8 @@ async function prepare(input: ValidationInput): Promise<PreparedCapture> {
     check(await sha256(input.retained.manifestBytes) === ir.source.manifestSha256 && ir.source.snapshotSha256 === htmlFile.sha256);
     check(retainedManifest.source.url === manifest.source.url && retainedManifest.scope.kind === manifest.scope.kind);
     const translation = await importCandidates(ir, manifest, fingerprint, await sha256(input.retained.irBytes), manifest.existingTranslation ? files.get(manifest.existingTranslation.fileId) : undefined, warnings, limits);
-    return { retainedSourceVersionId: input.retained.sourceVersionId, manifest: retainedManifest, manifestBytes: input.retained.manifestBytes, fingerprint, ir, translation, build: buildWebReader(ir, translation), warnings: [...new Set([...warnings, ...ir.warnings])], files: [] };
+    const reader = prepareReader(ir, translation, warnings);
+    return { retainedSourceVersionId: input.retained.sourceVersionId, manifest: retainedManifest, manifestBytes: input.retained.manifestBytes, fingerprint, ir, ...reader, warnings: [...new Set([...warnings, ...ir.warnings])], files: [] };
   }
   const previews = await buildSnapshotPreviews(snapshot, manifest, limits);
   warnings.push(...previews.warnings);
@@ -53,8 +60,8 @@ async function prepare(input: ValidationInput): Promise<PreparedCapture> {
   const ir = await projectWebReader(snapshot, manifest, { manifestBytes, assets, limits });
   if (!ir.blocks.length) warnings.push('Snapshot contains no readable semantic blocks; original download remains available.');
   const translation = await importCandidates(ir, manifest, fingerprint, await sha256(Buffer.from(JSON.stringify(ir))), manifest.existingTranslation ? files.get(manifest.existingTranslation.fileId) : undefined, warnings, limits);
-  const build = buildWebReader(ir, translation);
-  return { manifest, manifestBytes, fingerprint, ir, translation, build, warnings: [...new Set([...warnings, ...ir.warnings])], files: manifest.files.map(f => ({ id: f.id, bytes: files.get(f.id)! })) };
+  const reader = prepareReader(ir, translation, warnings);
+  return { manifest, manifestBytes, fingerprint, ir, ...reader, warnings: [...new Set([...warnings, ...ir.warnings])], files: manifest.files.map(f => ({ id: f.id, bytes: files.get(f.id)! })) };
 }
 try { parentPort!.postMessage({ ok: true, value: await prepare(workerData as ValidationInput) }); }
 catch { parentPort!.postMessage({ ok: false }); }
