@@ -80,8 +80,11 @@ async function permissionOrigins(entry: ArchiveEntry): Promise<string[]> {
 async function receiveDelivery(message: z.infer<typeof deliverySchema>, sender: chrome.runtime.MessageSender) {
   const issuedGrant = issued.get(message.grant.grantId);
   if (!issuedGrant || issuedGrant.consumed || issuedGrant.expiresAt < Date.now() || !sameCaptureGrant(issuedGrant.grant, message.grant)) throw new Error('采集授权已使用或过期。');
-  assertSender(sender, issuedGrant.grant); await assertBinding(issuedGrant.binding); await assertDocument(issuedGrant.grant); await assertBinding(issuedGrant.binding);
+  assertSender(sender, issuedGrant.grant);
+  // Reserve synchronously: no second delivery may pass eligibility while validation yields.
   issuedGrant.consumed = true;
+  await assertBinding(issuedGrant.binding); await assertDocument(issuedGrant.grant); await assertBinding(issuedGrant.binding);
+  if (issuedGrant.expiresAt < Date.now()) throw new Error('采集授权已过期。');
   const payload = message.payload; let id: string;
   if (payload.ok) {
     if (payload.value.captureId !== message.grant.captureId || payload.value.snapshot.sourceUrl !== normalizeCaptureUrl(message.grant.url)) throw new Error('采集源身份不一致。');

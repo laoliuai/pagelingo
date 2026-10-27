@@ -130,3 +130,38 @@ it('cancellation during acquisition stops remaining resources without creating a
   await outbox.enqueueCapture(binding, input); await outbox.drainOutbox(binding, new AbortController().signal); await cancelled;
   expect(acquisitions).toBe(1); expect(f.counts().creates).toBe(0); expect((await f.db.get(binding, input.captureId))?.state).toBe('cancelled');
 });
+it('durable cancellation during the first file PUT stops all later files on the same ingestion', async () => {
+  const f = fixture(); const input = draft();
+  input.pendingResources = [{ id: 'first', role: 'css', url: 'https://source.example/first.css' }, { id: 'second', role: 'css', url: 'https://source.example/second.css' }]; input.snapshot.resources = input.pendingResources;
+  const outbox = createArchiveOutbox({ database: f.db, current: async () => binding, client: () => f.client, acquire: async () => ({ bytes: new TextEncoder().encode('p { color: red }'), mediaType: 'text/css' }) });
+  const put = f.client.put; const cancel = f.client.cancel; const cancelledIngestions: string[] = [];
+  f.client.put = async (...args) => { await put(...args); if (args[1].id === 'html') await f.db.requestCancel(binding, input.captureId); };
+  f.client.cancel = async (id?: string) => { cancelledIngestions.push(id!); return cancel(); };
+  await outbox.enqueueCapture(binding, input); await outbox.drainOutbox(binding, new AbortController().signal);
+  const entry = await f.db.get(binding, input.captureId);
+  expect(f.counts().puts).toEqual(['html']); expect(f.counts().commits).toBe(0);
+  expect(cancelledIngestions).toEqual([entry!.ingestionId]); expect(entry?.state).toBe('cancelled');
+});
+it('a queued link cancelled while an earlier link is in flight is never submitted from the old drain snapshot', async () => {
+  const f = fixture(); const outbox = f.build();
+  await outbox.enqueueLink(binding, { url: 'https://source.example/one', translationIntent: 'none' }, []);
+  await outbox.enqueueLink(binding, { url: 'https://source.example/two', translationIntent: 'none' }, []);
+  const [first, second] = await f.db.list(binding); const sent: string[] = [];
+  f.client.link = async (_input, key) => { sent.push(key); if (key === first!.id) await f.db.requestCancel(binding, second!.id); return { documentId: crypto.randomUUID(), jobId: null }; };
+  await outbox.drainOutbox(binding, new AbortController().signal);
+  expect(sent).toEqual([first!.id]); expect((await f.db.get(binding, second!.id))?.state).toBe('cancelled');
+  expect((await f.db.get(binding, second!.id))?.linkAttempted).not.toBe(true);
+});
+it('cancellation at the awaited pre-send boundary suppresses a never-sent link despite its newly persisted attempt marker', async () => {
+  const f = fixture(); const outbox = f.build();
+  const id = await outbox.enqueueLink(binding, { url: 'https://source.example/pre-send', translationIntent: 'none' }, []);
+  const put = f.db.put.bind(f.db); let intervened = false; let sent = 0;
+  vi.spyOn(f.db, 'put').mockImplementation(async (b, entry) => {
+    await put(b, entry);
+    if (entry.id === id && entry.linkAttempted && !intervened) { intervened = true; await f.db.requestCancel(b, id); }
+  });
+  f.client.link = async () => { sent++; return { documentId: crypto.randomUUID(), jobId: null }; };
+  await outbox.drainOutbox(binding, new AbortController().signal);
+  expect(intervened).toBe(true); expect(sent).toBe(0); expect((await f.db.get(binding, id))?.state).toBe('cancelled');
+  expect((await f.db.get(binding, id))?.linkAttempted).toBe(false);
+});

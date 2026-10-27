@@ -36,9 +36,22 @@ export function createArchiveOutbox(deps: OutboxDependencies) {
     };
     try {
       await check();
+      const current = await db.get(binding, entry.id);
+      if (!current || ['completed', 'cancelled'].includes(current.state)) return;
+      entry = current; await check();
       if (entry.kind === 'link') {
-        if (entry.cancelRequested && !entry.linkAttempted) { entry.state = 'cancelled'; }
-        else { entry.linkAttempted = true; await db.put(binding, entry); await check(); entry.linkResult = await client.link(entry.linkRequest!, entry.id); await check(); entry.state = 'completed'; }
+        const previouslyAttempted = entry.linkAttempted === true;
+        if (entry.cancelRequested && !previouslyAttempted) { entry.state = 'cancelled'; }
+        else {
+          entry.linkAttempted = true; await db.put(binding, entry); await check();
+          entry.cancelRequested ||= (await db.get(binding, entry.id))?.cancelRequested;
+          if (entry.cancelRequested && !previouslyAttempted) {
+            // This attempt has not reached HTTP; keep prior-attempt reconciliation distinct.
+            entry.linkAttempted = false; entry.state = 'cancelled';
+          } else {
+            entry.linkResult = await client.link(entry.linkRequest!, entry.id); await check(); entry.state = 'completed';
+          }
+        }
       } else {
         let preparedHere = false;
         if (!entry.request && !entry.cancelRequested) {
@@ -66,7 +79,9 @@ export function createArchiveOutbox(deps: OutboxDependencies) {
           else if (!['completed', 'cancelled', 'failed'].includes(result.status)) {
             const files = await db.files(binding, entry.id);
             for (const id of result.missingFileIds) {
-              await check(); const file = files.find(file => file.descriptor.id === id); if (!file) throw new Error('本地文件缺失。');
+              await check();
+              if ((await db.get(binding, entry.id))?.cancelRequested) { entry.cancelRequested = true; break; }
+              const file = files.find(file => file.descriptor.id === id); if (!file) throw new Error('本地文件缺失。');
               await client.put(result.id, file.descriptor, file.bytes); await check();
             }
             for (let rebase = 0; ; rebase++) {
