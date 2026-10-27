@@ -75,6 +75,11 @@ it('imports privately and serves schema-validated descriptors, chunks and pagina
   expect(descriptor.statusCode).toBe(200); const dto = readerDescriptorSchema.parse(descriptor.json());
   expect(dto.versionId).toBe(first.version); expect(dto.progress).toBeNull();
   expect(dto.index.generationKind).toBe('mock');
+  const expectedPages = JSON.parse(await (await import('node:fs/promises')).readFile(new URL('../../../../packages/document-contracts/fixtures/reader-v1/source-ir.json', import.meta.url), 'utf8')).pages;
+  expect(descriptor.json().pages).toEqual(expectedPages);
+  expect(readerDescriptorSchema.safeParse({ ...dto, pages: undefined }).success).toBe(false);
+  expect(readerDescriptorSchema.safeParse({ ...dto, pages: [] }).success).toBe(false);
+  expect(readerDescriptorSchema.safeParse({ ...dto, pages: [...expectedPages].reverse() }).success).toBe(false);
   const historical = await t.app.inject({ url: `${first.base}/reader?versionId=${second.version}`, headers: headers(t.alice) });
   expect(historical.statusCode).toBe(200); expect(historical.json().versionId).toBe(second.version);
   const otherVersionImage = Object.values(historical.json().assetMap)[0];

@@ -1,0 +1,113 @@
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { createPortal } from 'react-dom';
+import { renderChunk } from '@pagelingo/document-renderer';
+import type { PdfSourceRef, ReaderChunk, ReaderDescriptor } from '@pagelingo/document-contracts';
+import { Button } from '../../shared/ui/button';
+import { ReaderWindow, type ContentPosition, type ContentTarget, type InteractionOrigin } from './window-state';
+export type ContentMode = 'source' | 'translation';
+export interface ReaderContentProps {
+  descriptor: ReaderDescriptor;
+  mode: ContentMode;
+  onLocate: (references: readonly PdfSourceRef[]) => void;
+  onPositionChange?: (position: ContentPosition, origin: InteractionOrigin) => void;
+  target?: ContentTarget;
+  large?: boolean;
+}
+const TrustedChunk = memo(function TrustedChunk({ chunk, descriptor, mode }: { chunk: ReaderChunk; descriptor: ReaderDescriptor; mode: ContentMode }) {
+  const rendered = useMemo(() => renderChunk(chunk, { mode, resolveAsset: id => {
+    const asset = descriptor.assetMap[id]; if (!asset || !/^[a-f0-9-]{36}$/.test(asset)) throw new Error('Missing owned Reader asset');
+    return `/api/v1/documents/${descriptor.documentId}/readers/${descriptor.versionId}/assets/${asset}`;
+  } }), [chunk, descriptor, mode]);
+  const root = useRef<HTMLDivElement>(null); const [blocks, setBlocks] = useState<HTMLElement[]>([]);
+  useLayoutEffect(() => { setBlocks([...root.current!.querySelectorAll<HTMLElement>('[data-block-id]')]); }, [rendered]);
+  return <div data-reader-chunk={chunk.id}>
+    <div ref={root} dangerouslySetInnerHTML={{ __html: rendered.html }} />
+    {blocks.map(block => createPortal(<button className="block-locate" data-locate-block={block.dataset.blockId} aria-label="定位原页">定位原页</button>, block, block.dataset.blockId))}
+    {rendered.warnings.map(warning => <p role="status" key={warning}>{warning}</p>)}
+  </div>;
+});
+export function ReaderContent({ descriptor, mode, onLocate, onPositionChange, target, large = false }: ReaderContentProps) {
+  const store = useMemo(() => new ReaderWindow(descriptor), [descriptor.documentId, descriptor.versionId, descriptor.parseId, descriptor.source.sha256]);
+  const state = useSyncExternalStore(store.subscribe, store.getSnapshot);
+  const root = useRef<HTMLDivElement>(null);
+  const [input, setInput] = useState('1');
+  const pendingTarget = useRef<ContentTarget | null>(null);
+  const anchor = useRef<{ id: string; top: number } | null>(null);
+  const userUntil = useRef(0);
+  const onPosition = useRef(onPositionChange); onPosition.current = onPositionChange;
+  const indices = useMemo(() => new Map(descriptor.index.chunks.map((chunk, i) => [chunk.id, i])), [descriptor]);
+  const jump = (next: ContentTarget) => {
+    userUntil.current = 0; anchor.current = null; pendingTarget.current = next;
+    const id = next.blockId && descriptor.index.blockLocations[next.blockId]?.chunkId;
+    const current = next.chunkIndex ?? (id ? indices.get(id) : 0) ?? 0;
+    store.select(current); setInput(String(current + 1));
+  };
+  useEffect(() => { store.select(0); return () => store.dispose(); }, [store]);
+  useEffect(() => { if (target) jump(target); }, [target, store]);
+  useLayoutEffect(() => {
+    const element = root.current; if (!element) return;
+    const destination = pendingTarget.current;
+    if (destination) {
+      if (state.loading) return;
+      const id = destination.blockId ?? descriptor.index.chunks[state.current]?.blockIds[0];
+      const block = id ? element.querySelector<HTMLElement>(`[data-block-id="${id}"]`) : null;
+      if (!block) return;
+      userUntil.current = 0;
+      element.scrollTop += block.getBoundingClientRect().top - element.getBoundingClientRect().top + block.offsetHeight * destination.blockOffset;
+      pendingTarget.current = null;
+      onPosition.current?.({ blockId: id ?? null, blockOffset: destination.blockOffset }, destination.origin);
+    } else if (anchor.current) {
+      const block = element.querySelector<HTMLElement>(`[data-block-id="${anchor.current.id}"]`);
+      if (block) { userUntil.current = 0; element.scrollTop += block.getBoundingClientRect().top - anchor.current.top; }
+      if (!state.loading) anchor.current = null;
+    }
+  }, [state, descriptor]);
+  useLayoutEffect(() => { userUntil.current = 0; }, [mode, large]);
+  useEffect(() => {
+    const resetIntent = () => { userUntil.current = 0; };
+    window.addEventListener('resize', resetIntent);
+    return () => window.removeEventListener('resize', resetIntent);
+  }, []);
+  const onScroll = () => {
+    if (!root.current) return;
+    const origin: InteractionOrigin = performance.now() < userUntil.current ? 'user' : 'layout';
+    if (pendingTarget.current && origin !== 'user') return;
+    // A deliberate scroll supersedes a jump still waiting for its neighbours.
+    if (origin === 'user') pendingTarget.current = null;
+    const top = root.current.getBoundingClientRect().top;
+    const block = [...root.current.querySelectorAll<HTMLElement>('[data-block-id]')].find(node => node.getBoundingClientRect().bottom > top + 1);
+    if (!block) return;
+    const rect = block.getBoundingClientRect(); const id = block.dataset.blockId!;
+    onPosition.current?.({ blockId: id, blockOffset: Math.max(0, Math.min(1, (top - rect.top) / rect.height)) }, origin);
+    const current = indices.get(descriptor.index.blockLocations[id]?.chunkId);
+    if (origin === 'user' && (state.loading || current !== state.current)) anchor.current = { id, top: rect.top };
+    if (origin === 'user' && current !== undefined && current !== state.current) {
+      store.select(current); setInput(String(current + 1));
+    }
+  };
+  const arm = () => { userUntil.current = performance.now() + 800; };
+  return <div className="reader-body">
+    <form className="reader-chunk-nav" onSubmit={event => { event.preventDefault(); jump({ blockId: null, blockOffset: 0, chunkIndex: Math.max(0, Math.min(descriptor.index.chunks.length - 1, Number(input) - 1)), sequence: Date.now(), origin: 'user' }); }}>
+      <Button type="button" disabled={state.current === 0} onClick={() => jump({ blockId: null, blockOffset: 0, chunkIndex: state.current - 1, sequence: Date.now(), origin: 'user' })}>上一片</Button>
+      <label>正文分片 <input aria-label="正文分片" type="number" min="1" max={descriptor.index.chunks.length} value={input} onChange={event => setInput(event.target.value)} /></label><span>/ {descriptor.index.chunks.length}</span><Button type="submit">跳转正文</Button>
+      <Button disabled={state.current >= descriptor.index.chunks.length - 1} onClick={() => jump({ blockId: null, blockOffset: 0, chunkIndex: state.current + 1, sequence: Date.now(), origin: 'user' })}>下一片</Button>
+    </form>
+    <div ref={root} className={`reader-content${large ? ' reader-large' : ''}`} tabIndex={0} aria-label="正文，可独立滚动" data-cached-chunks={state.cachedResponses}
+      onWheel={arm} onTouchMove={arm} onPointerDown={event => { if (event.target === event.currentTarget) arm(); }}
+      onKeyDown={event => { if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(event.key)) arm(); }} onScroll={onScroll}
+      onClick={event => {
+        const element = event.target instanceof Element ? event.target : null;
+        const button = element?.closest<HTMLElement>('[data-locate-block]');
+        if (button) {
+          const entry = state.chunks.flatMap(chunk => chunk.blocks).find(block => block.source.id === button.dataset.locateBlock);
+          if (entry) onLocate(entry.source.sourceRefs);
+        }
+        const link = element?.closest<HTMLElement>('[data-block-link]'); const id = link?.dataset.blockLink;
+        if (id) { event.preventDefault(); if (Object.hasOwn(descriptor.index.blockLocations, id)) jump({ blockId: id, blockOffset: 0, sequence: Date.now(), origin: 'user' }); }
+      }}>
+      {state.loading && <p role="status" className="reader-message">正在加载正文…</p>}
+      {state.error && <div className="reader-message" role="alert">{state.error}<Button onClick={() => store.select(state.current)}>重试正文</Button></div>}
+      {state.chunks.map(chunk => <TrustedChunk key={chunk.id} chunk={chunk} descriptor={descriptor} mode={mode} />)}
+    </div>
+  </div>;
+}

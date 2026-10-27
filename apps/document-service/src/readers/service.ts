@@ -25,7 +25,7 @@ export function createReadersService({ db, store }: { db: Database; store: Objec
         const assets = await imageAssets(client, actor.userId, version, ir);
         return readerDescriptorSchema.parse({ documentId, versionId: version.id,
           source: { documentId, sourceVersionId: version.source_version_id, assetId: version.source_asset_id, sha256: version.source_sha256, bytes: Number(version.source_bytes) },
-          parseId: version.parse_id, index, assetMap: Object.fromEntries([...assets].map(([logicalId, asset]) => [logicalId, asset.id])),
+          parseId: version.parse_id, index, pages: ir.pages, assetMap: Object.fromEntries([...assets].map(([logicalId, asset]) => [logicalId, asset.id])),
           translationStatus: version.translation_status, parseCoverage: version.parse_coverage, warnings: [...new Set([...version.warnings, ...index.warnings])],
           ...await restoreProgress(client, actor.userId, version, index, ir.source.pageCount) });
       });

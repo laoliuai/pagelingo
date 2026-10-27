@@ -1,24 +1,38 @@
 import { useEffect, useRef, useState } from 'react';
 import { getDocument, PDFWorker, type PDFDocumentProxy, type RenderTask } from 'pdfjs-dist';
 import SourceWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?worker';
+import type { PdfPageMetadata, PdfSourceRef } from '@pagelingo/document-contracts';
+import { compatibleGeometry, SourceHighlight, type PdfGeometry } from '../reader/source-highlight';
+import type { InteractionOrigin } from '../reader/window-state';
 import { useSession } from '../../app/session';
 import { Button } from '../../shared/ui/button';
 import { Feedback } from '../../shared/ui/toast';
 
 /** Only public document IDs may select an authenticated, same-origin source. */
-export function PdfSource({ sourceUrl, title }: { sourceUrl: string; title: string }) {
+export interface PdfSourceProps {
+  sourceUrl: string; title: string; pageIndex?: number;
+  onPageChange?: (pageIndex: number, origin: InteractionOrigin) => void;
+  highlight?: PdfSourceRef; pageMetadata?: PdfPageMetadata; pageCount?: number;
+  onInteraction?: (origin: InteractionOrigin) => void;
+}
+export function PdfSource({ sourceUrl, title, pageIndex: controlledPage, onPageChange, highlight, pageMetadata, pageCount, onInteraction }: PdfSourceProps) {
   const { clear } = useSession();
   const [document, setDocument] = useState<PDFDocumentProxy | null>(null);
-  const [pageIndex, setPageIndex] = useState(0);
+  const [internalPage, setPageIndex] = useState(0);
+  const pageIndex = controlledPage ?? internalPage;
+  const changePage = (next: number) => { if (controlledPage === undefined) setPageIndex(next); onPageChange?.(next, 'user'); onInteraction?.('user'); };
   const [scale, setScale] = useState(1);
   const [attempt, setAttempt] = useState(0);
   const [error, setError] = useState('');
   const [renderedFrame, setRenderedFrame] = useState<{
     document: PDFDocumentProxy;
+    sourceUrl: string;
     pageIndex: number;
     scale: number;
+    geometry: PdfGeometry;
   } | null>(null);
   const rendered =
+    renderedFrame?.sourceUrl === sourceUrl &&
     renderedFrame?.document === document &&
     renderedFrame?.pageIndex === pageIndex &&
     renderedFrame?.scale === scale;
@@ -96,7 +110,7 @@ export function PdfSource({ sourceUrl, title }: { sourceUrl: string; title: stri
         target.height = Math.ceil(viewport.height);
         renderTask = page.render({ canvas: target, viewport });
         return renderTask.promise.then(() => {
-          if (!disposed) setRenderedFrame({ document, pageIndex, scale });
+          if (!disposed) setRenderedFrame({ document, sourceUrl, pageIndex, scale, geometry: { pageIndex, pageCount: document.numPages, view: [...page.view], rotation: page.rotate, width: viewport.width, height: viewport.height, transform: [...viewport.transform], scale } });
         });
       })
       .catch((reason: unknown) => {
@@ -119,7 +133,7 @@ export function PdfSource({ sourceUrl, title }: { sourceUrl: string; title: stri
           <Button
             aria-label="上一页"
             disabled={!document || pageIndex === 0 || !!error}
-            onClick={() => setPageIndex((value) => value - 1)}
+            onClick={() => changePage(pageIndex - 1)}
           >
             上一页
           </Button>
@@ -129,7 +143,7 @@ export function PdfSource({ sourceUrl, title }: { sourceUrl: string; title: stri
           <Button
             aria-label="下一页"
             disabled={!document || pageIndex >= document.numPages - 1 || !!error}
-            onClick={() => setPageIndex((value) => value + 1)}
+            onClick={() => changePage(pageIndex + 1)}
           >
             下一页
           </Button>
@@ -140,7 +154,7 @@ export function PdfSource({ sourceUrl, title }: { sourceUrl: string; title: stri
             <select
               aria-label="缩放"
               value={scale}
-              onChange={(event) => setScale(Number(event.target.value))}
+              onChange={(event) => { setScale(Number(event.target.value)); onInteraction?.('user'); }}
               disabled={!document || !!error}
             >
               <option value="0.75">75%</option>
@@ -169,13 +183,17 @@ export function PdfSource({ sourceUrl, title }: { sourceUrl: string; title: stri
               正在加载原件…
             </p>
           )}
+          {rendered && highlight?.pageIndex === pageIndex && <p className="pdf-location-status" role="status">{highlight.precision === 'page' ? '仅定位到原页；此段没有可信区域坐标。' : !compatibleGeometry(renderedFrame!.geometry, pageMetadata, pageCount) ? '页面几何信息不匹配，已仅定位到原页。' : '已定位到原页区域。'}</p>}
           <div className="pdf-scroll" tabIndex={0} aria-label="PDF 页面，可横向滚动">
+            <div className="pdf-frame" style={{ position: 'relative', width: 'max-content', margin: '0 auto' }}>
             <canvas
               ref={canvas}
               role="img"
               aria-label={`PDF 第 ${pageIndex + 1} 页`}
               data-rendered={rendered}
             />
+            {rendered && renderedFrame && <SourceHighlight reference={highlight} geometry={renderedFrame.geometry} metadata={pageMetadata} pageCount={pageCount} />}
+            </div>
           </div>
         </>
       )}

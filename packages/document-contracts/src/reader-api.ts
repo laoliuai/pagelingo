@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { readerContractCeilings } from './reader-limits.js';
 import { translationBlockSchema } from '@pagelingo/translation-core';
+import { pdfPageMetadataSchema } from './reader-source.js';
 import { sourceIdentitySchema } from './documents.js';
 import { blockIdSchema, languageDecisionSchema, nodeIdSchema, parseCoverageSchema, parseIdSchema, safeNonnegativeIntegerSchema, sha256Schema, withJsonDepthLimit } from './reader-common.js';
 import { readerAssetSchema, readerBlockSchema, readerNodeSchema } from './reader.js';
@@ -34,7 +35,9 @@ export const readerIndexSchema = withJsonDepthLimit(z.strictObject({
 export type ReaderIndex = z.infer<typeof readerIndexSchema>;
 export const readerDescriptorSchema = withJsonDepthLimit(z.strictObject({
   documentId: z.uuid(), versionId: z.uuid(), source: sourceIdentitySchema, parseId: parseIdSchema,
-  index: readerIndexSchema, assetMap: z.record(z.string().min(1), z.uuid()),
+  index: readerIndexSchema,
+  pages: z.array(pdfPageMetadataSchema).min(1).refine(pages => pages.every((page, index) => page.pageIndex === index), 'Pages must cover ordered physical indices'),
+  assetMap: z.record(z.string().min(1), z.uuid()),
   translationStatus: readerTranslationStatusSchema, parseCoverage: parseCoverageSchema, warnings: z.array(z.string().min(1)),
   progress: readingProgressSchema.nullable(), restoreHint: z.literal('version-updated-source-page').nullable(),
 }));

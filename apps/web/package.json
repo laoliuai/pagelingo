@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@pagelingo/document-contracts": "0.2.0",
+    "@pagelingo/document-renderer": "0.1.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-router-dom": "7.18.4",

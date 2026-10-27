@@ -318,3 +318,5 @@ the current document-global acknowledgement revision and updatedAt, including
 when its coordinates came from older version history. Opening/restoring performs
 no write. The UI must wait for deliberate reading interaction before saving;
 409 requires an explicit user decision instead of an automatic overwrite retry.
+
+Reader descriptor includes required `pages: PdfPageMetadata[]`, copied from the validated and hash-bound stored IR. It is nonempty and ordered by physical pageIndex 0..length−1; clients compare this metadata and page count with actual PDF.js geometry before showing region highlights. No extra metadata endpoint or client-supplied geometry is accepted.
