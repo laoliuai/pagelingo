@@ -1,0 +1,117 @@
+[
+  {
+    "href": "https://[bad",
+    "shapeValid": true,
+    "graphValid": false
+  },
+  {
+    "href": "http://[]/",
+    "shapeValid": true,
+    "graphValid": false
+  },
+  {
+    "href": "https://example.com:bad/",
+    "shapeValid": true,
+    "graphValid": false
+  },
+  {
+    "href": "http://example.com:99999/",
+    "shapeValid": true,
+    "graphValid": false
+  },
+  {
+    "href": "https://%zz/",
+    "shapeValid": true,
+    "graphValid": false
+  },
+  {
+    "href": "http://[::1]:x/",
+    "shapeValid": true,
+    "graphValid": false
+  },
+  {
+    "href": "http://#",
+    "shapeValid": false,
+    "graphValid": false
+  },
+  {
+    "href": "https:///path",
+    "shapeValid": false,
+    "graphValid": false
+  },
+  {
+    "href": "https://",
+    "shapeValid": false,
+    "graphValid": false
+  },
+  {
+    "href": "mailto:",
+    "shapeValid": false,
+    "graphValid": false
+  },
+  {
+    "href": "javascript:alert(1)",
+    "shapeValid": false,
+    "graphValid": false
+  },
+  {
+    "href": "data:text/html,bad",
+    "shapeValid": false,
+    "graphValid": false
+  },
+  {
+    "href": "/relative",
+    "shapeValid": false,
+    "graphValid": false
+  },
+  {
+    "href": "https://example.com/a b",
+    "shapeValid": false,
+    "graphValid": false
+  },
+  {
+    "href": "https://example.com/\u0000",
+    "shapeValid": false,
+    "graphValid": false
+  },
+  {
+    "href": "https://example.com/",
+    "shapeValid": true,
+    "graphValid": true
+  },
+  {
+    "href": "http://example.com/path?q=a#b",
+    "shapeValid": true,
+    "graphValid": true
+  },
+  {
+    "href": "mailto:reader@example.com?subject=Hello%20world",
+    "shapeValid": true,
+    "graphValid": true
+  },
+  {
+    "href": "https://[2001:db8::1]:443/path",
+    "shapeValid": true,
+    "graphValid": true
+  },
+  {
+    "href": "https://例子.测试/正文",
+    "shapeValid": true,
+    "graphValid": true
+  },
+  {
+    "href": "https://example.com/\n",
+    "shapeValid": false,
+    "graphValid": false
+  },
+  {
+    "href": "https://example.com/\r\n",
+    "shapeValid": false,
+    "graphValid": false
+  },
+  {
+    "href": "https://example.com/ ",
+    "shapeValid": false,
+    "graphValid": false
+  }
+]

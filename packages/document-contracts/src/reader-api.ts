@@ -40,14 +40,31 @@ export const readerDescriptorSchema = withJsonDepthLimit(z.strictObject({
 }));
 export type ReaderDescriptor = z.infer<typeof readerDescriptorSchema>;
 
-export const bundleImportStatusSchema = z.enum(['uploading', 'validating', 'publishing', 'completed', 'failed', 'cancelled']);
+export const bundleImportStatusSchema = z.enum(['created', 'receiving', 'validating', 'completed', 'failed', 'cancelled']);
 export type BundleImportStatus = z.infer<typeof bundleImportStatusSchema>;
-export const createBundleImportRequestSchema = z.strictObject({ documentId: z.uuid().nullable() });
+export const createBundleImportRequestSchema = z.strictObject({ targetDocumentId: z.uuid().optional() });
 export type CreateBundleImportRequest = z.infer<typeof createBundleImportRequestSchema>;
 export const bundleImportSchema = z.strictObject({
-  id: z.uuid(), documentId: z.uuid().nullable(), status: bundleImportStatusSchema,
+  id: z.uuid(), status: bundleImportStatusSchema, epoch: safeNonnegativeIntegerSchema,
+  documentId: z.uuid().optional(), readerVersionId: z.uuid().optional(), errorCode: z.string().min(1).optional(),
   createdAt: z.iso.datetime(), updatedAt: z.iso.datetime(),
-  readerVersionId: z.uuid().nullable(), error: z.strictObject({ code: z.string().min(1), message: z.string().min(1) }).nullable(),
 });
 export type BundleImport = z.infer<typeof bundleImportSchema>;
 export const bundleImportLimitsSchema = bundleLimitsSchema;
+
+export const readerVersionSummarySchema = z.strictObject({
+  id: z.uuid(), createdAt: z.iso.datetime(), sourceVersionId: z.uuid(), parseId: parseIdSchema,
+  translationStatus: readerTranslationStatusSchema, parseCoverage: parseCoverageSchema, warnings: z.array(z.string().min(1)),
+});
+export type ReaderVersionSummary = z.infer<typeof readerVersionSummarySchema>;
+export const readerVersionListSchema = z.strictObject({
+  items: z.array(readerVersionSummarySchema), total: safeNonnegativeIntegerSchema,
+  page: z.number().int().positive(), pageSize: z.number().int().min(1).max(100),
+});
+export type ReaderVersionList = z.infer<typeof readerVersionListSchema>;
+const paginationNumberSchema = z.union([z.number(), z.string().regex(/^[0-9]+$/)]).pipe(z.coerce.number());
+export const readerVersionListQuerySchema = z.strictObject({
+  page: paginationNumberSchema.pipe(z.number().int().positive()).default(1),
+  pageSize: paginationNumberSchema.pipe(z.number().int().min(1).max(100)).default(20),
+});
+export type ReaderVersionListQuery = z.infer<typeof readerVersionListQuerySchema>;

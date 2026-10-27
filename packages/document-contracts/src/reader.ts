@@ -8,7 +8,10 @@ export type { LanguageDecision, ParseCoverage } from './reader-common.js';
 
 const localId = z.string().min(1);
 const assetId = z.string().min(1).max(240);
-const externalLink = z.url().regex(/^(?:https?:\/\/[^/?#\s]+[^\s]*|mailto:[^\s]+)$/);
+// Portable shape shared verbatim by Zod and generated JSON Schema. Browser URL
+// authority/port legality is checked separately by validateReaderGraph.
+const externalLink = z.string().regex(/^(?:https?:\/\/[^/?#\s\x00-\x1f\x7f]+[^\s\x00-\x1f\x7f]*|mailto:[^\s\x00-\x1f\x7f]+)$/)
+  .describe('Portable HTTP/HTTPS/mailto shape; validateReaderGraph additionally checks WHATWG URL legality.');
 export const readerBindingSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('link'), id: localId, href: externalLink }),
   z.strictObject({ kind: z.literal('block-link'), id: localId, blockId: blockIdSchema }),

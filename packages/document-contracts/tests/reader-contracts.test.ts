@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
   readerIrSchema, readerTranslationSchema, documentBundleManifestSchema,
   readingPositionSchema, readingProgressUpdateSchema, bundleLimitsSchema, defaultBundleLimits,
-  readerChunkIdSchema, createBundleImportRequestSchema, bundleLimitsOverrideSchema,
+  readerChunkIdSchema, createBundleImportRequestSchema, bundleImportSchema, bundleLimitsOverrideSchema,
+  readerVersionSummarySchema, readerVersionListSchema, readerVersionListQuerySchema,
   validateReaderGraph, validateReaderTranslationReferences,
   type ReaderIR, type ReaderTranslation,
 } from '../src/index.js';
@@ -224,12 +225,10 @@ it('reports subset and incomplete parser runs as partial readable coverage', () 
   expect(() => validateReaderGraph(subset)).not.toThrow();
 });
 
-it('bounds canonical chunk IDs and forbids owner and duplicate PDF-limit configuration', () => {
+it('bounds canonical chunk IDs and prevents duplicate PDF-limit configuration', () => {
   expect(readerChunkIdSchema.safeParse('c_000001').success).toBe(true);
   expect(readerChunkIdSchema.safeParse('c_000000').success).toBe(false);
   expect(readerChunkIdSchema.safeParse('c_1').success).toBe(false);
-  expect(createBundleImportRequestSchema.safeParse({ documentId: null }).success).toBe(true);
-  expect(createBundleImportRequestSchema.safeParse({ documentId: null, ownerId: 'forged' }).success).toBe(false);
   expect(bundleLimitsOverrideSchema.safeParse({ maxPdfBytes: 1024 }).success).toBe(false);
   expect(bundleLimitsOverrideSchema.safeParse({ maxFiles: 100 }).success).toBe(true);
 });
@@ -293,4 +292,86 @@ it('preserves invalid original CropBox evidence when a valid effective crop is p
   repaired.pages[2].cropBox = [20, 40, 20, 40];
   for (const block of repaired.blocks) block.sourceRefs = block.sourceRefs.map(ref => ref.pageIndex === 2 ? { pageIndex: 2, precision: 'page' } : ref);
   expect(() => validateReaderGraph(repaired)).not.toThrow();
+});
+
+describe('frozen bundle import API', () => {
+  const id = '00000000-0000-4000-8000-000000000001';
+  const timestamps = { createdAt: '2026-10-27T00:00:00.000Z', updatedAt: '2026-10-27T00:01:00.000Z' };
+
+  it('creates new and targeted imports without accepting client ownership or obsolete fields', () => {
+    expect(createBundleImportRequestSchema.parse({})).toEqual({});
+    expect(createBundleImportRequestSchema.parse({ targetDocumentId: id })).toEqual({ targetDocumentId: id });
+    for (const invalid of [{ documentId: null }, { targetDocumentId: null }, { targetDocumentId: 'bad' }, { ownerId: id }, { targetDocumentId: id, ownerId: id }]) {
+      expect(createBundleImportRequestSchema.safeParse(invalid).success).toBe(false);
+    }
+  });
+
+  it('preserves distinct creation and receiving phases and required fencing epochs', () => {
+    const base = { id, epoch: 0, ...timestamps };
+    for (const status of ['created', 'receiving', 'validating', 'completed', 'failed', 'cancelled']) {
+      const value = { ...base, status };
+      expect(bundleImportSchema.parse(value)).toEqual(value);
+    }
+    const completed = { ...base, status: 'completed', epoch: 2, documentId: id, readerVersionId: id };
+    expect(bundleImportSchema.parse(completed)).toEqual(completed);
+    const failed = { ...base, status: 'failed', errorCode: 'BUNDLE_IDENTITY_CONFLICT' };
+    expect(bundleImportSchema.parse(failed)).toEqual(failed);
+    for (const patch of [
+      { epoch: undefined }, { epoch: -1 }, { epoch: 0.5 }, { epoch: Number.MAX_SAFE_INTEGER + 1 },
+      { status: 'uploading' }, { status: 'publishing' }, { documentId: null }, { readerVersionId: null },
+      { errorCode: null }, { errorCode: '' }, { error: { code: 'failed', message: 'old protocol' } }, { ownerId: id },
+    ]) expect(bundleImportSchema.safeParse({ ...base, status: 'created', ...patch }).success).toBe(false);
+  });
+});
+
+describe('Reader version-list API', () => {
+  const version = {
+    id: '00000000-0000-4000-8000-000000000001', createdAt: '2026-10-27T00:00:00.000Z',
+    sourceVersionId: '00000000-0000-4000-8000-000000000002', parseId: `p_${'a'.repeat(64)}`,
+    translationStatus: 'partial', parseCoverage: 'partial', warnings: ['Some units remain untranslated'],
+  };
+
+  it('exports strict version summaries and paginated results', () => {
+    expect(readerVersionSummarySchema.parse(version)).toEqual(version);
+    const list = { items: [version], total: 1, page: 1, pageSize: 20 };
+    expect(readerVersionListSchema.parse(list)).toEqual(list);
+    for (const patch of [{ id: 'bad' }, { createdAt: 'today' }, { sourceVersionId: null }, { parseId: 'p_bad' },
+      { translationStatus: 'ready' }, { parseCoverage: 'sample' }, { warnings: [null] }, { ownerId: version.id }]) {
+      expect(readerVersionSummarySchema.safeParse({ ...version, ...patch }).success).toBe(false);
+    }
+    for (const patch of [{ total: -1 }, { page: 0 }, { pageSize: 101 }, { ownerId: version.id }]) {
+      expect(readerVersionListSchema.safeParse({ ...list, ...patch }).success).toBe(false);
+    }
+  });
+
+  it('defaults version pagination to 1/20 and accepts at most 100 entries per page', () => {
+    expect(readerVersionListQuerySchema.parse({})).toEqual({ page: 1, pageSize: 20 });
+    expect(readerVersionListQuerySchema.parse({ page: '2', pageSize: '100' })).toEqual({ page: 2, pageSize: 100 });
+    for (const query of [{ page: 0 }, { pageSize: 101 }, { pageSize: 0 }, { page: true }, { page: [] }, { page: '1.5' }, { q: 'unexpected' }, { ownerId: version.id }]) {
+      expect(readerVersionListQuerySchema.safeParse(query).success).toBe(false);
+    }
+  });
+});
+
+it('shares portable link shapes with JSON Schema and retains URL legality in graph validation', async () => {
+  const { Ajv2020 } = await import('ajv/dist/2020.js');
+  const addFormats = (await import('ajv-formats')).default.default;
+  const ajv = new Ajv2020({ strict: true, allErrors: true });
+  addFormats(ajv);
+  const jsonSchema = JSON.parse(readFileSync(new URL('../schemas/reader-ir.schema.json', import.meta.url), 'utf8'));
+  const validate = ajv.compile(jsonSchema);
+  const cases = fixture('link-shapes') as Array<{ href: string; shapeValid: boolean; graphValid: boolean }>;
+  for (const { href, shapeValid, graphValid } of cases) {
+    const source = ir();
+    const block = source.blocks[0];
+    if (block.type !== 'text' || block.value.content[0].type !== 'format') throw new Error('Expected formatted heading fixture');
+    block.value.content[0].kind = 'link';
+    block.bindings = [{ kind: 'link', id: block.value.content[0].id, href }];
+    const zodValid = readerIrSchema.safeParse(source).success;
+    const jsonValid = validate(source);
+    expect(zodValid, `Zod / JSON Schema shape agreement for ${JSON.stringify(href)}`).toBe(jsonValid);
+    expect(zodValid, `Portable shape for ${JSON.stringify(href)}`).toBe(shapeValid);
+    if (graphValid) expect(() => validateReaderGraph(source), href).not.toThrow();
+    else expect(() => validateReaderGraph(source), href).toThrow();
+  }
 });

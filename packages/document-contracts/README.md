@@ -63,3 +63,7 @@ PDF pageIndex 从 0 开始。bbox 已是旋转后有效 CropBox、左上原点�
 [reader-v1 fixtures](fixtures/reader-v1/) 包含重复段落、嵌套有序 / 无序列表、prompt 提示框、protected math、跨页 / 页级来源、四种旋转与非零裁剪起点。fixture hash / 字节数是显式的 shape 占位值，不可作为真实完整包导入；实际字节校验属于 bundle 工作区。固定英文常用词表只为后续可重放语言判定提供版本化输入，本包不调用模型做语言检测。
 
 `readerContractCeilings` 是单一、不可变的 v1 结构上限表（节点、块、树 / inline / JSON 深度、路径、文本 / code / LaTeX、图片及文件数）。运行配置只能收紧这些上限；bundleLimitsSchema / bundleLimitsOverrideSchema 拒绝更大的值。archive、expanded、manifest / IR / translation / provenance / other 文件字节预算可独立调大；maxPdfBytes 仍沿用 S1 配置来源。适配层需执行实际生效的更小预算，不能仅验证配置后忽略它。
+
+包导入创建请求是 `{targetDocumentId?: string}`：`{}` 新建资料，提供 UUID 时向已有 PDF 导入。响应 `BundleImport` 包含必需的 `id,status,epoch,createdAt,updatedAt`，以及可选的 `documentId,readerVersionId,errorCode`；状态依次使用 `created | receiving | validating | completed | failed | cancelled`，创建与接收保持独立。`epoch` 是非负 safe integer 围栏值，不接受客户端 owner。`readerVersionSummarySchema` / `ReaderVersionSummary`、`readerVersionListSchema` / `ReaderVersionList` 和 `readerVersionListQuerySchema` / `ReaderVersionListQuery` 提供版本摘要与分页合同，查询默认第 1 页、每页 20，最多 100。
+
+外部链接分两步验证：Zod 与分发 JSON Schema 使用同一个 portable pattern，仅允许小写 `http://` / `https://` 加非空 authority，或非空 `mailto:`，并拒绝空白、ASCII 控制字符和 DEL。这个 shape 不声称完整解析 IPv6 authority、主机编码或端口；例如 `https://[bad` 在两种 shape 校验中都属于待进一步检查的候选。`validateReaderGraph` 必须继续用 WHATWG URL parser 检查实际 URL 合法性，拒绝这些非法 authority / 端口，且不访问网络。合法 HTTP、HTTPS、mailto、IPv6 和国际化链接保留。只有通过 shape + graph 的 IR 可供 renderer / 导入器消费，不能将 shape 成功当作合法链接或可阅读 IR 的证明。

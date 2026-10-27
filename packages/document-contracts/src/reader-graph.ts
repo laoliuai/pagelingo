@@ -128,6 +128,7 @@ function validateText(block: Extract<ReaderBlock, { type: 'text' }>, blocks: Map
         if (inline.kind === 'link') {
           check(binding.kind === 'link' || binding.kind === 'block-link', 'Link inline requires link binding');
           if (binding.kind === 'block-link') check(blocks.has(binding.blockId), 'Unknown block link');
+          else validateExternalLink(binding.href);
         } else {
           check(binding.kind === 'style', 'Format inline requires style binding');
           check(inline.kind === 'style' || binding.emphasis === inline.kind, 'Format emphasis binding mismatch');
@@ -159,4 +160,12 @@ function validateProtected(inline: Extract<InlineContent, { type: 'protected' }>
     check(inline.source === object.text, 'Protected source mismatch');
     check(bytes(object.text) <= (object.type === 'code' ? readerContractCeilings.maxCodeBytes : readerContractCeilings.maxTextBytes), 'Protected text byte limit exceeded');
   }
+}
+
+/** WHATWG URL parsing validates authority and port legality without making a request.
+ * The portable scheme/authority shape has already been checked by readerIrSchema. */
+function validateExternalLink(href: string): void {
+  let url: URL;
+  try { url = new URL(href); } catch { throw new Error('Invalid Reader link URL'); }
+  check(['http:', 'https:', 'mailto:'].includes(url.protocol), 'Unsupported Reader link protocol');
 }

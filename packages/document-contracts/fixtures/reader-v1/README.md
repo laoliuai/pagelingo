@@ -22,3 +22,10 @@ bbox coordinates are already normalized and rotated; do not transform them again
 `english-common-words.json` freezes lowercase common words for the later language
 heuristic. Language classification and short Latin block inheritance are implemented
 by the renderer adapter, not by these contract schemas.
+
+`link-shapes.json` fixes the portable scheme/authority-shape policy separately from
+WHATWG URL legality. Malformed authorities such as `https://[bad` deliberately pass
+both Zod and JSON Schema shapes, then fail validateReaderGraph. Missing authorities,
+unlisted schemes, whitespace and controls fail shape checks directly. Legal HTTP,
+HTTPS, mailto, IPv6 and internationalized links pass both stages. Consumers must run
+shape and graph validation before using the IR.
