@@ -69,7 +69,7 @@
 - Web IR 复用 `TranslationBlock`、格式 / protected 语义和树状容器；新增网页表格 / 行 / 单元格。Web sourceRef 为 `{ nodeId, quote, prefix, suffix }`，nodeId 在固定快照内唯一；重复段落仍有不同 block ID。Web parse ID 仍用 `p_<sha256>`，但来自 source manifest / projector / config 摘要，不伪造 Python 或 PDF 信息。
 - Web text block 可带 `headingLevel:1..6`，由 projector 从真实 h1–h6 保留，含合成文本段；不加入 SDK value 或 PDF 合同。无此元数据时渲染器按结构层级降级。
 - `WebReaderIR.source.kind='web'`，无 pages。`WebLanguageDecision` 为 zh / en / foreign / mixed / und，附 sourceLanguage 与 reason；foreign 只扩展 Web 合同，PDF 既有四值语言合同与判断不变。
-- `WebTranslation` 复用现有单元 / block 结果模型，绑定实际 Web IR 字节 SHA。新增适配器使用 SDK `planUnits / validateStructure / decodeTranslation`；模型提供的 HTML / 格式树不作源依据。
+- `WebModelTranslation` 复用现有单元 / block 结果模型，保持 `web-reader-translation/1`，绑定实际 Web IR 字节 SHA。`WebTranslation` 是模型与导入产物的 union；`WebImportedTranslation` 使用 `web-imported-translation/1` / generationKind=import，保留候选来源 / 版本 / 语种及已验证的原块结果证明，无 job / profile / budget / 模型用量伪造。Web generation kind 单独扩展 import，PDF 合同不变。适配器使用 SDK `planUnits / encodeBlock / validateStructure / decodeTranslation`；模型提供的 HTML / 格式树不作源依据。
 - 已有插件译文另用 `WebCaptureTranslationCandidate`（`web-capture-translation-candidate/1`），不绑定尚未生成的服务端 IR。它携带原文 snapshot / fingerprint、语种与 SDK / prompt / protection 版本及逐块 `{nodeId,sourceTextSha256,source:TranslationBlock,rawText}`；文本摘要为 UTF-8 `naturalText(source.content)`，不归一化空白，rawText 为 glossary 恢复后的完整 SDK result.text。服务器逐块比较自己的原文投影并重放 SDK 校验；不支持或不匹配只跳过候选并警告，原文照常保存。候选最多20,000块、单块512 KiB、文件16 MiB；draft 携带结构 DTO，不传译文 DOM HTML。
 - `WebDocumentSummary` 与原 PDF summary 构成 `DocumentSummary` union。网页 `source` 可为 null（仅链接），不能让 PDF 原件路由返回网页 manifest。`kind` 保留 V1 的 article / x-post / repository / paper / pdf；S3 后两种来源只作链接记录。
 
@@ -140,6 +140,8 @@ type WebReadingProgress = { position: WebReadingPosition; revision: number; upda
 `buildWebReader(ir,translation)` 不持有快照 index，输出的 previewId 可为 null；来源定位以 descriptor.snapshots 与 source node ID 查找为准，不猜预览 ID。跨分片的表头 / caption / 跨行单元格可重复携带原块，明确列入 `contextBlockIds`；每个主块只属于一个分片，上下文副本也计入块数 / 字节预算，不能产生新的翻译单元或冒充主进度 / TOC 锚点。上下文 DOM / SVG ID 按 chunk / 显示侧限定。
 
 尚无翻译产物时直接构建原文 Reader，generationKind 为 none；中文或没有可翻译文字为 not-required，其余保留待译 / 手动选择状态。不为原文阅读虚构 Provider、job 或翻译摘要，Web reader version 的 translation 引用允许为空。
+
+导入产物使用真实来源 / IR 字节绑定及可重放的原块证明，逐块对照服务器投影并执行 SDK 校验；不匹配只跳过候选并提示，原文保留。数据库仅允许 import 译文的 job 为空，模型产物仍须匹配真实任务；独立 owner / document / source / parse / asset 外键不可因空 job 被跳过。Reader 可引用真实导入产物，capture.jobId 仅返回真实服务器任务，所有产物保持不可变和资产注册。
 
 ### 2.4 API 与状态
 
