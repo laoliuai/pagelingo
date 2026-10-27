@@ -1,3 +1,4 @@
+import { CapturePanel } from './capture-panel';
 import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { readSettings } from '../settings/storage';
@@ -113,6 +114,7 @@ function Popup() {
       <div className="page-title" title={title}>
         {title}
       </div>
+      <CapturePanel tabId={tabId} />
       <p className="notice">正文将发送到你配置的 LLM 服务。首次使用请在设置页授权并测试连接。</p>
       <button
         className="primary full"

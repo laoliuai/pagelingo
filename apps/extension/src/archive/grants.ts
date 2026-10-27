@@ -15,3 +15,18 @@ export const captureContentCommandSchema = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('capture:identity') }),
   z.strictObject({ type: z.literal('capture:collect'), grant: captureGrantSchema }),
 ]);
+
+export const RESOURCE_FRAME_BYTES = 256 * 1024;
+export const captureResourceFrameSchema = z.strictObject({
+  type: z.literal('capture:resource-frame'), grant: captureGrantSchema, resourceId: z.string().min(1).max(240),
+  offset: z.number().int().nonnegative().max(16 * 1024 * 1024), total: z.number().int().positive().max(16 * 1024 * 1024),
+  mediaType: z.enum(['image/png','image/jpeg','image/webp','image/gif']), data: z.string().min(4).max(RESOURCE_FRAME_BYTES),
+});
+export const captureAcquisitionCommandSchema = z.discriminatedUnion('type', [
+  z.strictObject({ type: z.literal('capture:begin'), grant: captureGrantSchema }),
+  z.strictObject({ type: z.literal('capture:resource'), grant: captureGrantSchema, resourceId: z.string().min(1).max(240) }),
+  z.strictObject({ type: z.literal('capture:check-resource'), grant: captureGrantSchema, resourceId: z.string().min(1).max(240) }),
+]);
+export function sameCaptureGrant(a: CaptureGrant, b: CaptureGrant): boolean {
+  return a.grantId === b.grantId && a.captureId === b.captureId && a.tabId === b.tabId && a.frameId === b.frameId && a.documentId === b.documentId && a.contentSessionId === b.contentSessionId && a.revision === b.revision && a.url === b.url;
+}

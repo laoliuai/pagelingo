@@ -92,3 +92,15 @@ progress::-webkit-progress-value { background: var(--accent); }
 }
 .local-preview { margin-top: 8px; }
 details summary { cursor: pointer; margin: 12px 0; }
+
+.archive-connection { margin-block: 1.5rem; }
+.archive-origin { overflow-wrap: anywhere; }
+.capture-panel { margin-block: 1rem; padding: 14px; }
+.capture-panel h2 { font-size: 1rem; margin-top: 0; }
+.archive-item { padding-block: 12px; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+.archive-item p { margin-block: 8px; }
+.archive-item button { margin: 4px 6px 4px 0; }
+.archive-item ul { padding-inline-start: 18px; font-size: 12px; }
+.capture-panel button { transition: none; background: var(--surface); color: light-dark(#273d36, #e4ece6); }
+.capture-panel .primary { background: var(--accent); color: light-dark(#fff, #172c20); }
+.capture-panel button:not(.primary):hover:not(:disabled) { background: light-dark(#edf3e9, #304336); }

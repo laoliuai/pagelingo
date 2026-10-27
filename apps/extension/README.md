@@ -20,3 +20,25 @@
 `src/dom` 保存网页节点映射与安全渲染；`src/content` 管理页面会话与失效；`src/background` 管理可信扩展操作；React popup / options 独立于宿主页面。翻译逻辑通过 `@pagelingo/translation-core` 的公开入口调用。
 
 配置和 `tests/unit`、`tests/fixtures.ts`、`tests/e2e` 随应用管理。合成测试页面由代码生成，不依赖本机 HTML 数据文件。根命令 `npm run test:extension`、`npm run test:e2e` 自动先构建 SDK；也可先在根构建 SDK，再在本目录执行自身 npm scripts。测试输出在本目录 `test-results/`。
+
+## 保存到资料站点
+
+在扩展设置的「资料站点」中填写 HTTPS 站点 origin（本机开发可用带固定端口的 HTTP loopback 地址），粘贴站点设置生成的五分钟一次性配对码，再点击「授权并连接站点」。站点设备令牌只保存在 trusted extension storage；原有 LLM 设置与资料归档独立，保存中文原文不需要 API Key，也不会启动模型任务。
+
+在页面打开扩展，点击「保存当前页面原文」。原文先进入独立的 `pagelingo-archives-v1` IndexedDB。若所选资源需要额外主机权限，面板列出主机，可点击授权或「不授权，继续保存」；未获取、过期或无法原生解码的图片保留缺失说明。等待资源授权时请保持来源页面打开。正文不可用时保存真实链接，并保留原因说明。
+
+关闭面板或重启后台不会取消已入队资料。上传以文件为单位恢复，使用持久 capture UUID 和服务器 ingestion UUID 查询缺项；服务器确认后才显示「原文已保存」，链接确认只显示「链接已保存」。自动失败最多五次，之后需要手动重试。取消与服务器提交竞争时以服务器实际结果为准。切换站点或账号后只显示当前账号的归档；重新连接同一站点同一账号可接续原队列。普通翻译缓存清理不删除归档，断开连接也不会删除已排队资料。
+
+新增检查（均不调用真实模型）：
+
+```sh
+npm run test --workspace @pagelingo/extension -- tests/unit/archive-outbox.test.ts tests/unit/archive-resources.test.ts tests/unit/archive-background.test.ts tests/unit/archive-client.test.ts
+npm run build --workspace @pagelingo/extension
+npx playwright test --config apps/extension/playwright.config.ts archive-upload.test.ts
+# 显式集成检查：使用临时 PostgreSQL 17、实际站点路由及扩展客户端。
+node scripts/with-test-postgres.mjs -- npm run test:integration --workspace @pagelingo/document-service -- tests/integration/extension-archive.test.ts --fileParallelism=false
+```
+
+浏览器故障测试使用本地 HTTP 故障注入服务，验证 Chromium 的真实存储、资源解码、权限边界与后台终止恢复。单独的服务集成检查覆盖实际配对、设备鉴权、原文字节上传、提交重放和单一持久 source；默认 unit tests 不需要 Docker。
+
+已验证的界面截图：[紧凑弹窗（浅色）](../../docs/superpowers/specs/assets/2026-10-27-s3-validation/archive-popup-light.png)、[紧凑弹窗（深色）](../../docs/superpowers/specs/assets/2026-10-27-s3-validation/archive-popup-dark.png)、[移动宽度的站点连接](../../docs/superpowers/specs/assets/2026-10-27-s3-validation/archive-connection-mobile.png)。截图只使用本地测试资料与临时配对账号。

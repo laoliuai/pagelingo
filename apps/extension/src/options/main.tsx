@@ -1,3 +1,4 @@
+import { SiteConnection } from './site-connection';
 import { StrictMode, useEffect, useState, type FormEvent } from 'react';
 import { createRoot } from 'react-dom/client';
 import { AssistantSettings } from './assistant-settings';
@@ -121,6 +122,7 @@ function Options() {
       </header>
       <h2 className="page-heading">阅读偏好与翻译设置</h2>
       <p className="intro">设置保存在当前浏览器。配置并授权 LLM 服务后，即可翻译网页正文和选中内容。</p>
+      <SiteConnection />
       <form
         onSubmit={(event) => {
           void save(event);

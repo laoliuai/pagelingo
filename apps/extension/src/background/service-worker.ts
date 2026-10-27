@@ -1,3 +1,4 @@
+import { handleArchiveRequest, wakeArchive } from '../archive/background';
 import { z } from 'zod';
 import { OpenAICompatibleProvider, TranslationEngine } from '@pagelingo/translation-core';
 import contentScript from '../content/index.ts?script&iife';
@@ -100,6 +101,7 @@ async function testConnection(settings: UserSettings) {
 
 // Extension pages alone may initiate commands. No generic fetch or arbitrary script RPC.
 chrome.runtime.onMessage.addListener((request: unknown, sender, sendResponse) => {
+  if (handleArchiveRequest(request, sender, sendResponse, ensureContent)) return true;
   if (handleAssistantRequest(request, sender, sendResponse, ensureContent)) return true;
   const cancel = cancelSchema.safeParse(request);
   if (cancel.success) {
@@ -178,3 +180,6 @@ void readSettings().catch(() => console.warn('PageLingo: check your saved settin
 void chrome.sidePanel
   .setOptions({ enabled: false })
   .catch(() => console.warn('PageLingo: side panel unavailable.'));
+
+void wakeArchive();
+chrome.runtime.onStartup.addListener(() => { void wakeArchive(); });

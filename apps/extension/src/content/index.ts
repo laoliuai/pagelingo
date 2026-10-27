@@ -1,4 +1,5 @@
-import { captureContentCommandSchema } from '../archive/grants';
+import { captureContentCommandSchema, captureAcquisitionCommandSchema } from '../archive/grants';
+import { sendLocalResource } from '../archive/resources';
 import { CaptureUnavailableError } from '../archive/collector';
 import { errorMessage, type Result, type PageStatus } from '../shared/types';
 import { contentCommandSchema, isTrustedExtensionSender } from '../shared/translation';
@@ -19,6 +20,29 @@ if (!scope.__pagelingo) {
     reply: (response: Result<PageStatus>) => void,
   ) => {
     if (!isTrustedExtensionSender(sender)) return;
+    const acquisition = captureAcquisitionCommandSchema.safeParse(message);
+    if (acquisition.success) {
+      const command = acquisition.data;
+      const respond = reply as (r: unknown) => void;
+      void (async () => {
+        if (command.type === 'capture:check-resource') {
+          controller.captureResource(command.grant, command.resourceId);
+          return { ok: true, value: controller.captureIdentity() };
+        }
+        if (command.type === 'capture:resource') {
+          await sendLocalResource(command.grant, command.resourceId, (grant, id) => controller.captureResource(grant, id));
+          return { ok: true };
+        }
+        let payload: unknown;
+        try { payload = { ok: true, value: await controller.collectCapture(command.grant) }; }
+        catch (error) {
+          if (!(error instanceof CaptureUnavailableError)) throw error;
+          payload = { ok: false, error: errorMessage(error), linkFallback: error.fallback };
+        }
+        return chrome.runtime.sendMessage({ type: 'capture:deliver', grant: command.grant, payload });
+      })().then(respond, error => respond({ ok: false, error: errorMessage(error) }));
+      return true;
+    }
     const capture = captureContentCommandSchema.safeParse(message);
     if (capture.success) {
       const respond = reply as (r: unknown) => void;
