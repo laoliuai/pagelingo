@@ -274,10 +274,12 @@ lease：heartbeat 5 秒、30 秒失效；claim 使用 SKIP LOCKED 并增加 epoc
 
 **Files:** 新建 `apps/extension/src/archive/{collector,original-tree,resource-manifest,existing-translations}.ts`、`apps/extension/src/archive/adapters/{blog,x,zhihu,wechat}.ts` 与 fixtures / unit / e2e；修改 `apps/extension/src/content/{index,page-controller}.ts`、必要的 DOM 公开只读接口。
 **Interfaces:** `collectOriginalCapture(document, options)` 实现原文快照；返回 CaptureDraft。受信任扩展发起一次 capture grant，绑定 tab / frame 0 / documentId / URL / revision；网页不能选择上传站点或发起通用 fetch。
-- [ ] **Step 1:** RED：在 source / translation / bilingual 模式收藏产生相同原文；不含 data-pl-owned、API 设置、表单值；相同文字段落不同 ID，DOM 更新会中止旧采集。
-- [ ] **Step 2:** 复用现有 X 正文作用域，另收主帖媒体 / 作者 / 时间 / 外链，不混入引用与回复。博客保留 article 结构；知乎按明确回答身份或文章取根，不能判定时保留链接并引导独立回答链接；公众号保留必要 query 与 lazy data-src。不自动展开登录 / 验证或递归抓外链。
-- [ ] **Step 3:** 新建 `apps/extension/tests/unit/{archive-original,archive-adapters}.test.ts`、`apps/extension/tests/e2e/archive-source.test.ts`，用 extension test / e2e runner 执行。`expect(savedOriginalInThreeModes).toEqual([original, original, original])`；未加载主帖不能改采回复。候选译文必须匹配原文指纹，不匹配只跳过候选并警告。
-- [ ] **Step 4:** 提交 `feat: capture original browser articles and source boundaries`。
+- [x] **Step 1:** RED：在 source / translation / bilingual 模式收藏产生相同原文；不含 data-pl-owned、API 设置、表单值；相同文字段落不同 ID，DOM 更新会中止旧采集。
+- [x] **Step 2:** 复用现有 X 正文作用域，另收主帖媒体 / 作者 / 时间 / 外链，不混入引用与回复。博客保留 article 结构；知乎按明确回答身份或文章取根，不能判定时保留链接并引导独立回答链接；公众号保留必要 query 与 lazy data-src。不自动展开登录 / 验证或递归抓外链。
+- [x] **Step 3:** 新建 `apps/extension/tests/unit/{archive-original,archive-adapters}.test.ts`、`apps/extension/tests/e2e/archive-source.test.ts`，用 extension test / e2e runner 执行。`expect(savedOriginalInThreeModes).toEqual([original, original, original])`；未加载主帖不能改采回复。候选译文必须匹配原文指纹，不匹配只跳过候选并警告。
+- [x] **Step 4:** 提交 `feat: capture original browser articles and source boundaries`。
+
+任务7已通过独立审查与修复复审。修复前工作区817项、扩展完整浏览器57项通过；最终合同/采集/扩展/渲染器334项、原生浏览器6项、采集端到端3项与相关类型检查/构建通过。旧采集完成不能恢复资源授权，blob合同大小写与来源校验一致，主帖链接卡片与引用/回复分开。不能严格证明匹配的已有格式/保护/section译文明确跳过；真实资源获取、持久上传及最终来源验收仍属后续任务。
 
 ### Task 8: 连接站点、资源获取与持久 outbox
 
