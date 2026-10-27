@@ -229,11 +229,11 @@ ZIP 从私有暂存文件逐项读取，`lazyEntries:true, strictFileNames:true,
 
 **Files:** 新建 `apps/pdf-cli/src/{bundle,offline-export,snapshot}.ts`、`tests/{bundle,offline}.test.ts`；使用 Task 2 的 static 模板 / runtime / CSS / font catalog；根脚本新增 `pdf:{process,translate,bundle,verify}`；新增 `docs/pdf-reader-workflow.md`、`.env.pdf.example`（只列非真实值）。
 
-**Interfaces:** `exportBundle(options:{runDir,outputDir,archivePath}, deps?:ExportDependencies): Promise<BundleIdentity>`；输出目录和 ZIP 必须不存在，不能位于原 P0 run 中。每次导出新 packageId / translation 快照 ID，引用只读 source IR 和当前已验证检查点；`createStaticFilePlan(build:ReaderBuild, metadata:OfflineMetadata): StaticFilePlan` 是离线生成与导入复验的同一纯函数。
+**Interfaces:** `exportBundle(options:{runDir,outputDir,archivePath}, deps?:ExportDependencies): Promise<BundleIdentity>`；输出目录和 ZIP 必须不存在，不能位于原 P0 run / preview 或本 run 中；对目录与归档同时解析真实祖先（含 symlink 与不存在的尾路径），按 P0 / preview 标记拒绝嵌套，并拒绝输出目录与归档相互重叠。每次导出新 packageId / translation 快照 ID，引用只读 source IR 和当前已验证检查点；`createStaticFilePlan(build:ReaderBuild, metadata:OfflineMetadata): StaticFilePlan` 是离线生成与导入复验的同一纯函数。
 
 - [ ] **Step 1:** 写失败测试：生成 Spec §10.3 的全部目录 / 必需文件；所有文件被 manifest 覆盖，source.pdf 与输入逐字节相同；部分包列出缺页 / 未译单元，中文包 not-required。现有目录 / 归档绝不覆盖；缺图、配置中的假 Key、运行绝对路径、外部字体依赖阻止完整导出。
 - [ ] **Step 2:** 运行 `npm run test --workspace @pagelingo/pdf-cli -- --run tests/bundle.test.ts tests/offline.test.ts`，确认失败。
-- [ ] **Step 3:** 实现 §2.2–2.3 的离线入口、注册式数据分片、可信资源目录、许可文件、源 / parse / translation / renderer 版本和 hash。归档内容只来自完整性验证后的文件源；完成前先运行 validateBundle 自检，再原子发布目标 ZIP，失败只留失败记录 / 调试目录。
+- [ ] **Step 3:** 实现 §2.2–2.3 的离线入口、注册式数据分片、可信资源目录、许可文件、源 / parse / translation / renderer 版本和 hash。归档内容只来自完整性验证后的文件源；完成前先运行 validateBundle 自检，再原子发布目标 ZIP，失败只留失败记录 / 调试目录。发布前复验选中不可变译文快照及输入 hash；已知运行路径的 provenance ledger 只保留原值 hash / 字段 pointer / 映射，不保留原绝对值。旧不合格 ledger 拒绝导出，正文路径示例保持原样。
 - [ ] **Step 4:** 文档给出四条可复制流程：`npm run pdf:process -- --source <pdf> --run-dir <new-run> --p0-run <existing-run> [--preview <existing-preview>]`；`npm run pdf:translate -- --run <run> --base-url <url> --model <model> --selection auto --resume`；`npm run pdf:bundle -- --run <run> --output <new-dir> --archive <new.zip>`；`npm run pdf:verify -- <zip>`。另外说明新解析所需 python / models / katex-dir 参数、现有 prepare-preview-renderer.py 的显式准备步骤、手工覆盖 mixed / und、断点恢复和无翻译导出，不自动读取站点 Key。
 - [ ] **Step 5:** 用 Playwright 从 `file://` 打开已解压包并阻断全部 HTTP(S)，跳转首 / 中 / 末片，确认正文、图、公式、字体和原 PDF 链接存在，网络依赖为 0；修改 runtime / 任意 data 片后重新伪造 manifest hash 仍因可信模板 / IR 不匹配被拒绝。
 - [ ] **Step 6:** 提交 `feat: export self-contained PDF reader bundles`。
