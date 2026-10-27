@@ -287,10 +287,12 @@ lease：heartbeat 5 秒、30 秒失效；claim 使用 SKIP LOCKED 并增加 epoc
 
 **Files:** 新建 `apps/extension/src/archive/{binding,client,database,outbox,upload,resources,grants}.ts`、`apps/extension/src/options/site-connection.tsx`、`apps/extension/src/popup/capture-panel.tsx`、对应 tests；修改 manifest、service-worker、options / popup 入口。
 **Interfaces:** 实现 §2.3 outbox 接口。绑定 `{siteOrigin,siteId,ownerId,deviceId,generation}`；token 只在 trusted extension storage，原 LLM settings 不迁移 / 上传。IDB 单独 archive 数据库，普通翻译清缓存不删待上传材料。
-- [ ] **Step 1:** RED：outbox 关闭 popup / 终止 service worker 后恢复，文件失败只重传缺项；server commit 响应丢失不建新 capture；A→B 重新配对不读取 / 投递 A 项，旧响应不复活 UI。
-- [ ] **Step 2:** 站点仅 HTTPS 或 loopback 开发 HTTP、固定 origin / 端口，API 拒绝 redirect、credentials omit。权限仅用户点击时申请具体站点 / 资源 host；资源 bytes 不附带 Cookie / Authorization 元数据。content→background 是有界 JSON，二进制用不超过 256KiB 的 base64 帧，不能传 Blob / Node。
-- [ ] **Step 3:** 先持久化源数据，再存每个已获取文件和最终 manifest；HTTPS / data / 当前页面 blob 资源有各自可验证来源，未授权 / 失效 / 防盗链失败保留 missing。alarm / startup / 显式重试接续，有界退避；消息必须匹配 capture grant 和 document 身份。
-- [ ] **Step 4:** 新增 `apps/extension/tests/unit/archive-outbox.test.ts`、`apps/extension/tests/e2e/archive-upload.test.ts`，用 extension test / e2e runner 验证配对、中文无 Key、授权拒绝、page close、worker kill、丢 ack、账号切换和撤销。`expect(serverDocumentCountAfterRetry).toBe(1)`、`expect(bAccountUploadedAItem).toBe(false)`；确认前不显示“原文已保存”。提交 `feat: persist and resume extension capture uploads`。
+- [x] **Step 1:** RED：outbox 关闭 popup / 终止 service worker 后恢复，文件失败只重传缺项；server commit 响应丢失不建新 capture；A→B 重新配对不读取 / 投递 A 项，旧响应不复活 UI。
+- [x] **Step 2:** 站点仅 HTTPS 或 loopback 开发 HTTP、固定 origin / 端口，API 拒绝 redirect、credentials omit。权限仅用户点击时申请具体站点 / 资源 host；资源 bytes 不附带 Cookie / Authorization 元数据。content→background 是有界 JSON，二进制用不超过 256KiB 的 base64 帧，不能传 Blob / Node。
+- [x] **Step 3:** 先持久化源数据，再存每个已获取文件和最终 manifest；HTTPS / data / 当前页面 blob 资源有各自可验证来源，未授权 / 失效 / 防盗链失败保留 missing。alarm / startup / 显式重试接续，有界退避；消息必须匹配 capture grant 和 document 身份。
+- [x] **Step 4:** 新增 `apps/extension/tests/unit/archive-outbox.test.ts`、`apps/extension/tests/e2e/archive-upload.test.ts`，用 extension test / e2e runner 验证配对、中文无 Key、授权拒绝、page close、worker kill、丢 ack、账号切换和撤销。`expect(serverDocumentCountAfterRetry).toBe(1)`、`expect(bAccountUploadedAItem).toBe(false)`；确认前不显示“原文已保存”。提交 `feat: persist and resume extension capture uploads`。
+
+任务8已通过独立审查与修复复审。工作区862项、扩展132项、浏览器63项及真实服务协议1项在最后局部修正前通过；最终取消/单次授权修复由47项归档单元、5项原生归档、相关类型检查/构建验证。明暗弹窗和手机连接面板截图已保存。新请求继承自动翻译偏好的连接由任务9完成，已有不可变请求和历史意图保持不变；最终全量真实来源验收仍属任务13。
 
 ### Task 9: 保存偏好、术语与长期任务身份
 
