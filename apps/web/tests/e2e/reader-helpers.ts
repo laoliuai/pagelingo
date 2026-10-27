@@ -54,6 +54,13 @@ export async function readerBundle(large = false, mismatch = false, prefix = '�
         ir.blocks.push({ id, type: 'text', sourceRefs: [{ pageIndex: Math.floor(i / 5000), precision: 'page' }], value: { id, kind: i === start ? 'heading' : 'paragraph', content: [{ type: 'text', text: `段落 ${i + 1} · 阅读内容保持顺序。` }] }, bindings: [], language: ir.metadata.language });
       }
     }
+    // Keep the same reading order while making the first three chapters nested.
+    const [a, b, c] = ir.roots.slice(0, 3).map(id => ir.nodes.find(node => node.id === id)!);
+    a.children.push(b.id); b.children.push(c.id); ir.roots.splice(1, 2);
+    for (const [i, title] of ['甲章', '乙节', '丙小节'].entries()) {
+      const heading = ir.blocks[i * 64];
+      if (heading.type === 'text') heading.value.content = [{ type: 'text', text: title }];
+    }
   }
   Object.assign(translation, { id: randomUUID(), sourceSha256: ir.source.sha256, parseId: ir.parse.id, selectionBlockIds: large ? [] : ir.blocks.filter(b => b.type === 'text').map(b => b.id), status: large ? 'not-required' : 'completed', generationKind: large ? 'none' : 'mock' });
   const plan = planUnits(toTranslationDocument(ir, translation.selectionBlockIds), translation.targetLanguage, translation.profile, translation.budget, translation);

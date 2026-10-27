@@ -81,7 +81,7 @@ test('mismatching PDF page metadata suppresses bounding box and explains fallbac
   await expect(page.getByRole('img', { name: 'PDF 第 2 页' })).toHaveAttribute('data-rendered', 'true'); await expect(page.locator('.source-highlight')).toHaveCount(0); await expect(page.getByText('页面几何信息不匹配，已仅定位到原页。')).toBeVisible();
 });
 
-test('20,000 imported blocks keep at most three response chunks and DOM chunks across jumps', async ({ page }) => {
+test('20,000 imported blocks bound chunks and keep nested directory visibility behind every ancestor', async ({ page }) => {
   test.setTimeout(180000);
   await newReader(page, 'window'); const bundle = await readerBundle(true); const result = await ingest(page, bundle); let release!: () => void; const held = new Promise<void>(resolve => { release = resolve; }); let received = false;
   await page.route('**/chunks/c_000002', async route => { const response = await route.fetch(); received = true; await held; await route.fulfill({ response }).catch(() => {}); });
@@ -90,6 +90,22 @@ test('20,000 imported blocks keep at most three response chunks and DOM chunks a
   await page.route(`**/chunks/${bundle.build.chunks[middle - 2].id}`, async route => { const response = await route.fetch(); await previousHeld; await route.fulfill({ response }).catch(() => {}); });
   await page.goto(`/library/${result.documentId}`);
   await expect.poll(() => received).toBe(true);
+  const toc = page.getByRole('navigation', { name: '阅读目录' });
+  await expect(toc.locator('[data-toc-entry]')).toHaveCount(200);
+  await expect(toc.getByRole('button', { name: '乙节', exact: true })).toHaveCount(0);
+  await toc.getByRole('button', { name: '展开章节 甲章', exact: true }).click();
+  await toc.getByRole('button', { name: '展开章节 乙节', exact: true }).click();
+  await expect(toc.getByRole('button', { name: '丙小节', exact: true })).toBeVisible();
+  await toc.getByRole('button', { name: '收起章节 甲章', exact: true }).click();
+  await expect(toc.getByRole('button', { name: '乙节', exact: true })).toHaveCount(0);
+  await expect(toc.getByRole('button', { name: '丙小节', exact: true })).toHaveCount(0);
+  await expect(toc.locator('[data-toc-entry]')).toHaveCount(200);
+  // Reopening an ancestor preserves the user's expansion of its descendants.
+  await toc.getByRole('button', { name: '展开章节 甲章', exact: true }).click();
+  await expect(toc.getByRole('button', { name: '乙节', exact: true })).toBeVisible();
+  await expect(toc.getByRole('button', { name: '丙小节', exact: true })).toBeVisible();
+  await expect(toc.getByRole('button', { name: '收起章节 乙节', exact: true })).toBeVisible();
+  await expect(toc.locator('[data-toc-entry]')).toHaveCount(200);
   const content = page.locator('.reader-content'); await expect(content.locator('.reader-block').first()).toHaveAttribute('data-block-id', blockId(1));
   await page.getByLabel('缩放', { exact: true }).selectOption('2'); await expect(page.getByRole('img', { name: 'PDF 第 1 页' })).toHaveAttribute('data-rendered', 'true');
   const pdfScroll = page.locator('.pdf-scroll'); await pdfScroll.evaluate(el => { el.scrollTop = 100; });
