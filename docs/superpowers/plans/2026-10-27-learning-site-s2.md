@@ -101,6 +101,12 @@ ZIP 采用 [yauzl 的逐项读取](https://github.com/thejoshwolfe/yauzl#readme)
 
 `DocumentBundleManifest.schemaVersion = 'pagelingo-document-bundle/1'`，包含 packageId（UUID）、createdAt、title / originalFilename、source 身份、parse 身份、translation 身份 / 状态、renderer 版本 / 代码 hash 和文件清单 `{path, bytes, sha256, mediaType, role}`。必需路径沿用 Spec §10.3；清单列出除 manifest.json 自身外的全部普通文件，既不能漏文件，也不能多出 ZIP 文件。manifest 的 canonical JSON SHA-256 是包内容身份；ZIP 压缩方式 / 时间戳变化不构成新内容。
 
+文件绑定统一为实际字节 SHA-256：source.pdf、source-ir.json、translation.json、provenance/input-manifest.json、provenance/parser-config.json 和所有清单项。manifest.readerIrSha256 / translation.readerIrSha256 绑定 source-ir.json 字节；manifest.translation.sha256 绑定 translation.json；parse.inputManifestSha256 / configSha256 绑定上述两个必需 provenance 文件。只有嵌入的 glossary 与 manifest 身份使用 SDK contentHash 的 canonical JSON。生产端复用 bundle 的 serializeBundleJson（UTF-8 stableJson，无 BOM / 换行）和 deriveParseId；安全的原始 P0 input-manifest 保留原字节，不能静默重排后仍声称原 hash。
+
+parser-config 是 strict `{schemaVersion:'pagelingo-parser-config/1',parser:{name,version},options}`；身份与 IR 一致，options 仅允许当前 worker 的 tier、smallBackend、device、parseMode、imageAnalysis、vlm、pageRange、threadsRequested、onnxIntraOpThreadsRequested、onnxInterOpThreadsRequested，类型与范围见 bundle 的 parseParserConfig；未知键拒绝，生产者正向选择字段。原始输入本地保持不变；opaque raw 仅归档，不声称通用检测任意原文中的秘密。optional provenance/model-lock.json / python-lock.txt 如提供则验证原字节；缺少文件而保留上游非空 hash 时，IR 必须有 upstream-model-lock-not-bundled / upstream-python-lock-not-bundled 明确记录，不伪造或下载锁文件。
+
+当前 Node bundle 实现的本地目录与可信资产 IO 使用 Linux /proc/self/fd 固定祖先目录，其他平台明确拒绝；S2 本地 CLI / 服务处理因此以 Linux 为基线。ZIP 格式、抽象 FileSource 和浏览器阅读不受此平台限制。originalFilename 只作普通 basename，不能携带目录、控制字符或 . / ..；正文中的合法路径例子保持原样。
+
 manifest、Reader IR、translation 的 source / parse / hash 必须一致；文件 hash 是实际字节 hash。packageId 同 owner 相同 canonical manifest / 文件内容幂等，不同内容 409 `BUNDLE_IDENTITY_CONFLICT`。不同 owner 的身份互不查询；重复导入旧包不能回退较新的 current reader。
 
 | 限制 | 固定默认值 |
@@ -242,7 +248,7 @@ ZIP 从私有暂存文件逐项读取，`lazyEntries:true, strictFileNames:true,
 - [ ] **Step 1:** 写失败 PG 测试：原件先上传后导入同条目、直接包创建条目；显式 target 必须属于当前 owner 且 source hash / bytes 相同；无 target 时只在本人范围复用同源 PDF。相同包幂等、相同 packageId 不同内容冲突、导入旧包不回退新 current，已有原件 / 成功版本在任何失败后保持可读。
 - [ ] **Step 2:** 运行 `npm run test:service:db -- tests/integration/bundle-imports.test.ts`，确认失败。
 - [ ] **Step 3:** migration 按上述持久引用约定建表，资产仍登记在 assets；documents.current_reader_version_id 的延迟 FK 同时包含 owner、document 和 current_source_version_id，确保两侧源身份一致。包身份唯一键为 owner + packageId，逻辑 parse / translation 身份相同但内容不同拒绝；active import 使用 owner 的部分唯一索引。不同 owner 的同源包不去重对象、不返回已有用户的信息。不改 001–004 已应用迁移。
-- [ ] **Step 4:** 导入状态短事务领取后，在事务外接收、逐项校验与写不可变对象；发布事务按用户 / 会话 → import → 文档 → object-publication lock 顺序，重查 actor、epoch / status、源身份、对象 stat 后插入 refs 和切换 current。并行首次同源导入 / 原件上传在同 owner 锁下去重。验证 / hash / 长上传不能占业务事务。
+- [ ] **Step 4:** 导入状态短事务领取后，在事务外接收、逐项校验与写不可变对象；发布事务按用户 / 会话 → import → 文档 → object-publication lock 顺序，重查 actor、epoch / status、源身份、对象 stat 后插入 refs 和切换 current。并行首次同源导入 / 原件上传在同 owner 锁下去重。验证 / hash / 长上传不能占业务事务。纯验证与 SDK / renderer 的同步 CPU 工作在可终止的隔离 Node worker 中执行，父进程负责 auth / heartbeat / cancel / DB；worker 不接收用户 Key 或主密钥。超时 / 取消能终止 worker，不以事件循环恢复后才检查的 timer 代替硬截止。
 - [ ] **Step 5:** 加入 cancel / disable / password reset / stale lease / 重启测试：旧 epoch 不能提交；completed 后取消返回明确冲突；进程失去上传后仍可 GET 状态并重试新 ingestion。active claim 15 秒更新心跳，失活 15 分钟后标失败；对象清理沿用 (204716,2) 锁、查询 assets 全部引用，临时输入 UUID 文件按相同年龄 / 心跳规则清理，不触碰被引用对象。
 - [ ] **Step 6:** 故障注入对象写入后 DB 回滚、发布与清理器竞争、最后时刻对象消失、源冲突和断流，证明未发布任何半版本。运行全部服务 PG 测试与 typecheck。
 - [ ] **Step 7:** 提交 `feat: publish PDF bundles atomically per user`。
