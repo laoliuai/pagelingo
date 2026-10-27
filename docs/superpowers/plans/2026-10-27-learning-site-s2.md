@@ -173,11 +173,11 @@ ZIP 从私有暂存文件逐项读取，`lazyEntries:true, strictFileNames:true,
 
 **Interfaces:** `toTranslationDocument(ir: ReaderIR, selectionBlockIds: string[], sourceLanguage?: string): TranslationDocument`；`validateReaderTranslation(ir, translation): ValidatedTranslation`（完成 hash 校验后调用，生成仅由 SDK decode 恢复的 inline）；`buildReader(ir, translation): ReaderBuild {index:ReaderIndex,chunks:ReaderChunk[]}`；`renderChunk(chunk:ReaderChunk, options:{mode:'source'|'translation',resolveAsset:(id:string)=>string}): RenderedChunk {html:TrustedReaderHtml,blockIds:string[],warnings:string[]}`；`createStaticFilePlan` 沿用 §2.3，返回 generated 文件内容与 trustedAssets 摘要，不读磁盘。不接收外来 HTML / style 字符串。
 
-- [ ] **Step 1:** 写失败测试：protected math / code、嵌套 link / emphasis 和术语经真实 SDK 输入 / 输出恢复后保持绑定；丢 marker、调包资产、未知 unit / 伪造 completed、错误 prompt/protection 版本拒绝。断言 `renderChunk` 对 `<script>` 文本 escape，危险链接 / `\\href` / `\\includegraphics` 不产生主动资源或脚本。
-- [ ] **Step 2:** 运行 `npm run test --workspace @pagelingo/document-renderer`，确认因缺少实现失败。
-- [ ] **Step 3:** 实现上述入口，buildReader 先完成 shape 与 validateReaderGraph 校验（含链接语义），使用 SDK `planUnits/validateStructure/decodeTranslation`；不调用内部 terminology 模块。分片按 §2.3 重开容器，列表续片保持编号，跨页块不重复；CSS 只由受限 presentation / bindings 生成，保留提示角色、强调、代码、图注和区域图标识。静态模板、注册分片脚本与摘要目录在本任务冻结并测确定性，为 Task 3 提供完整资源闭包，不等到 CLI 任务才定义。
-- [ ] **Step 4:** 增加 20,000-block fixture：`expect(build.chunks.every(c => c.blockIds.length <= 128)).toBe(true)`，阅读顺序展平后恰等于 IR leaf 顺序；单超大块独占片，丢资源和过深结构拒绝。用高放大 TeX 验证渲染预算与可读回退，用只消费前几项的 iterator 证明静态生成没有预构建全书 HTML。运行 workspace 测试、typecheck 与一次无 DOM Node import smoke。
-- [ ] **Step 5:** 提交 `feat: render trusted paged reader content`。
+- [x] **Step 1:** 写失败测试：protected math / code、嵌套 link / emphasis 和术语经真实 SDK 输入 / 输出恢复后保持绑定；丢 marker、调包资产、未知 unit / 伪造 completed、错误 prompt/protection 版本拒绝。断言 `renderChunk` 对 `<script>` 文本 escape，危险链接 / `\\href` / `\\includegraphics` 不产生主动资源或脚本。
+- [x] **Step 2:** 运行 `npm run test --workspace @pagelingo/document-renderer`，确认因缺少实现失败。
+- [x] **Step 3:** 实现上述入口，buildReader 先完成 shape 与 validateReaderGraph 校验（含链接语义），使用 SDK `planUnits/validateStructure/decodeTranslation`；不调用内部 terminology 模块。分片按 §2.3 重开容器，列表续片保持编号，跨页块不重复；CSS 只由受限 presentation / bindings 生成，保留提示角色、强调、代码、图注和区域图标识。静态模板、注册分片脚本与摘要目录在本任务冻结并测确定性，为 Task 3 提供完整资源闭包，不等到 CLI 任务才定义。
+- [x] **Step 4:** 增加 20,000-block fixture：`expect(build.chunks.every(c => c.blockIds.length <= 128)).toBe(true)`，阅读顺序展平后恰等于 IR leaf 顺序；单超大块独占片，丢资源和过深结构拒绝。用高放大 TeX 验证渲染预算与可读回退，用只消费前几项的 iterator 证明静态生成没有预构建全书 HTML。运行 workspace 测试、typecheck 与一次无 DOM Node import smoke。
+- [x] **Step 5:** 提交 `feat: render trusted paged reader content`。
 
 ### Task 3: 安全 ZIP 与完整包验证
 
