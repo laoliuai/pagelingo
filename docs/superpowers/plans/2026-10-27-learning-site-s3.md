@@ -10,7 +10,7 @@
 
 **Spec:** [已批准的个人学习站 V1 设计](../specs/2026-10-26-personal-learning-site-design.md)，主要实现 §4、§5.1–5.2、§5.4、§6.3、§8–12 与 §13 的 S3；重点覆盖 A02–A06、A12–A13、A15–A16 的网页部分。
 
-状态：待计划审核。S1 / S2 已合入并同步 main，基线 `081be39`；合并后 `npm test` 为 47 文件 / 640 测试通过。计划写在现有隔离 worktree 的 `feat/learning-site-s3`，main 不写功能代码。沿用已经选择的逐任务实现与独立审查方式；本计划获准后连续执行，不逐任务再次询问。
+状态：2026-10-27 用户已批准，进入实现。S1 / S2 已合入并同步 main，基线 `081be39`；合并后 `npm test` 为 47 文件 / 640 测试通过。计划写在现有隔离 worktree 的 `feat/learning-site-s3`，main 不写功能代码。沿用已经选择的逐任务实现与独立审查方式，连续执行，不逐任务再次询问。
 
 任务执行时，每份 brief 附本计划的 Global Constraints 与 §1–2 冻结合同。
 
@@ -145,7 +145,7 @@ type WebReadingProgress = { position: WebReadingPosition; revision: number; upda
 | `GET .../web-snapshots/:sourceVersionId/manifest`、`.../files/:fileId` | session；只读归档数据，HTML / CSS 原件 attachment + octet-stream + nosniff，不在主站执行 |
 | `GET / PUT .../web-progress` | `WebReadingPosition` + 文档级 CAS；409 不自动覆盖 |
 | `POST .../web-jobs`、`GET /api/v1/web-jobs/:id`、`POST .../:id/cancel`、`POST .../:id/retry` | session；显式翻译 / 重译 / 重试；同输入重投幂等，配置变化不能无声采用新 Key |
-| `GET / PUT /api/v1/settings/save-preferences` | session；expectedRevision + autoTranslate，初始 false，不扫描并启动历史任务 |
+| `GET / PUT /api/v1/settings/save-preferences` | GET 接受 session 或有 preferences:read 的 device，只返回非敏感偏好；PUT 仅 session，expectedRevision + autoTranslate，初始 false，不扫描并启动历史任务 |
 | `GET / PUT /api/v1/settings/glossary` | session；expectedRevision + SDK glossary entries；保存不可变修订 |
 
 设备仅有 `captures:write / captures:read / links:write / preferences:read`；不能访问 provider / admin / 全资料库 / Reader / 原件接口。有 Authorization 时必须验证该设备，不得失败后退回 Cookie 身份。Cookie 写操作仍要求 Origin / CSRF；设备请求 `credentials:'omit'`，不启用任意网页凭 Cookie 跨域写入。
@@ -196,7 +196,7 @@ lease：heartbeat 5 秒、30 秒失效；claim 使用 SKIP LOCKED 并增加 epoc
 
 **Files:** 新建 `packages/document-contracts/src/{web-capture,web-reader,web-translation,web-api,web-progress,devices,web-jobs,save-preferences,glossary,language,language-words}.ts` 与领域 schemas；新建 `packages/document-contracts/tests/{web-capture,web-reader,web-api,web-language}.test.ts`；修改该包 `documents.ts`、`index.ts`、现有 schema 生成脚本、各依赖版本；修改 `apps/pdf-cli/src/language.ts` 为共享纯函数薄适配。
 **Interfaces:** 产出 §2 DTO、schema、limits；共享 `detectLanguage / blockLanguage / naturalText` 保持现有 PDF 判断结果，不能把原 CLI 的 fs 字典读取带进浏览器。
-- [ ] **Step 1:** RED：`accepts_web_refs_without_pdf_pages`、`preserves_pdf_v1_shape`、`retains_query_and_hash`；`expect('pdfPageIndex' in webPosition).toBe(false)`，`expect(normalizeCaptureUrl('https://e.test/a?id=7&utm_source=x#part')).toBe('https://e.test/a?id=7#part')`。测试 byte SHA / fingerprint 区别、缺资源声明、重复 ID、过深 JSON、伪 owner、超限及 mixed / und。
+- [ ] **Step 1:** RED：`accepts_web_refs_without_pdf_pages`、`preserves_pdf_v1_shape`、`retains_query_and_hash`；`expect('pdfPageIndex' in webPosition).toBe(false)`，URL 合同接受并保留 query / hash，归一化实现由任务2交付。测试 byte SHA / fingerprint 区别、缺资源声明、重复 ID、过深 JSON、伪 owner、超限及 mixed / und。
 - [ ] **Step 2:** 实现 strict 合同 / schema parity；将既有词典生成 `language-words.ts` 纯数据并测试与原 fixture 一致，使其字节也进入代码目录摘要；保留既有中文 / 英文规则。Web 仅对不少于40字母、原规则非 mixed/zh/短文、页面语言提示与脚本一致的 fr/de/es（Latin≥90%）、ru（Cyrillic≥90%）、ko（Hangul≥80%）、ja（Hiragana/Katakana≥20%）认定 foreign；其余 und 手动选择。中文提示与英文 meta 冲突仍零自动调用，语言识别永不请求模型。
 - [ ] **Step 3:** 运行 `npm run test --workspace @pagelingo/document-contracts --workspace @pagelingo/pdf-cli`、两包 typecheck 与 schema 生成核对；PDF 原有语言 fixtures 输出不变。
 - [ ] **Step 4:** 提交 `feat: define web capture and reader contracts`。
@@ -205,7 +205,7 @@ lease：heartbeat 5 秒、30 秒失效；claim 使用 SKIP LOCKED 并增加 epoc
 
 **Files:** 新建 `packages/web-capture/{package.json,tsconfig.json,README.md}`、`packages/web-capture/src/{index,browser,node,sanitize,styles,resources,safe-math,projector,graph,fingerprint,snapshot-previews}.ts`、`packages/web-capture/tests/{sanitize,projector,resources,snapshot-previews}.test.ts`、`packages/web-capture/tests/browser/snapshot.test.ts`；修改 root scripts / lockfile。
 **Interfaces:** 实现 §2.3 web-capture 接口；根 entry 仅纯数据，browser entry 不引入 Node，node entry 使用 jsdom；输出服务器与插件可重放的规范化快照。
-- [ ] **Step 1:** RED：`removes_active_content_after_resource_rewrite`、`preserves_tables_math_and_repeat_ids`、`fingerprint_ignores_capture_time_not_content`。覆盖 namespace mutation、恶意 CSS、__proto__、表单值、外部 SVG use、两个相同 SVG 的引用隔离。
+- [ ] **Step 1:** RED：`removes_active_content_after_resource_rewrite`、`preserves_tables_math_and_repeat_ids`、`fingerprint_ignores_capture_time_not_content`。`expect(normalizeCaptureUrl('https://e.test/a?id=7&utm_source=x#part')).toBe('https://e.test/a?id=7#part')`；覆盖 namespace mutation、恶意 CSS、__proto__、表单值、外部 SVG use、两个相同 SVG 的引用隔离。
 - [ ] **Step 2:** 实现克隆 → 结构 / URL / 样式处理 → 最终 DOMPurify 清洗及复检；SafeMathAst / 图片真实字节和结构预算，按源块 / 资源预算切分预览并保留祖先 / 表格上下文；只在副本运行 Readability。未支持内容保留可回溯材料和具体警告。
 - [ ] **Step 3:** 在新包定义并运行 `test / typecheck / test:browser` scripts，Node + Chromium 同语义 / source mapping；`expect(executedScripts).toBe(0)`、`expect(unregisteredRequests).toEqual([])`。未知格式不得伪完整；browser bundle 不含 node: / jsdom。
 - [ ] **Step 4:** 提交 `feat: sanitize and project archived web documents`。
@@ -318,7 +318,7 @@ lease：heartbeat 5 秒、30 秒失效；claim 使用 SKIP LOCKED 并增加 epoc
 
 2026-10-27 已完成计划自身审查：S3 需求均映射至上述任务；核对了生产入口、SDK 方法及测试路径；将旧包兼容提前到任何合同修改之前；固定浏览器 / Node entry 边界、任务租约类型和跨进程并发规则，并为五类 Review Focus 指定回归。本文为实现计划，所有任务仍未开始，所列验收结果必须在实现后取得。
 
-实现方式已沿用先前选择，无需重新选择 agent 模式。请先审核此 S3 具体计划；批准后按任务顺序实现与审查。需要改变公开协议或阶段边界时记录明确决定，不以工作流检查点反复中断已授权实现。
+用户已审核并批准此 S3 具体计划，按任务顺序实现与审查。需要改变公开协议或阶段边界时记录明确决定，不以工作流检查点反复中断已授权实现。
 
 ## 参考依据
 
