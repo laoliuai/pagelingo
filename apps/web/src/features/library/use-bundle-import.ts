@@ -103,6 +103,8 @@ export function useBundleImport(open: boolean, targetDocument: DocumentSummary |
   }
   async function submit(file: File) {
     if (locked.current || !limits.data || file.size > limits.data.maxArchiveBytes) return;
+    // Restored uploadable tasks lack a target in the DTO; never infer this detail's PDF.
+    if (targetDocument && result && !createdHere.current.has(result.id)) return;
     locked.current = true; setBusy(true); setError('');
     const signal = lifetime.current.signal;
     try {

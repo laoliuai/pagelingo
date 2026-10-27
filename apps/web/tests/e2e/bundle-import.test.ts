@@ -298,3 +298,104 @@ test('bundle import restored on another PDF detail identifies the prior task wit
   await page.getByRole('button', { name: '取消导入', exact: true }).click();
   await expect(page.getByText('导入已取消', { exact: true })).toBeVisible();
 });
+
+test('bundle import restored failed task clears a selected file and requires a new import for the current PDF', async ({ page }) => {
+  const { origin } = await import('./library-helpers');
+  await newReader(page, 'bundlefailedtarget');
+  await upload(page, 'Original A', 4);
+  const documents = await (await page.request.get('/api/v1/documents')).json();
+  const a = documents.items[0];
+  const bBundle = await readingBundle('pending', false, '\n%Original B\n');
+  const session = await (await page.request.get('/api/v1/auth/session')).json();
+  const headers = { Origin: origin, 'X-CSRF-Token': session.csrfToken };
+  const bResponse = await page.request.post('/api/v1/documents/pdf', {
+    headers: { ...headers, 'Idempotency-Key': 'original-b' },
+    multipart: { title: 'Original B', file: { name: 'b.pdf', mimeType: 'application/pdf', buffer: bBundle.pdf } },
+  });
+  expect(bResponse.status()).toBe(201);
+  const b = await bResponse.json();
+  // Cache B before switching between detail routes, so a cached query cannot hide a context leak.
+  await page.goto(`/library/${b.id}`);
+  await expect(page.getByRole('heading', { name: 'Original B', exact: true })).toBeVisible();
+  async function navigateDetail(id: string) {
+    await page.evaluate(documentId => {
+      history.pushState(null, '', `/library/${documentId}`);
+      dispatchEvent(new PopStateEvent('popstate'));
+    }, id);
+  }
+  await navigateDetail(a.id);
+  await expect(page.getByRole('heading', { name: 'Original A', exact: true })).toBeVisible();
+  await selectBundle(page, await readingBundle('pending', true));
+  await page.getByRole('button', { name: '开始导入', exact: true }).click();
+  await expect(page.locator('form').getByRole('alert')).toContainText('阅读包校验失败');
+  const old = (await imports(page))[0];
+  const before = await (await page.request.get(`/api/v1/bundle-imports/${old.id}`)).json();
+  expect(before.status).toBe('failed');
+  await page.getByRole('button', { name: '关闭', exact: true }).click();
+  const sentTo: string[] = [];
+  page.on('request', request => {
+    if (request.method() === 'PUT' && /\/bundle-imports\/[^/]+\/content$/.test(request.url())) sentTo.push(request.url());
+  });
+  await navigateDetail(b.id);
+  await expect(page.getByRole('heading', { name: 'Original B', exact: true })).toBeVisible();
+  await selectBundle(page, bBundle);
+  await expect(page.getByText('已选择：reading.zip', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: /· 失败$/ }).click();
+  await expect(page.getByLabel('阅读包 ZIP')).toHaveValue('');
+  await expect(page.getByText('已选择：reading.zip', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('dialog')).toContainText('此前的导入任务');
+  await expect(page.getByRole('dialog')).not.toContainText('为此 PDF 导入');
+  await expect(page.getByRole('button', { name: '重试导入', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '取消导入', exact: true })).toHaveCount(0);
+  await capture(page, 'bundle-import-restored-failed-desktop-light');
+  await page.evaluate(() => { document.documentElement.dataset.theme = 'dark'; });
+  await capture(page, 'bundle-import-restored-failed-desktop-dark');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await capture(page, 'bundle-import-restored-failed-mobile-dark');
+  await page.evaluate(() => { document.documentElement.dataset.theme = 'light'; });
+  await capture(page, 'bundle-import-restored-failed-mobile-light');
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.getByRole('button', { name: '为当前 PDF 新建导入', exact: true }).click();
+  await expect(page.getByRole('button', { name: '开始导入', exact: true })).toBeDisabled();
+  await page.getByLabel('阅读包 ZIP').setInputFiles(bBundle);
+  await page.getByRole('button', { name: '开始导入', exact: true }).click();
+  await expect(page.getByText('阅读包导入完成', { exact: true })).toBeVisible();
+  const current = (await imports(page))[0];
+  expect(current.id).not.toBe(old.id);
+  expect(current.documentId).toBe(b.id);
+  expect(sentTo).toEqual([`${origin}/api/v1/bundle-imports/${current.id}/content`]);
+  expect(await (await page.request.get(`/api/v1/bundle-imports/${old.id}`)).json()).toEqual(before);
+  const aAfter = await (await page.request.get(`/api/v1/documents/${a.id}`)).json();
+  expect(aAfter.reader).toBeNull();
+  expect((await (await page.request.get(`/api/v1/documents/${b.id}`)).json()).source).toEqual(b.source);
+});
+
+test('bundle import failed task created in the current dialog retries the same known PDF task successfully', async ({ page }) => {
+  await newReader(page, 'bundleknownretry');
+  await upload(page, 'Known retry target', 4);
+  await page.getByRole('link', { name: 'Known retry target', exact: true }).click();
+  const id = page.url().split('/').pop();
+  await selectBundle(page, await readingBundle());
+  let first = true;
+  await page.route('**/api/v1/bundle-imports/*/content', async route => {
+    if (!first) return route.continue();
+    first = false;
+    const response = await route.fetch({ postData: Buffer.from('invalid ZIP') });
+    expect(response.status()).toBe(400);
+    await route.fulfill({ response });
+  });
+  await page.getByRole('button', { name: '开始导入', exact: true }).click();
+  await expect(page.locator('form').getByRole('alert')).toContainText('阅读包校验失败');
+  const failed = (await imports(page))[0];
+  expect(failed.status).toBe('failed');
+  await expect(page.getByRole('dialog')).toContainText('为此 PDF 导入');
+  await expect(page.getByRole('dialog')).not.toContainText('此前的导入任务');
+  await expect(page.getByText('已选择：reading.zip', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: '重试导入', exact: true }).click();
+  await expect(page.getByText('阅读包导入完成', { exact: true })).toBeVisible();
+  const completed = (await imports(page))[0];
+  expect(completed.id).toBe(failed.id);
+  expect(completed.epoch).toBe(failed.epoch + 1);
+  expect(completed.documentId).toBe(id);
+  expect(await imports(page)).toHaveLength(1);
+});
