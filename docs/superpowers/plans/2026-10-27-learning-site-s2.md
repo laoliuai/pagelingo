@@ -286,13 +286,13 @@ ZIP 从私有暂存文件逐项读取，`lazyEntries:true, strictFileNames:true,
 
 ### Task 9: 阅读包导入 UI 与真实状态
 
-**Files:** 新增 `apps/web/src/features/library/{bundle-import-dialog,import-status}.tsx`；修改 library-page、document-row、document-page、upload-dialog、shared/api-client；新增 `apps/web/tests/e2e/bundle-import.test.ts`。
+**Files:** 新增 `apps/web/src/features/library/{bundle-import-dialog,import-status}.tsx`、`use-bundle-import.ts`；修改 library-page、document-row、document-page、upload-dialog、shared/api-client；新增 `apps/web/tests/e2e/bundle-import.test.ts`。
 
 **Interfaces:** `BundleImportDialog({targetDocument?:DocumentSummary,onImported:(result:BundleImport)=>void})` 用认证 limits 约束文件，稳定 Idempotency-Key 创建 ingestion，PUT ZIP、轮询 get、显式 cancel；API client 增加受现有 session generation 管理的二进制上传 helper，不开放任意 origin / header。
 
 - [ ] **Step 1:** 写 Playwright 失败测试：资料库直接导入，原件详情导入后 id / 原件保持，重复包只一条；已完成状态只有服务器确认后显示；中文 / 原文包显示无需翻译 / 原文可读；partial 显示未完成文本与缺页 / 区域图限制，不显示假进度百分比。
 - [ ] **Step 2:** 运行 `npm run test:site:e2e -- --grep 'bundle import'`（现有 runner 已转发 Playwright 参数），确认缺功能失败。
-- [ ] **Step 3:** 实现实际入口、文件大小 / 生效限额、上传 / 校验 / 完成 / 取消 / 失败状态及重试；重复点击不能产生两个 active import，网络回应丢失先 GET 状态。取消显式调用服务再取消本地流；关闭弹窗后 active 状态仍能从最近导入恢复。错误给出可操作中文信息，不暴露对象路径和模型细节。
+- [ ] **Step 3:** 实现实际入口、文件大小 / 生效限额、上传 / 校验 / 完成 / 取消 / 失败状态及重试；重复点击不能产生两个 active import，网络回应丢失先 GET 状态。取消显式调用服务再取消本地流；关闭弹窗后 active 状态仍能从最近导入恢复；恢复任务缺目标信息时标明此前任务，不暗示绑定当前 PDF，提供取消后重选指引。取消若返回已完成冲突，先 GET 再按服务器结果显示，不报告假取消。错误给出可操作中文信息，不暴露对象路径和模型细节。
 - [ ] **Step 4:** 测试错 hash、错目标 PDF、超限、断网、停用 / 切用户、取消期间迟到完成和重复文件名；已成功 reader 保持可读。认证失效沿用 session.clear，所有 queryKey 以 user.id 开头。运行该套浏览器测试、web typecheck。
 - [ ] **Step 5:** 提交 `feat: import local reading bundles from the library`。
 
