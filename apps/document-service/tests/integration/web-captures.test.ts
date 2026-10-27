@@ -14,8 +14,51 @@ async function setup() {
   const create = (value = capture(), extra = {}) => test.app.inject({ method: 'POST', url: '/api/v1/captures', headers: { ...headers, 'idempotency-key': value.manifest.captureId }, payload: { manifest: value.manifest, translationIntent: 'none', ...extra } });
   const put = (id: string, body: Buffer) => test.app.inject({ method: 'PUT', url: `/api/v1/captures/${id}/files/html`, headers: { ...headers, 'content-type': 'text/html' }, payload: body });
   const commit = (id: string) => test.app.inject({ method: 'POST', url: `/api/v1/captures/${id}/commit`, headers, payload: {} });
-  return { ...test, session, headers, create, put, commit, modelCalls: () => modelCalls };
+  async function save(value: ReturnType<typeof capture> & { translation?: Buffer }, capturedAt: string) {
+    value.manifest.metadata.capturedAt = capturedAt;
+    const created = await create(value); expect(created.statusCode, created.body).toBe(201); const id = created.json().id;
+    expect((await put(id, value.body)).statusCode).toBe(200);
+    if (value.translation) expect((await test.app.inject({ method: 'PUT', url: `/api/v1/captures/${id}/files/translation`, headers: { ...headers, 'content-type': 'application/json' }, payload: value.translation })).statusCode).toBe(200);
+    const result = await commit(id); expect(result.statusCode, result.body).toBe(200); return result.json();
+  }
+  return { ...test, session, headers, create, put, commit, save, modelCalls: () => modelCalls };
 }
+it('promotes a completed retained newer source and ignores retry timestamps for late older imports', async () => {
+  const { withCandidates } = await import('../helpers/web-capture.js'); const t = await setup();
+  const aHtml = '<p>The first original English source has a useful completed translation.</p>';
+  const bHtml = '<p>The newer English source waits until its imported translation arrives.</p>';
+  const a = await t.save(await withCandidates(aHtml), '2026-10-27T00:00:00.000Z');
+  const b = await t.save(capture(bHtml), '2026-10-27T01:00:00.000Z');
+  const current = async () => (await t.app.inject({ url: `/api/v1/documents/${a.documentId}/web-reader`, headers: t.headers })).json();
+  expect((await current()).versionId).toBe(a.readerVersionId);
+  const imported = await t.save(await withCandidates(bHtml), '2026-10-26T00:00:00.000Z');
+  expect(imported.sourceVersionId).toBe(b.sourceVersionId);
+  expect(await current()).toMatchObject({ versionId: imported.readerVersionId, source: { sourceVersionId: b.sourceVersionId }, translationStatus: 'completed' });
+  expect((await t.db.pool.query('SELECT current_source_version_id,current_web_reader_version_id FROM documents WHERE id=$1', [a.documentId])).rows[0]).toEqual({ current_source_version_id: b.sourceVersionId, current_web_reader_version_id: imported.readerVersionId });
+  const late = await t.save(await withCandidates(aHtml), '2026-10-28T00:00:00.000Z');
+  expect(late.sourceVersionId).toBe(a.sourceVersionId); expect((await current()).versionId).toBe(imported.readerVersionId);
+  expect((await t.app.inject({ url: `/api/v1/documents/${a.documentId}/web-reader?versionId=${late.readerVersionId}`, headers: t.headers })).statusCode).toBe(200);
+  expect(t.modelCalls()).toBe(0);
+});
+it.each(['scope', 'resources'] as const)('keeps complete current coverage when a retained %s-degraded source receives a completed import', async reason => {
+  const { withCandidates } = await import('../helpers/web-capture.js'); const t = await setup();
+  const a = await t.save(await withCandidates('<p>The current complete source retains its useful translated content.</p>'), '2026-10-27T00:00:00.000Z');
+  const html = `<p>The newer original has degraded coverage despite its valid translation.${reason === 'resources' ? '<img src="https://example.com/missing.png" alt="Missing image">' : ''}</p>`;
+  const value = capture(html);
+  if (reason === 'scope') value.manifest.scope = { ...value.manifest.scope, completeWithinScope: false, warnings: ['Only the visible excerpt was captured'] };
+  const b = await t.save(value, '2026-10-27T01:00:00.000Z');
+  const imported = await t.save(await withCandidates(html, false, value.manifest.scope), '2026-10-28T00:00:00.000Z');
+  expect(imported.sourceVersionId).toBe(b.sourceVersionId);
+  const history = (await t.app.inject({ url: `/api/v1/documents/${a.documentId}/web-reader?versionId=${imported.readerVersionId}`, headers: t.headers })).json();
+  expect(history.translationStatus).toBe('completed');
+  expect((await t.db.pool.query('SELECT metadata FROM web_sources WHERE source_version_id=$1', [b.sourceVersionId])).rows[0].metadata.coverage).toBe('partial');
+  expect((await t.app.inject({ url: `/api/v1/documents/${a.documentId}/web-reader`, headers: t.headers })).json().versionId).toBe(a.readerVersionId);
+});
+it('reserves uploaded file IDs for server-only originals before accepting a manifest', async () => {
+  const t = await setup(); const value = capture(); value.manifest.files[0].id = 'uploaded:hostile'; value.manifest.htmlFileId = 'uploaded:hostile';
+  expect((await t.create(value)).statusCode).toBe(400);
+  expect((await t.db.pool.query('SELECT id FROM web_captures')).rows).toHaveLength(0);
+});
 it('resumes missing files, preserves stable capture identity and retrieves completed results after lost acknowledgement', async () => {
   const t = await setup(); const value = capture();
   const created = await t.create(value); expect(created.statusCode).toBe(201);

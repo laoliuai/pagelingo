@@ -12,14 +12,16 @@ export function capture(html = '<article><h1>测试标题</h1><p>这是可以直
   };
   return { manifest, body };
 }
-export async function withCandidates(html: string, mismatch = false) {
+export async function withCandidates(html: string, mismatch = false, scope?: WebCaptureManifest['scope']) {
   const { sanitizeNodeSnapshot, canonicalManifestBytes, sha256, captureContentFingerprint, projectWebReader } = await import('@pagelingo/web-capture/node');
   const { naturalText } = await import('@pagelingo/document-contracts');
   const { encodeBlock, PROMPT_VERSION, PROTECTION_VERSION } = await import('@pagelingo/translation-core');
   const draft = capture(html);
+  if (scope) draft.manifest.scope = scope;
   const snapshot = sanitizeNodeSnapshot({ html, url: draft.manifest.source.url, scope: draft.manifest.scope });
   const value = capture(snapshot.html); value.manifest.source.url = snapshot.sourceUrl; value.manifest.scope = snapshot.scope;
-  const fingerprint = await captureContentFingerprint(snapshot, [], value.manifest.files);
+  value.manifest.resources = snapshot.resources.map(resource => ({ ...resource, status: 'missing', reason: 'unavailable' }));
+  const fingerprint = await captureContentFingerprint(snapshot, value.manifest.resources, value.manifest.files);
   const ir = await projectWebReader(snapshot, value.manifest, { manifestBytes: canonicalManifestBytes(value.manifest), assets: [] });
   const payload = {
     schemaVersion: 'web-capture-translation-candidate/1', sourceSnapshotSha256: await sha256(value.body), sourceContentFingerprint: fingerprint,

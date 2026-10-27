@@ -6,7 +6,7 @@ import { bootstrapAdmin } from '../../src/cli/bootstrap-admin.js';
 import { tokenHash } from '../../src/auth/sessions.js';
 import { createServiceTestApp } from '../helpers/app.js';
 import { login } from '../helpers/session.js';
-import { capture } from '../helpers/web-capture.js';
+import { capture, withCandidates } from '../helpers/web-capture.js';
 import { createWebCapturesService } from '../../src/web-captures/service.js';
 import { createLocalObjectStore } from '../../src/storage/local-object-store.js';
 import { cleanupStaging } from '../../src/cli/cleanup-staging.js';
@@ -24,6 +24,53 @@ async function setup() {
   await service.receiveFile(principal, row.id, 'html', (async function* () { yield value.body; })(), 'text/html');
   return { ...t, session, principal, store, service, row, value };
 }
+async function upload(t: Awaited<ReturnType<typeof setup>>, value: ReturnType<typeof capture> & { translation?: Buffer }, service = t.service) {
+  const row = await service.create(t.principal, { manifest: value.manifest, translationIntent: 'none' }, value.manifest.captureId);
+  for (const file of value.manifest.files) await service.receiveFile(t.principal, row.id, file.id, (async function* () { yield file.id === 'html' ? value.body : value.translation!; })(), file.mediaType);
+  return row.id;
+}
+it.each(['reuse', 'extend'] as const)('checks only retained dependencies when histories and uploaded originals are missing (%s)', async mode => {
+  const t = await setup(); const a = await t.service.commit(t.principal, t.row.id);
+  const html = '<p>This independent source has a completed imported English paragraph and retained source files.</p>';
+  const first = await t.service.commit(t.principal, await upload(t, capture(html)));
+  const imported = await t.service.commit(t.principal, await upload(t, await withCandidates(html)));
+  const ignored = new Set<string>((await t.db.pool.query(`SELECT a.object_key FROM assets a JOIN web_reader_versions r ON a.id=r.index_asset_id
+    WHERE r.id=ANY($1::uuid[]) UNION SELECT a.object_key FROM assets a JOIN web_source_files f ON a.id=f.asset_id
+    WHERE f.source_version_id=$2 AND f.id LIKE 'uploaded:%'`, [[a.readerVersionId, first.readerVersionId, ...(mode === 'extend' ? [imported.readerVersionId] : [])], imported.sourceVersionId])).rows.map(row => row.object_key));
+  expect(ignored.size).toBeGreaterThan(3);
+  for (const key of ignored) await t.store.deleteUnreferenced(key);
+  const scanned: string[] = [];
+  const store = { ...t.store, async stat(key: string) { scanned.push(key); return t.store.stat(key); } };
+  const service = createWebCapturesService({ db: t.db, config: t.config, store });
+  const id = await upload(t, mode === 'extend' ? await withCandidates(html) : capture(html), service);
+  const result = await service.commit(t.principal, id);
+  expect(result.sourceVersionId).toBe(imported.sourceVersionId);
+  if (mode === 'reuse') expect(result.readerVersionId).toBe(imported.readerVersionId);
+  else expect(result.readerVersionId).not.toBe(imported.readerVersionId);
+  expect(scanned.filter(key => ignored.has(key))).toEqual([]);
+  expect((await t.db.pool.query('SELECT id FROM source_versions')).rows).toHaveLength(2);
+});
+it.each(['reuse-chunk', 'extend-ir', 'extend-source-file'] as const)('rejects a required retained dependency lost after validation (%s)', async dependency => {
+  const t = await setup(); const first = await t.service.commit(t.principal, t.row.id);
+  const query = dependency === 'reuse-chunk'
+    ? 'SELECT a.object_key FROM assets a JOIN web_reader_chunks c ON a.id=c.data_asset_id WHERE c.reader_version_id=$1 LIMIT 1'
+    : dependency === 'extend-ir' ? 'SELECT a.object_key FROM assets a JOIN web_parse_runs p ON a.id=p.ir_asset_id WHERE p.source_version_id=$1'
+      : "SELECT a.object_key FROM assets a JOIN web_source_files f ON a.id=f.asset_id WHERE f.source_version_id=$1 AND f.id='html'";
+  const key = (await t.db.pool.query(query, [dependency === 'reuse-chunk' ? first.readerVersionId : first.sourceVersionId])).rows[0].object_key;
+  let staged = false, removed = false;
+  const store = { ...t.store,
+    async putImmutable(...args: Parameters<typeof t.store.putImmutable>) { const result = await t.store.putImmutable(...args); staged = true; return result; },
+    async stat(objectKey: string) { if (staged && objectKey === key) { removed = true; await t.store.deleteUnreferenced(key); } return t.store.stat(objectKey); },
+  };
+  const service = createWebCapturesService({ db: t.db, config: t.config, store });
+  const value = dependency === 'reuse-chunk' ? capture(t.value.body.toString()) : await withCandidates(t.value.body.toString());
+  const id = await upload(t, value, service);
+  await expect(service.commit(t.principal, id)).rejects.toThrow(); expect(removed).toBe(true);
+  expect((await t.service.status(t.principal, id)).status).toBe('failed');
+  expect((await t.db.pool.query('SELECT id FROM web_reader_versions')).rows).toHaveLength(1);
+  expect((await t.db.pool.query('SELECT id FROM web_translation_runs')).rows).toHaveLength(0);
+  expect((await t.db.pool.query('SELECT current_source_version_id,current_web_reader_version_id FROM documents')).rows[0]).toEqual({ current_source_version_id: first.sourceVersionId, current_web_reader_version_id: first.readerVersionId });
+});
 it('rejects an object lost immediately before the publication dependency check', async () => {
   const t = await setup(); let removed = false;
   const store = { ...t.store, async stat(key: string) { if (!removed) { removed = true; await t.store.deleteUnreferenced(key); } return t.store.stat(key); } };

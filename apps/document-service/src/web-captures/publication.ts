@@ -7,6 +7,7 @@ import * as readers from '../web-readers/repository.js';
 import { completeWebCapture, type WebCaptureRow } from './repository.js';
 import type { PreparedCapture } from './worker-client.js';
 import { ServiceError } from '../errors.js';
+import { checkRetainedDependencies } from './retained-dependencies.js';
 export interface CaptureAsset extends StoredObject { id: string; key: string; mediaType: string; kind: 'file' | 'manifest' | 'ir' | 'index' | 'chunk' | 'translation' | 'original'; localId?: string }
 const conflict = () => new ServiceError(409, 'CAPTURE_SUPERSEDED', 'Capture is no longer current');
 export async function publishCapture(client: PoolClient, store: ObjectStore, row: WebCaptureRow, prepared: PreparedCapture, assets: CaptureAsset[]) {
@@ -27,9 +28,8 @@ export async function publishCapture(client: PoolClient, store: ObjectStore, row
     JOIN web_reader_versions r ON (r.owner_id,r.document_id,r.source_version_id)=(s.owner_id,s.document_id,s.source_version_id)
     WHERE s.owner_id=$1 AND s.document_id=$2 AND s.url=$3 AND s.scope->>'kind'=$4 AND s.content_fingerprint=$5 ORDER BY r.created_at DESC,r.id DESC LIMIT 1`, [ownerId, documentId, manifest.source.url, manifest.scope.kind, prepared.fingerprint])).rows[0];
   if (previous) {
-    // A duplicate save is a new capture event, never a rollback of current pointers.
-    const dependencies = (await client.query<{ object_key: string; bytes: string }>('SELECT object_key,bytes FROM assets WHERE owner_id=$1 AND document_id=$2', [ownerId, documentId])).rows;
-    for (const dependency of dependencies) if ((await store.stat(dependency.object_key)).bytes !== Number(dependency.bytes)) throw new Error('Missing retained Web object');
+    // Reuse only the chosen immutable closure; unrelated history remains GC-protected separately.
+    await checkRetainedDependencies(client, store, ownerId, documentId, previous.source_version_id, previous.reader_version_id, !!prepared.translation);
     if (!prepared.translation) { await finish(previous.source_version_id, previous.reader_version_id); return; }
     const source = await readers.findWebSource(client, ownerId, documentId, previous.source_version_id);
     const parse = await readers.findWebParse(client, ownerId, documentId, previous.source_version_id, prepared.ir.parse.id);
@@ -46,9 +46,7 @@ export async function publishCapture(client: PoolClient, store: ObjectStore, row
     for (const asset of assets.filter(a => a.kind === 'chunk')) await readers.insertWebReaderChunk(client, { ownerId, documentId, readerVersionId: versionId, id: asset.localId!, dataAssetId: asset.id });
     await client.query(`INSERT INTO web_reader_assets (owner_id,document_id,reader_version_id,local_id,asset_id)
       SELECT owner_id,document_id,$4,local_id,asset_id FROM web_reader_assets WHERE owner_id=$1 AND document_id=$2 AND reader_version_id=$3`, [ownerId, documentId, previous.reader_version_id, versionId]);
-    const current = await readers.findWebReaderVersion(client, ownerId, documentId);
-    const rank = (status: string) => ['completed', 'not-required'].includes(status) ? 2 : status === 'partial' ? 1 : 0;
-    if (current?.source_version_id === previous.source_version_id && rank(prepared.build.index.translationStatus) >= rank(current.translation_status)) await readers.setCurrentWebReader(client, ownerId, documentId, previous.source_version_id, versionId);
+    await promoteIfEligible(previous.source_version_id, versionId);
     await finish(previous.source_version_id, versionId); return;
   }
   const sourceVersionId = randomUUID(), readerVersionId = randomUUID();
@@ -69,18 +67,22 @@ export async function publishCapture(client: PoolClient, store: ObjectStore, row
   await readers.insertWebReaderVersion(client, { id: readerVersionId, ownerId, documentId, sourceVersionId, parseId: prepared.ir.parse.id, translationId, indexAssetId: assets.find(a => a.kind === 'index')!.id, translationStatus: prepared.build.index.translationStatus, warnings: prepared.warnings });
   for (const asset of assets.filter(a => a.kind === 'chunk')) await readers.insertWebReaderChunk(client, { ownerId, documentId, readerVersionId, id: asset.localId!, dataAssetId: asset.id });
   for (const asset of prepared.ir.assets) await readers.registerWebReaderAsset(client, { ownerId, documentId, readerVersionId, localId: asset.id, assetId: assets.find(a => a.kind === 'file' && a.localId === asset.id)!.id });
-  const current = await readers.findWebReaderVersion(client, ownerId, documentId);
-  const rank = (status: string) => ['completed', 'not-required'].includes(status) ? 2 : status === 'partial' ? 1 : 0;
-  // Do not let a late capture replace a newer source, or degrade useful translation/coverage.
-  const currentSource = current ? await readers.findWebSource(client, ownerId, documentId, current.source_version_id) : undefined;
-  const fresh = !currentSource || String(currentSource.metadata.capturedAt ?? '') <= manifest.metadata.capturedAt;
-  const promote = !current || currentSource?.metadata.blockCount === 0 || (prepared.ir.blocks.length > 0 && fresh && rank(prepared.build.index.translationStatus) >= rank(current.translation_status)
-    && !(currentSource?.scope.completeWithinScope && !manifest.scope.completeWithinScope)
-    && !(currentSource?.metadata.coverage === 'full' && prepared.ir.parse.coverage !== 'full'));
   const latest = document.latest_web_source_version_id ? await readers.findWebSource(client, ownerId, documentId, document.latest_web_source_version_id) : undefined;
   if (!latest || String(latest.metadata.capturedAt ?? '') <= manifest.metadata.capturedAt) await readers.setLatestWebSource(client, ownerId, documentId, sourceVersionId);
-  if (promote) await readers.setCurrentWebReader(client, ownerId, documentId, sourceVersionId, readerVersionId);
+  await promoteIfEligible(sourceVersionId, readerVersionId);
   await finish(sourceVersionId, readerVersionId);
+  async function promoteIfEligible(sourceId: string, readerId: string) {
+    const current = await readers.findWebReaderVersion(client, ownerId, documentId);
+    const source = (await readers.findWebSource(client, ownerId, documentId, sourceId))!;
+    const currentSource = current ? await readers.findWebSource(client, ownerId, documentId, current.source_version_id) : undefined;
+    const rank = (status: string) => ['completed', 'not-required'].includes(status) ? 2 : status === 'partial' ? 1 : 0;
+    // Source chronology and coverage are immutable; a retry's capture metadata cannot upgrade them.
+    const fresh = !currentSource || String(currentSource.metadata.capturedAt ?? '') <= String(source.metadata.capturedAt ?? '');
+    const promote = !current || currentSource?.metadata.blockCount === 0 || (Number(source.metadata.blockCount) > 0 && fresh && rank(prepared.build.index.translationStatus) >= rank(current.translation_status)
+      && !(currentSource?.scope.completeWithinScope && !source.scope.completeWithinScope)
+      && !(currentSource?.metadata.coverage === 'full' && source.metadata.coverage !== 'full'));
+    if (promote) await readers.setCurrentWebReader(client, ownerId, documentId, sourceId, readerId);
+  }
   async function finish(sourceVersionId: string, readerVersionId: string) {
     if (!await completeWebCapture(client, ownerId, row.id, Number(row.epoch), { documentId, sourceVersionId, readerVersionId, jobId: null, saveStatus: manifest.resources.some(r => r.status === 'missing') ? 'partial-resources' : 'original-saved', warnings: prepared.warnings })) throw conflict();
   }
