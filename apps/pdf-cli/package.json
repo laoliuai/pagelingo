@@ -1,0 +1,32 @@
+{
+  "name": "@pagelingo/pdf-cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "pagelingo-pdf": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.test.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@pagelingo/document-contracts": "0.2.0",
+    "@pagelingo/document-renderer": "0.1.0",
+    "@pagelingo/document-bundle": "0.1.0",
+    "@pagelingo/translation-core": "0.4.0",
+    "parse5": "8.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.4",
+    "typescript": "7.0.2",
+    "vitest": "5.0.3"
+  }
+}

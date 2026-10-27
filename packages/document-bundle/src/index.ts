@@ -23,3 +23,5 @@ export {
 } from './manifest.js';
 export { parseParserConfig } from './parser-config.js';
 export type { ParserConfig } from './parser-config.js';
+export { inspectImage } from './images.js';
+export type { ImageMetadata } from './images.js';
