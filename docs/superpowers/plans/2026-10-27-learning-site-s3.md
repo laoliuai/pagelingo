@@ -205,6 +205,8 @@ lease：heartbeat 5 秒、30 秒失效；claim 使用 SKIP LOCKED 并增加 epoc
 
 阅读中固定已打开的 readerVersion；新译文只提示可切换，不自动重挂正文。Web position 为 `{readerVersionId,sourceVersionId,parseId,blockId,blockOffset,view:'content'|'snapshot',contentMode:'source'|'translation'|'bilingual'}`，无 pdfPageIndex。按所选版本历史恢复；新来源用唯一 quote + prefix/suffix 映射，不唯一则降级到起点并提示，旧记录保留。只记录主正文位置；被动布局 / 恢复零 PUT；沿用 debounce 1500ms / maxWait 5000ms、串行 CAS、显式冲突继续。
 
+阅读页需要在刷新和跨设备后发现真实任务：新增会话专用 `GET /api/v1/documents/:id/web-jobs`，可选 `sourceVersionId`、`parseId`（须同时给 sourceVersionId）、`limit`（默认 10，范围 1..50）、`cursor`（任务 UUID）。共享合同 `WebJobList` 为 `{items: WebJob[], nextCursor: string|null}`，沿用白名单 WebJob，不返回 Key 或内部租约。无来源过滤时包含 fetch/translate，提供来源过滤时按该文档的实际 source/parse 查询。按不可变 `(created_at DESC,id DESC)` 分页，cursor 必须属于当前 owner/document/过滤范围；边界在 SQL 中按 cursor 原行比较，不能经 JS 时间截断。来源/parse 不属于当前文档返回 404，cursor 格式或范围无效返回 400 INVALID_REQUEST，非本人或非 Web 文档返回 404。设备无该权限；查询只读取，不解密、不入队、不重启或终结任务。
+
 ## 3. 文件与任务
 
 每项实现提交前完成所列 RED→GREEN 与相关检查；任务间通过上面的 DTO / 接口连接。私有辅助模块按责任拆分，新增公开协议先回到本计划。一次最终整分支审查集中修正实际问题，执行记录、验证摘要与重要裁定保存在正式文档，临时报告不得强制加入 Git。
