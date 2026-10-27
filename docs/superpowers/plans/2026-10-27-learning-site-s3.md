@@ -92,7 +92,7 @@ Web Reader 分片最多 128 blocks / 256 KiB，单超大块最多 512 KiB；正�
 | web-capture | `buildSnapshotPreviews(snapshot, resourceResolvedManifestDraft, limits): Promise<SnapshotPreviewBuild>`；`inspectImageResource(bytes, file, limits): Promise<WebReaderAsset>`；`resolveSnapshotAnchor(index, nodeId): {previewId,anchorId}|null`，预览 ID / node ID / 资源闭包进入不可变 source manifest |
 | web-capture/browser | `sanitizeBrowserSnapshot(input, limits?, resources?): SanitizedSnapshot`；使用原生 DOM，不包含站点适配或 Chrome I/O，也不导入 jsdom |
 | web-capture/node | `extractPublicArticle(html, url): SanitizedSnapshot`；禁脚本 / 子资源的 jsdom + Readability；仅在可终止 worker 内运行 |
-| renderer | `toWebTranslationDocument(ir, selection, sourceLanguage?): TranslationDocument`；`validateWebTranslation(ir, translation): ValidatedWebTranslation`；`buildWebReader(ir, translation): WebReaderBuild`；`renderWebChunk(chunk, { mode, resolveAsset }): TrustedReaderHtml`，mode 为 source / translation / bilingual |
+| renderer | `toWebTranslationDocument(ir, selection, sourceLanguage?): TranslationDocument`；`validateWebTranslation(ir, translation): ValidatedWebTranslation`；`buildWebReader(ir, translation?: WebTranslation|null): WebReaderBuild`；`renderWebChunk(chunk, { mode, resolveAsset }): TrustedReaderHtml`，mode 为 source / translation / bilingual |
 | renderer compat | `resolveTrustedCatalog({version, codeSha256}): TrustedRendererCatalog`；现有 `createStaticFilePlan(build, metadata, catalog?)` 增加可选目录选择，原调用不变 |
 | devices | 在服务内部定义 `CapturePrincipal = {kind:'session'; actor:Actor} | DeviceActor`，Actor 是现有 auth/sessions 的类型；`requireCapturePrincipal(request, scope): Promise<CapturePrincipal>`；`assertCapturePrincipalCurrent(client, principal): Promise<void>` |
 | captures | `createWebCapturesService({db,store,...})` 返回 create / status / receiveFile / commit / cancel；commit 只发布经服务器投影验证的版本 |
@@ -138,6 +138,8 @@ type WebReadingProgress = { position: WebReadingPosition; revision: number; upda
 ```
 
 `buildWebReader(ir,translation)` 不持有快照 index，输出的 previewId 可为 null；来源定位以 descriptor.snapshots 与 source node ID 查找为准，不猜预览 ID。跨分片的表头 / caption 可重复携带原块，明确列入 `contextBlockIds`；每个主块只属于一个分片，上下文副本也计入块数 / 字节预算，不能产生新的翻译单元或冒充主进度 / TOC 锚点。上下文 DOM / SVG ID 按 chunk / 显示侧限定。
+
+尚无翻译产物时直接构建原文 Reader，generationKind 为 none；中文或没有可翻译文字为 not-required，其余保留待译 / 手动选择状态。不为原文阅读虚构 Provider、job 或翻译摘要，Web reader version 的 translation 引用允许为空。
 
 ### 2.4 API 与状态
 
