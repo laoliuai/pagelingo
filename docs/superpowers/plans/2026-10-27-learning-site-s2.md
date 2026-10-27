@@ -86,7 +86,7 @@ ZIP 采用 [yauzl 的逐项读取](https://github.com/thejoshwolfe/yauzl#readme)
 - `parse.id = 'p_' + SHA256(sourceSha256 + inputManifestSha256 + projectorVersion + configSha256)`。block / 容器 ID 分别以 `b_` / `n_` 开头，由该 parse 身份、raw pointer、结构子路径产生 32 位十六进制摘要。相同输入重跑 ID 不变；重复文字在不同位置有不同 ID；发现碰撞拒绝，不以文本去重。
 - `ReaderNode {id, kind:'section'|'group'|'list'|'list-item'|'callout'|'block', children, blockId?, presentation?}`；`block` 节点只引用一个 block，不能有 children。其他节点不能带 blockId；list 有 ordered / start，section 有 headingBlockId，callout 有 note / definition / example / prompt 语义。全部节点形成有序、无环、无共享子节点的树，每个 block 恰被引用一次。
 - `ReaderBlock` 按 `type` 区分 `text`、`image`、`code`、`math`、`rule`，共同有 `id` 和 `sourceRefs`。text 的 `value` 完整复用 `TranslationBlock`，其 id 必须等于 block.id；附加 `bindings` 和 `language`，不得另造 inline 类型。image 保存 assetId、alt、role 和 originalRegion；caption 是单独 text block；code 保存原文和可选语言；math 保存原始 LaTeX、displayMode 和可选区域图回退。
-- `bindings` 只允许链接（HTTPS / HTTP / mailto 或文内 block）、受限样式（强调 / 对齐 / 等宽枚举，color / backgroundColor 仅 `#[0-9a-f]{6}`）、protected 对象（inline math、code、literal、asset）。格式 / protected ID 都是 block 内局部 ID，绑定与 inline 引用逐个对应；资源引用是逻辑 assetId，不是磁盘路径。`ReaderAsset {id,path,sha256,bytes,mediaType,width,height}` 只用于 PNG / JPEG / WebP；原 SVG / HTML 可归档，不直接渲染。
+- `bindings` 只允许链接（HTTPS / HTTP / mailto 或文内 block）、受限样式（强调 / 对齐 / 等宽枚举，color / backgroundColor 仅 `#[0-9a-f]{6}`）、protected 对象（inline math、code、literal、asset）。链接的两端 shape 使用相同 portable whitelist；WHATWG URL 合法性由 validateReaderGraph 检查，shape 通过不等于可直接展示。格式 / protected ID 都是 block 内局部 ID，绑定与 inline 引用逐个对应；资源引用是逻辑 assetId，不是磁盘路径。`ReaderAsset {id,path,sha256,bytes,mediaType,width,height}` 只用于 PNG / JPEG / WebP；原 SVG / HTML 可归档，不直接渲染。
 - `PdfSourceRef {pageIndex, precision:'page'|'bbox', bbox?}`；bbox 是 `[x0,y0,x1,y1]`、有限数、严格正面积且在 `[0,1]`，page 不能携带 bbox。每页 `PdfPageMetadata` 保存 pageIndex、原始 MediaBox / CropBox、有效 displayCropBox、rotation `0|90|180|270`、displayWidth / displayHeight 和六元 pdfToDisplay 仿射矩阵（PDF user-space points → 旋转后有效 CropBox 的 display points，scale=1；再除显示宽高才得到归一化坐标）。正式 Reader parse.status 只允许 complete / partial，coverage 为 full / partial；full 要求全源页都已解析且 status=complete，子集或 partial 状态一律 partial。原 P0 full / sample 仅保留在 provenance，不修改；全失败 parser run 不作为可发布 Reader 输入。页面索引和 coverage 必须与全源页数一致；无法可靠确定的变换 / repair 降级为 page，并记录 warning。
 - `ReaderTranslation.schemaVersion = 'reader-translation/1'`；包含独立 `id`（每次导出的不可变译文快照 UUID）、`jobId`、sourceSha256、parseId、readerIrSha256、SDK / prompt / protection 版本、sourceLanguage（nullable，含显式覆盖值）、targetLanguage、profile、预算、术语及其 hash、selectionBlockIds、Provider 的 model / endpointFingerprint、metrics、block 结果、unit 结果和整体状态。`generationKind:'model'|'mock'|'none'` 明确区分真实生成、流程验收模拟和无译文；模拟内容在包与页面显示标识。仅导出允许字段，不导出原始 Base URL、配置对象或 Key。
 - `selectionBlockIds` 必须按 IR 阅读顺序选择 text block；`toTranslationDocument(ir, selectionBlockIds, sourceLanguage?)` 是唯一投影，默认使用 metadata.language 的确定语言，显式覆盖值随译文保存并在导入复验时重放。保存 SDK checkpoint.blocks 中的原始 protected text，不拿已恢复术语的 batch.text 反向编码。`planUnits` 重建完全相同的 inputs / units，逐单元 `validateStructure`，完整 block 通过 `decodeTranslation` 恢复可信原文对象与术语；不接受外来格式树直接替换源绑定。
@@ -149,11 +149,11 @@ ZIP 从私有暂存文件逐项读取，`lazyEntries:true, strictFileNames:true,
 
 **Interfaces:** 保持 ReadingAssistant 的公开方法、跨窗口锁拒绝和取消行为；同窗口在先的 setDraft 持久化不得被 send 当成另一个窗口持锁，发送仍绑定调用时文章 / 问题。
 
-- [ ] **Step 1:** 用可控存储 / 锁 gate 复现 setDraft 尚未完成就 send，当前实现无模型请求且提示跨窗口冲突的失败。
-- [ ] **Step 2:** 验证确定性 RED，并追踪锁与 promise 的实际释放顺序；如假设不成立，先报告证据，不试探性修改。
-- [ ] **Step 3:** 在 ReadingAssistant 做最小同步修复，保留真实另一窗口持锁时拒绝发送、取消和文章切换语义。
-- [ ] **Step 4:** 运行 controller 对应单测、扩展 typecheck 与原历史 Chromium 用例；控制方随后重跑全部基线。
-- [ ] **Step 5:** 提交 `fix: wait for pending assistant drafts before sending`，独立审查后继续 Task 1。
+- [x] **Step 1:** 用可控存储 / 锁 gate 复现 setDraft 尚未完成就 send，当前实现无模型请求且提示跨窗口冲突的失败。
+- [x] **Step 2:** 验证确定性 RED，并追踪锁与 promise 的实际释放顺序；如假设不成立，先报告证据，不试探性修改。
+- [x] **Step 3:** 在 ReadingAssistant 做最小同步修复，保留真实另一窗口持锁时拒绝发送、取消和文章切换语义。
+- [x] **Step 4:** 运行 controller 对应单测、扩展 typecheck 与原历史 Chromium 用例；控制方随后重跑全部基线。
+- [x] **Step 5:** 提交 `fix: wait for pending assistant drafts before sending`，独立审查后继续 Task 1。
 
 ### Task 1: 正式 Reader、译文与来源合同
 
@@ -161,11 +161,11 @@ ZIP 从私有暂存文件逐项读取，`lazyEntries:true, strictFileNames:true,
 
 **Interfaces:** 输出上述类型 / Zod schemas（`readerIrSchema`、`readerTranslationSchema`、`documentBundleManifestSchema`、`readingPositionSchema`）；`validateReaderGraph(ir: ReaderIR): void` 检查树 / 绑定 / 资源 / 来源闭包，`validateReaderTranslationReferences(ir:ReaderIR, translation:ReaderTranslation):void` 检查版本、source / parse、文本块引用和完成状态的一致性，SDK marker 重放留给 Task 2。`DocumentSummary.processingStatus` 扩展为 `awaiting-local-processing|reader-ready`，另加 nullable `reader {versionId, translationStatus, parseCoverage, warnings}`，保留 S1 字段。Task 1 同步迁移 S1 repository 的无 Reader producer 和类型 fixture，返回 reader:null；实际 Reader 查询 / 状态在 Task 7 接通。API DTO 沿用 strictObject 和原错误 envelope。
 
-- [ ] **Step 1:** 写失败测试 `rejects_graph_aliases_and_binding_mismatches`、`retains_distinct_ids_for_repeated_text`、`requires_explicit_untranslated_results`，断言重复 ID / 环 / 未引用资产 / 假完成 / 不同 source 拒绝，中文 not-required 接受。为四旋转 fixture 写独立 golden：0°红框 `[40/360,260/420,120/360,360/420]`，90° `[60/420,40/360,160/420,120/360]`，180° `[240/360,60/420,320/360,160/420]`，270° `[260/420,240/360,360/420,320/360]`；页级引用不含 bbox。
-- [ ] **Step 2:** 运行 `npm run test --workspace @pagelingo/document-contracts -- --run tests/reader-contracts.test.ts`，确认新合同缺失导致失败。
-- [ ] **Step 3:** 实现 §2.1 的 strict schemas、图校验及可分发 JSON Schema；导出 fixture，包括重复段落、嵌套列表、提示框、跨页与无 bbox 来源。用 Ajv 2020 + formats 验证 Zod / JSON Schema 的 shape fixtures 结论一致；跨字段 / 图语义由公开 validateReaderGraph 补齐并单独测试，不声称 JSON Schema 能单独验证 hash / 外部资源 / 图闭包。
-- [ ] **Step 4:** 运行 contracts 全部测试与 typecheck；S1 DTO fixtures 按新增 nullable reader 迁移，保持原件入口行为。
-- [ ] **Step 5:** 提交 `feat: define versioned PDF reader contracts`。
+- [x] **Step 1:** 写失败测试 `rejects_graph_aliases_and_binding_mismatches`、`retains_distinct_ids_for_repeated_text`、`requires_explicit_untranslated_results`，断言重复 ID / 环 / 未引用资产 / 假完成 / 不同 source 拒绝，中文 not-required 接受。为四旋转 fixture 写独立 golden：0°红框 `[40/360,260/420,120/360,360/420]`，90° `[60/420,40/360,160/420,120/360]`，180° `[240/360,60/420,320/360,160/420]`，270° `[260/420,240/360,360/420,320/360]`；页级引用不含 bbox。
+- [x] **Step 2:** 运行 `npm run test --workspace @pagelingo/document-contracts -- --run tests/reader-contracts.test.ts`，确认新合同缺失导致失败。
+- [x] **Step 3:** 实现 §2.1 的 strict schemas、图校验及可分发 JSON Schema；导出 fixture，包括重复段落、嵌套列表、提示框、跨页与无 bbox 来源。用 Ajv 2020 + formats 验证 Zod / JSON Schema 的 shape fixtures 结论一致；跨字段 / 图语义由公开 validateReaderGraph 补齐并单独测试，不声称 JSON Schema 能单独验证 hash / 外部资源 / 图闭包。
+- [x] **Step 4:** 运行 contracts 全部测试与 typecheck；S1 DTO fixtures 按新增 nullable reader 迁移，保持原件入口行为。
+- [x] **Step 5:** 提交 `feat: define versioned PDF reader contracts`。
 
 ### Task 2: SDK 投影、可信 renderer 与有界分片
 
@@ -175,7 +175,7 @@ ZIP 从私有暂存文件逐项读取，`lazyEntries:true, strictFileNames:true,
 
 - [ ] **Step 1:** 写失败测试：protected math / code、嵌套 link / emphasis 和术语经真实 SDK 输入 / 输出恢复后保持绑定；丢 marker、调包资产、未知 unit / 伪造 completed、错误 prompt/protection 版本拒绝。断言 `renderChunk` 对 `<script>` 文本 escape，危险链接 / `\\href` / `\\includegraphics` 不产生主动资源或脚本。
 - [ ] **Step 2:** 运行 `npm run test --workspace @pagelingo/document-renderer`，确认因缺少实现失败。
-- [ ] **Step 3:** 实现上述入口，使用 SDK `planUnits/validateStructure/decodeTranslation`；不调用内部 terminology 模块。分片按 §2.3 重开容器，列表续片保持编号，跨页块不重复；CSS 只由受限 presentation / bindings 生成，保留提示角色、强调、代码、图注和区域图标识。静态模板、注册分片脚本与摘要目录在本任务冻结并测确定性，为 Task 3 提供完整资源闭包，不等到 CLI 任务才定义。
+- [ ] **Step 3:** 实现上述入口，buildReader 先完成 shape 与 validateReaderGraph 校验（含链接语义），使用 SDK `planUnits/validateStructure/decodeTranslation`；不调用内部 terminology 模块。分片按 §2.3 重开容器，列表续片保持编号，跨页块不重复；CSS 只由受限 presentation / bindings 生成，保留提示角色、强调、代码、图注和区域图标识。静态模板、注册分片脚本与摘要目录在本任务冻结并测确定性，为 Task 3 提供完整资源闭包，不等到 CLI 任务才定义。
 - [ ] **Step 4:** 增加 20,000-block fixture：`expect(build.chunks.every(c => c.blockIds.length <= 128)).toBe(true)`，阅读顺序展平后恰等于 IR leaf 顺序；单超大块独占片，丢资源和过深结构拒绝。用高放大 TeX 验证渲染预算与可读回退，用只消费前几项的 iterator 证明静态生成没有预构建全书 HTML。运行 workspace 测试、typecheck 与一次无 DOM Node import smoke。
 - [ ] **Step 5:** 提交 `feat: render trusted paged reader content`。
 
