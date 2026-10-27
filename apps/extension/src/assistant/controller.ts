@@ -190,12 +190,13 @@ export class ReadingAssistant {
     const abort = this.abort;
     this.update({ busy: true, runningKey: key, compacting: false, error: '', notice: '' });
     try {
+      // Let our pending draft writes release their conversation locks before
+      // requesting the run lock. Rejected writes must not poison later sends.
+      await this.queue.catch(() => {});
+      abort.signal.throwIfAborted();
       await navigator.locks.request(conversationLockName(key), { ifAvailable: true }, async (lock) => {
         if (!lock) throw new Error('这篇文章正在另一个窗口生成回答，请等待完成或在那里停止。');
         this.heldKey = key;
-        // A draft rejected while another window held the lock must not poison
-        // subsequent sends. Read the latest persisted conversation below.
-        await this.queue.catch(() => {});
         abort.signal.throwIfAborted();
         const captured = await chrome.runtime.sendMessage({
           type: 'extension:assistant-context',
