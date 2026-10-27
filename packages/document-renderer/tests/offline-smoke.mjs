@@ -14,6 +14,8 @@ const id = (kind, value) => `${kind}_${value.toString(16).padStart(32, '0')}`;
 ir.blocks = Array.from({ length: 800 }, (_, i) => ({ type: 'code', id: id('b', i + 1), code: `Offline line ${i + 1}`, sourceRefs: [{ pageIndex: 0, precision: 'page' }] }));
 ir.nodes = ir.blocks.map((block, i) => ({ id: id('n', i + 1), kind: 'block', blockId: block.id, children: [] }));
 ir.roots = ir.nodes.map(node => node.id); ir.assets = [];
+ir.warnings = Array.from({ length: 400 }, (_, i) => `source-binding-unavailable:block-${i}`);
+ir.warnings.push('<img src="https://example.invalid/leak" onerror="alert(1)">');
 Object.assign(translation, { promptVersion: '3', protectionVersion: '1', selectionBlockIds: [], blocks: [], units: [], status: 'not-required' });
 const build = buildReader(ir, translation);
 const root = await mkdtemp(join(tmpdir(), 'pagelingo-offline-'));
@@ -37,6 +39,20 @@ try {
   await page.locator('#content .reader-block').first().waitFor();
   assert.equal(await page.locator('#title').textContent(), 'Offline </script> & title');
   assert.equal(await page.locator('#content > section').count(), 2);
+  assert((await page.locator('header').boundingBox()).height < 250, 'many warnings must not fill the initial viewport');
+  assert.match(await page.locator('#status').textContent(), /401/);
+  assert.equal(await page.locator('#warnings').getAttribute('open'), null);
+  await page.locator('#warnings summary').focus(); await page.keyboard.press('Enter');
+  assert.notEqual(await page.locator('#warnings').getAttribute('open'), null);
+  assert.deepEqual(await page.locator('#warning-list li').allTextContents(), ir.warnings);
+  assert.equal(await page.locator('#warning-list img').count(), 0, 'warning text is never executable HTML');
+  const warningBox = await page.locator('#warning-list').evaluate(list => ({ height: list.clientHeight, total: list.scrollHeight, overflow: getComputedStyle(list).overflowY }));
+  assert(warningBox.total > warningBox.height); assert.equal(warningBox.overflow, 'auto');
+  assert(warningBox.height <= 160, 'expanded evidence uses a bounded scroll region');
+  await page.locator('#warnings summary').focus(); await page.keyboard.press('Enter');
+  await page.setViewportSize({ width: 390, height: 844 });
+  assert((await page.locator('header').boundingBox()).height < 300, 'warnings stay compact on mobile too');
+  await page.setViewportSize({ width: 1280, height: 720 });
   for (let i = 0; i < 4; i++) {
     await page.locator('#next').click();
     await page.waitForFunction(() => document.getElementById('content').children.length === 3);
@@ -46,7 +62,7 @@ try {
   await page.locator('#divider').focus(); await page.keyboard.press('Home');
   assert.equal(await page.locator('#divider').getAttribute('aria-valuenow'), '30');
   assert.deepEqual(errors, []);
-  console.log('file:// smoke passed: local registrations, 3-chunk DOM/script window, keyboard divider; no network or page errors');
+  console.log('file:// smoke passed: local registrations, 3-chunk DOM/script window, keyboard divider, 401 escaped warnings in compact keyboard-accessible details; no network or page errors');
 } finally {
   await browser?.close(); await rm(root, { recursive: true, force: true });
 }

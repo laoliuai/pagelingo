@@ -93,7 +93,13 @@
       index = data.index;
       byId('title').textContent = data.metadata.title;
       const statuses = { 'not-required': '无需翻译', pending: '待翻译', partial: '部分完成', completed: '已完成', failed: '失败', cancelled: '已取消' };
-      byId('status').textContent = `翻译：${statuses[index.translationStatus]} · 解析：${index.parseCoverage === 'full' ? '完整' : '部分页面'}${index.generationKind === 'mock' ? ' · 模拟译文' : ''}${index.warnings.length ? ' · ' + index.warnings.join('；') : ''}`;
+      byId('status').textContent = `翻译：${statuses[index.translationStatus]} · 解析：${index.parseCoverage === 'full' ? '完整' : '部分页面'}${index.generationKind === 'mock' ? ' · 模拟译文' : ''}${index.warnings.length ? ' · ' + index.warnings.length + ' 条提示' : ''}`;
+      const warnings = byId('warnings');
+      warnings.hidden = index.warnings.length === 0;
+      const list = byId('warning-list'); list.replaceChildren();
+      for (const warning of index.warnings) {
+        const item = document.createElement('li'); item.textContent = warning; list.append(item);
+      }
       document.body.dataset.view = window.innerWidth < 768 ? 'content' : 'split';
       toc(); load(0);
     },

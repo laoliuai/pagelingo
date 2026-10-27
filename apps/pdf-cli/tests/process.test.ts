@@ -371,3 +371,34 @@ test('process runner terminates its own child on abort without persisting arbitr
     clearTimeout(timer);
   }
 });
+
+test('verified MinerU blank page without blocks retains coverage and page-only preview fallback without changing raw bytes', async () => {
+  const f = await fixture();
+  const original = JSON.stringify({ pages: [{ page_idx: 0 }] });
+  const layout = JSON.parse(await readFile(join(f.preview, 'source-layout.json'), 'utf8'));
+  for (const page of layout.pages) page.blocks = [];
+  await writeFile(join(f.preview, 'source-layout.json'), JSON.stringify(layout));
+  await writeFile(join(f.run, 'raw.json'), original);
+  await manifest(f.run, 'pagelingo-run-files/1');
+  const preview = JSON.parse(await readFile(join(f.preview, 'preview.json'), 'utf8'));
+  preview.sourceManifestSha256 = hash(await readFile(join(f.run, 'manifest.json')));
+  await writeFile(join(f.preview, 'preview.json'), JSON.stringify(preview));
+  await manifest(f.preview, 'pagelingo-static-preview-files/1');
+  const before = await readFile(join(f.run, 'manifest.json'));
+  await processPdf({ ...f, p0RunDir: f.run, previewDir: f.preview }, { inspectPdf: async () => f.inspection });
+  const ir = JSON.parse(await readFile(join(f.runDir, 'source-ir.json'), 'utf8'));
+  expect(ir.pages).toHaveLength(1);
+  expect(ir.parse.coverage).toBe('full');
+  expect(ir.blocks.length).toBeGreaterThan(0);
+  expect(ir.blocks.every((block: { sourceRefs: { precision: string }[] }) => block.sourceRefs.every(ref => ref.precision === 'page'))).toBe(true);
+  expect(await readFile(join(f.run, 'raw.json'), 'utf8')).toBe(original);
+  expect(await readFile(join(f.runDir, 'provenance/raw.json'), 'utf8')).toBe(original);
+  expect(await readFile(join(f.run, 'manifest.json'))).toEqual(before);
+});
+
+for (const blocks of [null, {}, 'invalid']) test(`rejects present malformed raw blocks: ${JSON.stringify(blocks)}`, async () => {
+  const f = await fixture();
+  await writeFile(join(f.run, 'raw.json'), JSON.stringify({ pages: [{ page_idx: 0, blocks }] }));
+  await manifest(f.run, 'pagelingo-run-files/1');
+  await expect(processPdf({ ...f, p0RunDir: f.run, previewDir: f.preview }, { inspectPdf: async () => f.inspection })).rejects.toThrow('Invalid raw page mapping');
+});

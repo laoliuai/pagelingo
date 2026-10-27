@@ -139,9 +139,12 @@ export async function verifyP0Run(
         Number.isInteger(p.page_idx) &&
           p.page_idx >= 0 &&
           p.page_idx < metadata.requestedPageIndices.length &&
-          Array.isArray(p.blocks),
+          (!Object.hasOwn(p, 'blocks') || Array.isArray(p.blocks)),
         'Invalid raw page mapping',
       );
+      // MinerU omits blocks on blank pages. Normalize only the verified in-memory
+      // projection; original raw bytes and manifest lineage remain untouched.
+      if (!Object.hasOwn(p, 'blocks')) p.blocks = [];
       return metadata.requestedPageIndices[p.page_idx];
     })
     .sort((a, b) => a - b);
