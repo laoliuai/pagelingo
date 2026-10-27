@@ -128,8 +128,13 @@ actual immutable Web IR bytes against `readerIrSha256`, actual source manifest
 bytes against `sourceSha256`, and actual glossary/resource bytes against their
 hashes**. Re-serializing an in-memory object does not verify original bytes.
 
-`buildWebReader(ir, translation): WebReaderBuild` returns `{index, chunks}` using
-Web DTOs only, without PDF sources/pages. Every primary block occurs exactly
+`buildWebReader(ir, translation?: WebTranslation | null): WebReaderBuild` returns `{index, chunks}` using
+Web DTOs only, without PDF sources/pages. Omit translation or pass null to publish
+an original before any translation run exists: generationKind is none, Chinese
+documents and documents without translatable natural text are not-required;
+otherwise status is pending and untranslated text remains visible. This path
+creates no SDK plan, provider, job, profile, budget or glossary artifact.
+`validateWebTranslation` still requires a real nonnull translation. Every primary block occurs exactly
 once in `index.chunks[].blockIds` and `index.blockLocations`. Snapshot locations
 keep source `nodeId`; `previewId` is null because the IR does not contain the
 preview index. Consumers resolve it with descriptor snapshots, never by guessing.

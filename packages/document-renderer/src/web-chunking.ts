@@ -1,13 +1,17 @@
 import { webReaderIrSchema, webReaderChunkSchema, type WebReaderIR, type WebTranslation, type WebReaderChunk, type WebReaderIndex, type WebReaderNode } from '@pagelingo/document-contracts';
 import { validateWebGraph } from '@pagelingo/web-capture';
-import { validateWebTranslation } from './web-translation.js';
+import { validateWebTranslation, type ValidatedWebTranslation } from './web-translation.js';
 import { jsonBytes } from './chunking.js';
 import { naturalText } from './semantic-html.js';
 export interface WebReaderBuild { index: WebReaderIndex; chunks: WebReaderChunk[] }
 
-export function buildWebReader(input: WebReaderIR, translation: WebTranslation): WebReaderBuild {
+export function buildWebReader(input: WebReaderIR, translation?: WebTranslation | null): WebReaderBuild {
   const ir = webReaderIrSchema.parse(input); validateWebGraph(ir);
-  const valid = validateWebTranslation(ir, translation);
+  const valid: ValidatedWebTranslation = translation == null
+    ? { blocks: new Map(), sourceOnlyReasons: new Map(ir.blocks.flatMap(block => block.type === 'text'
+      ? [[block.id, ir.metadata.language.language === 'zh' || block.language.language === 'zh' || block.language.reason === 'no-language' ? 'language-not-required' as const : 'pending' as const] as const] : [])) }
+    : validateWebTranslation(ir, translation);
+  const translationStatus = translation?.status ?? ([...valid.sourceOnlyReasons.values()].includes('pending') ? 'pending' : 'not-required');
   const nodes = new Map(ir.nodes.map(n => [n.id, n])), parents = new Map<string, string>(), leaves = new Map<string, string>();
   const positions = new Map<string, number>();
   for (const n of ir.nodes) {
@@ -109,5 +113,5 @@ export function buildWebReader(input: WebReaderIR, translation: WebTranslation):
     toc.push({ nodeId, parentId: headingStack.at(-1)?.nodeId ?? null, blockId: block.id, title: naturalText(block.value.content), depth });
     headingStack.push({ nodeId, level: depth });
   }
-  return { chunks, index: { parseId: ir.parse.id, sourceSha256: ir.source.manifestSha256, chunks: summaries, toc, blockLocations, language: ir.metadata.language, translationStatus: translation.status, generationKind: translation.generationKind, assetIds: ir.assets.map(a => a.id), warnings: [...ir.warnings] } };
+  return { chunks, index: { parseId: ir.parse.id, sourceSha256: ir.source.manifestSha256, chunks: summaries, toc, blockLocations, language: ir.metadata.language, translationStatus, generationKind: translation?.generationKind ?? 'none', assetIds: ir.assets.map(a => a.id), warnings: [...ir.warnings] } };
 }

@@ -140,3 +140,46 @@ it('renders table captions and captured row groups as valid table children', () 
   expect(html).toContain('<table><caption>'); expect(html).toContain('</caption><tbody><tr>');
   expect(html).toContain('overflow-x:auto');
 });
+it.each([
+  { language: 'zh' as const, sourceLanguage: 'zh', reason: 'han-only' as const, status: 'not-required', reasonLabel: 'language-not-required', original: '中文原文' },
+  { language: 'foreign' as const, sourceLanguage: 'fr', reason: 'user-specified' as const, status: 'pending', reasonLabel: 'pending', original: 'Texte français original' },
+  { language: 'mixed' as const, sourceLanguage: null, reason: 'mixed-script' as const, status: 'pending', reasonLabel: 'pending', original: '中文 and original English' },
+])('publishes $language originals before any translation artifact exists', decision => {
+  const ir = webBook(1), block = ir.blocks[0]; if (block.type !== 'text') throw Error('fixture');
+  ir.metadata.language = { language: decision.language, sourceLanguage: decision.sourceLanguage, reason: decision.reason } as typeof ir.metadata.language;
+  block.language = ir.metadata.language; block.value.content = [{ type: 'text', text: decision.original }];
+  for (const build of [buildWebReader(ir), buildWebReader(ir, null)]) {
+    expect(build.index.translationStatus).toBe(decision.status); expect(build.index.generationKind).toBe('none');
+    expect(build.chunks[0].blocks[0].translation).toBeNull(); expect(build.chunks[0].blocks[0].sourceOnlyReason).toBe(decision.reasonLabel);
+    expect(renderWebChunk(build.chunks[0], { ...options, mode: 'source' })).toContain(decision.original);
+    expect(JSON.stringify(build)).not.toMatch(/"(?:jobId|provider|profile|budget|glossary|readerIrSha256)":/);
+  }
+});
+it('renders untranslated original table and math without fabricating a translation run', () => {
+  const ir = webBook(3), leaves = [...ir.nodes], first = ir.blocks[0], second = ir.blocks[1];
+  if (first.type !== 'text' || second.type !== 'text') throw Error('fixture');
+  first.value.content = [{ type: 'format', id: 'strong', kind: 'strong', children: [{ type: 'text', text: 'Original header' }] }];
+  first.bindings = [{ id: 'strong', kind: 'style', emphasis: 'strong' }]; second.value.content = [{ type: 'text', text: 'Original cell' }];
+  ir.blocks[2] = { id: ir.blocks[2].id, sourceRefs: ir.blocks[2].sourceRefs, type: 'math', latex: null, ast: { kind: 'mathml', roots: ['m'], nodes: [{ id: 'm', tag: 'math', attributes: {}, children: ['x'] }, { id: 'x', tag: 'mi', attributes: {}, children: [], text: 'x' }] }, displayMode: true };
+  ir.roots = [id('n', 10), leaves[2].id]; ir.nodes = [
+    { id: id('n', 10), kind: 'table', captionBlockId: null, children: [id('n', 11)] },
+    { id: id('n', 11), kind: 'table-row', children: [id('n', 12), id('n', 13)] },
+    { id: id('n', 12), kind: 'table-cell', header: true, scope: 'col', rowSpan: 1, colSpan: 1, headerNodeIds: [], children: [leaves[0].id] }, leaves[0],
+    { id: id('n', 13), kind: 'table-cell', header: false, scope: null, rowSpan: 1, colSpan: 1, headerNodeIds: [id('n', 12)], children: [leaves[1].id] }, leaves[1], leaves[2],
+  ];
+  const build = buildWebReader(ir, null), html = renderWebChunk(build.chunks[0], { ...options, mode: 'source' });
+  expect(html).toContain('<strong>Original header</strong>'); expect(html).toContain('Original cell'); expect(html).toContain('<th'); expect(html).toContain('<math><mi>x</mi></math>');
+  expect(build.chunks[0].blocks.every(b => b.translation === null)).toBe(true); expect(build.index.translationStatus).toBe('pending');
+});
+it('marks documents without translatable natural text not-required without a translation artifact', () => {
+  const ir = webBook(2), first = ir.blocks[0]; if (first.type !== 'text') throw Error('fixture');
+  first.language = { language: 'und', sourceLanguage: null, reason: 'no-language' };
+  first.value.content = [{ type: 'protected', id: 'formula', kind: 'math', source: 'x^2' }];
+  first.bindings = [{ id: 'formula', kind: 'protected', object: { type: 'math', latex: 'x^2' } }];
+  ir.blocks[1] = { id: ir.blocks[1].id, type: 'code', code: 'const original = 1;', sourceRefs: ir.blocks[1].sourceRefs };
+  const build = buildWebReader(ir);
+  expect(build.index.translationStatus).toBe('not-required'); expect(build.index.generationKind).toBe('none');
+  expect(build.chunks[0].blocks.map(b => b.sourceOnlyReason)).toEqual(['language-not-required', null]);
+  const html = renderWebChunk(build.chunks[0], { ...options, mode: 'source' });
+  expect(html).toContain('katex'); expect(html).toContain('const original = 1;');
+});
