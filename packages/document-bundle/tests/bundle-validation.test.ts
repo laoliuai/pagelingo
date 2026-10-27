@@ -325,3 +325,58 @@ it('preserves identity when ZIP compression and timestamps change', async () => 
     });
   expect(second.manifestSha256).toBe(first.manifestSha256);
 });
+
+it.each(['assets/figure#1.png', 'assets/read #1/a&b[2]+,.png'])(
+  'round trips a complete bundle whose literal member %s resolves from offline image URLs',
+  async (assetPath) => {
+    const { refresh } = await import('./fixtures.js');
+    const files = await fixture();
+    const ir = JSON.parse(files.get('source-ir.json')!.toString());
+    const manifest = JSON.parse(files.get('manifest.json')!.toString());
+    const previousPath = ir.assets[0].path;
+    const image = files.get(previousPath)!;
+    files.delete(previousPath);
+    files.set(assetPath, image);
+    ir.assets[0].path = assetPath;
+    manifest.files.find(
+      (file: { path: string }) => file.path === previousPath,
+    ).path = assetPath;
+    files.set('source-ir.json', json(ir));
+    files.set('manifest.json', json(manifest));
+    refresh(files);
+    await validateBundle(source(files), { limits });
+    const zipPath = join(await temp(), 'literal-path.zip');
+    await writeBundle(source(files), zipPath, { limits });
+    const archive = createArchiveFileSource(zipPath, limits);
+    const result = await validateBundle(archive, { limits });
+    const members = new Set((await archive.list()).map((file) => file.path));
+    expect(result.ir.assets[0].path).toBe(assetPath);
+    let imageCount = 0;
+    for (const file of result.files.filter((file) =>
+      file.path.startsWith('render/data/c_'),
+    )) {
+      const chunks: Uint8Array[] = [];
+      for await (const bytes of archive.read(file.path)) chunks.push(bytes);
+      const registration = Buffer.concat(chunks).toString('utf8');
+      const payload = JSON.parse(
+        registration.slice('PageLingoReader.registerChunk('.length, -3),
+      );
+      for (const mode of ['source', 'translation']) {
+        for (const match of (payload[mode].html as string).matchAll(
+          /<img\b[^>]*\bsrc="([^"]+)"/g,
+        )) {
+          const url = new URL(match[1], 'file:///bundle/render/index.html');
+          const member = decodeURIComponent(url.pathname).slice(
+            '/bundle/'.length,
+          );
+          expect(member).toBe(assetPath);
+          expect(members.has(member)).toBe(true);
+          expect(url.hash).toBe('');
+          expect(url.search).toBe('');
+          imageCount++;
+        }
+      }
+    }
+    expect(imageCount).toBeGreaterThan(0);
+  },
+);

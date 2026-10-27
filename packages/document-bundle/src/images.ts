@@ -13,8 +13,8 @@ export function inspectImage(data: Buffer): ImageMetadata {
     return png(data);
   if (data[0] === 0xff && data[1] === 0xd8) return jpeg(data);
   if (
-    data.toString('ascii', 0, 4) === 'RIFF' &&
-    data.toString('ascii', 8, 12) === 'WEBP'
+    data.toString('latin1', 0, 4) === 'RIFF' &&
+    data.toString('latin1', 8, 12) === 'WEBP'
   )
     return webp(data);
   check(false);
@@ -29,8 +29,10 @@ function png(data: Buffer): ImageMetadata {
   while (offset + 12 <= data.length) {
     const length = data.readUInt32BE(offset);
     check(length <= data.length - offset - 12);
-    const type = data.toString('ascii', offset + 4, offset + 8),
+    const type = data.toString('latin1', offset + 4, offset + 8),
       end = offset + 8 + length;
+    // Latin-1 preserves every byte; Node's ASCII decoder masks high bits.
+    check(/^[A-Za-z]{4}$/.test(type));
     check(crc32(data.subarray(offset + 4, end)) === data.readUInt32BE(end));
     if (first) {
       check(type === 'IHDR' && length === 13);
@@ -129,9 +131,10 @@ function webp(data: Buffer): ImageMetadata {
     height = 0,
     payload = false;
   while (offset + 8 <= data.length) {
-    const type = data.toString('ascii', offset, offset + 4),
+    const type = data.toString('latin1', offset, offset + 4),
       length = data.readUInt32LE(offset + 4),
       start = offset + 8;
+    check(/^[\x20-\x7e]{4}$/.test(type));
     check(length <= data.length - start);
     if (type === 'VP8X') {
       check(

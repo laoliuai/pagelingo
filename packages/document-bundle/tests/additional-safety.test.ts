@@ -535,3 +535,155 @@ it('rejects unsupported JPEG frame headers alongside a compatible frame', async 
     ),
   ).toThrow();
 });
+
+const webpSignatures = {
+  lossy: 'UklGRiYAAABXRUJQVlA4IBoAAAAwAQCdASoCAAMAAIAOJaQAA3AA/v9gGAAAAA==',
+  lossless: 'UklGRhoAAABXRUJQVlA4TA4AAAAvAYAAAAcQEf0PRET/Aw==',
+};
+async function signatureBundle(
+  kind: 'png' | 'lossy' | 'lossless',
+  corrupt?: (body: Buffer) => Buffer | void,
+): Promise<Map<string, Buffer>> {
+  const { refresh } = await import('./fixtures.js');
+  const files = await fixture();
+  const ir = JSON.parse(files.get('source-ir.json')!.toString());
+  const manifest = JSON.parse(files.get('manifest.json')!.toString());
+  const previousPath = ir.assets[0].path;
+  const original =
+    kind === 'png'
+      ? Buffer.from(files.get(previousPath)!)
+      : Buffer.from(webpSignatures[kind], 'base64');
+  const body = corrupt?.(original) ?? original;
+  const path = kind === 'png' ? previousPath : 'assets/figure-1.webp';
+  const mediaType = kind === 'png' ? 'image/png' : 'image/webp';
+  files.delete(previousPath);
+  files.set(path, body);
+  Object.assign(ir.assets[0], {
+    path,
+    mediaType,
+    bytes: body.length,
+    sha256: hash(body),
+    width: kind === 'png' ? 1 : 2,
+    height: kind === 'png' ? 1 : 3,
+  });
+  Object.assign(
+    manifest.files.find((file: { path: string }) => file.path === previousPath),
+    { path, mediaType, bytes: body.length, sha256: hash(body) },
+  );
+  files.set('source-ir.json', json(ir));
+  files.set('manifest.json', json(manifest));
+  refresh(files);
+  return files;
+}
+
+it.each(['png', 'lossy', 'lossless'] as const)(
+  'accepts the uncorrupted %s signature controls',
+  async (kind) => {
+    const files = await signatureBundle(kind);
+    expect(
+      (await validateBundle(createMemoryFileSource(files, limits), { limits }))
+        .ir.assets[0].mediaType,
+    ).toBe(kind === 'png' ? 'image/png' : 'image/webp');
+  },
+);
+
+const signatureCases = [
+  { label: 'RIFF', kind: 'lossy', offset: 0 },
+  { label: 'WEBP', kind: 'lossy', offset: 8 },
+  { label: 'VP8 ', kind: 'lossy', offset: 12 },
+  { label: 'VP8L', kind: 'lossless', offset: 12 },
+  { label: 'IHDR', kind: 'png', offset: 12 },
+  { label: 'IDAT', kind: 'png', offset: 37 },
+  { label: 'IEND', kind: 'png', offset: 60 },
+] as const;
+it.each(
+  signatureCases.flatMap((test) =>
+    Array.from({ length: 4 }, (_, byte) => ({ ...test, byte })),
+  ),
+)(
+  'rejects high-bit corruption of $label byte $byte with valid CRC and complete bundle hashes',
+  async ({ label, kind, offset, byte }) => {
+    const files = await signatureBundle(kind, (body) => {
+      body[offset + byte] ^= 0x80;
+      if (kind === 'png') {
+        const chunkStart = offset - 4,
+          length = body.readUInt32BE(chunkStart);
+        body.writeUInt32BE(
+          crc32(body.subarray(offset, offset + 4 + length)),
+          offset + 4 + length,
+        );
+      }
+    });
+    const manifest = JSON.parse(files.get('manifest.json')!.toString());
+    expect(
+      manifest.files.every(
+        (file: { path: string; sha256: string; bytes: number }) =>
+          file.sha256 === hash(files.get(file.path)!) &&
+          file.bytes === files.get(file.path)!.length,
+      ),
+    ).toBe(true);
+    const result = await validateBundle(createMemoryFileSource(files, limits), {
+      limits,
+    }).then(
+      () => 'accepted',
+      (error: { code: string }) => error.code,
+    );
+    expect(
+      result,
+      `${label} must be rejected by type admission even when every file digest matches`,
+    ).toBe('INVALID_BUNDLE');
+    const { inspectImage } = await import('../src/images.js');
+    expect(() =>
+      inspectImage(
+        files.get(
+          kind === 'png' ? 'assets/figure-1.png' : 'assets/figure-1.webp',
+        )!,
+      ),
+    ).toThrow();
+  },
+);
+
+it.each(
+  (['png', 'lossy'] as const).flatMap((kind) =>
+    [false, true].map((corrupt) => ({ kind, corrupt })),
+  ),
+)(
+  '$kind optional chunk tag admission preserves ASCII and rejects high bits ($corrupt)',
+  async ({ kind, corrupt }) => {
+    const files = await signatureBundle(kind, (body) => {
+      if (kind === 'png') {
+        const payload = Buffer.from('label\0value'),
+          chunk = Buffer.alloc(payload.length + 12);
+        chunk.writeUInt32BE(payload.length);
+        chunk.write('tEXt', 4);
+        payload.copy(chunk, 8);
+        if (corrupt) chunk[4] ^= 0x80;
+        chunk.writeUInt32BE(
+          crc32(chunk.subarray(4, 8 + payload.length)),
+          8 + payload.length,
+        );
+        return Buffer.concat([body.subarray(0, 33), chunk, body.subarray(33)]);
+      }
+      const header = Buffer.alloc(18);
+      header.write('VP8X');
+      header.writeUInt32LE(10, 4);
+      header.writeUIntLE(1, 12, 3);
+      header.writeUIntLE(2, 15, 3);
+      if (corrupt) header[0] ^= 0x80;
+      const result = Buffer.concat([
+        body.subarray(0, 12),
+        header,
+        body.subarray(12),
+      ]);
+      result.writeUInt32LE(result.length - 8, 4);
+      return result;
+    });
+    const result = await validateBundle(createMemoryFileSource(files, limits), {
+      limits,
+    }).then(
+      () => 'accepted',
+      (error: { code: string }) => error.code,
+    );
+    expect(result).toBe(corrupt ? 'INVALID_BUNDLE' : 'accepted');
+  },
+);

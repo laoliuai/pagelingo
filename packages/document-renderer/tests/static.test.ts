@@ -31,3 +31,28 @@ it('ships a closed trusted asset catalog whose hashes match pinned package bytes
   const katexCss=await readFile(join(dirname(require.resolve('katex/package.json')),'dist/katex.min.css'),'utf8');
   for(const match of katexCss.matchAll(/url\(([^)]+)\)/g)) expect(plan.trustedAssets.some(a=>a.path===`assets/katex/${match[1]}`)).toBe(true);
 });
+
+it('encodes offline asset path segments without changing external URL queries or fragments', async () => {
+  const { fixture } = await import('./fixtures.js');
+  const ir = fixture();
+  const assetPath = 'assets/read#1/a&b[2]+,.png';
+  ir.assets[0].path = assetPath;
+  const text = ir.blocks[1];
+  if (text.type !== 'text') throw Error('Expected text fixture');
+  text.value.content = [{type:'format',id:'external',kind:'link',children:[{type:'text',text:'Open the source'}]}];
+  text.bindings = [{kind:'link',id:'external',href:'https://example.test/guide?format=pdf&view=1#chapter'}];
+  const plan = createStaticFilePlan(buildReader(ir, snapshot(ir)), {title:'Book',originalFilename:'book.pdf'});
+  const html = [...plan.generatedFiles].filter(file => file.path.startsWith('render/data/c_')).map(file => {
+    const payload = JSON.parse(file.content.slice('PageLingoReader.registerChunk('.length, -3));
+    return payload.source.html as string;
+  }).join('');
+  const sources = [...html.matchAll(/<img\b[^>]*\bsrc="([^"]+)"/g)].map(match => match[1]);
+  expect(sources.length).toBeGreaterThan(0);
+  for (const source of sources) {
+    const url = new URL(source, 'file:///bundle/render/index.html');
+    expect(decodeURIComponent(url.pathname)).toBe(`/bundle/${assetPath}`);
+    expect(url.hash).toBe('');
+    expect(url.search).toBe('');
+  }
+  expect(html).toContain('href="https://example.test/guide?format=pdf&amp;view=1#chapter"');
+});

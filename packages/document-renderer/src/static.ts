@@ -29,7 +29,7 @@ export function createStaticFilePlan(build: ReaderBuild, metadata: OfflineMetada
         const resolveAsset = (id: string): string => {
           const asset = chunk.assets.find(asset => asset.id === id);
           if (!asset) throw new Error('Missing static asset');
-          return `../${asset.path}`;
+          return `../${asset.path.split('/').map(encodeURIComponent).join('/')}`;
         };
         const source = renderChunk(chunk, { mode: 'source', resolveAsset });
         const translation = renderChunk(chunk, { mode: 'translation', resolveAsset });
