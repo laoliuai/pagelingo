@@ -4,7 +4,7 @@ import type {
   ReaderBlock,
   ReaderNode,
 } from '@pagelingo/document-contracts';
-import type { BlockKind } from '@pagelingo/translation-core';
+import type { BlockKind, InlineContent } from '@pagelingo/translation-core';
 import type {
   VerifiedP0Run,
   VerifiedPreview,
@@ -71,6 +71,27 @@ const furniture = new Set([
   'header',
   'footer',
 ]);
+// Source-only fallbacks read original inline objects, never rendered KaTeX descendants.
+function inlineSource(content: InlineContent[]): string {
+  return content
+    .map((item) =>
+      item.type === 'text'
+        ? item.text
+        : item.type === 'protected'
+          ? item.source
+          : inlineSource(item.children),
+    )
+    .join('');
+}
+function alphabeticMarker(index: number): string {
+  let label = '';
+  while (index > 0) {
+    index--;
+    label = String.fromCharCode(97 + (index % 26)) + label;
+    index = Math.floor(index / 26);
+  }
+  return `${label}.`;
+}
 export async function projectLegacyPages(
   run: VerifiedP0Run,
   preview: VerifiedPreview,
@@ -125,6 +146,7 @@ export async function projectLegacyPages(
       n: HtmlNode,
       path: string,
       parent: SourceContext,
+      sourceOnlyMarker?: string,
     ): Promise<string[]> => {
       if (!element(n)) {
         if (!textContent(n).trim()) return [];
@@ -150,6 +172,81 @@ export async function projectLegacyPages(
         `${page.path}#${path}`;
       const blockId = (): string => makeId('b_', source, path);
       const tag = element(n) ? n.tagName : '';
+      if (sourceOnlyMarker !== undefined) {
+        const id = blockId();
+        const projected = projectInline(children(n), ir.warnings);
+        const original = `${sourceOnlyMarker} ${inlineSource(projected.content).trim()}`;
+        return [
+          addBlock(
+            {
+              id,
+              type: 'text',
+              sourceRefs: [mapping.ref],
+              value: {
+                id,
+                kind: 'list-item',
+                content: [
+                  {
+                    type: 'protected',
+                    id: 'list-source',
+                    kind: 'literal',
+                    source: original,
+                  },
+                ],
+              },
+              bindings: [
+                {
+                  kind: 'protected',
+                  id: 'list-source',
+                  object: { type: 'literal', text: original },
+                },
+              ],
+              language: { language: 'und', reason: 'no-language' },
+            },
+            n,
+            path,
+            context,
+          ),
+        ];
+      }
+      // Reader v1 cannot encode alphabetic list markers. Keep each original
+      // label and item readable as protected source text instead of renumbering.
+      const alphabetic =
+        tag === 'ol' &&
+        /(?:^|;)\s*list-style-type\s*:\s*lower-alpha\s*(?:;|$)/i.test(
+          attr(n, 'style') ?? '',
+        );
+      if (alphabetic) {
+        const id = makeId('n_', source, path);
+        let ordinal = Number(attr(n, 'start') ?? '1');
+        requireInput(
+          Number.isSafeInteger(ordinal) && ordinal > 0,
+          'Invalid alphabetic list start',
+        );
+        const itemNodes: string[] = [];
+        for (const [i, child] of children(n).entries()) {
+          if (!element(child) || child.tagName !== 'li') continue;
+          if (attr(child, 'value') !== undefined)
+            ordinal = Number(attr(child, 'value'));
+          requireInput(
+            Number.isSafeInteger(ordinal) && ordinal > 0,
+            'Invalid alphabetic list item value',
+          );
+          itemNodes.push(
+            ...(await visit(
+              child,
+              `${path}/${i}`,
+              context,
+              alphabeticMarker(ordinal++),
+            )),
+          );
+        }
+        ir.nodes.push({ id, kind: 'group', children: itemNodes });
+        ir.warnings.push(
+          `unsupported-list-markers:lower-alpha:source-only:${id}`,
+        );
+        return [id];
+      }
       if (tag === 'img') {
         const asset = await legacyAsset(
           preview,

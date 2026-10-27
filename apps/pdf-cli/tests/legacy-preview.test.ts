@@ -117,3 +117,72 @@ test('unsupported visible vector content remains an explicit source-only block',
     ),
   ).toBe(true);
 });
+
+test('keeps actual lower-alpha labels as readable source-only content while decimal lists retain start=3', async () => {
+  // Matches the released LLM pages/page-0218.html marker declaration.
+  const f = await fixture(`<article class="docvortex-document">
+    <ol class="pl-source-list" start="1" style="list-style-type:lower-alpha">
+      <li>First source step <em>with emphasis</em></li>
+      <li>Second source step <span data-docvortex-latex="x^2"><math>duplicate</math><span>duplicate</span></span></li>
+      <li>Third source step</li>
+    </ol>
+    <ol start="3"><li>Decimal third</li><li>Decimal fourth</li></ol>
+  </article>`);
+  const result = await processPdf(
+    { ...f, p0RunDir: f.run, previewDir: f.preview },
+    { inspectPdf: async () => f.inspection },
+  );
+  const ir = JSON.parse(
+    await readFile(join(f.runDir, result.paths.ir), 'utf8'),
+  );
+  expect(
+    ir.nodes.filter((node: { kind: string }) => node.kind === 'list'),
+  ).toHaveLength(1);
+  expect(
+    ir.nodes.find((node: { kind: string }) => node.kind === 'list'),
+  ).toMatchObject({ ordered: true, start: 3 });
+  expect(
+    ir.blocks
+      .slice(0, 3)
+      .map((block: { value: { content: unknown[] } }) => block.value.content),
+  ).toEqual([
+    [
+      {
+        type: 'protected',
+        id: 'list-source',
+        kind: 'literal',
+        source: 'a. First source step with emphasis',
+      },
+    ],
+    [
+      {
+        type: 'protected',
+        id: 'list-source',
+        kind: 'literal',
+        source: 'b. Second source step x^2',
+      },
+    ],
+    [
+      {
+        type: 'protected',
+        id: 'list-source',
+        kind: 'literal',
+        source: 'c. Third source step',
+      },
+    ],
+  ]);
+  expect(
+    ir.blocks
+      .slice(0, 3)
+      .every(
+        (block: { language: { reason: string } }) =>
+          block.language.reason === 'no-language',
+      ),
+  ).toBe(true);
+  expect(
+    ir.warnings.some((warning: string) =>
+      warning.startsWith('unsupported-list-markers:lower-alpha:source-only:'),
+    ),
+  ).toBe(true);
+  expect(JSON.stringify(ir)).not.toContain('duplicate');
+});

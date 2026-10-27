@@ -13,6 +13,11 @@ export interface SourceContext {
   blockIndex?: number;
   sourceId?: string;
 }
+const finiteNumber = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value);
+const finiteBox = (value: unknown): value is [number, number, number, number] =>
+  Array.isArray(value) && value.length === 4 && value.every(finiteNumber);
+
 export function mapSource(
   run: VerifiedP0Run,
   preview: VerifiedPreview,
@@ -40,7 +45,7 @@ export function mapSource(
     ) ?? -1;
   const rawRef = rb >= 0 ? `#/pages/${rp}/blocks/${rb}` : undefined;
   const ep = preview.layout.pages.findIndex(
-    (p) => p.sourcePageIndex === context.pageIndex,
+    (p) => p?.sourcePageIndex === context.pageIndex,
   );
   const evidence = preview.layout.pages[ep];
   const sourceId =
@@ -58,25 +63,44 @@ export function mapSource(
     )
   )
     return fallback('source-identity-conflict', rawRef);
-  const eb = evidence?.blocks.findIndex((b) => b.id === sourceId) ?? -1;
+  if (!Array.isArray(evidence?.blocks))
+    return fallback('source-binding-unavailable', rawRef);
+  const eb = evidence.blocks.findIndex((b) => b?.id === sourceId);
   if (eb < 0 || !evidence)
     return fallback('source-binding-unavailable', rawRef);
   if (
-    evidence.blocks.filter((block) => block.id === sourceId).length !== 1 ||
+    evidence.blocks.filter((block) => block?.id === sourceId).length !== 1 ||
     preview.layout.pages.filter(
-      (item) => item.sourcePageIndex === context.pageIndex,
+      (item) => item?.sourcePageIndex === context.pageIndex,
     ).length !== 1
   )
     return fallback('source-evidence-conflict', rawRef);
   const block = evidence.blocks[eb];
+  const sourceBlockIndex = sourceId?.startsWith(
+    `${run.metadata.runId}/p${context.pageIndex}/b`,
+  )
+    ? Number(sourceId.match(/\/b(\d+)(?:\/c\d+)?$/)?.[1])
+    : NaN;
+  const expectedBlockIndex = context.blockIndex ?? sourceBlockIndex;
+  if (
+    !Number.isSafeInteger(block.blockIndex) ||
+    block.blockIndex < 0 ||
+    !Number.isSafeInteger(expectedBlockIndex) ||
+    block.blockIndex !== expectedBlockIndex
+  )
+    return fallback('source-identity-conflict', rawRef);
   if (
     preview.layout.coordinateSpace !==
       'normalized-displayed-crop-box-top-left' ||
     evidence.parsedPageIndex !== context.parsedPageIndex ||
     evidence.rotation !== page.rotation ||
+    !finiteNumber(evidence.width) ||
+    evidence.width <= 0 ||
+    !finiteNumber(evidence.height) ||
+    evidence.height <= 0 ||
+    !finiteBox(evidence.cropBox) ||
     Math.abs(evidence.width - page.displayWidth) > 0.02 ||
     Math.abs(evidence.height - page.displayHeight) > 0.02 ||
-    evidence.cropBox.length !== 4 ||
     evidence.cropBox.some(
       (v, i) => Math.abs(v - page.displayCropBox[i]) > 0.02,
     ) ||
@@ -86,7 +110,7 @@ export function mapSource(
   const box = block.bbox;
   if (
     block.ambiguousCharacterRanges?.length ||
-    box.length !== 4 ||
+    !finiteBox(box) ||
     box.some((v) => !Number.isFinite(v) || v < 0 || v > 1) ||
     box[0] >= box[2] ||
     box[1] >= box[3]

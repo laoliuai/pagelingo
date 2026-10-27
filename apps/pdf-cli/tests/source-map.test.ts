@@ -75,3 +75,54 @@ test('conflicting duplicate evidence identities never pick an arbitrary bounding
     { pageIndex: 0, precision: 'page' },
   ]);
 });
+
+test.each([
+  ['missing width', 'width', undefined],
+  ['nonnumeric height', 'height', 'unknown'],
+  ['numeric-string width', 'width', '360'],
+  ['nonfinite width', 'width', Infinity],
+  ['NaN height', 'height', NaN],
+  ['missing crop box', 'cropBox', undefined],
+  ['null crop box', 'cropBox', null],
+  ['non-array crop box', 'cropBox', { length: 4 }],
+  ['short crop box', 'cropBox', [20, 40, 380]],
+  ['nonnumeric crop coordinate', 'cropBox', [20, 'unknown', 380, 460]],
+  ['numeric-string crop coordinate', 'cropBox', [20, '40', 380, 460]],
+  ['nonfinite crop coordinate', 'cropBox', [20, 40, Infinity, 460]],
+])('does not claim bbox precision for %s', async (_label, field, value) => {
+  const { verifyP0Run, verifyPreview } = await import('../src/index.js');
+  const { mapSource } = await import('../src/source-map.js');
+  const f = await fixture();
+  const run = await verifyP0Run(f.run, f.inspection.sourceSha256);
+  const preview = await verifyPreview(f.preview, run);
+  Object.assign(preview.layout.pages[0], { [field]: value });
+  const result = mapSource(run, preview, f.inspection.pages[0], {
+    pageIndex: 0,
+    parsedPageIndex: 0,
+    blockIndex: 0,
+    sourceId: 'fixture-run/p0/b0',
+  });
+  expect(result.ref).toEqual({ pageIndex: 0, precision: 'page' });
+  expect(result.lineage.warning).toBe('source-coordinate-uncalibrated');
+  expect(result.lineage.rawRef).toBe('#/pages/0/blocks/0');
+});
+
+test.each([undefined, null, '0', 1, NaN, Infinity])(
+  'falls back for contradictory or invalid evidence blockIndex %s',
+  async (blockIndex) => {
+    const { verifyP0Run, verifyPreview } = await import('../src/index.js');
+    const { mapSource } = await import('../src/source-map.js');
+    const f = await fixture();
+    const run = await verifyP0Run(f.run, f.inspection.sourceSha256);
+    const preview = await verifyPreview(f.preview, run);
+    Object.assign(preview.layout.pages[0].blocks[0], { blockIndex });
+    const result = mapSource(run, preview, f.inspection.pages[0], {
+      pageIndex: 0,
+      parsedPageIndex: 0,
+      blockIndex: 0,
+      sourceId: 'fixture-run/p0/b0',
+    });
+    expect(result.ref).toEqual({ pageIndex: 0, precision: 'page' });
+    expect(result.lineage.warning).toBe('source-identity-conflict');
+  },
+);
