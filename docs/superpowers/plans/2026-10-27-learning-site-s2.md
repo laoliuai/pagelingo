@@ -258,7 +258,7 @@ ZIP 从私有暂存文件逐项读取，`lazyEntries:true, strictFileNames:true,
 
 ### Task 8: 认证的导入、分片、下载与进度 API
 
-**Files:** 新建 `apps/document-service/src/bundle-imports/routes.ts`、`src/readers/{repository,service,routes,asset-response,progress,data}.ts`、`tests/integration/{reader-routes,reader-progress}.test.ts`；修改 app.ts、documents DTO 与 source-response 中可共享的响应辅助函数。
+**Files:** 新建 `apps/document-service/src/bundle-imports/routes.ts`、`src/readers/{repository,service,routes,asset-response,progress,data,image-metadata-cache}.ts`、`tests/integration/{reader-routes,reader-progress}.test.ts`；修改 app.ts、documents DTO 与 source-response 中可共享的响应辅助函数。
 
 **Interfaces:** 所有路径位于 `/api/v1`，读请求 requireSession，写请求同时 requireWriteRequest；资源与错误响应 no-store：
 
@@ -277,12 +277,12 @@ ZIP 从私有暂存文件逐项读取，`lazyEntries:true, strictFileNames:true,
 | GET `/documents/:id/progress` | → ReadingProgress 或 null |
 | PUT `/documents/:id/progress` | `{expectedRevision,position}` → ReadingProgress |
 
-- [ ] **Step 1:** 写失败测试：两用户 / 管理员猜 id、Range / HEAD / ETag、伪 owner、跨文档 asset / chunk 引用、无 CSRF / Origin 拒绝；body 读前先认证。HTML / JS / provenance 不可通过显示资产 API 访问，bundle 下载不触发解析 / 翻译。
-- [ ] **Step 2:** 运行 `npm run test:service:db -- tests/integration/reader-routes.test.ts tests/integration/reader-progress.test.ts`，确认失败。
-- [ ] **Step 3:** 注册流式 ZIP content parser，按 Task 7 服务交互；完成行不接收覆盖性 PUT。输入无效 /超限 / 缺资源 / 错源 / 身份冲突分别稳定映射 `INVALID_BUNDLE|BUNDLE_TOO_LARGE|BUNDLE_MISSING_RESOURCE|SOURCE_MISMATCH|BUNDLE_IDENTITY_CONFLICT`，不泄露路径 / 内容。timeout / request abort 进入可查询状态；失败不清除旧 reader。
-- [ ] **Step 4:** 实现分页 Reader API、白名单资产 Content-Type / nosniff / Range 响应和 ZIP attachment；URL 不能选择包内路径 / objectKey。使用服务端生成的 id。进度验证 source / parse / reader 的同文档 FK、block 存在、pageIndex / offset 有界；同事务 CAS 增 revision 并保留版本历史。409 不修改任何已有行。
-- [ ] **Step 5:** 验证新版本缺 block → 页级恢复 / 保留旧位置、两个设备相同 revision 只有一个成功、旧版本迟到写不能覆盖最新记录、账号撤销前后 API 均正确。运行服务全部测试，空库和 S1 升级库均迁移成功。
-- [ ] **Step 6:** 提交 `feat: serve private PDF reader versions and progress`。
+- [x] **Step 1:** 写失败测试：两用户 / 管理员猜 id、Range / HEAD / ETag、伪 owner、跨文档 asset / chunk 引用、无 CSRF / Origin 拒绝；body 读前先认证。HTML / JS / provenance 不可通过显示资产 API 访问，bundle 下载不触发解析 / 翻译。
+- [x] **Step 2:** 运行 `npm run test:service:db -- tests/integration/reader-routes.test.ts tests/integration/reader-progress.test.ts`，确认失败。
+- [x] **Step 3:** 注册流式 ZIP content parser，按 Task 7 服务交互；完成行不接收覆盖性 PUT。输入无效 /超限 / 缺资源 / 错源 / 身份冲突分别稳定映射 `INVALID_BUNDLE|BUNDLE_TOO_LARGE|BUNDLE_MISSING_RESOURCE|SOURCE_MISMATCH|BUNDLE_IDENTITY_CONFLICT`，不泄露路径 / 内容。timeout / request abort 进入可查询状态；失败不清除旧 reader。
+- [x] **Step 4:** 实现分页 Reader API、白名单资产 Content-Type / nosniff / Range 响应和 ZIP attachment；URL 不能选择包内路径 / objectKey。使用服务端生成的 id。进度验证 source / parse / reader 的同文档 FK、block 存在、pageIndex / offset 有界；同事务 CAS 增 revision 并保留版本历史。409 不修改任何已有行。
+- [x] **Step 5:** 验证新版本缺 block → 页级恢复 / 保留旧位置、两个设备相同 revision 只有一个成功、旧版本迟到写不能覆盖最新记录、账号撤销前后 API 均正确。运行服务全部测试，空库和 S1 升级库均迁移成功。
+- [x] **Step 6:** 提交 `feat: serve private PDF reader versions and progress`。
 
 ### Task 9: 阅读包导入 UI 与真实状态
 
