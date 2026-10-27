@@ -36,7 +36,7 @@ export async function imageAssets(client: PoolClient, owner: string, version: Ve
   for (const image of ir.assets) {
     const row = byPath.get(image.path);
     if (!row || row.sha256 !== image.sha256 || Number(row.bytes) !== image.bytes || row.media_type !== image.mediaType) throw notFound();
-    result.set(image.id, row);
+    result.set(image.id, { id: row.id, object_key: row.object_key, bytes: row.bytes, sha256: row.sha256, media_type: row.media_type });
   }
   return result;
 }

@@ -1,15 +1,17 @@
 import type { PoolClient } from 'pg';
-import { readerChunkSchema, readerDescriptorSchema, readerVersionListSchema, readingProgressUpdateSchema, type ReadingProgressUpdate } from '@pagelingo/document-contracts';
+import { readerChunkSchema, readerDescriptorSchema, readerIrSchema, readerVersionListSchema, readingProgressUpdateSchema, type ReadingProgressUpdate } from '@pagelingo/document-contracts';
 import { assertActorCurrent, type Actor } from '../auth/guards.js';
 import type { Database } from '../db/database.js';
 import { findDocument } from '../documents/repository.js';
 import { ServiceError } from '../errors.js';
 import type { ObjectStore } from '../storage/object-store.js';
-import { findAsset, findVersion, listVersions, notFound, type VersionRow } from './repository.js';
+import { findAsset, findImageAsset, findVersion, listVersions, notFound, type VersionRow } from './repository.js';
 import { imageAssets, readJson, versionData } from './data.js';
 import { progressView, readState, restoreProgress, saveProgress, validatePosition } from './progress.js';
+import { createImageMetadataCache } from './image-metadata-cache.js';
 
 export function createReadersService({ db, store }: { db: Database; store: ObjectStore }) {
+  const images = createImageMetadataCache();
   function owned<T>(actor: Actor, documentId: string, fn: (client: PoolClient) => Promise<T>) {
     return db.transaction(async client => { await assertActorCurrent(client, actor); await findDocument(client, actor.userId, documentId); return fn(client); });
   }
@@ -40,11 +42,24 @@ export function createReadersService({ db, store }: { db: Database; store: Objec
         return chunk;
       });
     },
-    image(actor: Actor, documentId: string, versionId: string, assetId: string) {
-      return withVersion(actor, documentId, versionId, async (client, version) => {
-        const { ir } = await versionData(client, actor.userId, version, store);
-        const image = [...(await imageAssets(client, actor.userId, version, ir)).values()].find(asset => asset.id === assetId);
-        if (!image) throw notFound(); return image;
+    async image(actor: Actor, documentId: string, versionId: string, assetId: string) {
+      const version = await withVersion(actor, documentId, versionId, async (_client, row) => row);
+      const allowed = await images.get(`${actor.userId}/${documentId}/${versionId}/${version.ir_asset_id}`, async () => {
+        const asset = await db.transaction(client => findAsset(client, actor.userId, documentId, version.ir_asset_id));
+        // The admitted IR is immutable. Hash/schema work is outside the user's FOR UPDATE lock,
+        // and image delivery never needs the whole ReaderIndex.
+        const ir = await readJson(store, asset, readerIrSchema);
+        if (ir.parse.id !== version.parse_id || ir.source.sha256 !== version.source_sha256) throw notFound();
+        const logical = await db.transaction(client => imageAssets(client, actor.userId, version, ir));
+        return new Map([...logical.values()].map(image => [image.id, image]));
+      });
+      // Revocation or version deletion during cold validation must still deny delivery.
+      return withVersion(actor, documentId, versionId, async (client, current) => {
+        const expected = allowed.get(assetId);
+        if (!expected || current.ir_asset_id !== version.ir_asset_id) throw notFound();
+        const actual = await findImageAsset(client, actor.userId, documentId, versionId, assetId);
+        if (actual.object_key !== expected.object_key || actual.sha256 !== expected.sha256 || actual.bytes !== expected.bytes || actual.media_type !== expected.media_type) throw notFound();
+        return actual;
       });
     },
     archive(actor: Actor, documentId: string, versionId: string) {

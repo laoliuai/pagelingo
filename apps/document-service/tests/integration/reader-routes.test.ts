@@ -1,11 +1,73 @@
 import { randomUUID } from 'node:crypto';
 import { Readable } from 'node:stream';
-import { afterEach, expect, it } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
+import * as objectStorage from '../../src/storage/local-object-store.js';
 import { readerDescriptorSchema, readerChunkSchema, readerVersionListSchema } from '@pagelingo/document-contracts';
 import { readerTestApp, headers } from '../helpers/readers.js';
 
 const cleanup: Array<() => Promise<void>> = [];
 afterEach(async () => { for (const close of cleanup.splice(0)) await close(); });
+function observeStorage(beforeRead: (key: string) => Promise<void> = async () => {}) {
+  const reads = new Map<string, number>(); const original = objectStorage.createLocalObjectStore;
+  vi.spyOn(objectStorage, 'createLocalObjectStore').mockImplementation(root => {
+    const store = original(root);
+    return { ...store, async *read(key, range) {
+      reads.set(key, (reads.get(key) ?? 0) + 1); await beforeRead(key); yield* store.read(key, range);
+    } };
+  });
+  return reads;
+}
+async function imageReferences(t: Awaited<ReturnType<typeof readerTestApp>>, version: string) {
+  return (await t.db.pool.query(`SELECT a.id,a.object_key,ir.object_key AS ir_key,idx.object_key AS index_key
+    FROM reader_versions r JOIN parse_runs p ON (p.owner_id,p.id)=(r.owner_id,r.parse_id)
+    JOIN assets ir ON ir.id=p.ir_asset_id JOIN assets idx ON idx.id=r.index_asset_id
+    JOIN bundle_files f ON f.reader_version_id=r.id JOIN assets a ON a.id=f.asset_id
+    WHERE r.id=$1 AND a.media_type='image/png' LIMIT 1`, [version])).rows[0];
+}
+it('reuses only immutable image metadata across GET HEAD and Range while still authorizing and statting every request', async () => {
+  const reads = observeStorage(); const t = await readerTestApp(cleanup); const f = await t.ingest();
+  const refs = await imageReferences(t, f.version); reads.clear();
+  const url = `${f.base}/readers/${f.version}/assets/${refs.id}`;
+  for (const [method, range, status] of [['GET', undefined, 200], ['HEAD', undefined, 200], ['GET', 'bytes=0-4', 206]] as const) {
+    const result = await t.app.inject({ method, url, headers: { ...headers(t.alice), ...(range ? { range } : {}) } }); expect(result.statusCode).toBe(status);
+  }
+  expect(reads.get(refs.ir_key)).toBe(1); expect(reads.get(refs.index_key) ?? 0).toBe(0);
+  for (const session of [t.bob, t.admin]) expect((await t.app.inject({ url, headers: headers(session) })).statusCode).toBe(404);
+  const { rm } = await import('node:fs/promises'); const { join } = await import('node:path'); await rm(join(t.config.dataDir, 'objects', refs.object_key));
+  const missing = await t.app.inject({ method: 'HEAD', url, headers: headers(t.alice) }); expect(missing.statusCode).toBe(404); expect(missing.headers.etag).toBeUndefined();
+  await t.db.pool.query('UPDATE users SET auth_version=auth_version+1 WHERE id=$1', [t.alice.user.id]);
+  expect((await t.app.inject({ url, headers: headers(t.alice) })).statusCode).toBe(401);
+  expect(reads.get(refs.ir_key)).toBe(1);
+});
+it('coalesces concurrent cold image reads without holding the user lock and rechecks revocation after validation', async () => {
+  let irKey = ''; let release!: () => void; let entered!: () => void;
+  const paused = new Promise<void>(resolve => { release = resolve; }); const reached = new Promise<void>(resolve => { entered = resolve; });
+  const reads = observeStorage(async key => { if (key === irKey) { entered(); await paused; } });
+  const t = await readerTestApp(cleanup); const f = await t.ingest(); const refs = await imageReferences(t, f.version); irKey = refs.ir_key; reads.clear();
+  const url = `${f.base}/readers/${f.version}/assets/${refs.id}`;
+  const pending = Promise.all(['GET', 'HEAD', 'GET'].map(method => t.app.inject({ method: method as 'GET' | 'HEAD', url, headers: { ...headers(t.alice), range: 'bytes=0-4' } })));
+  await reached;
+  let responses: Awaited<typeof pending> = [];
+  try {
+    // Other requests may briefly hold the guard lock; it must become available while IR remains paused.
+    await expect.poll(async () => {
+      try { await t.db.transaction(client => client.query('SELECT id FROM users WHERE id=$1 FOR UPDATE NOWAIT', [t.alice.user.id])); return true; }
+      catch (error) { if ((error as { code?: string }).code !== '55P03') throw error; return false; }
+    }, { timeout: 1000, interval: 20 }).toBe(true);
+  } finally { release(); responses = await pending; }
+  expect(responses.map(response => response.statusCode)).toEqual([206, 206, 206]);
+  expect(reads.get(irKey)).toBe(1); expect(reads.get(refs.index_key) ?? 0).toBe(0);
+  // A fresh service instance starts cold; revoke while its immutable object read is paused.
+  let releaseAgain!: () => void; let enteredAgain!: () => void;
+  const pausedAgain = new Promise<void>(resolve => { releaseAgain = resolve; }); const reachedAgain = new Promise<void>(resolve => { enteredAgain = resolve; });
+  vi.restoreAllMocks(); observeStorage(async key => { if (key === irKey) { enteredAgain(); await pausedAgain; } });
+  const { createApp } = await import('../../src/app.js'); const cold = await createApp({ db: t.db, config: t.config }); cleanup.push(() => cold.close());
+  const interrupted = cold.inject({ url, headers: headers(t.alice) }).then(response => response);
+  await reachedAgain;
+  try { await t.db.pool.query('UPDATE users SET auth_version=auth_version+1 WHERE id=$1', [t.alice.user.id]); }
+  finally { releaseAgain(); }
+  const revoked = await interrupted; expect(revoked.statusCode).toBe(401); expect(revoked.headers.etag).toBeUndefined();
+});
 it('imports privately and serves schema-validated descriptors, chunks and paginated historical versions', async () => {
   const t = await readerTestApp(cleanup); const first = await t.ingest({ status: 'completed' });
   const second = await t.ingest({ partialParse: true });

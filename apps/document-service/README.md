@@ -285,6 +285,20 @@ routes do not invoke a parser, renderer build, translation model or bundle worke
 JSON reads verify the immutable registered size, SHA-256 and contract schema;
 tightening future upload byte budgets does not hide already published versions.
 
+Image delivery derives a small immutable allowlist from the verified IR once per
+cold version, without loading its index. This hashing/schema work runs outside
+the user-lock transaction. The per-service cache retains at most 32 versions and
+4 MiB of serialized image metadata, with a five-minute validity period and lazy
+expiry/LRU eviction. At most four distinct cold validations run at once;
+concurrent requests for the same version share one. Failed or oversized loads
+are not retained. Keys include owner/document/version/IR asset identity. Cache
+entries contain only registered image IDs, object keys, hashes, byte sizes and
+media types: no whole IR, response body or authorization result is cached.
+Every request still authenticates the current actor/version before lookup and
+again before delivery, checks fresh version-file/asset bindings against the
+validated metadata, and stats the actual image object, including HEAD/Range.
+Restarting the service starts with an empty cache.
+
 `GET /documents/:id/progress` returns the actual last acknowledged
 `ReadingProgress`, or null before the first save. `PUT` takes
 `{expectedRevision,position}` and uses document-wide CAS, starting at revision 0.

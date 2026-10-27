@@ -29,3 +29,9 @@ export async function findAsset(client: PoolClient, owner: string, documentId: s
   const row = (await client.query<AssetRow>('SELECT id,object_key,bytes,sha256,media_type FROM assets WHERE owner_id=$1 AND document_id=$2 AND id=$3', [owner, documentId, assetId])).rows[0];
   if (!row) throw notFound(); return row;
 }
+export async function findImageAsset(client: PoolClient, owner: string, documentId: string, versionId: string, assetId: string): Promise<AssetRow> {
+  const row = (await client.query<AssetRow>(`SELECT a.id,a.object_key,a.bytes,a.sha256,a.media_type FROM assets a
+    WHERE a.owner_id=$1 AND a.document_id=$2 AND a.id=$4 AND EXISTS
+    (SELECT 1 FROM bundle_files f WHERE f.owner_id=$1 AND f.document_id=$2 AND f.reader_version_id=$3 AND f.asset_id=a.id)`, [owner, documentId, versionId, assetId])).rows[0];
+  if (!row) throw notFound(); return row;
+}
