@@ -191,11 +191,11 @@ ZIP 从私有暂存文件逐项读取，`lazyEntries:true, strictFileNames:true,
 
 **Interfaces:** `readArchive(path:string, limits:BundleLimits, signal?:AbortSignal): AsyncIterable<ArchiveEntry>`（内容只能消费一次）；`validateBundle(input:BundleFileSource, options:{limits,signal?}): Promise<ValidatedBundle>`；`writeBundle(input:BundleFileSource, destination:string, options:{limits,signal?}): Promise<BundleIdentity>`。`BundleFileSource` 提供 `list():Promise<FileInfo[]>` 和 `read(path):AsyncIterable<Uint8Array>`；ValidatedBundle 有 manifest、manifestSha256、ir、translation、readerBuild、已验证文件 metadata，无宿主目录 / owner。文件源适配不能绕过路径和实际字节上限。
 
-- [ ] **Step 1:** 构造失败 fixtures：`../`、反斜杠、绝对 / 盘符、NUL、大小写别名、重复项、文件 / 目录前缀冲突、symlink、加密、假 size、超量解压、坏 CRC / SHA、缺图、伪 PNG、错版本。断言拒绝且目标目录没有攻击者路径；超限流在越界时终止，不先缓冲完整内容。
-- [ ] **Step 2:** 运行 `npm run test --workspace @pagelingo/document-bundle`，确认失败。
-- [ ] **Step 3:** 实现 §2.2 的逐项消费、manifest / IR / 译文交叉验证、资源闭包及类型 / 图片尺寸检查；CRC 用 Node 24 的 node:zlib.crc32 增量核对，不能假设 ZIP 库会验证。根 PDF 复用 S1 header 识别并核对完整 hash / bytes，不在服务端运行 Python。验证已知 renderer 的模板 / runtime / 字体摘要和安全数据分片；文件 hash 不能替代类型校验。JSON 解析前限制文件字节与嵌套深度，语义验证使用有界遍历。
-- [ ] **Step 4:** 添加合法完整、中文、外语原文、部分译文往返测试；重压缩相同 manifest 身份不变，改变任何文件必须身份校验失败。运行 workspace 全部测试与 typecheck，确认内存使用随最大单文件 / IR 预算有界，不随整个 ZIP 体积累积。
-- [ ] **Step 5:** 提交 `feat: validate complete document bundles`。
+- [x] **Step 1:** 构造失败 fixtures：`../`、反斜杠、绝对 / 盘符、NUL、大小写别名、重复项、文件 / 目录前缀冲突、symlink、加密、假 size、超量解压、坏 CRC / SHA、缺图、伪 PNG、错版本。断言拒绝且目标目录没有攻击者路径；超限流在越界时终止，不先缓冲完整内容。
+- [x] **Step 2:** 运行 `npm run test --workspace @pagelingo/document-bundle`，确认失败。
+- [x] **Step 3:** 实现 §2.2 的逐项消费、manifest / IR / 译文交叉验证、资源闭包及类型 / 图片尺寸检查；CRC 用 Node 24 的 node:zlib.crc32 增量核对，不能假设 ZIP 库会验证。根 PDF 复用 S1 header 识别并核对完整 hash / bytes，不在服务端运行 Python。验证已知 renderer 的模板 / runtime / 字体摘要和安全数据分片；文件 hash 不能替代类型校验。JSON 解析前限制文件字节与嵌套深度，语义验证使用有界遍历。
+- [x] **Step 4:** 添加合法完整、中文、外语原文、部分译文往返测试；重压缩相同 manifest 身份不变，改变任何文件必须身份校验失败。运行 workspace 全部测试与 typecheck，确认内存使用随最大单文件 / IR 预算有界，不随整个 ZIP 体积累积。
+- [x] **Step 5:** 提交 `feat: validate complete document bundles`。
 
 ### Task 4: P0 兼容适配与本地解析编排
 
