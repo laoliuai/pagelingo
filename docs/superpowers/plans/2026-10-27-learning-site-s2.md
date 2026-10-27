@@ -93,6 +93,7 @@ ZIP 采用 [yauzl 的逐项读取](https://github.com/thejoshwolfe/yauzl#readme)
 - `selectionBlockIds` 必须按 IR 阅读顺序选择 text block；`toTranslationDocument(ir, selectionBlockIds, sourceLanguage?)` 是唯一投影，默认使用 metadata.language 的确定语言，显式覆盖值随译文保存并在导入复验时重放。保存 SDK checkpoint.blocks 中的原始 protected text，不拿已恢复术语的 batch.text 反向编码。`planUnits` 重建完全相同的 inputs / units，逐单元 `validateStructure`，完整 block 通过 `decodeTranslation` 恢复可信原文对象与术语；不接受外来格式树直接替换源绑定。
 - 每个 text block 有 `translated` 或 `source-only` 结果；后者原因限于 `language-not-required|manual-choice|pending|failed|cancelled`。unit 状态包含 `covered-by-block`，只在整个 block 的缓存 / 检查点结果通过复验时允许；否则 completed 必须有通过 SDK 验证的 rawText。未知 / 重复 / 缺失 block、unit 或不同源 hash 拒绝。
 - 整体状态为 `not-required|pending|partial|completed|failed|cancelled`。仅中文 / 无自然语言内容为 not-required；外语未翻译或语言不确定为 pending；有成功译文且仍有待处理 / 失败单元为 partial；全部应译文本完成才为 completed。解析 coverage、缺页和保留原件区域单独显示，completed 不代表图片内文字已翻译。
+- 当前版本保护分别判断译文与解析：旧译文 `completed|not-required` 即使 parse coverage 为 partial，也不自动切换到新的 pending / partial / failed / cancelled；旧 partial 译文不自动退回 pending / failed / cancelled 空白。全量解析且译文成功的当前版本还需避免降级到 partial parse。首次无 reader 时有效原文 / 部分版本可读，未提升的有效新版本保留历史供选择。
 
 `LanguageDecision {language:'zh'|'en'|'mixed'|'und', reason}` 随 text block 保存；reason 限于 `no-language|han-only|insufficient-text|other-script|han-majority|mixed-script|english-heuristic|uncertain|document-inherited|user-specified`。语言决定不调用模型：`detectLanguage(text): LanguageDecision` 忽略 protected 内容后计数，依序命中停止：无字母为 und / no-language；只有 Han 字母为 zh；有效字母不足 40 为 und；假名 / 韩文等其他书写系统占比超过 5% 为 und；Han 占全部字母 ≥ 60% 为 zh；Han 与 Latin 各占 ≥ 20% 为 mixed；其余 Latin ≥ 90% 且匹配至少 3 个不同英文常用词、词数占比 ≥ 8% 才为 en；其他为 und。固定英文词表随合同 fixtures 提交。
 
@@ -240,7 +241,7 @@ ZIP 从私有暂存文件逐项读取，`lazyEntries:true, strictFileNames:true,
 
 ### Task 7: 不可变 Reader 数据与导入发布服务
 
-**Files:** 新增 `apps/document-service/migrations/005-reader-bundles.sql`、`src/bundle-imports/{repository,service,staging,publication}.ts`、`tests/integration/bundle-imports.test.ts`；修改 documents repository、cleanup-staging 和 RuntimeConfig。
+**Files:** 新增 `apps/document-service/migrations/005-reader-bundles.sql`、`src/bundle-imports/{repository,service,staging,publication,limits,lease,worker-client,validation-worker}.ts`、`tests/integration/bundle-imports.test.ts`；修改 documents repository、cleanup-staging 和 RuntimeConfig。
 
 **Interfaces:** `createBundleImportsService({db,store,config})` 提供 `create(actor,input:{targetDocumentId?:string},idempotencyKey)`、`receive(actor,importId,body:AsyncIterable<Uint8Array>,signal?)`、`get(actor,id)`、`list(actor)`、`cancel(actor,id)`。输出 `BundleImport {id,status,epoch,documentId?,readerVersionId?,errorCode?,createdAt,updatedAt}`；status 为 `created|receiving|validating|completed|failed|cancelled`。owner / objectKey 不来自客户端；epoch 由服务内部领取，不交给客户端决定。
 
