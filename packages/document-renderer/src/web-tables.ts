@@ -44,6 +44,15 @@ export function planWebTables(ir: WebReaderIR, nodes: Map<string, WebReaderNode>
   const rowGroupBlocks = (rowId: string): string[] => groupHeaders.get(groupByRow.get(rowId)!) ?? [];
   const normalize = (chunk: WebReaderChunk, primary: ReadonlySet<string>, semantic: ReadonlySet<string>): void => {
     const included = new Map(chunk.nodes.map(n => [n.id, n]));
+    let layoutSerial = 0, layoutBytes = 0;
+    const gapCell = (width: number): string => {
+      let id: string;
+      do { id = `n_${((1n << 128n) - BigInt(++layoutSerial)).toString(16).padStart(32, '0')}`; } while (nodes.has(id) || included.has(id));
+      const cell: Cell = { id, kind: 'table-cell', children: [], header: false, scope: null, headerNodeIds: [], rowSpan: 1, colSpan: width };
+      layoutBytes += new TextEncoder().encode(JSON.stringify(cell)).length;
+      check(layoutBytes <= (chunk.blocks.length === 1 ? 512 : 256) * 1024, 'Table layout gaps exceed chunk byte budget');
+      included.set(id, cell); return id;
+    };
     const rows = new Set([...primary, ...semantic].flatMap(id => rowsByBlock.get(id) ?? []));
     const position = (id: string): number => { const parent = parents.get(id); return parent ? nodes.get(parent)!.children.indexOf(id) : ir.roots.indexOf(id); };
     const ensure = (id: string): WebReaderNode => {
@@ -73,8 +82,27 @@ export function planWebTables(ir: WebReaderIR, nodes: Map<string, WebReaderNode>
         const cell: Cell = { ...p.cell, children: old?.children ?? [], rowSpan: covered.length };
         included.set(cell.id, cell); byRow.get(target)!.push(p);
       }
-      for (const row of selected) {
-        const n = ensure(row.id); n.children = byRow.get(row.id)!.sort((a, b) => a.column - b.column).map(p => p.cell.id);
+      let occupied: Array<{ start: number; end: number; through: number }> = [];
+      for (const [visibleRow, row] of selected.entries()) {
+        occupied = occupied.filter(interval => interval.through >= visibleRow);
+        const n = ensure(row.id); n.children = []; let column = 0;
+        const skipOccupied = (): void => {
+          let interval: typeof occupied[number] | undefined;
+          while ((interval = occupied.find(item => item.start <= column && item.end > column))) column = interval.end;
+        };
+        for (const p of byRow.get(row.id)!.sort((a, b) => a.column - b.column)) {
+          skipOccupied();
+          while (column < p.column) {
+            const nextOccupied = occupied.reduce((next, interval) => interval.start > column ? Math.min(next, interval.start) : next, p.column);
+            const end = Math.min(p.column, nextOccupied);
+            while (column < end) { const width = Math.min(1000, end - column); n.children.push(gapCell(width)); column += width; }
+            skipOccupied();
+          }
+          check(column === p.column, 'Conflicting continued table columns');
+          n.children.push(p.cell.id); column += p.cell.colSpan;
+          const cell = included.get(p.cell.id) as Cell;
+          if (cell.rowSpan > 1) occupied.push({ start: p.column, end: column, through: visibleRow + cell.rowSpan - 1 });
+        }
       }
     }
     const orderedNodes: WebReaderNode[] = [], blockIds: string[] = [], seen = new Set<string>();

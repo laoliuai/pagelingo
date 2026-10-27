@@ -43,3 +43,22 @@ export function webTable(rows: number, columns: number, headers = true): WebRead
   }
   return ir;
 }
+/** A sparse valid grid: only the first row authors all columns; selected cells
+ * span the group while later rows author only their leading ordinary cells. */
+export function webContinuedGaps(widths: number[], continued: number[], bodyCells = 1): WebReaderIR {
+  const ir = webTable(140, widths.length, false), removed = new Set<string>(), keptBlocks = new Set<string>();
+  const nodeMap = new Map(ir.nodes.map(n => [n.id, n]));
+  for (const [rowIndex, row] of ir.nodes.filter(n => n.kind === 'table-row').entries()) {
+    for (const [column, cellId] of [...row.children].entries()) {
+      const cell = nodeMap.get(cellId)!; if (cell.kind !== 'table-cell') throw Error('fixture');
+      if (rowIndex > 0 && column >= bodyCells) {
+        removed.add(cell.id); cell.children.forEach(id => removed.add(id)); continue;
+      }
+      if (rowIndex === 0) { cell.colSpan = widths[column]; if (continued.includes(column)) cell.rowSpan = 140; }
+      for (const leafId of cell.children) { const leaf = nodeMap.get(leafId)!; if (leaf.kind === 'block') keptBlocks.add(leaf.blockId); }
+    }
+    row.children = row.children.filter(id => !removed.has(id));
+  }
+  ir.nodes = ir.nodes.filter(n => !removed.has(n.id)); ir.blocks = ir.blocks.filter(b => keptBlocks.has(b.id));
+  return ir;
+}

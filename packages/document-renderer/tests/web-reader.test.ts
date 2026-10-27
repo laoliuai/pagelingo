@@ -1,7 +1,7 @@
 import { it, expect } from 'vitest';
 import { webReaderChunkSchema } from '@pagelingo/document-contracts';
 import { buildWebReader, renderWebChunk } from '../src/index.js';
-import { webBook, webSnapshot, webTable, id } from './web-fixtures.js';
+import { webBook, webSnapshot, webTable, webContinuedGaps, id } from './web-fixtures.js';
 const options = { mode: 'bilingual' as const, resolveAsset: (id: string) => `/assets/${id}` };
 it('renders bilingual cells without duplicate IDs and retains explicit heading levels', () => {
   const ir = webBook(3);
@@ -259,4 +259,39 @@ it('preserves colspan positions when a row crosses the chunk byte limit', () => 
   const placeholder = last.nodes.find(n => n.id === cell.id); if (placeholder?.kind !== 'table-cell') throw Error('placeholder missing');
   expect(placeholder.children).toEqual([]); expect(placeholder.colSpan).toBe(2);
   expect(renderWebChunk(last, { ...options, mode: 'source' })).toContain('aria-hidden="true"');
+});
+it('preserves an uncovered source column before a continued span', () => {
+  const ir = webContinuedGaps([1, 1, 1], [2]), group = ir.nodes.find(n => n.kind === 'group')!, oldGroupId = group.id;
+  group.id = `n_${'f'.repeat(32)}`; for (const n of ir.nodes) n.children = n.children.map(id => id === oldGroupId ? group.id : id);
+  const before = structuredClone(ir), sourceIds = new Set(ir.nodes.map(n => n.id));
+  const build = buildWebReader(ir), chunk = build.chunks[1], row = chunk.nodes.find(n => n.kind === 'table-row')!, nodes = new Map(chunk.nodes.map(n => [n.id, n]));
+  const cells = row.children.map(id => nodes.get(id)!); expect(cells.map(n => n.kind === 'table-cell' ? n.colSpan : 0)).toEqual([1, 1, 1]);
+  expect(cells[2].id).toBe(ir.nodes.filter(n => n.kind === 'table-cell')[2].id);
+  const gap = cells[1]; expect(sourceIds.has(gap.id)).toBe(false); expect(gap.children).toEqual([]); expect(gap.kind).toBe('table-cell');
+  expect(chunk.contextBlockIds).toEqual([ir.blocks[2].id]); expect(chunk.blocks.find(b => b.source.id === ir.blocks[2].id)?.source).toEqual(ir.blocks[2]);
+  expect(build.index.chunks.flatMap(c => c.blockIds)).toEqual(ir.blocks.map(b => b.id)); expect(build.chunks.every(c => c.blocks.length <= 128 && webReaderChunkSchema.safeParse(c).success)).toBe(true);
+  const html = renderWebChunk(chunk, options); expect(html.match(/aria-hidden="true"/g)?.length).toBeGreaterThan(0); expect(html).not.toContain(` data-block-id="${gap.id}"`); expect(ir).toEqual(before);
+});
+it('preserves multiple sparse gaps and colspans between continued cells', () => {
+  const ir = webContinuedGaps([2, 3, 2, 4, 3], [2, 4]), chunk = buildWebReader(ir).chunks[1], nodes = new Map(chunk.nodes.map(n => [n.id, n]));
+  const row = chunk.nodes.find(n => n.kind === 'table-row')!, cells = row.children.map(id => nodes.get(id)!);
+  expect(cells.map(n => n.kind === 'table-cell' ? n.colSpan : 0)).toEqual([1, 4, 2, 4, 3]);
+  expect(chunk.contextBlockIds).toEqual([ir.blocks[2].id, ir.blocks[4].id]);
+  expect(cells[1].children).toEqual([]); expect(cells[3].children).toEqual([]);
+  const sourceCells = ir.nodes.filter(n => n.kind === 'table-cell'); expect(cells[2].id).toBe(sourceCells[2].id); expect(cells[4].id).toBe(sourceCells[4].id);
+  const html = renderWebChunk(chunk, options), ids = [...html.matchAll(/ id="([^"]+)"/g)].map(m => m[1]); expect(new Set(ids).size).toBe(ids.length);
+});
+it('does not fill columns already occupied by a continued rowspan', () => {
+  const ir = webContinuedGaps([1, 2, 2, 1], [1, 3], 2), chunk = buildWebReader(ir).chunks[1], nodes = new Map(chunk.nodes.map(n => [n.id, n]));
+  const rows = chunk.nodes.filter(n => n.kind === 'table-row');
+  expect(rows[0].children.map(id => { const n = nodes.get(id)!; return n.kind === 'table-cell' ? n.colSpan : 0; })).toEqual([1, 2, 1, 1, 1]);
+  expect(rows[1].children).toHaveLength(2);
+  expect(chunk.contextBlockIds).toEqual([ir.blocks[1].id, ir.blocks[3].id]);
+});
+it('encodes a wide uncovered interval with bounded sparse layout cells', () => {
+  const ir = webContinuedGaps([1000, 1000, 1000, 1], [3]), sourceIds = new Set(ir.nodes.map(n => n.id)), chunk = buildWebReader(ir).chunks[1];
+  const nodes = new Map(chunk.nodes.map(n => [n.id, n])), row = chunk.nodes.find(n => n.kind === 'table-row')!;
+  expect(row.children.map(id => { const n = nodes.get(id)!; return n.kind === 'table-cell' ? n.colSpan : 0; })).toEqual([1, 1000, 1000, 999, 1]);
+  const gaps = chunk.nodes.filter(n => !sourceIds.has(n.id)); expect(gaps).toHaveLength(3); expect(gaps.every(n => n.children.length === 0)).toBe(true);
+  expect(webReaderChunkSchema.safeParse(chunk).success).toBe(true); expect(chunk.contextBlockIds).toEqual([ir.blocks[3].id]);
 });
