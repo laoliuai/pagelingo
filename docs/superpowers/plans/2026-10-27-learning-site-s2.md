@@ -334,7 +334,7 @@ ZIP 从私有暂存文件逐项读取，`lazyEntries:true, strictFileNames:true,
 - [x] **Step 3:** 从 file:// 断网打开论文及长书导出包；遍历全部分片验证图片 / 字体 / 公式资源，无 HTTP(S) 请求，PDF 原件完整可打开 / 下载。检查包中无假 Key、已知运行路径字段或外部 CDN 依赖。原 P0 run / 已发布 ZIP 的前后 manifest hash 一致。
 - [x] **Step 4:** 在 S1 数据库上应用 005，完成导入 / 进度保存后重建 API 容器；验证登录、原件、分片、译文、下载和进度仍在，未登录 / 另一账号均无法读。更新 Dockerfile 复制 / 构建新共享包，但服务镜像不安装 Python、解析模型或本地 CLI 环境。
 - [x] **Step 5:** 运行 `npm ci`、`npm run check`、`npm run check:site`、`npm run check:pdf-reader -- <明确的本地样本参数>` 和 `npm audit`；Python / P0 工具改动则追加 `npm run pdf:lint`、`npm run pdf:test` 及原布局验证。所有命令记录退出码、样本范围和未验项。视觉改动保存截图；默认测试没有真实付费请求。
-- [ ] **Step 6（控制方最终阶段）:** 本任务实现、验收与逐任务审查后，由控制方按 SDD final phase 执行一次整分支审查，覆盖 Review Focus 及 A07–A10 / A14，修正实质问题并针对修改复验。实现子代理不另做重复整分支审查；本项在最终审查通过后才勾选。
+- [x] **Step 6（控制方最终阶段）:** 本任务实现、验收与逐任务审查后，由控制方按 SDD final phase 执行一次整分支审查，覆盖 Review Focus 及 A07–A10 / A14，修正实质问题并针对修改复验。实现子代理不另做重复整分支审查；本项在最终审查通过后才勾选。
 - [x] **Step 7:** 提交 `docs: document S2 reader workflow and validation`。合入 / 推送按照用户的后续集成选择执行，不自动删除宿主管理的 worktree。
 
 ## 4. 自检与执行交接
