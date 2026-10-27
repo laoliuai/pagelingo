@@ -335,10 +335,10 @@ lease：heartbeat 5 秒、30 秒失效；claim 使用 SKIP LOCKED 并增加 epoc
 
 **Files:** 新建 `apps/web/src/features/web-reader/{web-reader-page,web-reader-content,snapshot-preview,web-source-locator,web-job-status}.tsx`、该目录的 `{web-reader-window,resolve-web-position,use-web-reading-progress}.ts`、`apps/web/src/features/library/link-dialog.tsx`、对应 e2e；修改 library page / document-page / row / router，按最小接口提取通用 chunk window / interaction writer，PDF wrapper 保持现状。
 **Interfaces:** 消费 Web descriptor / chunks / snapshots / jobs / progress；同一 source / selected version 固定正文；WebReadingPosition 不含任何 PDF 字段。
-- [ ] **Step 1:** RED：中文 / 英文原文 / 译文 / 段落双语、无 API 可读、关闭原站后图片公式仍在；恶意 snapshot 无脚本 / 出站 / 主站 Cookie 读取，退出和换账号释放全部 Blob 与窗口。
-- [ ] **Step 2:** 实现 link 添加、分别展示保存 / 语言翻译 / job 状态，完整警告收起可展开。快照 Blob iframe 与可信正文区分，sourceRef 定位固定节点；原网站链接保留。新译文提示切换，不打断当前段落。
-- [ ] **Step 3:** 20k-block 正文窗口最多3片、快照仅1个有界预览片段；重复 quote 有歧义时不假定位。验证跨设备 / 历史版本 / 新快照降级 / CAS冲突显式继续 / 慢保存maxWait / 迟到请求隔离；三模式被动恢复零 PUT、零模型请求。
-- [ ] **Step 4:** 新增 `apps/web/tests/e2e/{web-reader,web-progress,web-snapshot}.test.ts` 并用 site runner 验证：`expect(visibleTextHeight).toBeGreaterThanOrEqual(240)`、`expect(passiveProgressPuts).toBe(0)`。390×844明暗主题含restore/conflict/warnings，表格/代码局部横滚；旧PDF四旋转、20k窗口和账号隔离回归。提交 `feat: read archived web snapshots and bilingual content`。
+- [x] **Step 1:** RED：中文 / 英文原文 / 译文 / 段落双语、无 API 可读、关闭原站后图片公式仍在；恶意 snapshot 无脚本 / 出站 / 主站 Cookie 读取，退出和换账号释放全部 Blob 与窗口。
+- [x] **Step 2:** 实现 link 添加、分别展示保存 / 语言翻译 / job 状态，完整警告收起可展开。快照 Blob iframe 与可信正文区分，sourceRef 定位固定节点；原网站链接保留。新译文提示切换，不打断当前段落。
+- [x] **Step 3:** 20k-block 正文窗口最多3片、快照仅1个有界预览片段；重复 quote 有歧义时不假定位。验证跨设备 / 历史版本 / 新快照降级 / CAS冲突显式继续 / 慢保存maxWait / 迟到请求隔离；三模式被动恢复零 PUT、零模型请求。
+- [x] **Step 4:** 新增 `apps/web/tests/e2e/{web-reader,web-progress,web-snapshot}.test.ts` 并用 site runner 验证：`expect(visibleTextHeight).toBeGreaterThanOrEqual(240)`、`expect(passiveProgressPuts).toBe(0)`。390×844明暗主题含restore/conflict/warnings，表格/代码局部横滚；旧PDF四旋转、20k窗口和账号隔离回归。提交 `feat: read archived web snapshots and bilingual content`。
 
 ### Task 13: 端到端来源、升级、重启与交付
 
