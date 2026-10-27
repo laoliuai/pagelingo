@@ -56,13 +56,20 @@ export function ReaderContent({ descriptor, mode, onLocate, onPositionChange, ta
     const destination = pendingTarget.current;
     if (destination) {
       if (state.loading) return;
+      // A newly visible pane can precede ResizeObserver. Commit enough tail before scrolling.
+      if (tailSpace < element.clientHeight) { setTailSpace(element.clientHeight); return; }
       const id = destination.blockId ?? descriptor.index.chunks[state.current]?.blockIds[0];
       const block = id ? element.querySelector<HTMLElement>(`[data-block-id="${id}"]`) : null;
       if (!block) return;
       userUntil.current = 0;
-      element.scrollTop += block.getBoundingClientRect().top - element.getBoundingClientRect().top + block.offsetHeight * destination.blockOffset;
+      const viewportTop = element.getBoundingClientRect().top;
+      const before = block.getBoundingClientRect(); if (!before.height) return;
+      element.scrollTop += before.top - viewportTop + before.height * destination.blockOffset;
+      const actualOffset = Math.max(0, Math.min(1, (viewportTop - block.getBoundingClientRect().top) / before.height));
+      // A clamped assignment is not a restore. Keep the target for the next geometry update.
+      if (Math.abs(actualOffset - destination.blockOffset) * before.height > 1) return;
       pendingTarget.current = null;
-      onPosition.current?.({ blockId: id ?? null, blockOffset: destination.blockOffset }, destination.origin);
+      onPosition.current?.({ blockId: id ?? null, blockOffset: actualOffset }, destination.origin);
     } else if (anchor.current) {
       const block = element.querySelector<HTMLElement>(`[data-block-id="${anchor.current.id}"]`);
       if (block) { userUntil.current = 0; element.scrollTop += block.getBoundingClientRect().top - anchor.current.top; }

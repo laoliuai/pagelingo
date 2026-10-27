@@ -23,7 +23,7 @@ export function rotationPdf() {
   pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n${offsets.slice(1).map(offset => `${String(offset).padStart(10, '0')} 00000 n \n`).join('')}trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
   return Buffer.from(pdf);
 }
-export async function readerBundle(large = false, mismatch = false, prefix = '译文 ', options: { newParse?: boolean; pending?: boolean; longParagraph?: boolean } = {}) {
+export async function readerBundle(large = false, mismatch = false, prefix = '译文 ', options: { newParse?: boolean; pending?: boolean; longParagraph?: boolean; shortWindow?: boolean } = {}) {
   const files = await fixture();
   const ir: ReaderIR = JSON.parse(files.get('source-ir.json')!.toString());
   const translation: ReaderTranslation = JSON.parse(files.get('translation.json')!.toString());
@@ -42,6 +42,14 @@ export async function readerBundle(large = false, mismatch = false, prefix = '�
   if (options.longParagraph) {
     const paragraph = ir.blocks[1];
     if (paragraph.type === 'text') paragraph.value.content.push({ type: 'text', text: ' Reading this paragraph preserves the position across devices.'.repeat(80) });
+  }
+  if (options.shortWindow) {
+    for (const asset of ir.assets) files.delete(asset.path);
+    const id = blockId(2); const nodeId = 'n_' + '1'.padStart(32, '0');
+    ir.blocks = [{ id, type: 'text', sourceRefs: [{ pageIndex: 0, precision: 'page' }], bindings: [],
+      language: { language: 'en', reason: 'english-heuristic' },
+      value: { id, kind: 'paragraph', content: [{ type: 'text', text: 'A short paragraph for restoring the reader position.' }] } }];
+    ir.nodes = [{ id: nodeId, kind: 'block', blockId: id, children: [] }]; ir.roots = [nodeId]; ir.assets = [];
   }
   if (mismatch) ir.pages[1] = { ...ir.pages[0], pageIndex: 1 };
   if (large) {

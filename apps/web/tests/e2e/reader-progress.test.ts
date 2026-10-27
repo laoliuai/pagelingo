@@ -262,3 +262,75 @@ test('PDF-only actual scrolling saves its physical page while passive PDF scroll
   await expect.poll(async () => (await progress(page, id))?.revision).toBe(2);
   expect((await progress(page, id)).position).toMatchObject({ pdfPageIndex: 0, view: 'source' });
 });
+
+test('a slow successful save preserves the first unsent deadline during continuous input without overlapping PUTs', async ({ page }) => {
+  await newReader(page, 'slowackdeadline'); const result = await ingest(page, await readerBundle()); const id = result.documentId;
+  await open(page, id);
+  const start = new Date('2026-10-27T12:00:00.000Z');
+  await page.clock.install({ time: start }); await page.clock.pauseAt(start);
+  let release!: () => void; const held = new Promise<void>(resolve => { release = resolve; });
+  let firstCommitted = false; let firstReleased = false; let overlap = false;
+  const requests: { at: number; mode: string; expectedRevision: number }[] = [];
+  await page.route('**/progress', async route => {
+    if (route.request().method() !== 'PUT') return route.continue();
+    const body = route.request().postDataJSON();
+    const at = await page.evaluate(() => Date.now());
+    requests.push({ at: at - start.getTime(), mode: body.position.contentMode, expectedRevision: body.expectedRevision });
+    if (requests.length > 1 && !firstReleased) overlap = true;
+    const response = await route.fetch();
+    if (requests.length === 1) { firstCommitted = true; await held; firstReleased = true; }
+    await route.fulfill({ response }).catch(() => {});
+  });
+  let mode = 'source'; await page.getByLabel('正文语言').selectOption(mode);
+  await page.clock.runFor(1500); await expect.poll(() => firstCommitted).toBe(true);
+  expect(requests).toEqual([{ at: 1500, mode: 'source', expectedRevision: 0 }]);
+  for (const at of [1600, 2100, 2600, 3100, 3600, 4100]) {
+    const current = await page.evaluate(() => Date.now()); await page.clock.runFor(start.getTime() + at - current);
+    mode = mode === 'source' ? 'translation' : 'source'; await page.getByLabel('正文语言').selectOption(mode);
+  }
+  expect(requests).toHaveLength(1); release();
+  await expect(page.getByText('阅读位置已保存', { exact: true })).toBeVisible();
+  for (const at of [4600, 5100, 5600, 6100, 6500]) {
+    const current = await page.evaluate(() => Date.now()); await page.clock.runFor(start.getTime() + at - current);
+    mode = mode === 'source' ? 'translation' : 'source'; await page.getByLabel('正文语言').selectOption(mode);
+  }
+  await page.clock.runFor(100);
+  await expect.poll(() => requests.length).toBe(2);
+  expect(requests[1]).toEqual({ at: 6600, mode: 'translation', expectedRevision: 1 });
+  expect(overlap).toBe(false);
+  await expect.poll(async () => (await progress(page, id))?.revision).toBe(2);
+});
+
+test('showing a hidden short window reaches the saved fraction before passive restoration is reported', async ({ page }) => {
+  await newReader(page, 'shortrestore'); const bundle = await readerBundle(false, false, '译文 ', { shortWindow: true });
+  const result = await ingest(page, bundle); const id = result.documentId;
+  const descriptor = await (await page.request.get(`/api/v1/documents/${id}/reader`)).json();
+  const session = await (await page.request.get('/api/v1/auth/session')).json();
+  const savedPosition = { readerVersionId: descriptor.versionId, sourceVersionId: descriptor.source.sourceVersionId,
+    parseId: descriptor.parseId, blockId: blockId(2), blockOffset: 0.5, pdfPageIndex: 0, view: 'source', contentMode: 'translation' };
+  const seeded = await page.request.put(`/api/v1/documents/${id}/progress`, {
+    headers: { Origin: origin, 'X-CSRF-Token': session.csrfToken }, data: { expectedRevision: 0, position: savedPosition },
+  });
+  expect(seeded.status()).toBe(200);
+  const writes: unknown[] = []; page.on('request', request => { if (request.method() === 'PUT' && request.url().endsWith('/progress')) writes.push(request.postDataJSON()); });
+  await page.goto(`/library/${id}`); await expect(page.getByLabel('阅读视图')).toHaveValue('source');
+  await expect(page.locator(`[data-block-id="${blockId(2)}"]`)).toBeAttached();
+  await page.locator('.reader-content').evaluate(element => {
+    element.style.flex = 'none'; element.style.height = '400px'; element.style.padding = '0';
+    const block = element.querySelector<HTMLElement>('[data-block-id]')!;
+    block.style.height = '100px'; block.style.minHeight = '100px'; block.style.maxHeight = '100px'; block.style.boxSizing = 'border-box';
+  });
+  await page.waitForTimeout(1700); expect(writes).toEqual([]);
+  await page.getByLabel('阅读视图').selectOption('content');
+  const fraction = () => page.locator('.reader-content').evaluate(element => {
+    const rect = element.querySelector<HTMLElement>('[data-block-id]')!.getBoundingClientRect();
+    return { fraction: (element.getBoundingClientRect().top - rect.top) / rect.height, top: element.scrollTop,
+      height: element.clientHeight, blockHeight: rect.height, scrollHeight: element.scrollHeight };
+  });
+  await expect.poll(async () => (await fraction()).scrollHeight).toBe(500);
+  expect(await fraction()).toMatchObject({ height: 400, blockHeight: 100 });
+  expect((await fraction()).fraction).toBeCloseTo(0.5, 2);
+  await expect.poll(async () => (await progress(page, id))?.revision).toBe(2);
+  await page.waitForTimeout(1700); expect(writes).toHaveLength(1);
+  expect(writes[0]).toMatchObject({ expectedRevision: 1, position: { ...savedPosition, view: 'content' } });
+});

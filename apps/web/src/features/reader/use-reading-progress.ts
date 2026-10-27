@@ -18,7 +18,7 @@ export function useReadingProgress({ documentId, descriptor, onConflict }: {
   const cancelTimer = () => { clearTimeout(state.current.timer); state.current.timer = undefined; };
   const schedule = () => {
     const current = state.current; cancelTimer();
-    if (!current.active || current.frozen || current.scope.aborted || current.serial === current.acknowledged) return;
+    if (!current.active || current.frozen || current.inFlight || current.scope.aborted || current.serial === current.acknowledged) return;
     const delay = Math.max(0, Math.min(current.changedAt + 1500, current.dirtySince + 5000) - Date.now());
     current.timer = setTimeout(() => { void flush(); }, delay);
   };
@@ -34,6 +34,8 @@ export function useReadingProgress({ documentId, descriptor, onConflict }: {
     const current = state.current; cancelTimer();
     if (current.scope.aborted || current.frozen || current.inFlight || !current.position || current.serial === current.acknowledged) return;
     current.inFlight = true; const serial = current.serial; const position = current.position;
+    // This snapshot is now in flight. New input starts a separate unsent batch deadline.
+    current.dirtySince = 0;
     if (!exit) setStatus('saving');
     try {
       const saved = readingProgressSchema.parse(await apiRequest(path, {
@@ -42,7 +44,6 @@ export function useReadingProgress({ documentId, descriptor, onConflict }: {
       }));
       if (!current.active || current.scope.aborted || current.request.signal.aborted) return;
       current.revision = saved.revision; current.acknowledged = serial;
-      current.dirtySince = current.serial === serial ? 0 : current.changedAt;
       setStatus('saved');
     } catch (error) { fail(error); }
     finally { current.inFlight = false; if (current.active && !current.frozen) schedule(); }
