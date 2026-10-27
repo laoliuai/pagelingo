@@ -193,6 +193,8 @@ PDF 的 current_reader FK 保持；新增 current_web_reader FK 与 kind / 单�
 
 job 绑定 owner、authVersion、source / parse、非敏感 Provider revision 与 immutable glossary revision；不得拿浏览器 session 代替 worker 身份。每次网络调用前、检查点保存与发布时重新验证；运行中监视停用 / 换 Key 并 abort。配置变化进入 paused-config，用户明确用当前配置创建新 run，旧结果保留。原 glossary 修订供原 job 重放，新修订不触发旧资料重译。
 
+新原文首次发布时，将服务端实际投影的 `WebLanguageDecision` 写入不可变 source metadata.language。自动调度在短事务中按实际事件 Reader 查询 source/parse/IR 摘要及语言，不读取对象存储或运行 SDK/renderer；去重/历史版本使用实际选中来源的元数据。旧版本缺少或语言元数据无效时保守跳过自动任务，手动创建可在事务外验证实际 IR；客户端不能覆盖服务端语言，配置保存不扫描历史资料。
+
 lease：heartbeat 5 秒、30 秒失效；claim 使用 SKIP LOCKED 并增加 epoch。全局 2、同 owner 1；SDK 保存逐单元检查点，完整可读版本按首个完成 / 25% / 50% / 75% / 终结点有界发布，不逐单元重建整篇。取消增加 epoch；由当前授权的终结器从最后确认检查点保存可读部分，旧 worker 无权提交。重置 / 停用 / allDevices logout 围栏所有旧 authVersion；普通 logout 撤销本 session 及其配对设备，已接收服务器任务与浏览器生命周期分开。
 
 并发限额跨进程由数据库 slot lease 实施，不只用进程内 semaphore。先以 user 行锁串行同 owner 领取，再领取空闲 / 已过期 slot 与 job；不能在复用 slot 时锁另一个 owner。所有检查点 / 发布还验证 slot 身份与 epoch；过期旧 job 由按 owner 的回收过程重新排队，释放 slot 必须匹配旧 job/token，不能清掉后来者。运行态 owner 唯一约束防并发超领，测试必须启动两个独立 worker。
