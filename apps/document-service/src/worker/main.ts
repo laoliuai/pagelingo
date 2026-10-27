@@ -8,6 +8,7 @@ import { createLocalObjectStore } from '../storage/local-object-store.js';
 import { claimWebJob, reconcileWebJobs } from '../web-jobs/lease.js';
 import { runWebJob, type WebJobDependencies } from '../web-jobs/translation-runner.js';
 import { finalizeWebJob } from '../web-jobs/finalize.js';
+import { FinalizerSchedule, readFinalizerCandidates } from './finalizer-schedule.js';
 
 /** One independent process can fill both durable slots; the database owns concurrency. */
 export async function runWorker(deps: WebJobDependencies, workerId = randomUUID()): Promise<void> {
@@ -15,26 +16,17 @@ export async function runWorker(deps: WebJobDependencies, workerId = randomUUID(
   if (deps.config.mode === 'test' && (!deps.provider || !deps.captureFetch)) throw new Error('Test workers require explicit mocks');
   await verifyDatabaseSchema(deps.db);
   const active = new Set<Promise<void>>();
-  const finalizerFailures = new Map<string, { id: string; epoch: string; attempt: number; until: number }>();
+  const finalizers = new FinalizerSchedule();
   try {
     while (!deps.signal.aborted) {
       await reconcileWebJobs(deps.db);
-      const cooling = [...finalizerFailures.values()].filter(failure => failure.until > Date.now());
-      const terminal = (await deps.db.pool.query<{ id: string; epoch: string }>(`SELECT j.id,j.epoch FROM web_jobs j JOIN users u ON u.id=j.owner_id
-        WHERE j.kind='translate' AND j.status IN ('cancelled','paused-config','partial','failed') AND u.active AND u.auth_version=j.auth_version
-        AND j.finalized_epoch IS DISTINCT FROM j.epoch AND EXISTS (SELECT 1 FROM web_job_checkpoints c WHERE c.owner_id=j.owner_id AND c.job_id=j.id)
-        AND NOT EXISTS (SELECT 1 FROM unnest($1::uuid[],$2::bigint[]) AS cooling(id,epoch) WHERE cooling.id=j.id AND cooling.epoch=j.epoch)
-        ORDER BY j.updated_at LIMIT 10`, [cooling.map(failure => failure.id),cooling.map(failure => failure.epoch)])).rows;
+      const terminal = await finalizers.next((after,cooling) => readFinalizerCandidates(deps.db,after,cooling));
       for (const job of terminal) {
-        const key = `${job.id}:${job.epoch}`;
         try {
           await finalizeWebJob(job.id, { db: deps.db, store: deps.store, generationKind: deps.provider ? 'mock' : 'model' });
-          finalizerFailures.delete(key);
+          finalizers.succeeded(job);
         } catch {
-          // Storage/replay retry only: never alter the SDK's durable endpoint cooldown.
-          const attempt = Math.min(7,(finalizerFailures.get(key)?.attempt ?? 0)+1);
-          if (!finalizerFailures.has(key) && finalizerFailures.size >= 1024) finalizerFailures.delete(finalizerFailures.keys().next().value!);
-          finalizerFailures.set(key,{ id: job.id, epoch: job.epoch, attempt, until: Date.now()+Math.min(60000,1000*2**(attempt-1)) });
+          finalizers.failed(job);
         }
       }
       while (active.size < 2 && !deps.signal.aborted) {

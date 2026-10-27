@@ -158,6 +158,11 @@ it('backs off bad terminal artifacts before LIMIT so later healthy jobs and new 
     const lease=(await claimWebJob('prepare',t.db))!;expect(lease.jobId).toBe(id);
     await runWebJob(lease,{...t,signal:new AbortController().signal,provider:{async generate(request,signal){await t.request(`/api/v1/web-jobs/${id}/cancel`,'POST',{});return echo.generate(request,signal);}}});
   }
+  // The healthy row must follow all ten failures in the worker's immutable UUID order.
+  ids.sort();
+  const {readFinalizerCandidates}=await import('../../src/worker/finalizer-schedule.js');
+  expect((await readFinalizerCandidates(t.db,ids[9]!,[])).map(job=>job.id)).toEqual([ids[10]]);
+  expect(await readFinalizerCandidates(t.db,ids[10]!,[])).toEqual([]);
   // Deliberately corrupt ten real confirmed checkpoints; source/IR identities remain immutable.
   for(const id of ids.slice(0,10)) await t.db.pool.query(`UPDATE web_job_checkpoints SET checkpoint=jsonb_set(checkpoint,'{blocks}','{"0":{"text":"","source":"network"}}'::jsonb) WHERE job_id=$1`,[id]);
   let reads=0;const store={...t.store,read(...args:Parameters<typeof t.store.read>){reads++;return t.store.read(...args);}};
