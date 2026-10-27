@@ -329,13 +329,13 @@ ZIP 从私有暂存文件逐项读取，`lazyEntries:true, strictFileNames:true,
 
 **Interfaces:** `npm run check:pdf-reader -- --corpus <corpus.json> --runs-root <runs> --output <new-output> [--mock-translation]` 使用明确输入并输出范围 / hash / 断言结果；无输入时清楚报缺失，不自动下载模型或读取真实 Key。`test-site.mjs` 保留现有 `--grep` 转发，继续拥有并清理自建 PG schema / 服务，不能停止用户原有进程。
 
-- [ ] **Step 1:** 验收 BERT 和 Attention 全页包：原 PDF hash、IR / 译文 / 资源绑定、图注 / 公式 / 列表、跨页定位、部分失败恢复、同条目导入、完整下载再验证；模拟译文必须在产物和报告标注，不能计入语义质量结论。所有真实 API 调用使用单独命令和显式本地配置，此次默认不调用。
-- [ ] **Step 2:** 对 LLM Foundations 317 页 / RL 154 页复用已有 P0 run 与最终预览做兼容投影；检查全部页覆盖、原图数量 / hash、提示框 / 角色 / 列表 / 符号图 / 原件保留区，首 / 中 / 末页和包含复杂结构的页保存截图。验证已知 upstream 缺陷仍明确 warning，不能因为适配成功删除局限。大文件 / 分片预算实测写入报告，超限时调整公开配置并补回归，不能静默删证据。
-- [ ] **Step 3:** 从 file:// 断网打开论文及长书导出包；遍历全部分片验证图片 / 字体 / 公式资源，无 HTTP(S) 请求，PDF 原件完整可打开 / 下载。检查包中无假 Key、已知运行路径字段或外部 CDN 依赖。原 P0 run / 已发布 ZIP 的前后 manifest hash 一致。
-- [ ] **Step 4:** 在 S1 数据库上应用 005，完成导入 / 进度保存后重建 API 容器；验证登录、原件、分片、译文、下载和进度仍在，未登录 / 另一账号均无法读。更新 Dockerfile 复制 / 构建新共享包，但服务镜像不安装 Python、解析模型或本地 CLI 环境。
-- [ ] **Step 5:** 运行 `npm ci`、`npm run check`、`npm run check:site`、`npm run check:pdf-reader -- <明确的本地样本参数>` 和 `npm audit`；Python / P0 工具改动则追加 `npm run pdf:lint`、`npm run pdf:test` 及原布局验证。所有命令记录退出码、样本范围和未验项。视觉改动保存截图；默认测试没有真实付费请求。
+- [x] **Step 1:** 验收 BERT 和 Attention 全页包：原 PDF hash、IR / 译文 / 资源绑定、图注 / 公式 / 列表、跨页定位、部分失败恢复、同条目导入、完整下载再验证；模拟译文必须在产物和报告标注，不能计入语义质量结论。所有真实 API 调用使用单独命令和显式本地配置，此次默认不调用。
+- [x] **Step 2:** 对 LLM Foundations 317 页 / RL 154 页复用已有 P0 run 与最终预览做兼容投影；检查全部页覆盖、原图数量 / hash、提示框 / 角色 / 列表 / 符号图 / 原件保留区，首 / 中 / 末页和包含复杂结构的页保存截图。验证已知 upstream 缺陷仍明确 warning，不能因为适配成功删除局限。大文件 / 分片预算实测写入报告，超限时调整公开配置并补回归，不能静默删证据。
+- [x] **Step 3:** 从 file:// 断网打开论文及长书导出包；遍历全部分片验证图片 / 字体 / 公式资源，无 HTTP(S) 请求，PDF 原件完整可打开 / 下载。检查包中无假 Key、已知运行路径字段或外部 CDN 依赖。原 P0 run / 已发布 ZIP 的前后 manifest hash 一致。
+- [x] **Step 4:** 在 S1 数据库上应用 005，完成导入 / 进度保存后重建 API 容器；验证登录、原件、分片、译文、下载和进度仍在，未登录 / 另一账号均无法读。更新 Dockerfile 复制 / 构建新共享包，但服务镜像不安装 Python、解析模型或本地 CLI 环境。
+- [x] **Step 5:** 运行 `npm ci`、`npm run check`、`npm run check:site`、`npm run check:pdf-reader -- <明确的本地样本参数>` 和 `npm audit`；Python / P0 工具改动则追加 `npm run pdf:lint`、`npm run pdf:test` 及原布局验证。所有命令记录退出码、样本范围和未验项。视觉改动保存截图；默认测试没有真实付费请求。
 - [ ] **Step 6（控制方最终阶段）:** 本任务实现、验收与逐任务审查后，由控制方按 SDD final phase 执行一次整分支审查，覆盖 Review Focus 及 A07–A10 / A14，修正实质问题并针对修改复验。实现子代理不另做重复整分支审查；本项在最终审查通过后才勾选。
-- [ ] **Step 7:** 提交 `docs: document S2 reader workflow and validation`。合入 / 推送按照用户的后续集成选择执行，不自动删除宿主管理的 worktree。
+- [x] **Step 7:** 提交 `docs: document S2 reader workflow and validation`。合入 / 推送按照用户的后续集成选择执行，不自动删除宿主管理的 worktree。
 
 ## 4. 自检与执行交接
 
