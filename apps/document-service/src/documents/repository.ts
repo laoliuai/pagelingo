@@ -17,7 +17,7 @@ export function summary(row: DocumentRow): DocumentSummary {
   return { id: row.id, kind: 'pdf', title: row.title, originalFilename: row.original_filename,
     createdAt: row.created_at.toISOString(), source: { documentId: row.id,
       sourceVersionId: row.source_version_id, assetId: row.asset_id, sha256: row.sha256, bytes: Number(row.bytes) },
-    saveStatus: 'original-saved', processingStatus: 'awaiting-local-processing' };
+    saveStatus: 'original-saved', reader: null, processingStatus: 'awaiting-local-processing' };
 }
 export async function findDocument(client: PoolClient, owner: string, id: string, byAsset = false): Promise<DocumentRow> {
   const row = (await client.query<DocumentRow>(`${documentSelect} WHERE d.owner_id = $1 AND ${byAsset ? 'a.id' : 'd.id'} = $2`, [owner, id])).rows[0];

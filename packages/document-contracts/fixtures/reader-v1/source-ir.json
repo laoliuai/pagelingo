@@ -1,0 +1,500 @@
+{
+  "schemaVersion": "reader-ir/1",
+  "metadata": {
+    "title": "Reader contract fixture",
+    "originalFilename": "crop-rotation.pdf",
+    "language": {
+      "language": "en",
+      "reason": "english-heuristic"
+    }
+  },
+  "source": {
+    "kind": "pdf",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 1024,
+    "pageCount": 4
+  },
+  "parse": {
+    "id": "p_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "inputManifestSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "projectorVersion": "fixture-projector/1",
+    "configSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "parserName": "fixture",
+    "parserVersion": null,
+    "modelLockSha256": null,
+    "pythonLockSha256": null,
+    "coverage": "full",
+    "status": "complete",
+    "requestedPageIndices": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "parsedPageIndices": [
+      0,
+      1,
+      2,
+      3
+    ]
+  },
+  "pages": [
+    {
+      "pageIndex": 0,
+      "mediaBox": [
+        0,
+        0,
+        400,
+        500
+      ],
+      "cropBox": [
+        20,
+        40,
+        380,
+        460
+      ],
+      "displayCropBox": [
+        20,
+        40,
+        380,
+        460
+      ],
+      "rotation": 0,
+      "displayWidth": 360,
+      "displayHeight": 420,
+      "pdfToDisplay": [
+        1,
+        0,
+        0,
+        -1,
+        -20,
+        460
+      ]
+    },
+    {
+      "pageIndex": 1,
+      "mediaBox": [
+        0,
+        0,
+        400,
+        500
+      ],
+      "cropBox": [
+        20,
+        40,
+        380,
+        460
+      ],
+      "displayCropBox": [
+        20,
+        40,
+        380,
+        460
+      ],
+      "rotation": 90,
+      "displayWidth": 420,
+      "displayHeight": 360,
+      "pdfToDisplay": [
+        0,
+        1,
+        1,
+        0,
+        -40,
+        -20
+      ]
+    },
+    {
+      "pageIndex": 2,
+      "mediaBox": [
+        0,
+        0,
+        400,
+        500
+      ],
+      "cropBox": [
+        20,
+        40,
+        380,
+        460
+      ],
+      "displayCropBox": [
+        20,
+        40,
+        380,
+        460
+      ],
+      "rotation": 180,
+      "displayWidth": 360,
+      "displayHeight": 420,
+      "pdfToDisplay": [
+        -1,
+        0,
+        0,
+        1,
+        380,
+        -40
+      ]
+    },
+    {
+      "pageIndex": 3,
+      "mediaBox": [
+        0,
+        0,
+        400,
+        500
+      ],
+      "cropBox": [
+        20,
+        40,
+        380,
+        460
+      ],
+      "displayCropBox": [
+        20,
+        40,
+        380,
+        460
+      ],
+      "rotation": 270,
+      "displayWidth": 420,
+      "displayHeight": 360,
+      "pdfToDisplay": [
+        0,
+        -1,
+        -1,
+        0,
+        460,
+        380
+      ]
+    }
+  ],
+  "roots": [
+    "n_00000000000000000000000000000001"
+  ],
+  "nodes": [
+    {
+      "id": "n_00000000000000000000000000000001",
+      "kind": "section",
+      "children": [
+        "n_00000000000000000000000000000002",
+        "n_00000000000000000000000000000003",
+        "n_00000000000000000000000000000009",
+        "n_0000000000000000000000000000000b",
+        "n_0000000000000000000000000000000c",
+        "n_0000000000000000000000000000000d"
+      ],
+      "headingBlockId": "b_00000000000000000000000000000001"
+    },
+    {
+      "id": "n_00000000000000000000000000000002",
+      "kind": "block",
+      "children": [],
+      "blockId": "b_00000000000000000000000000000001"
+    },
+    {
+      "id": "n_00000000000000000000000000000003",
+      "kind": "list",
+      "children": [
+        "n_00000000000000000000000000000004"
+      ],
+      "ordered": true,
+      "start": 3
+    },
+    {
+      "id": "n_00000000000000000000000000000004",
+      "kind": "list-item",
+      "children": [
+        "n_00000000000000000000000000000005",
+        "n_00000000000000000000000000000006"
+      ]
+    },
+    {
+      "id": "n_00000000000000000000000000000005",
+      "kind": "block",
+      "children": [],
+      "blockId": "b_00000000000000000000000000000002"
+    },
+    {
+      "id": "n_00000000000000000000000000000006",
+      "kind": "list",
+      "children": [
+        "n_00000000000000000000000000000007"
+      ],
+      "ordered": false
+    },
+    {
+      "id": "n_00000000000000000000000000000007",
+      "kind": "list-item",
+      "children": [
+        "n_00000000000000000000000000000008"
+      ]
+    },
+    {
+      "id": "n_00000000000000000000000000000008",
+      "kind": "block",
+      "children": [],
+      "blockId": "b_00000000000000000000000000000003"
+    },
+    {
+      "id": "n_00000000000000000000000000000009",
+      "kind": "callout",
+      "children": [
+        "n_0000000000000000000000000000000a"
+      ],
+      "semantic": "prompt"
+    },
+    {
+      "id": "n_0000000000000000000000000000000a",
+      "kind": "block",
+      "children": [],
+      "blockId": "b_00000000000000000000000000000004"
+    },
+    {
+      "id": "n_0000000000000000000000000000000b",
+      "kind": "block",
+      "children": [],
+      "blockId": "b_00000000000000000000000000000005"
+    },
+    {
+      "id": "n_0000000000000000000000000000000c",
+      "kind": "block",
+      "children": [],
+      "blockId": "b_00000000000000000000000000000006"
+    },
+    {
+      "id": "n_0000000000000000000000000000000d",
+      "kind": "group",
+      "children": [
+        "n_0000000000000000000000000000000e",
+        "n_0000000000000000000000000000000f"
+      ]
+    },
+    {
+      "id": "n_0000000000000000000000000000000e",
+      "kind": "block",
+      "children": [],
+      "blockId": "b_00000000000000000000000000000007"
+    },
+    {
+      "id": "n_0000000000000000000000000000000f",
+      "kind": "block",
+      "children": [],
+      "blockId": "b_00000000000000000000000000000008"
+    }
+  ],
+  "blocks": [
+    {
+      "id": "b_00000000000000000000000000000001",
+      "type": "text",
+      "sourceRefs": [
+        {
+          "pageIndex": 0,
+          "precision": "page"
+        },
+        {
+          "pageIndex": 1,
+          "precision": "page"
+        }
+      ],
+      "value": {
+        "id": "b_00000000000000000000000000000001",
+        "kind": "heading",
+        "content": [
+          {
+            "type": "format",
+            "id": "strong",
+            "kind": "strong",
+            "children": [
+              {
+                "type": "text",
+                "text": "A heading"
+              }
+            ]
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "kind": "style",
+          "id": "strong",
+          "emphasis": "strong"
+        }
+      ],
+      "language": {
+        "language": "en",
+        "reason": "english-heuristic"
+      }
+    },
+    {
+      "id": "b_00000000000000000000000000000002",
+      "type": "text",
+      "sourceRefs": [
+        {
+          "pageIndex": 0,
+          "precision": "page"
+        },
+        {
+          "pageIndex": 1,
+          "precision": "page"
+        }
+      ],
+      "value": {
+        "id": "b_00000000000000000000000000000002",
+        "kind": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "The same paragraph appears twice in this source document."
+          }
+        ]
+      },
+      "bindings": [],
+      "language": {
+        "language": "en",
+        "reason": "english-heuristic"
+      }
+    },
+    {
+      "id": "b_00000000000000000000000000000003",
+      "type": "text",
+      "sourceRefs": [
+        {
+          "pageIndex": 0,
+          "precision": "page"
+        },
+        {
+          "pageIndex": 1,
+          "precision": "page"
+        }
+      ],
+      "value": {
+        "id": "b_00000000000000000000000000000003",
+        "kind": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "The same paragraph appears twice in this source document."
+          }
+        ]
+      },
+      "bindings": [],
+      "language": {
+        "language": "en",
+        "reason": "english-heuristic"
+      }
+    },
+    {
+      "id": "b_00000000000000000000000000000004",
+      "type": "text",
+      "sourceRefs": [
+        {
+          "pageIndex": 0,
+          "precision": "page"
+        },
+        {
+          "pageIndex": 1,
+          "precision": "page"
+        }
+      ],
+      "value": {
+        "id": "b_00000000000000000000000000000004",
+        "kind": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "We use the following expression in this example of the model: "
+          },
+          {
+            "type": "protected",
+            "id": "formula",
+            "kind": "math",
+            "source": "x^2"
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "kind": "protected",
+          "id": "formula",
+          "object": {
+            "type": "math",
+            "latex": "x^2"
+          }
+        }
+      ],
+      "language": {
+        "language": "en",
+        "reason": "english-heuristic"
+      }
+    },
+    {
+      "id": "b_00000000000000000000000000000005",
+      "type": "image",
+      "sourceRefs": [
+        {
+          "pageIndex": 2,
+          "precision": "bbox",
+          "bbox": [
+            0.6666666666666666,
+            0.14285714285714285,
+            0.8888888888888888,
+            0.38095238095238093
+          ]
+        }
+      ],
+      "assetId": "figure-1",
+      "alt": "A figure",
+      "role": "figure",
+      "originalRegion": null
+    },
+    {
+      "id": "b_00000000000000000000000000000006",
+      "type": "code",
+      "sourceRefs": [
+        {
+          "pageIndex": 3,
+          "precision": "page"
+        }
+      ],
+      "code": "return 1;",
+      "language": "javascript"
+    },
+    {
+      "id": "b_00000000000000000000000000000007",
+      "type": "math",
+      "sourceRefs": [
+        {
+          "pageIndex": 3,
+          "precision": "page"
+        }
+      ],
+      "latex": "E=mc^2",
+      "displayMode": true,
+      "fallbackAssetId": "figure-1"
+    },
+    {
+      "id": "b_00000000000000000000000000000008",
+      "type": "rule",
+      "sourceRefs": [
+        {
+          "pageIndex": 3,
+          "precision": "page"
+        }
+      ]
+    }
+  ],
+  "assets": [
+    {
+      "id": "figure-1",
+      "path": "assets/figure-1.png",
+      "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "bytes": 100,
+      "mediaType": "image/png",
+      "width": 100,
+      "height": 100
+    }
+  ],
+  "warnings": [
+    "Fixture parser has no upstream version or lock metadata; hashes are shape placeholders, not byte identities."
+  ]
+}

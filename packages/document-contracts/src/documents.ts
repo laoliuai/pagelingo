@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { parseCoverageSchema } from './reader-common.js';
+import { readerTranslationStatusSchema } from './reader-translation.js';
 
 export const sourceIdentitySchema = z.strictObject({
   documentId: z.uuid(),
@@ -17,7 +19,10 @@ export const documentSummarySchema = z.strictObject({
   createdAt: z.iso.datetime(),
   source: sourceIdentitySchema,
   saveStatus: z.literal('original-saved'),
-  processingStatus: z.literal('awaiting-local-processing'),
+  processingStatus: z.enum(['awaiting-local-processing', 'reader-ready']),
+  reader: z.strictObject({ versionId: z.uuid(), translationStatus: readerTranslationStatusSchema, parseCoverage: parseCoverageSchema, warnings: z.array(z.string().min(1)) }).nullable(),
+}).refine(value => (value.processingStatus === 'reader-ready') === (value.reader !== null), {
+  message: 'Reader readiness must match the reader version', path: ['reader'],
 });
 export type DocumentSummary = z.infer<typeof documentSummarySchema>;
 

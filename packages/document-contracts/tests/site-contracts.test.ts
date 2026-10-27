@@ -38,7 +38,7 @@ const source = {
 const summary = {
   id: user.id, kind: 'pdf', title: 'A document', originalFilename: 'paper.pdf',
   createdAt: user.createdAt, source, saveStatus: 'original-saved',
-  processingStatus: 'awaiting-local-processing',
+  reader: null, processingStatus: 'awaiting-local-processing',
 };
 
 describe('public auth contracts', () => {
@@ -154,4 +154,11 @@ describe('document contracts', () => {
 it('returns only the versioned error envelope fields', () => {
   expect(errorResponseSchema.parse({ error: { code: 'not-found', message: 'Not found', requestId: 'request-1' } })).toEqual({ error: { code: 'not-found', message: 'Not found', requestId: 'request-1' } });
   expect(errorResponseSchema.safeParse({ error: { code: 'internal', message: 'Failure', requestId: 'request-1', stack: 'private' } }).success).toBe(false);
+});
+
+it('ties reader-ready summaries to a reader version while preserving original-only entries', () => {
+  const reader = { versionId: user.id, translationStatus: 'pending', parseCoverage: 'partial', warnings: ['Only selected pages parsed'] };
+  expect(documentSummarySchema.safeParse({ ...summary, processingStatus: 'reader-ready', reader }).success).toBe(true);
+  expect(documentSummarySchema.safeParse({ ...summary, processingStatus: 'reader-ready', reader: null }).success).toBe(false);
+  expect(documentSummarySchema.safeParse({ ...summary, reader }).success).toBe(false);
 });

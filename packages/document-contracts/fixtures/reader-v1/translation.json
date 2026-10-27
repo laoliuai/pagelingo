@@ -1,0 +1,93 @@
+{
+  "schemaVersion": "reader-translation/1",
+  "id": "00000000-0000-4000-8000-000000000001",
+  "jobId": "00000000-0000-4000-8000-000000000002",
+  "sourceSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "parseId": "p_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "readerIrSha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+  "sdkVersion": "0.4.0",
+  "promptVersion": "fixture/1",
+  "protectionVersion": "fixture/1",
+  "sourceLanguage": null,
+  "targetLanguage": "zh",
+  "profile": "academic",
+  "budget": {
+    "maxInputTokens": 6000,
+    "maxOutputTokens": 4096,
+    "contextWindowTokens": 32768
+  },
+  "glossary": [],
+  "glossaryDomain": "machine-learning",
+  "glossarySha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "selectionBlockIds": [
+    "b_00000000000000000000000000000001",
+    "b_00000000000000000000000000000002",
+    "b_00000000000000000000000000000003",
+    "b_00000000000000000000000000000004"
+  ],
+  "provider": {
+    "model": null,
+    "endpointFingerprint": null
+  },
+  "generationKind": "none",
+  "metrics": {
+    "requests": 0,
+    "retries": 0,
+    "cacheHits": 0,
+    "promptTokens": 0,
+    "completionTokens": 0,
+    "totalTokens": 0,
+    "usageRequests": 0,
+    "startedAt": 0,
+    "elapsedMs": 0
+  },
+  "blocks": [
+    {
+      "blockId": "b_00000000000000000000000000000001",
+      "status": "source-only",
+      "reason": "pending"
+    },
+    {
+      "blockId": "b_00000000000000000000000000000002",
+      "status": "source-only",
+      "reason": "pending"
+    },
+    {
+      "blockId": "b_00000000000000000000000000000003",
+      "status": "source-only",
+      "reason": "pending"
+    },
+    {
+      "blockId": "b_00000000000000000000000000000004",
+      "status": "source-only",
+      "reason": "pending"
+    }
+  ],
+  "units": [
+    {
+      "id": "u0:0",
+      "blockId": "b_00000000000000000000000000000001",
+      "part": 0,
+      "status": "pending"
+    },
+    {
+      "id": "u1:0",
+      "blockId": "b_00000000000000000000000000000002",
+      "part": 0,
+      "status": "pending"
+    },
+    {
+      "id": "u2:0",
+      "blockId": "b_00000000000000000000000000000003",
+      "part": 0,
+      "status": "pending"
+    },
+    {
+      "id": "u3:0",
+      "blockId": "b_00000000000000000000000000000004",
+      "part": 0,
+      "status": "pending"
+    }
+  ],
+  "status": "pending"
+}

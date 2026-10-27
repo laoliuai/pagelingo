@@ -1,0 +1,95 @@
+{
+  "schemaVersion": "pagelingo-document-bundle/1",
+  "packageId": "00000000-0000-4000-8000-000000000003",
+  "createdAt": "2026-10-27T00:00:00.000Z",
+  "title": "Reader contract fixture",
+  "originalFilename": "crop-rotation.pdf",
+  "source": {
+    "kind": "pdf",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 1024,
+    "pageCount": 4
+  },
+  "parse": {
+    "id": "p_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "inputManifestSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "projectorVersion": "fixture-projector/1",
+    "configSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+  },
+  "readerIrSha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+  "translation": {
+    "id": "00000000-0000-4000-8000-000000000001",
+    "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "status": "pending",
+    "generationKind": "none"
+  },
+  "renderer": {
+    "version": "0.1.0",
+    "codeSha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+  },
+  "files": [
+    {
+      "path": "source.pdf",
+      "bytes": 100,
+      "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "mediaType": "application/pdf",
+      "role": "source"
+    },
+    {
+      "path": "source-ir.json",
+      "bytes": 100,
+      "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "mediaType": "application/json",
+      "role": "reader-ir"
+    },
+    {
+      "path": "translation.json",
+      "bytes": 100,
+      "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "mediaType": "application/json",
+      "role": "translation"
+    },
+    {
+      "path": "render/index.html",
+      "bytes": 100,
+      "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "mediaType": "text/html",
+      "role": "render"
+    },
+    {
+      "path": "render/data/index.js",
+      "bytes": 100,
+      "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "mediaType": "text/javascript",
+      "role": "render"
+    },
+    {
+      "path": "render/data/c_000001.js",
+      "bytes": 100,
+      "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "mediaType": "text/javascript",
+      "role": "render"
+    },
+    {
+      "path": "assets/figure-1.png",
+      "bytes": 100,
+      "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "mediaType": "image/png",
+      "role": "asset"
+    },
+    {
+      "path": "provenance/raw.json",
+      "bytes": 100,
+      "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "mediaType": "application/json",
+      "role": "provenance"
+    },
+    {
+      "path": "licenses/NOTICE.txt",
+      "bytes": 100,
+      "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "mediaType": "text/plain",
+      "role": "license"
+    }
+  ]
+}

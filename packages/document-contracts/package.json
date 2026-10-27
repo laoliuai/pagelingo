@@ -1,13 +1,14 @@
 {
   "name": "@pagelingo/document-contracts",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Portable learning site API contracts and experimental parser schemas for PageLingo.",
   "type": "module",
   "sideEffects": false,
   "files": [
     "dist",
     "schemas",
-    "README.md"
+    "README.md",
+    "fixtures"
   ],
   "exports": {
     ".": {
@@ -19,7 +20,8 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.test.json",
     "test": "vitest run",
-    "prepack": "npm run build"
+    "prepack": "npm run build",
+    "schemas:generate:reader": "npm run build && node scripts/generate-reader-schemas.mjs"
   },
   "dependencies": {
     "@pagelingo/translation-core": "0.4.0",
@@ -27,6 +29,8 @@
   },
   "devDependencies": {
     "@types/node": "26.6.4",
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1",
     "typescript": "7.0.2",
     "vitest": "5.0.3"
   }
