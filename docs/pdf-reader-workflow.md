@@ -121,3 +121,57 @@ ZIP 发布前运行完整 `validateBundle` 自检，归档阶段再次验证并�
 独立浏览器验收：`npm run test:pdf:offline`，需事先准备 Playwright Chromium。
 该验收使用 Node 生成的 PDF 和自有 fixture，通过真实 ZIP 解压后在 `file://` 中遍历首、中、末片，
 检查实际图片 / 字体 / 公式加载、原件链接和三片窗口，并阻断全部 HTTP(S)。不使用 Python、模型或真实 API。
+
+## 导入网站与继续阅读
+
+先上传原 PDF，再在同一资料详情选择“导入阅读包”；也可直接从资料库导入正式 ZIP。
+旧 P0 preview ZIP 先按上文投影 / 导出，不能作为正式包直接上传。
+服务校验源 / IR / 译文 / 图片绑定，正文用共享 renderer，上传 HTML 不在站点执行。
+另一账号或管理员均不能读取你的原件、分片、图片、下载包或进度。
+
+桌面默认 PDF / 正文双栏，手机默认正文，可切换原文 / 译文、字号、目录及历史版本。
+位置证据不足时仅定位原页；图片内文字、区域表格、复杂符号等保留原图，不标为已翻译。
+实际阅读交互后按 1.5 秒 debounce、持续最多 5 秒保存；恢复或布局调整不自动写进度。
+冲突时手动选择从当前位置继续，避免覆盖另一个窗口已保存的位置。
+普通入口打开当前版本，“继续上次阅读”明确打开最后确认版本；换 parse 时可按原页降级恢复。
+
+## 显式真实样本验收
+
+```sh
+npm run check:pdf-reader -- --corpus /path/acceptance-corpus.json \
+  --runs-root /path/p0-runs --output /path/new-acceptance --mock-translation
+```
+
+命令没有隐式语料、模型或 Key 来源；少参数立即失败。corpus 的 `samples` 只列本次要检查的样本，
+每项必须含 `id`、`path`、`pageCount`、`sha256`，并显式提供本地 `reader` 映射：
+
+```json
+{
+  "samples": [{
+    "id": "bert",
+    "path": "/absolute/source.pdf",
+    "pageCount": 16,
+    "sha256": "REPLACE_WITH_64_LOWERCASE_HEX_DIGITS",
+    "reader": {
+      "p0Run": "mineru-smoke/mineru-bert",
+      "preview": "/absolute/verified-preview-directory",
+      "python": "/absolute/prepared/python"
+    }
+  }]
+}
+```
+
+`path`、`reader.preview` 相对于 corpus 文件；`reader.p0Run` 相对于 `--runs-root`，
+省略时为样本 id。`reader.python` 要求显式提供已准备的解释器。
+没有 preview 时必须提供 `reader.katex`（准备好的旧 KaTeX 0.19.0），命令从已有 P0 生成新预览，
+不重新解析 / 下载模型。最终人工修复 preview 应明确指定。历史 ZIP 先在新目录解压并按原
+manifest 检查所有成员字节、hash 与闭包，保留原件；本命令对提供的目录再次验证。
+
+输出只能是不存在且位于输入之外的新目录，包含各样本 run、bundle、ZIP、验证后解压副本、
+截图和 `report.json`。报告列出页数、前后 manifest hash、原图保留、译文状态 / 恢复、警告、
+容量、全部离线分片 / 图片 / 字体 / 公式检查、HTTP(S) 次数和截图定位。
+`--mock-translation` 使用内存 echo provider，注入取消再恢复；产物标记 `generationKind=mock`，
+正文仍是原语言，不能据此评价语义译文质量。不带该参数则检查明确待翻译的原文包。
+真实翻译只走前述独立 `pdf:translate` 命令和显式本地配置。
+
+详细实测和未验项见 [S2 验证记录](learning-site-s2-validation.md)。

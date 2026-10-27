@@ -1,10 +1,10 @@
 # 文档服务
 
-S1 / 0.1.0 已实现运行配置、PostgreSQL 迁移、health API、管理员初始化、登录 / 会话 / 修改密码、账号管理、本人 PDF 原件 API、个人模型配置与显式连接测试。网站、API 和静态 PDF 解码资源可由同一服务提供。安装、Compose、密钥初始化与开发命令见 [学习站安装指南](../../docs/learning-site-install.md)，交付边界与证据见 [S1 验证记录](../../docs/learning-site-s1-validation.md)。
+S2 / 0.1.0 已实现运行配置、PostgreSQL 迁移、health API、管理员初始化、登录 / 会话 / 修改密码、账号管理、本人 PDF 原件 API、个人模型配置与显式连接测试。网站、API 和静态 PDF 解码资源可由同一服务提供。安装、Compose、密钥初始化与开发命令见 [学习站安装指南](../../docs/learning-site-install.md)，交付边界与证据见 [S2 验证记录](../../docs/learning-site-s2-validation.md)。
 
 账号、原件、资源和 Provider 均按当前会话 owner 隔离；管理员只额外管理账号。数据库、对象卷和主密钥在运行时注入。Dockerfile 使用固定 Node 镜像，多阶段构建及非 root runtime；Compose 是 loopback local 预览，并非公网生产部署。
 
-S2 已通过迁移 005 加入不可变解析 / 翻译快照、Reader 版本、分片及包导入发布服务。导入 HTTP 路由、Reader API 和进度写入将在后续任务接入；服务器不运行 parser 或模型推理。来源绑定使用 `documents.current_source_version_id`；未来包必须绑定同一 owner / document / source。后台任务、助手、设备授权与完整备份恢复按后续阶段实现，设计见 [PDF 规格](../../docs/pdf-spec.md) 与 [处理设计](../../docs/pdf-processing.md)。
+S2 已通过迁移 005 加入不可变解析 / 翻译快照、Reader 版本、分片及包导入发布服务。导入 HTTP 路由、Reader API、所有权隔离和 CAS 进度写入均已接入；服务器不运行 parser 或模型推理。来源绑定使用 `documents.current_source_version_id`；正式包必须绑定同一 owner / document / source。后台任务、助手、设备授权与完整备份恢复按后续阶段实现，设计见 [PDF 规格](../../docs/pdf-spec.md) 与 [处理设计](../../docs/pdf-processing.md)。
 
 ## Persistence foundation
 
@@ -320,3 +320,10 @@ no write. The UI must wait for deliberate reading interaction before saving;
 409 requires an explicit user decision instead of an automatic overwrite retry.
 
 Reader descriptor includes required `pages: PdfPageMetadata[]`, copied from the validated and hash-bound stored IR. It is nonempty and ordered by physical pageIndex 0..length−1; clients compare this metadata and page count with actual PDF.js geometry before showing region highlights. No extra metadata endpoint or client-supplied geometry is accepted.
+
+## S2 delivery acceptance
+
+See [S2 validation](../../docs/learning-site-s2-validation.md) and
+[reader workflow](../../docs/pdf-reader-workflow.md) for explicit local corpus inputs,
+offline resource checks, capacity measurements and upgrade/restart scope.
+Default checks use mocks and do not install Python/models or call paid APIs.

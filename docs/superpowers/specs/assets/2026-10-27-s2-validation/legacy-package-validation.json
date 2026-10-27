@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "pagelingo-preview-package-validation/1",
+  "scope": "Archive integrity and source projection; not parser accuracy acceptance",
+  "bundles": [
+    {
+      "bundle": "llm-foundations",
+      "archive": "llm-foundations-basic-paged-v11.zip",
+      "archiveSha256": "486e9992e2dbc3c73d833320e901640d9840a075ca875b7477e516ed23c6d204",
+      "sourceRunId": "abf0e25e-e9f9-4061-a90d-8f39bd3ce3de",
+      "sourceSha256": "fade965b64edd8a30cde4f69c084942df2a4758aaeee9f918b49f39b323210be",
+      "filesVerified": 467,
+      "sourceEvidenceSchema": "passed",
+      "exclusiveNativeOwnership": "passed",
+      "containerReferences": "passed",
+      "originalRegionPixelsChecked": 141,
+      "originalRegionPixels": "identical",
+      "promptCoverage": {
+        "panelsChecked": 67,
+        "nativeCharactersChecked": 15629,
+        "nativePromptText": "identical-after-whitespace-and-soft-hyphen-normalization"
+      },
+      "pages": 317,
+      "reparsed": false,
+      "translated": false
+    },
+    {
+      "bundle": "rl-little-book",
+      "archive": "rl-little-book-basic-paged-v6.zip",
+      "archiveSha256": "34fca788bf6fe4872c49626bc70f5db47e8458b6fb083ceabc0a5bbade93ec80",
+      "sourceRunId": "49bd0fa6-9fac-4126-b4ac-880ba0fd4872",
+      "sourceSha256": "10289a4e879c7738b89a52525d464d95dc7c222c0f26ed32d2f3b076264515b2",
+      "filesVerified": 232,
+      "sourceEvidenceSchema": "passed",
+      "exclusiveNativeOwnership": "passed",
+      "containerReferences": "passed",
+      "originalRegionPixelsChecked": 69,
+      "originalRegionPixels": "identical",
+      "promptCoverage": {
+        "panelsChecked": 0,
+        "nativeCharactersChecked": 0,
+        "nativePromptText": "identical-after-whitespace-and-soft-hyphen-normalization"
+      },
+      "pages": 154,
+      "reparsed": false,
+      "translated": false
+    }
+  ]
+}

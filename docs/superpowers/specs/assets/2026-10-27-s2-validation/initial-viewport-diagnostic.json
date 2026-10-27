@@ -1,0 +1,9 @@
+{
+  "scope": "Fresh context, goto only; before any helper navigation, image decoding or scroll",
+  "scrollY": 303,
+  "headerTop": -303,
+  "headerHeight": 149,
+  "firstBlockTop": 188,
+  "tocTop": -154,
+  "view": "split"
+}

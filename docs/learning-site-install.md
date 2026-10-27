@@ -1,6 +1,6 @@
-# 私有学习站 S1 安装
+# 私有学习站 S2 安装
 
-S1 提供账号、每人独立的模型配置、PDF 原件保存和原件阅读。网站与服务版本均为 0.1.0。译文包导入、完整译文 / 对照阅读属于 S2；本阶段没有解析 worker、导入成功占位接口或后台翻译。验收证据见 [S1 验证记录](learning-site-s1-validation.md)。
+S2 在账号、独立模型配置、PDF 原件保存的基础上提供本地阅读包导入、PDF / 正文对照、版本历史和持久化进度。网站与服务版本仍为 0.1.0；合同与阅读包以各自 schemaVersion 标识。解析和翻译在本地显式运行，服务不安装 Python、模型或本地 CLI，也不在导入时调用模型。验收范围见 [S2 验证记录](learning-site-s2-validation.md)，本地操作见 [PDF 工作流](pdf-reader-workflow.md)。
 
 需要 Node.js 24.13.0（`.nvmrc`）、npm 和 Docker Compose。默认 `npm run dev` / `build` 仍是浏览器扩展；网站使用带 `site` 的命令。安装不需要 Python、模型权重或真实模型请求。
 
@@ -54,7 +54,7 @@ site_compose up -d --wait         # 再次启动
 site_compose down                 # 移除本项目容器和网络，保留卷
 ```
 
-`down --volumes` 会删除该项目全部数据库和原件，仅在明确要清空自己的预览数据时使用。数据库、原件卷和 keyring 都需要保存；单独保留数据库无法恢复 PDF，单独保留卷无法恢复权限。S1 重启验收不是完整灾备演练。
+`down --volumes` 会删除该项目全部数据库和原件，仅在明确要清空自己的预览数据时使用。数据库、原件卷和 keyring 都需要保存；单独保留数据库无法恢复 PDF，单独保留卷无法恢复权限。S2 升级 / 重启验收不是完整灾备演练。
 
 ## 开发模式
 
@@ -80,7 +80,7 @@ writeFileSync('.env.site-dev.local', [
 JS
 npm run site:keygen -- --file .env.site-dev.local
 npm run site:db
-npm run build:contracts
+npm run build:bundle
 npm run site:admin -- --username myadmin  # 开发数据库中首次初始化
 npm run dev:site
 ```
@@ -96,8 +96,8 @@ npm run dev:site
 
 1. 登录管理员账号，在用户管理中创建普通账号；禁用和重置密码会撤销目标账号旧会话。管理员不能读取其他人的资料。
 2. 普通账号在设置中保存自己的 HTTPS API 根地址、模型及 Key。读取仅回显脱敏状态；保存不调用模型。“测试连接”需要明确确认，会请求用户配置的远端服务。
-3. 资料库上传 PDF，默认上限 256 MiB。保存后显示“原文已保存 / 等待本地处理”。打开原件阅读，可翻页、缩放、下载；刷新后数据保留。取消上传不会删除服务器已完成接收的文档。
-4. 退出登录清理当前页面的私有缓存和 PDF worker。修改密码后需重新登录。S1 不提供删除原件、译文阅读或持久化阅读进度。
+3. 资料库上传 PDF，默认上限 256 MiB。保存后先读原件；在同一条目导入本地正式 ZIP 后进入对照阅读。导入也可从资料库新建条目。相同账号 / 同包身份幂等，PDF 身份不一致会拒绝。部分译文、未译、模拟译文和解析警告分别显示；完整下载得到原已验证 ZIP。
+4. 退出登录清理当前页面的私有缓存和 PDF worker。修改密码后需重新登录。S2 不提供删除原件；译文来自已导入的阅读包，实际阅读交互后保存进度。
 
 ```bash
 node --test tests/site/*.test.mjs
@@ -108,6 +108,27 @@ npm run test:site:restart
 
 默认 `check` 保留原扩展 / SDK 回归，不要求 Docker / Python 或付费 API。`check:site` 在一次独立 PostgreSQL 生命周期中构建网站、运行服务集成、Chromium UI 和开发信号 smoke；初次运行需准备 Playwright Chromium（`npx playwright install chromium`）。显式 `PAGELINGO_TEST_DATABASE_URL` 必须是专用测试库；指定后跳过数据库容器的创建，但完整 `check:site` 仍需要 Docker Compose CLI 来校验开发 / 预览配置，这项配置校验不需要 Docker daemon。服务集成、UI 与开发 smoke 都仅在各自随机 `pgl_test_*` schema 内迁移，并在 finally 删除自己的 schema；不会在 public 中创建应用表。不要指向用户数据库。
 
-`test:site:restart` 不读取 `.env.local` 或复用环境里的数据库、项目、卷；创建随机项目、动态 loopback 端口、独立命名卷和凭据，密码通过 stdin，临时 env 为 0600。它真实登录、上传合成 PDF、保存假 Key、保留卷重建 app / db 容器，验证内容 hash、内部解密和权限，并在 finally 删除自己的资源。它不调用真实模型。中断也会清理；若 Docker 失联导致清理失败，只报告本次项目名供人工恢复。
+`test:site:restart` 不读取 `.env.local` 或复用环境里的数据库、项目、卷；创建随机项目、动态 loopback 端口、独立命名卷和凭据，密码通过 stdin，临时 env 为 0600。它先在独立库中建立含账号与原件的 S1（001–004），由服务正常应用 005，登录、导入模拟译文包并保存进度 / 假 Key；保留卷重建 app / db 容器，逐片 / 图片核对、完整下载再验证、检查进度、内部解密和权限，并在 finally 删除自己的资源。它不调用真实模型。中断也会清理；若 Docker 失联导致清理失败，只报告本次项目名供人工恢复。
 
 常规 UI 截图写入忽略的 `apps/web/test-results/captures/`，不会改写提交的验收图片。需要更新文档截图时，显式执行 `PAGELINGO_CAPTURE_DOCS=1 npm run test:site:e2e`，人工检查后提交。
+
+## S1 升级与容量配置
+
+保留同一项目的数据库卷、对象卷和 keyring，再执行 `site_compose up -d --build --wait`。
+服务启动校验既有迁移 checksum 并事务应用 `005-reader-bundles`；原件、账号和设置继续保留。
+不要删除卷来“完成升级”，也不要单独更换对象目录。镜像构建包含 contracts、renderer、bundle
+及 SDK；运行镜像只包含 Node 服务 / 共享包和网站静态资源，不含本地 PDF CLI、Python 或模型。
+
+默认原 PDF / ZIP 各 256 MiB、解压 1 GiB、10,000 文件、IR / 译文各 32 MiB。
+管理员可在运行环境显式设置 `PAGELINGO_MAX_PDF_BYTES` 和严格部分对象
+`PAGELINGO_BUNDLE_LIMITS_JSON`；PDF 不能在后者重复配置，结构上限只能收紧。
+Compose 转发这两个参数。界面使用认证 `/api/v1/bundle-imports/limits` 的实际值。
+本次四份真实样本未要求提高预算；具体测量见验证记录。
+
+离线包的可信代码目录与当前构建绑定。升级后历史离线 ZIP 仍可自行阅读；再次导入时若可信
+目录不相符，应使用原 ready run 重新导出到新目录 / ZIP，再验证，不能修改旧 manifest。
+可传多个当前构建的包执行额外重启验收：
+
+```sh
+npm run test:site:restart -- --bundle /path/bert.zip --bundle /path/attention.zip
+```

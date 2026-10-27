@@ -204,3 +204,10 @@ may leave a new debug directory and sanitized `export-failure.json`; no success
 ZIP is published. `LocalExportError.code` is fixed and contains no host paths.
 `createStaticFilePlan` remains the shared renderer's pure export/replay function.
 Run `npm run test:pdf:offline` for the owned-fixture Chromium file:// ZIP check.
+
+## S2 delivery acceptance
+
+See [S2 validation](../../docs/learning-site-s2-validation.md) and
+[reader workflow](../../docs/pdf-reader-workflow.md) for explicit local corpus inputs,
+offline resource checks, capacity measurements and upgrade/restart scope.
+Default checks use mocks and do not install Python/models or call paid APIs.

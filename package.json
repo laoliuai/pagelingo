@@ -43,7 +43,7 @@
     "site:admin": "node --env-file=.env.site-dev.local --import tsx apps/document-service/src/cli/bootstrap-admin.ts",
     "build:site": "npm run build:service && npm run build --workspace @pagelingo/web",
     "test:site:e2e": "node scripts/with-test-postgres.mjs -- node scripts/test-site.mjs",
-    "test:site:restart": "node scripts/check-site-restart.mjs",
+    "test:site:restart": "npm run build:pdf && node scripts/check-site-restart.mjs",
     "dev:site": "node scripts/dev-site.mjs",
     "site:keygen": "node scripts/create-site-secrets.mjs",
     "site:db": "docker compose --project-name pagelingo-site-dev --env-file .env.site-dev.local -f deploy/compose.site.yml -f deploy/compose.site-dev.yml up -d --wait db",
@@ -55,7 +55,8 @@
     "pdf:translate": "npm run build:pdf && node apps/pdf-cli/dist/cli.js translate",
     "pdf:bundle": "npm run build:pdf && node apps/pdf-cli/dist/cli.js bundle",
     "pdf:verify": "npm run build:pdf && node apps/pdf-cli/dist/cli.js verify",
-    "test:pdf:offline": "npm run build:pdf && node --import tsx apps/pdf-cli/tests/offline-browser.mjs"
+    "test:pdf:offline": "npm run build:pdf && node --import tsx apps/pdf-cli/tests/offline-browser.mjs",
+    "check:pdf-reader": "npm run build:pdf && node scripts/check-pdf-reader.mjs"
   },
   "engines": {
     "node": ">=24.0.0"

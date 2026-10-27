@@ -102,3 +102,10 @@ parent must exist; staging and final output share its filesystem.
 `BUNDLE_DESTINATION_EXISTS`. Structural limit overrides may only tighten the
 contract ceilings; other byte budgets follow the contracts package. This module
 never reads environment variables. The service supplies validated runtime limits.
+
+## S2 delivery acceptance
+
+See [S2 validation](../../docs/learning-site-s2-validation.md) and
+[reader workflow](../../docs/pdf-reader-workflow.md) for explicit local corpus inputs,
+offline resource checks, capacity measurements and upgrade/restart scope.
+Default checks use mocks and do not install Python/models or call paid APIs.

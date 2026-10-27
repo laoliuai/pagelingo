@@ -1,0 +1,204 @@
+{
+  "status": "passed",
+  "checks": [
+    {
+      "rotation": 0,
+      "actualPixels": [
+        40,
+        260,
+        120,
+        360
+      ],
+      "mappedPixels": [
+        40.0,
+        260.0,
+        120.0,
+        360.0
+      ],
+      "maxError": 0.0
+    },
+    {
+      "rotation": 90,
+      "actualPixels": [
+        60,
+        40,
+        160,
+        120
+      ],
+      "mappedPixels": [
+        60.0,
+        40.0,
+        160.0,
+        120.0
+      ],
+      "maxError": 0.0
+    },
+    {
+      "rotation": 180,
+      "actualPixels": [
+        240,
+        60,
+        320,
+        160
+      ],
+      "mappedPixels": [
+        240.0,
+        60.0,
+        320.0,
+        160.0
+      ],
+      "maxError": 0.0
+    },
+    {
+      "rotation": 270,
+      "actualPixels": [
+        260,
+        240,
+        360,
+        320
+      ],
+      "mappedPixels": [
+        260.0,
+        240.0,
+        360.0,
+        320.0
+      ],
+      "maxError": 0.0
+    }
+  ],
+  "inspection": {
+    "schemaVersion": "pagelingo-pdf-inspection/1",
+    "sourceSha256": "709a631c9ba4a5b97fce90a576de27de0b7e4ac125fc8d2ec4013439807ca2d9",
+    "pages": [
+      {
+        "pageIndex": 0,
+        "mediaBox": [
+          0.0,
+          0.0,
+          400.0,
+          500.0
+        ],
+        "cropBox": [
+          20.0,
+          40.0,
+          380.0,
+          460.0
+        ],
+        "displayCropBox": [
+          20.0,
+          40.0,
+          380.0,
+          460.0
+        ],
+        "rotation": 0,
+        "displayWidth": 360.0,
+        "displayHeight": 420.0,
+        "pdfToDisplay": [
+          1,
+          0,
+          0,
+          -1,
+          -20.0,
+          460.0
+        ]
+      },
+      {
+        "pageIndex": 1,
+        "mediaBox": [
+          0.0,
+          0.0,
+          400.0,
+          500.0
+        ],
+        "cropBox": [
+          20.0,
+          40.0,
+          380.0,
+          460.0
+        ],
+        "displayCropBox": [
+          20.0,
+          40.0,
+          380.0,
+          460.0
+        ],
+        "rotation": 90,
+        "displayWidth": 420.0,
+        "displayHeight": 360.0,
+        "pdfToDisplay": [
+          0,
+          1,
+          1,
+          0,
+          -40.0,
+          -20.0
+        ]
+      },
+      {
+        "pageIndex": 2,
+        "mediaBox": [
+          0.0,
+          0.0,
+          400.0,
+          500.0
+        ],
+        "cropBox": [
+          20.0,
+          40.0,
+          380.0,
+          460.0
+        ],
+        "displayCropBox": [
+          20.0,
+          40.0,
+          380.0,
+          460.0
+        ],
+        "rotation": 180,
+        "displayWidth": 360.0,
+        "displayHeight": 420.0,
+        "pdfToDisplay": [
+          -1,
+          0,
+          0,
+          1,
+          380.0,
+          -40.0
+        ]
+      },
+      {
+        "pageIndex": 3,
+        "mediaBox": [
+          0.0,
+          0.0,
+          400.0,
+          500.0
+        ],
+        "cropBox": [
+          20.0,
+          40.0,
+          380.0,
+          460.0
+        ],
+        "displayCropBox": [
+          20.0,
+          40.0,
+          380.0,
+          460.0
+        ],
+        "rotation": 270,
+        "displayWidth": 420.0,
+        "displayHeight": 360.0,
+        "pdfToDisplay": [
+          0,
+          -1,
+          -1,
+          0,
+          460.0,
+          380.0
+        ]
+      }
+    ],
+    "warnings": []
+  }
+}

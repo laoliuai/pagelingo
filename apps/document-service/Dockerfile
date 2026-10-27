@@ -7,6 +7,9 @@ COPY apps/document-service/package.json apps/document-service/package.json
 COPY packages/translation-core/package.json packages/translation-core/package.json
 COPY packages/assistant-core/package.json packages/assistant-core/package.json
 COPY packages/document-contracts/package.json packages/document-contracts/package.json
+COPY apps/pdf-cli/package.json apps/pdf-cli/package.json
+COPY packages/document-renderer/package.json packages/document-renderer/package.json
+COPY packages/document-bundle/package.json packages/document-bundle/package.json
 RUN npm ci
 COPY . .
 RUN npm run build:site && npm prune --omit=dev
@@ -22,6 +25,11 @@ COPY --from=build /app/packages/assistant-core/package.json ./packages/assistant
 COPY --from=build /app/packages/assistant-core/dist ./packages/assistant-core/dist
 COPY --from=build /app/packages/document-contracts/package.json ./packages/document-contracts/package.json
 COPY --from=build /app/packages/document-contracts/dist ./packages/document-contracts/dist
+COPY --from=build /app/packages/document-renderer/package.json ./packages/document-renderer/package.json
+COPY --from=build /app/packages/document-renderer/dist ./packages/document-renderer/dist
+COPY --from=build /app/packages/document-renderer/static ./packages/document-renderer/static
+COPY --from=build /app/packages/document-bundle/package.json ./packages/document-bundle/package.json
+COPY --from=build /app/packages/document-bundle/dist ./packages/document-bundle/dist
 COPY --from=build /app/apps/document-service/package.json ./apps/document-service/package.json
 COPY --from=build /app/apps/document-service/dist ./apps/document-service/dist
 COPY --from=build /app/apps/document-service/migrations ./apps/document-service/migrations

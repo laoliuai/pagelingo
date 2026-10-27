@@ -1,0 +1,372 @@
+{
+  "schemaVersion": "pagelingo-preview-structure-validation/1",
+  "scope": "Original HTML layout plus mock extension render / mode switch / exact restore; no LLM requests",
+  "pages": [
+    {
+      "bundle": "llm-foundations",
+      "pdfPage": 5,
+      "blocks": 24,
+      "labels": [],
+      "translations": [],
+      "layout": [],
+      "continuationAligned": true,
+      "rowsKept": true,
+      "listsKept": true,
+      "notationKept": true,
+      "restored": true,
+      "callouts": 0,
+      "underlines": 0,
+      "underlinedValues": [],
+      "colors": 0
+    },
+    {
+      "bundle": "llm-foundations",
+      "pdfPage": 17,
+      "blocks": 16,
+      "labels": [],
+      "translations": [],
+      "layout": [
+        {
+          "block": 4,
+          "inset": "0",
+          "margin": 0,
+          "textIndent": 24.928
+        },
+        {
+          "block": 9,
+          "inset": "0",
+          "margin": 0,
+          "textIndent": 24.848
+        },
+        {
+          "block": 17,
+          "inset": "0",
+          "margin": 0,
+          "textIndent": 24.864
+        }
+      ],
+      "continuationAligned": true,
+      "rowsKept": true,
+      "listsKept": true,
+      "notationKept": true,
+      "restored": true,
+      "callouts": 2,
+      "underlines": 0,
+      "underlinedValues": [],
+      "colors": 0
+    },
+    {
+      "bundle": "llm-foundations",
+      "pdfPage": 30,
+      "blocks": 22,
+      "labels": [
+        {
+          "label": "Original (x):",
+          "value": "The puppies are frolicking outside the house .",
+          "labelHeight": 26.390625,
+          "labelLineHeight": 26.4,
+          "columns": "subgrid [] [] []",
+          "ddLeft": 417.8125
+        },
+        {
+          "label": "Token Masking (xnoise):",
+          "value": "The puppies are [MASK] outside [MASK] house .",
+          "labelHeight": 29.71875,
+          "labelLineHeight": 26.4,
+          "columns": "subgrid [] [] []",
+          "ddLeft": 417.8125
+        },
+        {
+          "label": "Token Deletion (xnoise):",
+          "value": "The puppies are frolicking outside the house .",
+          "labelHeight": 29.71875,
+          "labelLineHeight": 26.4,
+          "columns": "subgrid [] [] []",
+          "ddLeft": 417.8125
+        },
+        {
+          "label": "Original (x):",
+          "value": "The 0 puppies are frolicking outside the house .",
+          "labelHeight": 26.390625,
+          "labelLineHeight": 26.4,
+          "columns": "subgrid [] [] []",
+          "ddLeft": 426.25
+        },
+        {
+          "label": "Span Masking (xnoise):",
+          "value": "The [MASK] puppies are [MASK] house .",
+          "labelHeight": 29.71875,
+          "labelLineHeight": 26.4,
+          "columns": "subgrid [] [] []",
+          "ddLeft": 426.25
+        }
+      ],
+      "translations": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "layout": [
+        {
+          "block": 3,
+          "inset": "0",
+          "margin": 0,
+          "textIndent": 24.832
+        },
+        {
+          "block": 6,
+          "inset": "5.169",
+          "margin": 42.416,
+          "textIndent": 0
+        },
+        {
+          "block": 9,
+          "inset": "2.508",
+          "margin": 0,
+          "textIndent": 0
+        },
+        {
+          "block": 11,
+          "inset": "6.029",
+          "margin": 56.176,
+          "textIndent": 0
+        },
+        {
+          "block": 13,
+          "inset": "2.507",
+          "margin": 0,
+          "textIndent": 0
+        },
+        {
+          "block": 14,
+          "inset": "0",
+          "margin": 0,
+          "textIndent": 24.72
+        },
+        {
+          "block": 17,
+          "inset": "2.492",
+          "margin": 0,
+          "textIndent": 0
+        }
+      ],
+      "continuationAligned": true,
+      "rowsKept": true,
+      "listsKept": true,
+      "notationKept": true,
+      "restored": true,
+      "callouts": 0,
+      "underlines": 4,
+      "underlinedValues": [
+        "frolickingthe",
+        "",
+        "",
+        "0frolickingoutsidethe",
+        ""
+      ],
+      "colors": 2
+    },
+    {
+      "bundle": "llm-foundations",
+      "pdfPage": 34,
+      "blocks": 22,
+      "labels": [
+        {
+          "label": "Original:",
+          "value": "[CLS] It is raining . [SEP] I need an umbrella . [SEP]",
+          "labelHeight": 26.390625,
+          "labelLineHeight": 26.4,
+          "columns": "subgrid [] [] []",
+          "ddLeft": 372.484375
+        },
+        {
+          "label": "Unchanged Token:",
+          "value": "[CLS] It is raining . [SEP] I need an umbrella . [SEP]",
+          "labelHeight": 26.390625,
+          "labelLineHeight": 26.4,
+          "columns": "subgrid [] [] []",
+          "ddLeft": 372.484375
+        },
+        {
+          "label": "Sequence:",
+          "value": "[CLS] It is raining . [SEP] I need an umbrella . [SEP]",
+          "labelHeight": 26.390625,
+          "labelLineHeight": 26.4,
+          "columns": "subgrid [] [] []",
+          "ddLeft": 252.5625
+        },
+        {
+          "label": "Label:",
+          "value": "IsNext",
+          "labelHeight": 26.390625,
+          "labelLineHeight": 26.4,
+          "columns": "subgrid [] [] []",
+          "ddLeft": 252.5625
+        },
+        {
+          "label": "Sequence:",
+          "value": "[CLS] The cat sleeps on the windowsill . [SEP] Apples grow on trees . [SEP]",
+          "labelHeight": 26.390625,
+          "labelLineHeight": 26.4,
+          "columns": "subgrid [] [] []",
+          "ddLeft": 252.609375
+        },
+        {
+          "label": "Label:",
+          "value": "NotNext",
+          "labelHeight": 26.390625,
+          "labelLineHeight": 26.4,
+          "columns": "subgrid [] [] []",
+          "ddLeft": 252.609375
+        }
+      ],
+      "translations": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "layout": [
+        {
+          "block": 2,
+          "inset": "2.481",
+          "margin": 39.696,
+          "textIndent": 0
+        },
+        {
+          "block": 4,
+          "inset": "3.96",
+          "margin": 23.68,
+          "textIndent": 0
+        },
+        {
+          "block": 5,
+          "inset": "2.477",
+          "margin": 0,
+          "textIndent": 0
+        },
+        {
+          "block": 6,
+          "inset": "0",
+          "margin": 0,
+          "textIndent": 24.208
+        },
+        {
+          "block": 9,
+          "inset": "0",
+          "margin": 0,
+          "textIndent": 24.208
+        },
+        {
+          "block": 10,
+          "inset": "0.02",
+          "margin": 0.32,
+          "textIndent": 0
+        },
+        {
+          "block": 12,
+          "inset": "0.02",
+          "margin": 0.32,
+          "textIndent": 0
+        }
+      ],
+      "continuationAligned": true,
+      "rowsKept": true,
+      "listsKept": true,
+      "notationKept": true,
+      "restored": true,
+      "callouts": 0,
+      "underlines": 4,
+      "underlinedValues": [
+        "rainingIanumbrella",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "colors": 1
+    },
+    {
+      "bundle": "llm-foundations",
+      "pdfPage": 137,
+      "blocks": 17,
+      "labels": [],
+      "translations": [],
+      "layout": [
+        {
+          "block": 2,
+          "inset": "0",
+          "margin": 0,
+          "textIndent": 25.184
+        }
+      ],
+      "continuationAligned": true,
+      "rowsKept": true,
+      "listsKept": true,
+      "notationKept": true,
+      "restored": true,
+      "callouts": 2,
+      "underlines": 0,
+      "underlinedValues": [],
+      "colors": 0
+    },
+    {
+      "bundle": "llm-foundations",
+      "pdfPage": 218,
+      "blocks": 12,
+      "labels": [],
+      "translations": [],
+      "layout": [
+        {
+          "block": 3,
+          "inset": "0",
+          "margin": 0,
+          "textIndent": 24.704
+        },
+        {
+          "block": 7,
+          "inset": "1.548",
+          "margin": 24.768,
+          "textIndent": 0
+        }
+      ],
+      "continuationAligned": true,
+      "rowsKept": true,
+      "listsKept": true,
+      "notationKept": true,
+      "restored": true,
+      "callouts": 0,
+      "underlines": 0,
+      "underlinedValues": [],
+      "colors": 0
+    },
+    {
+      "bundle": "rl-little-book",
+      "pdfPage": 74,
+      "blocks": 7,
+      "labels": [],
+      "translations": [],
+      "layout": [],
+      "continuationAligned": true,
+      "rowsKept": true,
+      "listsKept": true,
+      "notationKept": true,
+      "restored": true,
+      "callouts": 0,
+      "underlines": 0,
+      "underlinedValues": [],
+      "colors": 0
+    }
+  ],
+  "errors": [],
+  "mobile": {
+    "width": 390,
+    "scrollWidth": 390,
+    "labels": 6
+  }
+}

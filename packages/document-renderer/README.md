@@ -70,3 +70,15 @@ After a build, `node packages/document-renderer/tests/offline-smoke.mjs` perform
 an optional Chromium `file://` smoke using the repository's existing Playwright
 installation. It creates and removes a temporary bundle, contacts no API and
 checks the three-chunk DOM / script window and keyboard divider.
+
+## S2 delivery acceptance
+
+See [S2 validation](../../docs/learning-site-s2-validation.md) and
+[reader workflow](../../docs/pdf-reader-workflow.md) for explicit local corpus inputs,
+offline resource checks, capacity measurements and upgrade/restart scope.
+Default checks use mocks and do not install Python/models or call paid APIs.
+
+Offline status keeps parse/translation/mock labels and a warning count. Native
+collapsed details preserve every diagnostic as text, with keyboard access and a
+20vh scroll region when expanded; per-chunk notices remain visible. The explicit
+offline smoke checks hundreds of warnings without filling the initial viewport.
