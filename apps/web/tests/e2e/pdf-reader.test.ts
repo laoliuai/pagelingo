@@ -197,19 +197,23 @@ test('mobile ordinary entry shows useful body space in both themes without passi
 
 test('full-coverage imported warnings remain complete inert and bounded after keyboard expansion', async ({ page }) => {
   await newReader(page, 'warnings');
-  const warnings = ['source-binding-unavailable:source-only-block', 'unsupported-list-markers:chapter', '<img src="https://example.invalid/leak" onerror="alert(1)">', ...Array.from({ length: 300 }, (_, i) => `source-evidence-conflict:block-${i}`)];
+  const warnings = ['source-binding-unavailable:source-only-block', 'unsupported-list-markers:chapter', 'ordinary-unknown:block', '__proto__:block', 'constructor:block', 'toString:block', '<img src="https://example.invalid/leak" onerror="alert(1)">', ...Array.from({ length: 300 }, (_, i) => `source-evidence-conflict:block-${i}`)];
   const result = await ingest(page, await readerBundle(false, false, '译文 ', { warnings, mathFallback: true }));
   await page.setViewportSize({ width: 390, height: 844 }); await page.goto(`/library/${result.documentId}`);
   const disclosure = page.locator('.reader-warnings'); const summary = disclosure.locator('summary');
-  await expect(summary).toContainText('303'); await expect(disclosure).not.toHaveAttribute('open');
+  await expect(summary).toContainText('307'); await expect(disclosure).not.toHaveAttribute('open');
   await expect(page.getByText(/解析不完整/)).toHaveCount(0);
   await summary.focus(); await page.keyboard.press('Enter'); await expect(disclosure).toHaveAttribute('open', '');
   expect(await disclosure.locator('li code').allTextContents()).toEqual(warnings);
+  for (const warning of ['ordinary-unknown:block', '__proto__:block', 'constructor:block', 'toString:block']) {
+    const item = disclosure.locator('li').filter({ has: page.getByText(warning, { exact: true }) });
+    await expect(item).toHaveText(warning); await expect(item.locator('span')).toHaveCount(0);
+  }
   await expect(disclosure).toContainText('仅保留原文'); await expect(disclosure).toContainText('列表');
   await expect(disclosure.locator('img, script')).toHaveCount(0);
   const box = await disclosure.locator('ul').evaluate(list => ({ height: list.clientHeight, scroll: list.scrollHeight, overflow: getComputedStyle(list).overflowY }));
   expect(box.height).toBeLessThanOrEqual(170); expect(box.scroll).toBeGreaterThan(box.height); expect(box.overflow).toBe('auto');
-  await capture(page, 's2-final-mobile-warnings', false);
+  await capture(page, 's2-n1-mobile-warnings', false);
   await summary.focus(); await page.keyboard.press('Enter');
   await page.getByLabel('正文分片').fill('3'); await page.getByRole('button', { name: '跳转正文' }).click();
   await expect(page.locator('.reader-content')).toContainText('公式无法在显示预算内排版，已保留原始 LaTeX。');

@@ -9,7 +9,8 @@ export function ReaderWarnings({ warnings }: { warnings: readonly string[] }) {
   if (!retained.length) return null;
   return <details className="reader-warnings"><summary>解析与阅读提示 · {retained.length} 条</summary>
     <ul aria-label="完整解析与阅读提示" tabIndex={0}>{retained.map(warning => {
-      const explanation = explanations[warning.split(':', 1)[0]];
+      const code = warning.split(':', 1)[0];
+      const explanation = Object.hasOwn(explanations, code) ? explanations[code] : undefined;
       return <li key={warning}>{explanation && <span>{explanation} </span>}<code>{warning}</code></li>;
     })}</ul>
   </details>;

@@ -1,8 +1,8 @@
 [
   {
     "path": "README.md",
-    "sha256": "b963dda4022db043538ecf21c78eb9ffb76049e258bb5330d48d02f8cf34c5fa",
-    "bytes": 4414
+    "sha256": "038f5827ab9281fa17e8f813a9730edb3246c5c1aa5bfcd9356ff2ffa58c825e",
+    "bytes": 5144
   },
   {
     "path": "acceptance-summary.json",
@@ -200,6 +200,11 @@
     "bytes": 81202
   },
   {
+    "path": "s2-n1-mobile-warnings.png",
+    "sha256": "b4d16d51d08b946ebf2b7a3fd1f355c658671f41c045a71f0d1608aa6fd6eeef",
+    "bytes": 75952
+  },
+  {
     "path": "s2-reader-desktop-dark.png",
     "sha256": "a8e8430e8b3704f632b98bd8c26f40266ae6e11e8b2032d51c368b1b5463e52b",
     "bytes": 115264
@@ -216,7 +221,7 @@
   },
   {
     "path": "verification.json",
-    "sha256": "1c3f9d7b1662ff854be4cb31e96192a4e23e9be4208d72fc355ce2943ce532f1",
-    "bytes": 1460
+    "sha256": "5c6db7496e6dea487270897a1e5487a22e4e896833bf6b5b75bd615c0a0d80e9",
+    "bytes": 1962
   }
 ]

@@ -36,5 +36,19 @@
     "mock echo is not semantic translation quality evidence",
     "headless native PDF iframe raster appearance unverified",
     "Linux Chromium only"
-  ]
+  ],
+  "warningInheritedNameCorrection": {
+    "scope": "N1 only, own-property guard in web warning explanations",
+    "directActualComponentCases": 5,
+    "browserCasesPassed": 2,
+    "warningsInExpandedFixture": 307,
+    "inheritedCodes": [
+      "__proto__",
+      "constructor",
+      "toString"
+    ],
+    "buildAndTypecheck": "web passed",
+    "rendererCatalogInputsUnchanged": 26,
+    "earlierEvidence": "full web, all4 exports/Docker, CLI, runtime and Python proofs carried forward; not rerun"
+  }
 }
