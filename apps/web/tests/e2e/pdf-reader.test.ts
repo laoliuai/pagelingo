@@ -185,7 +185,7 @@ test('mobile ordinary entry shows useful body space in both themes without passi
     await page.goto(`/library/${result.documentId}`);
     await expect(page.locator('.reader-content')).toContainText('译文');
     await page.waitForTimeout(1800);
-    const geometry = await mobileReadingGeometry(page); console.log('mobile entry', theme, geometry);
+    const geometry = await mobileReadingGeometry(page); if (process.env.PAGELINGO_DEBUG_GEOMETRY === '1') console.log(theme, geometry);
     expect(geometry.outerScroll).toBe(0); expect(geometry.visibleHeight).toBeGreaterThanOrEqual(240); expect(geometry.paragraphVisible).toBeGreaterThanOrEqual(50);
     await expect(page.getByLabel('阅读视图')).toBeInViewport();
     await expect(page.getByText(/模拟译文/).first()).toBeInViewport();

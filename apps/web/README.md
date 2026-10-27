@@ -98,3 +98,7 @@ The 20,000-block capacity fixture uses compact paragraphs within the existing
 
 Selected actual desktop and 390×844 viewport captures in both themes are in
 [S3 Web Reader validation](../../docs/superpowers/specs/assets/2026-10-27-s3-validation/).
+
+## S3 acceptance and operations
+
+See [capture workflow](../../docs/extension-site-capture.md) and [validation boundaries](../../docs/learning-site-s3-validation.md). From the repository root, build the site and extension, then run `npm run check:web-capture -- --samples tests/fixtures/web-s3/samples.json --output <new-directory>`. This declares synthetic inputs explicitly and uses the actual native extension, service, private store and independent mock worker. It reads no user environment file and makes no paid model call.

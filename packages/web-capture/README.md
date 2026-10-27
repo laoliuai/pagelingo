@@ -141,3 +141,7 @@ null content fingerprint; it already binds the exact source snapshot hash. After
 resource acquisition the extension finalizer computes the actual content fingerprint
 and validates the strict upload candidate. Unsupported source proofs warn and skip
 translations while preserving the original.
+
+## S3 acceptance and operations
+
+See [capture workflow](../../docs/extension-site-capture.md) and [validation boundaries](../../docs/learning-site-s3-validation.md). From the repository root, build the site and extension, then run `npm run check:web-capture -- --samples tests/fixtures/web-s3/samples.json --output <new-directory>`. This declares synthetic inputs explicitly and uses the actual native extension, service, private store and independent mock worker. It reads no user environment file and makes no paid model call.

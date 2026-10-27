@@ -9,12 +9,15 @@ import { defaultBundleLimits } from '@pagelingo/document-contracts';
 import { createArchiveFileSource, validateBundle } from '@pagelingo/document-bundle';
 import { fixture, english } from '../apps/pdf-cli/tests/fixtures/legacy-preview/create.ts';
 import { processPdf, translateRun, exportBundle } from '../apps/pdf-cli/dist/index.js';
+import { withCandidates } from '../apps/document-service/tests/helpers/web-capture.ts';
 import { buildPdfFixture } from '../tests/fixtures/pdf.ts';
 const archivePaths = [];
 for (let i = 2; i < process.argv.length; i++) {
   if (process.argv[i] !== '--bundle' || !process.argv[i + 1]) throw new Error('Usage: test:site:restart -- [--bundle <current.zip>]...');
   archivePaths.push(resolve(process.argv[++i]));
 }
+const archiveHashes = new Map();
+for (const path of archivePaths) archiveHashes.set(path, createHash('sha256').update(await readFile(path)).digest('hex'));
 let ownedFixture;
 const directory = await mkdtemp(join(tmpdir(), 'pgl-restart-'));
 const envFile = join(directory, '.env');
@@ -82,9 +85,9 @@ try {
   started = true;
   await compose(['build', 'app']);
   await compose(['up', '--detach', '--wait', 'db']);
-  // Start from a populated S1 schema in this project's fresh database. The normal
-  // S2 entrypoint must subsequently apply 005 without replacing its account/PDF.
-  const s1Bootstrap = `import {readFile,readdir} from 'node:fs/promises';
+  // Start from a populated S2 schema in this project's fresh database. The normal
+  // S3 entrypoint must subsequently apply 006 without replacing its account/PDF.
+  const s2Bootstrap = `import {readFile,readdir} from 'node:fs/promises';
 import {createHash,randomUUID} from 'node:crypto';
 import {openDatabase} from './apps/document-service/dist/db/database.js';
 import {hashPassword} from './apps/document-service/dist/auth/passwords.js';
@@ -93,21 +96,21 @@ let input='';for await(const chunk of process.stdin)input+=chunk;const f=JSON.pa
 const db=openDatabase(process.env.DATABASE_URL);try {
 await db.transaction(async c=>{
 await c.query('CREATE TABLE schema_migrations(id text PRIMARY KEY,checksum text NOT NULL,applied_at timestamptz NOT NULL DEFAULT now())');
-for(const name of (await readdir('apps/document-service/migrations')).filter(n=>/^00[1-4]-.*\\.sql$/.test(n)).sort()) {
+for(const name of (await readdir('apps/document-service/migrations')).filter(n=>/^00[1-5]-.*\\.sql$/.test(n)).sort()) {
 const sql=await readFile('apps/document-service/migrations/'+name,'utf8');await c.query(sql);await c.query('INSERT INTO schema_migrations(id,checksum) VALUES($1,$2)',[name.slice(0,-4),createHash('sha256').update(sql).digest('hex')]);
 }
 const owner=randomUUID(),document=randomUUID(),asset=randomUUID(),source=randomUUID(),key=randomUUID();
 await c.query('INSERT INTO users(id,username,password_hash) VALUES($1,$2,$3)',[owner,'restartreader',await hashPassword(f.password)]);
 const bytes=Buffer.from(f.pdf,'base64');const store=createLocalObjectStore(process.env.PAGELINGO_DATA_DIR);const stored=await store.putImmutable(key,(async function*(){yield bytes;})(),bytes.length);
-await c.query('INSERT INTO documents(id,owner_id,title,original_filename) VALUES($1,$2,$3,$4)',[document,owner,'S1 retained PDF','restart.pdf']);
+await c.query('INSERT INTO documents(id,owner_id,title,original_filename) VALUES($1,$2,$3,$4)',[document,owner,'S2 retained PDF','restart.pdf']);
 await c.query('INSERT INTO assets(id,owner_id,document_id,object_key,sha256,bytes,media_type) VALUES($1,$2,$3,$4,$5,$6,$7)',[asset,owner,document,key,stored.sha256,stored.bytes,'application/pdf']);
 await c.query('INSERT INTO source_versions(id,owner_id,document_id,asset_id,sha256,bytes) VALUES($1,$2,$3,$4,$5,$6)',[source,owner,document,asset,stored.sha256,stored.bytes]);
 await c.query('UPDATE documents SET current_source_version_id=$1 WHERE id=$2',[source,document]);
-console.log(JSON.stringify({id:document,migrations:4}));
+console.log(JSON.stringify({id:document,migrations:5}));
 });}finally{await db.close();}`;
   const pdf = buildPdfFixture(2);
-  const seeded = JSON.parse(await compose(['run', '--rm', '--no-deps', '-T', 'app', 'node', '--input-type=module', '-e', s1Bootstrap], JSON.stringify({ password: readerPassword, pdf: Buffer.from(pdf).toString('base64') })));
-  assert.equal(seeded.migrations, 4);
+  const seeded = JSON.parse(await compose(['run', '--rm', '--no-deps', '-T', 'app', 'node', '--input-type=module', '-e', s2Bootstrap], JSON.stringify({ password: readerPassword, pdf: Buffer.from(pdf).toString('base64') })));
+  assert.equal(seeded.migrations, 5);
   await compose(['up', '--detach', '--wait', 'app']);
   const mapping = await compose(['port', 'app', '4320']);
   assert.match(mapping, /^127\.0\.0\.1:\d+$/);
@@ -143,7 +146,7 @@ console.log('pass');
   const admin = await login('restartadmin', adminPassword);
   const reader = await login('restartreader', readerPassword);
   const documentResponse = await request(`/api/v1/documents/${seeded.id}`, { actor: reader });
-  assert.equal(documentResponse.status, 200, 'S1 document survived 005');
+  assert.equal(documentResponse.status, 200, 'S2 document survived 006');
   const document = await documentResponse.json();
   if (!archivePaths.length) {
     ownedFixture = await fixture(`<article class="docvortex-document"><h1>Restart reader</h1><p>${english}</p></article>`, buildPdfFixture(1), {
@@ -160,21 +163,17 @@ console.log('pass');
   const imported = [];
   for (const archivePath of archivePaths) {
     const validated = await validateBundle(createArchiveFileSource(archivePath, defaultBundleLimits), { limits: defaultBundleLimits });
-    const sourceFile = createArchiveFileSource(archivePath, defaultBundleLimits); const parts = [];
-    for await (const part of sourceFile.read('source.pdf')) parts.push(part);
-    const form = new FormData(); form.set('file', new Blob(parts, { type: 'application/pdf' }), validated.manifest.originalFilename);
-    const upload = await request('/api/v1/documents/pdf', { actor: reader, method: 'POST', body: form, headers: { 'Idempotency-Key': randomUUID() } });
-    assert.equal(upload.status, 201); const original = await upload.json();
+    let documentId;
     const bytes = await readFile(archivePath);
     async function importSame() {
-      const create = await request('/api/v1/bundle-imports', { actor: reader, method: 'POST', body: { targetDocumentId: original.id }, headers: { 'Idempotency-Key': randomUUID() } });
+      const create = await request('/api/v1/bundle-imports', { actor: reader, method: 'POST', body: documentId ? { targetDocumentId: documentId } : {}, headers: { 'Idempotency-Key': randomUUID() } });
       assert.equal(create.status, 201, `bundle create HTTP ${create.status}`); const pending = await create.json();
       const receive = await request(`/api/v1/bundle-imports/${pending.id}/content`, { actor: reader, method: 'PUT', body: bytes, headers: { 'Content-Type': 'application/zip' } });
-      assert.equal(receive.status, 200, `bundle receive HTTP ${receive.status}`); const result = await receive.json(); assert.equal(result.status, 'completed'); assert.equal(result.documentId, original.id); return result;
+      assert.equal(receive.status, 200, `bundle receive HTTP ${receive.status}`); const result = await receive.json(); assert.equal(result.status, 'completed'); if (documentId) assert.equal(result.documentId, documentId); else documentId = result.documentId; return result;
     }
     const accepted = await importSame(); const duplicate = await importSame();
     assert.equal(duplicate.readerVersionId, accepted.readerVersionId, 'same entry and package are idempotent');
-    const base = `/api/v1/documents/${original.id}`;
+    const base = `/api/v1/documents/${documentId}`;
     const descriptor = await (await request(`${base}/reader`, { actor: reader })).json();
     const blockId = Object.keys(descriptor.index.blockLocations).at(-1);
     const position = { readerVersionId: descriptor.versionId, sourceVersionId: descriptor.source.sourceVersionId, parseId: descriptor.parseId, blockId, blockOffset: 0.3, pdfPageIndex: descriptor.pages.length - 1, view: 'split', contentMode: 'translation' };
@@ -186,12 +185,49 @@ console.log('pass');
   const { revision, hasApiKey, ...settings } = profile;
   const save = await request('/api/v1/settings/provider', { actor: reader, method: 'PUT', body: { expectedRevision: revision, settings: { ...settings, baseUrl: 'https://api.example.com/v1', model: 'restart-fixture' }, key: { action: 'replace', value: fakeKey } } });
   assert.equal(save.status, 200);
-  // Recreate both containers so persistence cannot accidentally rely on writable layers.
+  // Capture a real Web original with one supported imported block, leaving other text partial.
+  // Echo candidates prove retained structure, never translation quality.
+  const web = await withCandidates('<article><h1>Retained web source</h1><p>The software system preserves the first original paragraph for later reading.</p><p>The second original paragraph remains untranslated after the partial import.</p><img src="https://resource.example/chart.png"></article>');
+  const candidate = JSON.parse(web.translation.toString()); candidate.blocks = candidate.blocks.slice(0, 1);
+  web.translation = Buffer.from(JSON.stringify(candidate));
+  const translationFile = web.manifest.files.find(file => file.id === 'translation');
+  translationFile.bytes = web.translation.length; translationFile.sha256 = createHash('sha256').update(web.translation).digest('hex');
+  const captureCreate = await request('/api/v1/captures', { actor: reader, method: 'POST', body: { manifest: web.manifest, translationIntent: 'none' }, headers: { 'Idempotency-Key': web.manifest.captureId } });
+  assert.equal(captureCreate.status, 201); const capture = await captureCreate.json();
+  for (const file of web.manifest.files) {
+    const response = await request(`/api/v1/captures/${capture.id}/files/${file.id}`, { actor: reader, method: 'PUT', body: file.id === 'html' ? web.body : web.translation, headers: { 'Content-Type': file.mediaType } });
+    assert.equal(response.status, 200);
+  }
+  const committed = await request(`/api/v1/captures/${capture.id}/commit`, { actor: reader, method: 'POST', body: {} });
+  assert.equal(committed.status, 200); const webResult = await committed.json();
+  const webBase = `/api/v1/documents/${webResult.documentId}`;
+  const webDescriptor = await (await request(webBase + '/web-reader', { actor: reader })).json();
+  assert.equal(webDescriptor.index.generationKind, 'import'); assert.equal(webDescriptor.translationStatus, 'partial');
+  const webManifest = await (await request(`${webBase}/web-snapshots/${webDescriptor.source.sourceVersionId}/manifest`, { actor: reader })).json();
+  const webPosition = { readerVersionId: webDescriptor.versionId, sourceVersionId: webDescriptor.source.sourceVersionId, parseId: webDescriptor.parseId, blockId: Object.keys(webDescriptor.index.blockLocations)[0], blockOffset: 0.4, view: 'content', contentMode: 'bilingual' };
+  const webProgressResponse = await request(webBase + '/web-progress', { actor: reader, method: 'PUT', body: { expectedRevision: 0, position: webPosition } });
+  assert.equal(webProgressResponse.status, 200); const webProgress = await webProgressResponse.json();
+  const glossaryResponse = await request('/api/v1/settings/glossary', { actor: reader, method: 'PUT', body: { expectedRevision: 0, entries: [{ source: 'software', target: '软件', policy: 'translate', domain: 'all' }] } });
+  assert.equal(glossaryResponse.status, 200); const glossary = await glossaryResponse.json();
+  await compose(['up', '--detach', '--wait', 'worker']);
+  assert.match(await compose(['top', 'worker']), /worker\/main.js/);
+  // Recreate API, worker and database containers so persistence cannot accidentally rely on writable layers.
   // Keep only this project's named volumes until final cleanup.
   await compose(['down']);
   await compose(['up', '--detach', '--build', '--wait']);
   await ready();
   await login('restartreader', readerPassword);
+  assert.match(await compose(['top', 'worker']), /worker\/main.js/);
+  assert.deepEqual(await (await request(webBase + '/web-reader', { actor: reader })).json(), { ...webDescriptor, progress: webProgress });
+  assert.deepEqual(await (await request(webBase + '/web-progress', { actor: reader })).json(), webProgress);
+  assert.deepEqual(await (await request('/api/v1/settings/glossary', { actor: reader })).json(), glossary);
+  for (const file of webManifest.files) {
+    const path = `${webBase}/web-snapshots/${webDescriptor.source.sourceVersionId}/files/${file.id}`;
+    const response = await request(path, { actor: reader }); assert.equal(response.status, 200);
+    assert.equal(createHash('sha256').update(Buffer.from(await response.arrayBuffer())).digest('hex'), file.sha256);
+    assert.equal((await request(path)).status, 401); assert.equal((await request(path, { actor: admin })).status, 404);
+  }
+  console.log('Web original, partial imported translation, glossary, progress and private files survived API/worker/database retained-volume recreation.');
   for (const entry of imported) {
     const { base, validated, descriptor, progress, archiveSha256 } = entry;
     const restoredDescriptor = await (await request(`${base}/reader`, { actor: reader })).json();
@@ -249,12 +285,17 @@ if(openApiKey(storedSecret(row),fixture.owner,config.keyring)!==fixture.key) pro
   for (const path of ['/library', `/library/${document.id}`]) assert.equal((await request(path)).status, 200);
   for (const path of ['/api/missing', '/assets/missing.js', '/missing.js']) assert.equal((await request(path)).status, 404);
   console.log('Image contents and resources passed.');
-  console.log('Restart acceptance passed: S1→005, same-entry/idempotent bundle import, reader chunks/translation/assets/download/progress, PDF hash, profile decryption, sessions, ownership, revocation, SPA boundaries.');
+  console.log('Restart acceptance passed: S2→006, same-entry/idempotent bundle import, reader chunks/translation/assets/download/progress, PDF hash, profile decryption, sessions, ownership, revocation, SPA boundaries.');
 } catch (error) {
   console.error(error instanceof assert.AssertionError ? `Restart assertion failed: ${error.message.split('\n')[0]}` : error.message);
   if (error instanceof assert.AssertionError) console.error(error.stack.split('\n').find(line => line.includes('check-site-restart.mjs:')) ?? 'No assertion location');
   process.exitCode ||= 1;
 } finally {
+  for (const [path, before] of archiveHashes) {
+    const after = createHash('sha256').update(await readFile(path)).digest('hex');
+    console.log(JSON.stringify({ archive: path, before, after, unchanged: before === after }));
+    if (before !== after) process.exitCode = 1;
+  }
   if (started) {
     try { await compose(['down', '--volumes', '--remove-orphans', '--rmi', 'local']); }
     catch { console.error('Failed to clean isolated restart project: ' + project); process.exitCode ||= 1; }

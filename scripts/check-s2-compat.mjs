@@ -52,18 +52,29 @@ export async function checkS2Compat(options) {
   const save = () => writeFile(join(output, 'report.json'), JSON.stringify(report, null, 2) + '\n');
   try {
     for (const path of archives) {
-      const archiveSha256Before = await fileHash(path);
-      const validated = await validateBundle(createArchiveFileSource(path, defaultBundleLimits), { limits: defaultBundleLimits });
-      const archiveSha256After = await fileHash(path);
-      assert.equal(archiveSha256After, archiveSha256Before, 'Original archive changed during validation');
-      report.samples.push({
-        input: path, archiveBytes: (await lstat(path)).size, archiveSha256Before, archiveSha256After,
-        packageId: validated.packageId, manifestSha256: validated.manifestSha256,
-        renderer: validated.manifest.renderer, sourceSha256: validated.ir.source.sha256,
-        readerIrSha256: validated.manifest.readerIrSha256, translationSha256: validated.manifest.translation.sha256,
-        files: validated.files.length + 1, chunks: validated.readerBuild.chunks.length,
-      });
+      const sample = { input: path, status: 'running', archiveBytes: (await lstat(path)).size,
+        archiveSha256Before: await fileHash(path) };
+      report.samples.push(sample);
       await save();
+      try {
+        const validated = await validateBundle(createArchiveFileSource(path, defaultBundleLimits), { limits: defaultBundleLimits });
+        Object.assign(sample, {
+          status: 'passed', packageId: validated.packageId, manifestSha256: validated.manifestSha256,
+          renderer: validated.manifest.renderer, sourceSha256: validated.ir.source.sha256,
+          readerIrSha256: validated.manifest.readerIrSha256, translationSha256: validated.manifest.translation.sha256,
+          files: validated.files.length + 1, chunks: validated.readerBuild.chunks.length,
+        });
+      } catch (error) {
+        sample.status = 'failed'; sample.error = error.message;
+        throw error;
+      } finally {
+        sample.archiveSha256After = await fileHash(path);
+        if (sample.archiveSha256After !== sample.archiveSha256Before) {
+          sample.status = 'failed'; sample.error = 'Original archive changed during validation';
+        }
+        await save();
+        assert.equal(sample.archiveSha256After, sample.archiveSha256Before, 'Original archive changed during validation');
+      }
     }
     report.status = 'passed';
     await save();

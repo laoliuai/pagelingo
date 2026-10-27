@@ -59,7 +59,8 @@
     "check:pdf-reader": "npm run build:pdf && node scripts/check-pdf-reader.mjs",
     "build:web-capture": "npm run build:contracts && npm run build --workspace @pagelingo/web-capture",
     "test:web-capture": "npm run build:web-capture && npm run test --workspace @pagelingo/web-capture",
-    "test:web-capture:browser": "npm run build:web-capture && npm run test:browser --workspace @pagelingo/web-capture"
+    "test:web-capture:browser": "npm run build:web-capture && npm run test:browser --workspace @pagelingo/web-capture",
+    "check:web-capture": "node scripts/check-web-capture.mjs"
   },
   "engines": {
     "node": ">=24.0.0"

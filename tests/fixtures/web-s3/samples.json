@@ -1,0 +1,253 @@
+{
+  "schemaVersion": "pagelingo-web-samples/1",
+  "samples": [
+    {
+      "id": "blog-en",
+      "kind": "synthetic",
+      "url": "https://capture.example/article/en",
+      "htmlFile": "blog-en.html",
+      "sha256": "9587a6de716c5cbf9d23b8165892aecea8768456fcc2040b4addf4359266146f",
+      "capturedAt": "2026-10-28T00:00:00Z",
+      "expected": {
+        "scope": "article",
+        "contains": [
+          "The reader can save the original article and review the source after the website is unavailable. This software system preserves the document and the following examples explain how the application works.",
+          "const saved = 1;"
+        ],
+        "excludes": [
+          "EXCLUDED_"
+        ],
+        "language": "en"
+      },
+      "resources": [
+        {
+          "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAYAAAC09K7GAAAAEUlEQVR4nGNgaGj4j4IJCgAAUTEX9QIGMYYAAAAASUVORK5CYII=",
+          "file": "pixel.png",
+          "sha256": "2c9a84434474af542a355370278c8a78dbbba983f74400608566ab9e9bed7bdd",
+          "mediaType": "image/png"
+        }
+      ],
+      "unverified": [
+        "Live source DOM and authenticated sessions",
+        "Linguistic translation quality"
+      ]
+    },
+    {
+      "id": "blog-zh",
+      "kind": "synthetic",
+      "url": "https://capture.example/article/zh",
+      "htmlFile": "blog-zh.html",
+      "sha256": "4179d44adf0fcd6addb34fe3f9a8ca50e20765a9fa99246805a9ae0624239ae5",
+      "capturedAt": "2026-10-28T00:00:00Z",
+      "expected": {
+        "scope": "article",
+        "contains": [
+          "这是保存的中文原文。资料站点保留来源、图片、代码和公式，网页无法访问后仍可阅读。中文原文无需调用模型翻译。",
+          "const saved = 1;"
+        ],
+        "excludes": [
+          "EXCLUDED_"
+        ],
+        "language": "zh"
+      },
+      "resources": [
+        {
+          "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAYAAAC09K7GAAAAEUlEQVR4nGNgaGj4j4IJCgAAUTEX9QIGMYYAAAAASUVORK5CYII=",
+          "file": "pixel.png",
+          "sha256": "2c9a84434474af542a355370278c8a78dbbba983f74400608566ab9e9bed7bdd",
+          "mediaType": "image/png"
+        }
+      ],
+      "unverified": [
+        "Live source DOM and authenticated sessions",
+        "Linguistic translation quality"
+      ]
+    },
+    {
+      "id": "x-en",
+      "kind": "synthetic",
+      "url": "https://x.com/fixture/status/123",
+      "htmlFile": "x-en.html",
+      "sha256": "3b3f79229b4cbcfcc405fa55f833a9cf5c2e18f8a82fdefaa9f3d23e9fa3e6ad",
+      "capturedAt": "2026-10-28T00:00:00Z",
+      "expected": {
+        "scope": "x-post",
+        "contains": [
+          "The reader can save the original article and review the source after the website is unavailable. This software system preserves the document and the following examples explain how the application works.",
+          "const saved = 1;"
+        ],
+        "excludes": [
+          "EXCLUDED_"
+        ],
+        "language": "en"
+      },
+      "resources": [
+        {
+          "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAYAAAC09K7GAAAAEUlEQVR4nGNgaGj4j4IJCgAAUTEX9QIGMYYAAAAASUVORK5CYII=",
+          "file": "pixel.png",
+          "sha256": "2c9a84434474af542a355370278c8a78dbbba983f74400608566ab9e9bed7bdd",
+          "mediaType": "image/png"
+        }
+      ],
+      "unverified": [
+        "Live source DOM and authenticated sessions",
+        "Linguistic translation quality"
+      ]
+    },
+    {
+      "id": "x-zh",
+      "kind": "synthetic",
+      "url": "https://x.com/fixture/status/124",
+      "htmlFile": "x-zh.html",
+      "sha256": "2cd3a854f0a0b5c9f099a3e70b8d8fe34a67596c9e1bbcc5f2afd640e4f00779",
+      "capturedAt": "2026-10-28T00:00:00Z",
+      "expected": {
+        "scope": "x-post",
+        "contains": [
+          "这是保存的中文原文。资料站点保留来源、图片、代码和公式，网页无法访问后仍可阅读。中文原文无需调用模型翻译。",
+          "const saved = 1;"
+        ],
+        "excludes": [
+          "EXCLUDED_"
+        ],
+        "language": "zh"
+      },
+      "resources": [
+        {
+          "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAYAAAC09K7GAAAAEUlEQVR4nGNgaGj4j4IJCgAAUTEX9QIGMYYAAAAASUVORK5CYII=",
+          "file": "pixel.png",
+          "sha256": "2c9a84434474af542a355370278c8a78dbbba983f74400608566ab9e9bed7bdd",
+          "mediaType": "image/png"
+        }
+      ],
+      "unverified": [
+        "Live source DOM and authenticated sessions",
+        "Linguistic translation quality"
+      ]
+    },
+    {
+      "id": "zhihu-en",
+      "kind": "synthetic",
+      "url": "https://www.zhihu.com/question/1/answer/22",
+      "htmlFile": "zhihu-en.html",
+      "sha256": "854cd5f58d07a7273dc1f9c313a920ddcae00e9319d5c9dcab2d789a476c1fe0",
+      "capturedAt": "2026-10-28T00:00:00Z",
+      "expected": {
+        "scope": "answer",
+        "contains": [
+          "The reader can save the original article and review the source after the website is unavailable. This software system preserves the document and the following examples explain how the application works.",
+          "const saved = 1;"
+        ],
+        "excludes": [
+          "EXCLUDED_"
+        ],
+        "language": "en"
+      },
+      "resources": [
+        {
+          "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAYAAAC09K7GAAAAEUlEQVR4nGNgaGj4j4IJCgAAUTEX9QIGMYYAAAAASUVORK5CYII=",
+          "file": "pixel.png",
+          "sha256": "2c9a84434474af542a355370278c8a78dbbba983f74400608566ab9e9bed7bdd",
+          "mediaType": "image/png"
+        }
+      ],
+      "unverified": [
+        "Live source DOM and authenticated sessions",
+        "Linguistic translation quality"
+      ]
+    },
+    {
+      "id": "zhihu-zh",
+      "kind": "synthetic",
+      "url": "https://www.zhihu.com/question/1/answer/23",
+      "htmlFile": "zhihu-zh.html",
+      "sha256": "1d9ea106465b44d15a30e95e8fc388c328b073131bb227934b7febfec3d2d1e6",
+      "capturedAt": "2026-10-28T00:00:00Z",
+      "expected": {
+        "scope": "answer",
+        "contains": [
+          "这是保存的中文原文。资料站点保留来源、图片、代码和公式，网页无法访问后仍可阅读。中文原文无需调用模型翻译。",
+          "const saved = 1;"
+        ],
+        "excludes": [
+          "EXCLUDED_"
+        ],
+        "language": "zh"
+      },
+      "resources": [
+        {
+          "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAYAAAC09K7GAAAAEUlEQVR4nGNgaGj4j4IJCgAAUTEX9QIGMYYAAAAASUVORK5CYII=",
+          "file": "pixel.png",
+          "sha256": "2c9a84434474af542a355370278c8a78dbbba983f74400608566ab9e9bed7bdd",
+          "mediaType": "image/png"
+        }
+      ],
+      "unverified": [
+        "Live source DOM and authenticated sessions",
+        "Linguistic translation quality"
+      ]
+    },
+    {
+      "id": "wechat-en",
+      "kind": "synthetic",
+      "url": "https://mp.weixin.qq.com/s?__biz=fixture&mid=en&idx=1&sn=own",
+      "htmlFile": "wechat-en.html",
+      "sha256": "1b5577bf952609a643c850e7c8cb15e9d4a9018942500b204ad0ec4ae5b248c9",
+      "capturedAt": "2026-10-28T00:00:00Z",
+      "expected": {
+        "scope": "article",
+        "contains": [
+          "The reader can save the original article and review the source after the website is unavailable. This software system preserves the document and the following examples explain how the application works.",
+          "const saved = 1;"
+        ],
+        "excludes": [
+          "EXCLUDED_"
+        ],
+        "language": "en"
+      },
+      "resources": [
+        {
+          "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAYAAAC09K7GAAAAEUlEQVR4nGNgaGj4j4IJCgAAUTEX9QIGMYYAAAAASUVORK5CYII=",
+          "file": "pixel.png",
+          "sha256": "2c9a84434474af542a355370278c8a78dbbba983f74400608566ab9e9bed7bdd",
+          "mediaType": "image/png"
+        }
+      ],
+      "unverified": [
+        "Live source DOM and authenticated sessions",
+        "Linguistic translation quality"
+      ]
+    },
+    {
+      "id": "wechat-zh",
+      "kind": "synthetic",
+      "url": "https://mp.weixin.qq.com/s?__biz=fixture&mid=zh&idx=1&sn=own",
+      "htmlFile": "wechat-zh.html",
+      "sha256": "d7c6dd3284c46bd44e75dc554804c649ccca8516d7e5317518d6e90c4b0b4df3",
+      "capturedAt": "2026-10-28T00:00:00Z",
+      "expected": {
+        "scope": "article",
+        "contains": [
+          "这是保存的中文原文。资料站点保留来源、图片、代码和公式，网页无法访问后仍可阅读。中文原文无需调用模型翻译。",
+          "const saved = 1;"
+        ],
+        "excludes": [
+          "EXCLUDED_"
+        ],
+        "language": "zh"
+      },
+      "resources": [
+        {
+          "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAYAAAC09K7GAAAAEUlEQVR4nGNgaGj4j4IJCgAAUTEX9QIGMYYAAAAASUVORK5CYII=",
+          "file": "pixel.png",
+          "sha256": "2c9a84434474af542a355370278c8a78dbbba983f74400608566ab9e9bed7bdd",
+          "mediaType": "image/png"
+        }
+      ],
+      "unverified": [
+        "Live source DOM and authenticated sessions",
+        "Linguistic translation quality"
+      ]
+    }
+  ]
+}

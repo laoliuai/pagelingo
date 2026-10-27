@@ -64,6 +64,10 @@ it('reports a rejected archive as failed without changing its bytes', async () =
   await writeFile(input, 'not a zip');
   const output = join(dir, 'checked');
   expect(run(input, output).status).toBe(1);
-  expect(JSON.parse(await readFile(join(output, 'report.json'), 'utf8')).status).toBe('failed');
+  const report = JSON.parse(await readFile(join(output, 'report.json'), 'utf8'));
+  expect(report.status).toBe('failed');
+  expect(report.samples).toHaveLength(1);
+  expect(report.samples[0]).toMatchObject({ input, status: 'failed', archiveBytes: 9, archiveSha256Before: hash(Buffer.from('not a zip')), archiveSha256After: hash(Buffer.from('not a zip')) });
+  expect(report.samples[0].error).toEqual(expect.any(String));
   expect(await readFile(input, 'utf8')).toBe('not a zip');
 });

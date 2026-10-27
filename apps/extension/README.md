@@ -42,3 +42,7 @@ node scripts/with-test-postgres.mjs -- npm run test:integration --workspace @pag
 浏览器故障测试使用本地 HTTP 故障注入服务，验证 Chromium 的真实存储、资源解码、权限边界与后台终止恢复。单独的服务集成检查覆盖实际配对、设备鉴权、原文字节上传、提交重放和单一持久 source；默认 unit tests 不需要 Docker。
 
 已验证的界面截图：[紧凑弹窗（浅色）](../../docs/superpowers/specs/assets/2026-10-27-s3-validation/archive-popup-light.png)、[紧凑弹窗（深色）](../../docs/superpowers/specs/assets/2026-10-27-s3-validation/archive-popup-dark.png)、[移动宽度的站点连接](../../docs/superpowers/specs/assets/2026-10-27-s3-validation/archive-connection-mobile.png)。截图只使用本地测试资料与临时配对账号。
+
+## S3 acceptance and operations
+
+See [capture workflow](../../docs/extension-site-capture.md) and [validation boundaries](../../docs/learning-site-s3-validation.md). From the repository root, build the site and extension, then run `npm run check:web-capture -- --samples tests/fixtures/web-s3/samples.json --output <new-directory>`. This declares synthetic inputs explicitly and uses the actual native extension, service, private store and independent mock worker. It reads no user environment file and makes no paid model call.

@@ -346,7 +346,7 @@ test('mobile restore and conflict messages leave useful body space and retain ex
     await page.evaluate(theme => localStorage.setItem('pgl-theme', theme), theme);
     await open(page, id); await expect(page.getByText(/版本已更新，已定位到原页/)).toBeInViewport();
     await page.waitForTimeout(1800); expect(writes).toEqual([]);
-    const geometry = await mobileReadingGeometry(page); console.log('mobile restore', theme, geometry);
+    const geometry = await mobileReadingGeometry(page); if (process.env.PAGELINGO_DEBUG_GEOMETRY === '1') console.log(theme, geometry);
     expect(geometry.outerScroll).toBe(0); expect(geometry.visibleHeight).toBeGreaterThanOrEqual(240); expect(geometry.paragraphVisible).toBeGreaterThanOrEqual(50);
     await capture(page, `s2-final-mobile-restore-${theme}`, false);
   }
@@ -354,7 +354,7 @@ test('mobile restore and conflict messages leave useful body space and retain ex
   await other.getByLabel('正文语言').selectOption('source'); await expect.poll(async () => (await progress(other, id))?.revision).toBe(2);
   await page.getByLabel('正文语言').selectOption('source'); await expect(page.getByRole('alert')).toContainText('自动保存已暂停');
   for (const theme of ['dark', 'light']) {
-    const geometry = await mobileReadingGeometry(page); console.log('mobile conflict', theme, geometry);
+    const geometry = await mobileReadingGeometry(page); if (process.env.PAGELINGO_DEBUG_GEOMETRY === '1') console.log(theme, geometry);
     expect(geometry.outerScroll).toBe(0); expect(geometry.visibleHeight).toBeGreaterThanOrEqual(240);
     await expect(page.getByRole('button', { name: '从当前位置继续', exact: true })).toBeInViewport();
     await capture(page, `s2-final-mobile-conflict-${theme}`, false);

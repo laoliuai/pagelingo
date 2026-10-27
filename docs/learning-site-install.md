@@ -1,6 +1,6 @@
-# 私有学习站 S2 安装
+# 私有学习站 S3 安装
 
-S2 在账号、独立模型配置、PDF 原件保存的基础上提供本地阅读包导入、PDF / 正文对照、版本历史和持久化进度。网站与服务版本仍为 0.1.0；合同与阅读包以各自 schemaVersion 标识。解析和翻译在本地显式运行，服务不安装 Python、模型或本地 CLI，也不在导入时调用模型。验收范围见 [S2 验证记录](learning-site-s2-validation.md)，本地操作见 [PDF 工作流](pdf-reader-workflow.md)。
+S3 在 S2 的 PDF 阅读包、版本与进度基础上增加网页归档、扩展配对和独立网页翻译 worker。PDF 解析和本地阅读包工作流保持独立；服务器不安装 Python、模型或 PDF CLI。网页先保存原文，只有明确开启偏好或手动开始且配置有效时才运行模型任务。操作见[扩展收藏指南](extension-site-capture.md)，验证范围见 [S3 验证记录](learning-site-s3-validation.md) 和 [S2 验证记录](learning-site-s2-validation.md)。
 
 需要 Node.js 24.13.0（`.nvmrc`）、npm 和 Docker Compose。默认 `npm run dev` / `build` 仍是浏览器扩展；网站使用带 `site` 的命令。安装不需要 Python、模型权重或真实模型请求。
 
@@ -46,7 +46,7 @@ site_compose exec app node apps/document-service/dist/cli/bootstrap-admin.js --u
 
 访问 <http://127.0.0.1:4320>。Compose 明确使用 `local` 模式：HTTP、非 Secure 本机会话 cookie，app 仅绑定主机 loopback；数据库没有主机映射。不要将这份预览配置直接公开到互联网。真正的 production 配置必须使用 HTTPS origin，服务会强制检查；公网 TLS、备份恢复演练属于 S5。
 
-数据库卷为 `pagelingo-site_database`（容器 `/var/lib/postgresql/data`），原件卷为 `pagelingo-site_objects`（容器 `/data/objects`）。迁移在启动时执行，原件不可变写入。镜像不包含主密钥、测试服务或测试账号，运行时以非 root 用户运行；网站的拆分 JS、worker、CMap、字体、WASM 及许可证整体打包。
+数据库卷为 `pagelingo-site_database`（容器 `/var/lib/postgresql/data`），原件卷为 `pagelingo-site_objects`（容器 `/data/objects`）。API 启动执行迁移；S2 保留 001–005，S3 增量应用 006。worker 等待 API 健康后启动，并校验数据库版本。API 与 worker 必须共享数据库、原件卷和运行时 keyring，原件不可变写入。镜像不包含主密钥、测试服务或测试账号，运行时以非 root 用户运行；网站的拆分 JS、worker、CMap、字体、WASM 及许可证整体打包。
 
 ```bash
 site_compose stop                 # 停止，保留数据
@@ -54,13 +54,13 @@ site_compose up -d --wait         # 再次启动
 site_compose down                 # 移除本项目容器和网络，保留卷
 ```
 
-`down --volumes` 会删除该项目全部数据库和原件，仅在明确要清空自己的预览数据时使用。数据库、原件卷和 keyring 都需要保存；单独保留数据库无法恢复 PDF，单独保留卷无法恢复权限。S2 升级 / 重启验收不是完整灾备演练。
+`down --volumes` 会删除该项目全部数据库和原件，仅在明确要清空自己的预览数据时使用。数据库、原件卷和 keyring 都需要保存；单独保留数据库无法恢复 PDF，单独保留卷无法恢复权限。S3 升级 / 重启验收不是完整灾备演练。
 
 ## 开发模式
 
 开发与 Compose 预览是**两套独立数据**：开发使用 `.env.site-dev.local`、`pagelingo-site-dev` 项目数据库与主机 `./data/document-service-dev`；预览继续使用 `.env.local`、`pagelingo-site` 数据库与命名原件卷。不要只共享数据库而切换原件目录。账号、主密钥和 PDF 不自动迁移，两套环境各自初始化管理员。已保存的 PDF 在其原环境内重启后继续可读。
 
-先用 `site_compose stop app` 释放 4320 端口；预览的 `.env.local` 保持原样。以下命令独立生成开发凭据，不复制预览密码。已有开发文件时保留并手工合并，不能覆盖：
+先用 `site_compose stop app worker` 释放 4320 端口；预览的 `.env.local` 保持原样。以下命令独立生成开发凭据，不复制预览密码。已有开发文件时保留并手工合并，不能覆盖：
 
 ```bash
 node --input-type=module <<'JS'
@@ -97,7 +97,7 @@ npm run dev:site
 1. 登录管理员账号，在用户管理中创建普通账号；禁用和重置密码会撤销目标账号旧会话。管理员不能读取其他人的资料。
 2. 普通账号在设置中保存自己的 HTTPS API 根地址、模型及 Key。读取仅回显脱敏状态；保存不调用模型。“测试连接”需要明确确认，会请求用户配置的远端服务。
 3. 资料库上传 PDF，默认上限 256 MiB。保存后先读原件；在同一条目导入本地正式 ZIP 后进入对照阅读。导入也可从资料库新建条目。相同账号 / 同包身份幂等，PDF 身份不一致会拒绝。部分译文、未译、模拟译文和解析警告分别显示；完整下载得到原已验证 ZIP。
-4. 退出登录清理当前页面的私有缓存和 PDF worker。修改密码后需重新登录。S2 不提供删除原件；译文来自已导入的阅读包，实际阅读交互后保存进度。
+4. 退出登录清理当前页面的私有缓存和 PDF worker。修改密码后需重新登录。当前不提供删除原件；PDF 译文来自已导入的阅读包，网页译文可由独立 worker 生成，实际阅读交互后保存进度。
 
 ```bash
 node --test tests/site/*.test.mjs

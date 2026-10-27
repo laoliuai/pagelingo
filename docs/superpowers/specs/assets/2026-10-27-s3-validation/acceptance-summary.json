@@ -1,0 +1,1029 @@
+{
+  "schemaVersion": "pagelingo-s3-validation-summary/1",
+  "checkedAt": "2026-10-27T23:41:11.681Z",
+  "claims": "Structural/lifecycle acceptance only. Cached public HTML is partial; live authenticated X/Zhihu/WeChat and linguistic quality are unverified.",
+  "native": {
+    "schemaVersion": "pagelingo-web-acceptance/1",
+    "startedAt": "2026-10-27T23:40:31.792Z",
+    "status": "passed",
+    "samples": [
+      {
+        "id": "blog-en",
+        "kind": "synthetic",
+        "url": "https://capture.example/article/en",
+        "collectedAt": "2026-10-28T00:00:00Z",
+        "checkedAt": "2026-10-27T23:40:34.355Z",
+        "inputSha256Before": "9587a6de716c5cbf9d23b8165892aecea8768456fcc2040b4addf4359266146f",
+        "status": "passed",
+        "unverified": [
+          "Live source DOM and authenticated sessions",
+          "Linguistic translation quality"
+        ],
+        "captureId": "fc848d33-7f58-4bd4-aa91-c90af2280b69",
+        "documentId": "3df1028a-1d80-463c-9c27-0e0d118264cd",
+        "saveStatus": "original-saved",
+        "scope": {
+          "kind": "article",
+          "rootNodeId": "s_1",
+          "completeWithinScope": true,
+          "warnings": []
+        },
+        "resources": [
+          {
+            "id": "r_1",
+            "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAYAAAC09K7GAAAAEUlEQVR4nGNgaGj4j4IJCgAAUTEX9QIGMYYAAAAASUVORK5CYII=",
+            "role": "image",
+            "status": "available",
+            "fileId": "resource-0"
+          }
+        ],
+        "files": [
+          {
+            "id": "html",
+            "role": "html",
+            "sha256": "7bdd74b97b6ed7723df43bcb3e34e017fab8d7f76ae7ab5803ba5605fe742795",
+            "bytes": 2376
+          },
+          {
+            "id": "resource-0",
+            "role": "image",
+            "sha256": "2c9a84434474af542a355370278c8a78dbbba983f74400608566ab9e9bed7bdd",
+            "bytes": 74
+          },
+          {
+            "id": "preview_1_html",
+            "role": "preview",
+            "sha256": "7bdd74b97b6ed7723df43bcb3e34e017fab8d7f76ae7ab5803ba5605fe742795",
+            "bytes": 2376
+          }
+        ],
+        "language": {
+          "language": "en",
+          "sourceLanguage": "en",
+          "reason": "english-heuristic"
+        },
+        "jobId": "5c137910-e022-4793-b7af-c275315bed00",
+        "readerVersionId": "2fb62f56-d21a-4c2e-ab61-70a324c384e9",
+        "inputSha256After": "9587a6de716c5cbf9d23b8165892aecea8768456fcc2040b4addf4359266146f"
+      },
+      {
+        "id": "blog-zh",
+        "kind": "synthetic",
+        "url": "https://capture.example/article/zh",
+        "collectedAt": "2026-10-28T00:00:00Z",
+        "checkedAt": "2026-10-27T23:40:37.612Z",
+        "inputSha256Before": "4179d44adf0fcd6addb34fe3f9a8ca50e20765a9fa99246805a9ae0624239ae5",
+        "status": "passed",
+        "unverified": [
+          "Live source DOM and authenticated sessions",
+          "Linguistic translation quality"
+        ],
+        "captureId": "38a70060-3ab4-4082-8696-4a4b52a67ba9",
+        "documentId": "76be3c8e-5c61-4720-a3f3-f41ade561d7e",
+        "saveStatus": "original-saved",
+        "scope": {
+          "kind": "article",
+          "rootNodeId": "s_1",
+          "completeWithinScope": true,
+          "warnings": []
+        },
+        "resources": [
+          {
+            "id": "r_1",
+            "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAYAAAC09K7GAAAAEUlEQVR4nGNgaGj4j4IJCgAAUTEX9QIGMYYAAAAASUVORK5CYII=",
+            "role": "image",
+            "status": "available",
+            "fileId": "resource-0"
+          }
+        ],
+        "files": [
+          {
+            "id": "html",
+            "role": "html",
+            "sha256": "a9f582ff66f6676bd6a101e70261798298f9523586bbe7ec21cdf888f4eb6649",
+            "bytes": 2032
+          },
+          {
+            "id": "resource-0",
+            "role": "image",
+            "sha256": "2c9a84434474af542a355370278c8a78dbbba983f74400608566ab9e9bed7bdd",
+            "bytes": 74
+          },
+          {
+            "id": "preview_1_html",
+            "role": "preview",
+            "sha256": "a9f582ff66f6676bd6a101e70261798298f9523586bbe7ec21cdf888f4eb6649",
+            "bytes": 2032
+          }
+        ],
+        "language": {
+          "language": "zh",
+          "sourceLanguage": "zh",
+          "reason": "han-majority"
+        },
+        "readerVersionId": "a2a26561-47ee-465c-a896-0152f4ebd4e9",
+        "inputSha256After": "4179d44adf0fcd6addb34fe3f9a8ca50e20765a9fa99246805a9ae0624239ae5"
+      },
+      {
+        "id": "x-en",
+        "kind": "synthetic",
+        "url": "https://x.com/fixture/status/123",
+        "collectedAt": "2026-10-28T00:00:00Z",
+        "checkedAt": "2026-10-27T23:40:39.735Z",
+        "inputSha256Before": "3b3f79229b4cbcfcc405fa55f833a9cf5c2e18f8a82fdefaa9f3d23e9fa3e6ad",
+        "status": "passed",
+        "unverified": [
+          "Live source DOM and authenticated sessions",
+          "Linguistic translation quality"
+        ],
+        "captureId": "3f8abfa2-21c0-4eed-97ab-4c8e396b82c0",
+        "documentId": "391ca063-ac20-4a14-b320-2c341c61cb91",
+        "saveStatus": "original-saved",
+        "scope": {
+          "kind": "x-post",
+          "rootNodeId": "s_1",
+          "completeWithinScope": true,
+          "warnings": []
+        },
+        "resources": [
+          {
+            "id": "r_1",
+            "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAYAAAC09K7GAAAAEUlEQVR4nGNgaGj4j4IJCgAAUTEX9QIGMYYAAAAASUVORK5CYII=",
+            "role": "image",
+            "status": "available",
+            "fileId": "resource-0"
+          }
+        ],
+        "files": [
+          {
+            "id": "html",
+            "role": "html",
+            "sha256": "49630fb044a17a06c51bcd9ec805e634646dc3dbe7c813fd5205aea2de25b87a",
+            "bytes": 2365
+          },
+          {
+            "id": "resource-0",
+            "role": "image",
+            "sha256": "2c9a84434474af542a355370278c8a78dbbba983f74400608566ab9e9bed7bdd",
+            "bytes": 74
+          },
+          {
+            "id": "preview_1_html",
+            "role": "preview",
+            "sha256": "49630fb044a17a06c51bcd9ec805e634646dc3dbe7c813fd5205aea2de25b87a",
+            "bytes": 2365
+          }
+        ],
+        "language": {
+          "language": "en",
+          "sourceLanguage": "en",
+          "reason": "english-heuristic"
+        },
+        "jobId": "24da07bc-af1e-410a-a0e1-0feb79e5be8a",
+        "readerVersionId": "d03a6635-a93f-41e4-9ab7-aed18254ef84",
+        "inputSha256After": "3b3f79229b4cbcfcc405fa55f833a9cf5c2e18f8a82fdefaa9f3d23e9fa3e6ad"
+      },
+      {
+        "id": "x-zh",
+        "kind": "synthetic",
+        "url": "https://x.com/fixture/status/124",
+        "collectedAt": "2026-10-28T00:00:00Z",
+        "checkedAt": "2026-10-27T23:40:42.706Z",
+        "inputSha256Before": "2cd3a854f0a0b5c9f099a3e70b8d8fe34a67596c9e1bbcc5f2afd640e4f00779",
+        "status": "passed",
+        "unverified": [
+          "Live source DOM and authenticated sessions",
+          "Linguistic translation quality"
+        ],
+        "captureId": "932954b3-8688-456e-863f-dc8f2df89a05",
+        "documentId": "5b37637e-a83a-4e30-837f-82cde7b411f0",
+        "saveStatus": "original-saved",
+        "scope": {
+          "kind": "x-post",
+          "rootNodeId": "s_1",
+          "completeWithinScope": true,
+          "warnings": []
+        },
+        "resources": [
+          {
+            "id": "r_1",
+            "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAYAAAC09K7GAAAAEUlEQVR4nGNgaGj4j4IJCgAAUTEX9QIGMYYAAAAASUVORK5CYII=",
+            "role": "image",
+            "status": "available",
+            "fileId": "resource-0"
+          }
+        ],
+        "files": [
+          {
+            "id": "html",
+            "role": "html",
+            "sha256": "60d5f9a335bb7226720fc69843280c0b3a6a7a26f4d92cf445d4a31985afc802",
+            "bytes": 2021
+          },
+          {
+            "id": "resource-0",
+            "role": "image",
+            "sha256": "2c9a84434474af542a355370278c8a78dbbba983f74400608566ab9e9bed7bdd",
+            "bytes": 74
+          },
+          {
+            "id": "preview_1_html",
+            "role": "preview",
+            "sha256": "60d5f9a335bb7226720fc69843280c0b3a6a7a26f4d92cf445d4a31985afc802",
+            "bytes": 2021
+          }
+        ],
+        "language": {
+          "language": "zh",
+          "sourceLanguage": "zh",
+          "reason": "han-majority"
+        },
+        "readerVersionId": "9a571c1a-f280-4fd8-aff5-c47a5ec70aeb",
+        "inputSha256After": "2cd3a854f0a0b5c9f099a3e70b8d8fe34a67596c9e1bbcc5f2afd640e4f00779"
+      },
+      {
+        "id": "zhihu-en",
+        "kind": "synthetic",
+        "url": "https://www.zhihu.com/question/1/answer/22",
+        "collectedAt": "2026-10-28T00:00:00Z",
+        "checkedAt": "2026-10-27T23:40:44.827Z",
+        "inputSha256Before": "854cd5f58d07a7273dc1f9c313a920ddcae00e9319d5c9dcab2d789a476c1fe0",
+        "status": "passed",
+        "unverified": [
+          "Live source DOM and authenticated sessions",
+          "Linguistic translation quality"
+        ],
+        "captureId": "cfb3d13d-0eb6-4037-8863-3feddc9052ee",
+        "documentId": "5051cd65-5af6-4ba0-a2e0-9d6cef711fa8",
+        "saveStatus": "original-saved",
+        "scope": {
+          "kind": "answer",
+          "rootNodeId": "s_1",
+          "completeWithinScope": true,
+          "warnings": []
+        },
+        "resources": [
+          {
+            "id": "r_1",
+            "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAYAAAC09K7GAAAAEUlEQVR4nGNgaGj4j4IJCgAAUTEX9QIGMYYAAAAASUVORK5CYII=",
+            "role": "image",
+            "status": "available",
+            "fileId": "resource-0"
+          }
+        ],
+        "files": [
+          {
+            "id": "html",
+            "role": "html",
+            "sha256": "260ea520ad34c156d6cd02b146224221ab3a618a9c187276981a1415cd6b7114",
+            "bytes": 2369
+          },
+          {
+            "id": "resource-0",
+            "role": "image",
+            "sha256": "2c9a84434474af542a355370278c8a78dbbba983f74400608566ab9e9bed7bdd",
+            "bytes": 74
+          },
+          {
+            "id": "preview_1_html",
+            "role": "preview",
+            "sha256": "260ea520ad34c156d6cd02b146224221ab3a618a9c187276981a1415cd6b7114",
+            "bytes": 2369
+          }
+        ],
+        "language": {
+          "language": "en",
+          "sourceLanguage": "en",
+          "reason": "english-heuristic"
+        },
+        "jobId": "bdb22ce1-81db-4249-a6e5-3570891bb8e3",
+        "readerVersionId": "20b19d82-ac9b-4678-84a3-bdf468495cc7",
+        "inputSha256After": "854cd5f58d07a7273dc1f9c313a920ddcae00e9319d5c9dcab2d789a476c1fe0"
+      },
+      {
+        "id": "zhihu-zh",
+        "kind": "synthetic",
+        "url": "https://www.zhihu.com/question/1/answer/23",
+        "collectedAt": "2026-10-28T00:00:00Z",
+        "checkedAt": "2026-10-27T23:40:47.416Z",
+        "inputSha256Before": "1d9ea106465b44d15a30e95e8fc388c328b073131bb227934b7febfec3d2d1e6",
+        "status": "passed",
+        "unverified": [
+          "Live source DOM and authenticated sessions",
+          "Linguistic translation quality"
+        ],
+        "captureId": "b1192ea4-9248-49c7-94a0-4a96296afa09",
+        "documentId": "40b15394-fd04-4d39-a545-c9b95108eda5",
+        "saveStatus": "original-saved",
+        "scope": {
+          "kind": "answer",
+          "rootNodeId": "s_1",
+          "completeWithinScope": true,
+          "warnings": []
+        },
+        "resources": [
+          {
+            "id": "r_1",
+            "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAYAAAC09K7GAAAAEUlEQVR4nGNgaGj4j4IJCgAAUTEX9QIGMYYAAAAASUVORK5CYII=",
+            "role": "image",
+            "status": "available",
+            "fileId": "resource-0"
+          }
+        ],
+        "files": [
+          {
+            "id": "html",
+            "role": "html",
+            "sha256": "257ca69957681e8ef89113aa897be6e66d8902bb4a220b05d76555c27b51eb3e",
+            "bytes": 2025
+          },
+          {
+            "id": "resource-0",
+            "role": "image",
+            "sha256": "2c9a84434474af542a355370278c8a78dbbba983f74400608566ab9e9bed7bdd",
+            "bytes": 74
+          },
+          {
+            "id": "preview_1_html",
+            "role": "preview",
+            "sha256": "257ca69957681e8ef89113aa897be6e66d8902bb4a220b05d76555c27b51eb3e",
+            "bytes": 2025
+          }
+        ],
+        "language": {
+          "language": "zh",
+          "sourceLanguage": "zh",
+          "reason": "han-majority"
+        },
+        "readerVersionId": "8b4eb955-0405-4005-b796-a3c25465bd38",
+        "inputSha256After": "1d9ea106465b44d15a30e95e8fc388c328b073131bb227934b7febfec3d2d1e6"
+      },
+      {
+        "id": "wechat-en",
+        "kind": "synthetic",
+        "url": "https://mp.weixin.qq.com/s?__biz=fixture&mid=en&idx=1&sn=own",
+        "collectedAt": "2026-10-28T00:00:00Z",
+        "checkedAt": "2026-10-27T23:40:49.500Z",
+        "inputSha256Before": "1b5577bf952609a643c850e7c8cb15e9d4a9018942500b204ad0ec4ae5b248c9",
+        "status": "passed",
+        "unverified": [
+          "Live source DOM and authenticated sessions",
+          "Linguistic translation quality"
+        ],
+        "captureId": "1defecbe-0768-4aa1-bd2f-c2c4a6da9c16",
+        "documentId": "1e71b3b5-ddc6-45fd-9767-6224850e88e3",
+        "saveStatus": "original-saved",
+        "scope": {
+          "kind": "article",
+          "rootNodeId": "s_1",
+          "completeWithinScope": true,
+          "warnings": []
+        },
+        "resources": [
+          {
+            "id": "r_1",
+            "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAYAAAC09K7GAAAAEUlEQVR4nGNgaGj4j4IJCgAAUTEX9QIGMYYAAAAASUVORK5CYII=",
+            "role": "image",
+            "status": "available",
+            "fileId": "resource-0"
+          }
+        ],
+        "files": [
+          {
+            "id": "html",
+            "role": "html",
+            "sha256": "464da0d0f717fdaef76bc411a4ef88da589beafc791151b17e6335357f70c943",
+            "bytes": 2421
+          },
+          {
+            "id": "resource-0",
+            "role": "image",
+            "sha256": "2c9a84434474af542a355370278c8a78dbbba983f74400608566ab9e9bed7bdd",
+            "bytes": 74
+          },
+          {
+            "id": "preview_1_html",
+            "role": "preview",
+            "sha256": "464da0d0f717fdaef76bc411a4ef88da589beafc791151b17e6335357f70c943",
+            "bytes": 2421
+          }
+        ],
+        "language": {
+          "language": "en",
+          "sourceLanguage": "en",
+          "reason": "english-heuristic"
+        },
+        "jobId": "ab1d6d5b-4879-457d-9421-7a0348ec5254",
+        "readerVersionId": "d60eb548-5bfe-4655-a04c-06b0b34d1de2",
+        "inputSha256After": "1b5577bf952609a643c850e7c8cb15e9d4a9018942500b204ad0ec4ae5b248c9"
+      },
+      {
+        "id": "wechat-zh",
+        "kind": "synthetic",
+        "url": "https://mp.weixin.qq.com/s?__biz=fixture&mid=zh&idx=1&sn=own",
+        "collectedAt": "2026-10-28T00:00:00Z",
+        "checkedAt": "2026-10-27T23:40:52.113Z",
+        "inputSha256Before": "d7c6dd3284c46bd44e75dc554804c649ccca8516d7e5317518d6e90c4b0b4df3",
+        "status": "passed",
+        "unverified": [
+          "Live source DOM and authenticated sessions",
+          "Linguistic translation quality"
+        ],
+        "captureId": "7ccd84b7-51ca-4cbb-b1c3-83e32ffa5d16",
+        "documentId": "e3aa264f-7333-4106-b29e-d33e2444a42d",
+        "saveStatus": "original-saved",
+        "scope": {
+          "kind": "article",
+          "rootNodeId": "s_1",
+          "completeWithinScope": true,
+          "warnings": []
+        },
+        "resources": [
+          {
+            "id": "r_1",
+            "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAYAAAC09K7GAAAAEUlEQVR4nGNgaGj4j4IJCgAAUTEX9QIGMYYAAAAASUVORK5CYII=",
+            "role": "image",
+            "status": "available",
+            "fileId": "resource-0"
+          }
+        ],
+        "files": [
+          {
+            "id": "html",
+            "role": "html",
+            "sha256": "65984a95c8e7fb0b5f393aa066d2267bb14c1ea1ac70ec50df00eba9c523dd76",
+            "bytes": 2077
+          },
+          {
+            "id": "resource-0",
+            "role": "image",
+            "sha256": "2c9a84434474af542a355370278c8a78dbbba983f74400608566ab9e9bed7bdd",
+            "bytes": 74
+          },
+          {
+            "id": "preview_1_html",
+            "role": "preview",
+            "sha256": "65984a95c8e7fb0b5f393aa066d2267bb14c1ea1ac70ec50df00eba9c523dd76",
+            "bytes": 2077
+          }
+        ],
+        "language": {
+          "language": "zh",
+          "sourceLanguage": "zh",
+          "reason": "han-majority"
+        },
+        "readerVersionId": "c17ad30a-51cd-4231-8b10-894ccf42886c",
+        "inputSha256After": "d7c6dd3284c46bd44e75dc554804c649ccca8516d7e5317518d6e90c4b0b4df3"
+      },
+      {
+        "id": "public-blog-1",
+        "kind": "cached-public",
+        "url": "https://lilianweng.github.io/posts/2023-06-23-agent/",
+        "collectedAt": "2026-10-27T14:07:00.055Z",
+        "checkedAt": "2026-10-27T23:40:54.220Z",
+        "inputSha256Before": "03b6ed75b1dc0dedd200a077367d1f7737f0a18e08c104e7f653115e1f52b0ef",
+        "status": "passed",
+        "unverified": [
+          "Current live DOM: this is the unmodified anonymous HTTP input collected on 2026-10-27",
+          "External resources are unavailable in this controlled replay; missing states remain explicit, with no resource completeness claim",
+          "Authenticated source cases and linguistic translation quality"
+        ],
+        "captureId": "14813fec-6299-458f-8585-d6c41d721070",
+        "documentId": "2aa0e5ab-6b55-4fac-8a55-a69a817db547",
+        "saveStatus": "partial-resources",
+        "scope": {
+          "kind": "article",
+          "rootNodeId": "s_1",
+          "completeWithinScope": false,
+          "warnings": [
+            "Unsupported source element: details",
+            "Unsupported source element: summary",
+            "Unsupported source element: resource",
+            "Removed unsupported math attribute: version",
+            "Removed unsupported math attribute: xml:space"
+          ]
+        },
+        "resources": [
+          {
+            "id": "r_1",
+            "url": "https://lilianweng.github.io/posts/2023-06-23-agent/agent-overview.png",
+            "role": "image",
+            "status": "missing",
+            "reason": "unavailable"
+          },
+          {
+            "id": "r_2",
+            "url": "https://lilianweng.github.io/posts/2023-06-23-agent/react.png",
+            "role": "image",
+            "status": "missing",
+            "reason": "unavailable"
+          },
+          {
+            "id": "r_3",
+            "url": "https://lilianweng.github.io/posts/2023-06-23-agent/reflexion.png",
+            "role": "image",
+            "status": "missing",
+            "reason": "unavailable"
+          },
+          {
+            "id": "r_4",
+            "url": "https://lilianweng.github.io/posts/2023-06-23-agent/reflexion-exp.png",
+            "role": "image",
+            "status": "missing",
+            "reason": "unavailable"
+          },
+          {
+            "id": "r_5",
+            "url": "https://lilianweng.github.io/posts/2023-06-23-agent/CoH.png",
+            "role": "image",
+            "status": "missing",
+            "reason": "unavailable"
+          },
+          {
+            "id": "r_6",
+            "url": "https://lilianweng.github.io/posts/2023-06-23-agent/algorithm-distillation.png",
+            "role": "image",
+            "status": "missing",
+            "reason": "unavailable"
+          },
+          {
+            "id": "r_7",
+            "url": "https://lilianweng.github.io/posts/2023-06-23-agent/algorithm-distillation-results.png",
+            "role": "image",
+            "status": "missing",
+            "reason": "unavailable"
+          },
+          {
+            "id": "r_8",
+            "url": "https://lilianweng.github.io/posts/2023-06-23-agent/memory.png",
+            "role": "image",
+            "status": "missing",
+            "reason": "unavailable"
+          },
+          {
+            "id": "r_9",
+            "url": "https://lilianweng.github.io/posts/2023-06-23-agent/mips.png",
+            "role": "image",
+            "status": "missing",
+            "reason": "unavailable"
+          },
+          {
+            "id": "r_10",
+            "url": "https://lilianweng.github.io/posts/2023-06-23-agent/sea-otter.png",
+            "role": "image",
+            "status": "missing",
+            "reason": "unavailable"
+          },
+          {
+            "id": "r_11",
+            "url": "https://lilianweng.github.io/posts/2023-06-23-agent/hugging-gpt.png",
+            "role": "image",
+            "status": "missing",
+            "reason": "unavailable"
+          },
+          {
+            "id": "r_12",
+            "url": "https://lilianweng.github.io/posts/2023-06-23-agent/api-bank-process.png",
+            "role": "image",
+            "status": "missing",
+            "reason": "unavailable"
+          },
+          {
+            "id": "r_13",
+            "url": "https://lilianweng.github.io/posts/2023-06-23-agent/generative-agents.png",
+            "role": "image",
+            "status": "missing",
+            "reason": "unavailable"
+          }
+        ],
+        "files": [
+          {
+            "id": "html",
+            "role": "html",
+            "sha256": "bb3934fc19071dcba51fcfc4aa71f9211175c0bbfefe2eb8d0c61c27ad86a47f",
+            "bytes": 75672
+          },
+          {
+            "id": "preview_1_html",
+            "role": "preview",
+            "sha256": "62fd000df7104dddfb79f1530246615501a912c65e062f2b5fd5c8eee3c7fd58",
+            "bytes": 40928
+          },
+          {
+            "id": "preview_2_html",
+            "role": "preview",
+            "sha256": "53112196ead23fecafd6ca2195e23166425882165e79f397ce32c9825340a410",
+            "bytes": 34555
+          }
+        ],
+        "language": {
+          "language": "en",
+          "sourceLanguage": "en",
+          "reason": "english-heuristic"
+        },
+        "jobId": "b8d7f635-9bfc-4556-88b9-868da76495cf",
+        "readerVersionId": "c410ad47-c506-4c9e-98ff-a8e8a170f831",
+        "inputSha256After": "03b6ed75b1dc0dedd200a077367d1f7737f0a18e08c104e7f653115e1f52b0ef"
+      },
+      {
+        "id": "public-blog-2",
+        "kind": "cached-public",
+        "url": "https://lilianweng.github.io/posts/2018-02-19-rl-overview/",
+        "collectedAt": "2026-10-27T14:07:00.840Z",
+        "checkedAt": "2026-10-27T23:41:01.215Z",
+        "inputSha256Before": "103c1caa52ebfb80ca4cc453322a85cadab0d2dfbba342520a6e52233417773e",
+        "status": "passed",
+        "unverified": [
+          "Current live DOM: this is the unmodified anonymous HTTP input collected on 2026-10-27",
+          "External resources are unavailable in this controlled replay; missing states remain explicit, with no resource completeness claim",
+          "Authenticated source cases and linguistic translation quality"
+        ],
+        "captureId": "2081635d-76d0-4d2b-a49a-e1c2ac6fb3b1",
+        "documentId": "c62ebc76-9703-4444-80c7-0744d537a7c4",
+        "saveStatus": "partial-resources",
+        "scope": {
+          "kind": "article",
+          "rootNodeId": "s_1",
+          "completeWithinScope": false,
+          "warnings": [
+            "Unsupported source element: details",
+            "Unsupported source element: summary",
+            "Removed unsupported math attribute: version",
+            "Removed unsupported math attribute: xml:space"
+          ]
+        },
+        "resources": [
+          {
+            "id": "r_1",
+            "url": "https://lilianweng.github.io/posts/2018-02-19-rl-overview/RL_illustration.png",
+            "role": "image",
+            "status": "missing",
+            "reason": "unavailable"
+          },
+          {
+            "id": "r_2",
+            "url": "https://lilianweng.github.io/posts/2018-02-19-rl-overview/RL_algorithm_categorization.png",
+            "role": "image",
+            "status": "missing",
+            "reason": "unavailable"
+          },
+          {
+            "id": "r_3",
+            "url": "https://lilianweng.github.io/posts/2018-02-19-rl-overview/agent_environment_MDP.png",
+            "role": "image",
+            "status": "missing",
+            "reason": "unavailable"
+          },
+          {
+            "id": "r_4",
+            "url": "https://lilianweng.github.io/posts/2018-02-19-rl-overview/mdp_example.jpg",
+            "role": "image",
+            "status": "missing",
+            "reason": "unavailable"
+          },
+          {
+            "id": "r_5",
+            "url": "https://lilianweng.github.io/posts/2018-02-19-rl-overview/bellman_equation.png",
+            "role": "image",
+            "status": "missing",
+            "reason": "unavailable"
+          },
+          {
+            "id": "r_6",
+            "url": "https://lilianweng.github.io/posts/2018-02-19-rl-overview/MC_control.png",
+            "role": "image",
+            "status": "missing",
+            "reason": "unavailable"
+          },
+          {
+            "id": "r_7",
+            "url": "https://lilianweng.github.io/posts/2018-02-19-rl-overview/sarsa_vs_q_learning.png",
+            "role": "image",
+            "status": "missing",
+            "reason": "unavailable"
+          },
+          {
+            "id": "r_8",
+            "url": "https://lilianweng.github.io/posts/2018-02-19-rl-overview/DQN_algorithm.png",
+            "role": "image",
+            "status": "missing",
+            "reason": "unavailable"
+          },
+          {
+            "id": "r_9",
+            "url": "https://lilianweng.github.io/posts/2018-02-19-rl-overview/TD_lambda.png",
+            "role": "image",
+            "status": "missing",
+            "reason": "unavailable"
+          },
+          {
+            "id": "r_10",
+            "url": "https://lilianweng.github.io/posts/2018-02-19-rl-overview/TD_MC_DP_backups.png",
+            "role": "image",
+            "status": "missing",
+            "reason": "unavailable"
+          },
+          {
+            "id": "r_11",
+            "url": "https://lilianweng.github.io/posts/2018-02-19-rl-overview/EA_RL_parallel.png",
+            "role": "image",
+            "status": "missing",
+            "reason": "unavailable"
+          },
+          {
+            "id": "r_12",
+            "url": "https://lilianweng.github.io/posts/2018-02-19-rl-overview/go_config.png",
+            "role": "image",
+            "status": "missing",
+            "reason": "unavailable"
+          },
+          {
+            "id": "r_13",
+            "url": "https://lilianweng.github.io/posts/2018-02-19-rl-overview/alphago-zero-selfplay.png",
+            "role": "image",
+            "status": "missing",
+            "reason": "unavailable"
+          }
+        ],
+        "files": [
+          {
+            "id": "html",
+            "role": "html",
+            "sha256": "a1e2350f53ac9848ced38009a8904d42bfba907ac9fef54ca1f2dc802450da95",
+            "bytes": 77813
+          },
+          {
+            "id": "preview_1_html",
+            "role": "preview",
+            "sha256": "9bb301643a5dfd51fdfce43bfcbca1d2309b6d8ad5bf1ffd879f68d4c51e41ed",
+            "bytes": 27682
+          },
+          {
+            "id": "preview_2_html",
+            "role": "preview",
+            "sha256": "ebe9083d7595da506c30ec39375d31e7a25d754f19b2f9db16321d2911c888a1",
+            "bytes": 27161
+          },
+          {
+            "id": "preview_3_html",
+            "role": "preview",
+            "sha256": "6f6c3d9c3bb9e097248a6a8112915f6618358693d26b4e266abb5ecd2221d084",
+            "bytes": 22509
+          }
+        ],
+        "language": {
+          "language": "en",
+          "sourceLanguage": "en",
+          "reason": "english-heuristic"
+        },
+        "jobId": "963e2641-39f9-4010-8528-b038ef6686d4",
+        "readerVersionId": "e1f686df-d944-45e4-9afe-9f3570025cad",
+        "inputSha256After": "103c1caa52ebfb80ca4cc453322a85cadab0d2dfbba342520a6e52233417773e"
+      }
+    ],
+    "checks": [
+      "native-worker-stop/lost-ack",
+      "source-unavailable-reader/no-new-model-call",
+      "private-file-hashes/anonymous401/other-owner404",
+      "owned-api/db-connection/worker-restart-with-retained-store",
+      "device-revoke/same-owner-reconnect"
+    ],
+    "provider": "independent mock echo; no linguistic quality claim",
+    "liveAuthenticatedSources": "UNVERIFIED: X, Zhihu, WeChat",
+    "sourceDelivery": "declared immutable HTML; page requests routed; production extension HTTPS acquisition omits credentials and may fetch resources from explicitly granted source origins; actual archived hashes recorded",
+    "mockRequests": 134,
+    "workerPids": [
+      912128
+    ],
+    "finishedAt": "2026-10-27T23:41:11.681Z"
+  },
+  "s2Compatibility": [
+    {
+      "sample": "s2-final",
+      "status": "passed",
+      "archiveBytes": 904836,
+      "archiveSha256Before": "4bb9c04d33dd57a43e64b21f2921b916fb2c451ced57a73f75cacf9e9712c136",
+      "packageId": "00000000-0000-4000-8000-000000000003",
+      "manifestSha256": "b08b1d2defbd46f1c8289ad12eaf53a43924c6426147dc6bf06f0750333540eb",
+      "renderer": {
+        "version": "0.1.0",
+        "codeSha256": "3bfbbf4ce02a787185643792d617f80cb960261d108ad0ce224b0909ea4d47c3"
+      },
+      "sourceSha256": "c1a7003a44fcfd3fb5b94041a84a485249db86efe3fb4de3a47059fd9a0395ad",
+      "readerIrSha256": "1248b67e6ceaa6572fd021655a6421a8e5e33b4aeaf58d73206da530c9f605ad",
+      "translationSha256": "d196597f072946c520ef70f7364927c59ce4f6cd082475e4d954b24db59ada16",
+      "files": 76,
+      "chunks": 3,
+      "archiveSha256After": "4bb9c04d33dd57a43e64b21f2921b916fb2c451ced57a73f75cacf9e9712c136"
+    },
+    {
+      "sample": "attention",
+      "status": "passed",
+      "archiveBytes": 5208231,
+      "archiveSha256Before": "b5f57cf5ab49fba3ae96db5beec058c3b033b45cebea28c998b450f74d8e0f86",
+      "packageId": "9a3258d3-af9e-453e-a746-9e46f2b9f8d8",
+      "manifestSha256": "56453d5535dc2319aa1df52c9f0b2df75ff26bff313e36742c68b32e2f051543",
+      "renderer": {
+        "version": "0.1.0",
+        "codeSha256": "3bfbbf4ce02a787185643792d617f80cb960261d108ad0ce224b0909ea4d47c3"
+      },
+      "sourceSha256": "bdfaa68d8984f0dc02beaca527b76f207d99b666d31d1da728ee0728182df697",
+      "readerIrSha256": "5d5bbd1ef95abfb0f7f511ee62ade6a545527aca099203c0d9d3d66533f701bf",
+      "translationSha256": "bfece99112af1c4a2047a346f949023c8281f02981fd0ea2932c70c116fdca3b",
+      "files": 131,
+      "chunks": 15,
+      "archiveSha256After": "b5f57cf5ab49fba3ae96db5beec058c3b033b45cebea28c998b450f74d8e0f86"
+    },
+    {
+      "sample": "bert",
+      "status": "passed",
+      "archiveBytes": 4222342,
+      "archiveSha256Before": "5f29b868e1461755c66534cafe16230a5004640fa465fe61420ee0b4324db4d9",
+      "packageId": "3bf49d5b-0e54-4d92-9a83-14551029eb7c",
+      "manifestSha256": "bb2ebee726e576678d8c395090982b28ab733e4e63d6f473b7653642901cdae5",
+      "renderer": {
+        "version": "0.1.0",
+        "codeSha256": "3bfbbf4ce02a787185643792d617f80cb960261d108ad0ce224b0909ea4d47c3"
+      },
+      "sourceSha256": "5692a5514787a8c6727b4ff3b726a3385798bc68e12138d1d4af83947e2acf6e",
+      "readerIrSha256": "f7dded7ccbb225eb555f8759b5b1f0c07e7d3a7a4cd68f3cdc81b4ecaead4a7a",
+      "translationSha256": "bac3131504ee83f8c16325dd2f4dd4ece67a1059cfeff517045b458d46eb2c7f",
+      "files": 142,
+      "chunks": 16,
+      "archiveSha256After": "5f29b868e1461755c66534cafe16230a5004640fa465fe61420ee0b4324db4d9"
+    },
+    {
+      "sample": "llm-foundations",
+      "status": "passed",
+      "archiveBytes": 37176944,
+      "archiveSha256Before": "9eeae78e0b1ae6d44656f733626caffa799f228f0c9b6e0396c1ad9e0fc169cf",
+      "packageId": "7c2852a7-08f7-4f95-a746-5ec004323f7e",
+      "manifestSha256": "6d333fd87212bdb583337d83045f39752b04b3d0383188d439dde768039324cd",
+      "renderer": {
+        "version": "0.1.0",
+        "codeSha256": "3bfbbf4ce02a787185643792d617f80cb960261d108ad0ce224b0909ea4d47c3"
+      },
+      "sourceSha256": "fade965b64edd8a30cde4f69c084942df2a4758aaeee9f918b49f39b323210be",
+      "readerIrSha256": "eed8195eb6734a200929799ad7e01f58b7aad69a59e1a13e68a31eb84173fe24",
+      "translationSha256": "b52160106ee24bc23ef97b771c4cb31151e6f5e5d54abc7f6d3aec43ad905ce5",
+      "files": 1327,
+      "chunks": 317,
+      "archiveSha256After": "9eeae78e0b1ae6d44656f733626caffa799f228f0c9b6e0396c1ad9e0fc169cf"
+    },
+    {
+      "sample": "rl-little-book",
+      "status": "passed",
+      "archiveBytes": 28241882,
+      "archiveSha256Before": "b8454f9be349171ad43168ceff45a25d9330c25b08026b6559f7bde54a8bb26e",
+      "packageId": "3fad4669-e025-4660-9106-2db9cb007562",
+      "manifestSha256": "67566286f30231340054651239a17b1f636267a53d0dc2752d27ec8ba4e58fd6",
+      "renderer": {
+        "version": "0.1.0",
+        "codeSha256": "3bfbbf4ce02a787185643792d617f80cb960261d108ad0ce224b0909ea4d47c3"
+      },
+      "sourceSha256": "10289a4e879c7738b89a52525d464d95dc7c222c0f26ed32d2f3b076264515b2",
+      "readerIrSha256": "2cfc600ca8c875d0e2b1b97ae289b27bf9e5ed1c33cb0d86aace7f8aa0a36cd4",
+      "translationSha256": "c02545f516c78ded256f0ba057fdf46feaf4335d8d807a33df09cc46ef36680f",
+      "files": 581,
+      "chunks": 154,
+      "archiveSha256After": "b8454f9be349171ad43168ceff45a25d9330c25b08026b6559f7bde54a8bb26e"
+    }
+  ],
+  "screenshots": [
+    {
+      "file": "extension-connected.png",
+      "sha256": "e8a38325a1361ee2d80238b3c4f120f7360b63814d29f905d7fba2532a1e121f"
+    },
+    {
+      "file": "blog-en-reader.png",
+      "sha256": "f42f4f390387c3bda7c0d6e6cdd00766fc322700e0393bafb8a684d0179c30f7"
+    },
+    {
+      "file": "wechat-zh-reader.png",
+      "sha256": "d1fa9fdb724c27c5e45e2718eca8ffbe1cda151956931f8914b3e04461e14289"
+    },
+    {
+      "file": "public-blog-1-reader.png",
+      "sha256": "382ce2e75580061b49d1fb1184ed29d6d15ccafd6576456857ac9ee7456e06b3"
+    }
+  ],
+  "gates": {
+    "initial": [
+      {
+        "name": "npm-ci",
+        "program": "npm",
+        "args": [
+          "ci"
+        ],
+        "startedAt": "2026-10-27T23:16:40.496Z",
+        "finishedAt": "2026-10-27T23:16:49.259Z",
+        "exitCode": 0
+      },
+      {
+        "name": "check",
+        "program": "npm",
+        "args": [
+          "run",
+          "check"
+        ],
+        "startedAt": "2026-10-27T23:16:49.260Z",
+        "finishedAt": "2026-10-27T23:20:15.298Z",
+        "exitCode": 0
+      },
+      {
+        "name": "check-site",
+        "program": "npm",
+        "args": [
+          "run",
+          "check:site"
+        ],
+        "startedAt": "2026-10-27T23:20:15.299Z",
+        "finishedAt": "2026-10-27T23:22:21.918Z",
+        "exitCode": 1
+      }
+    ],
+    "afterHarnessCorrections": [
+      {
+        "name": "check-site",
+        "program": "npm",
+        "args": [
+          "run",
+          "check:site"
+        ],
+        "startedAt": "2026-10-27T23:26:26.800Z",
+        "finishedAt": "2026-10-27T23:40:29.908Z",
+        "exitCode": 0
+      },
+      {
+        "name": "check-web-capture",
+        "program": "npm",
+        "args": [
+          "run",
+          "check:web-capture",
+          "--",
+          "--samples",
+          ".superpowers/sdd/2026-10-27-learning-site-s3/task-13-evidence/samples.json",
+          "--output",
+          ".superpowers/sdd/2026-10-27-learning-site-s3/task-13-evidence/final-native"
+        ],
+        "startedAt": "2026-10-27T23:40:29.909Z",
+        "finishedAt": "2026-10-27T23:41:12.599Z",
+        "exitCode": 0
+      },
+      {
+        "name": "s2-fixed",
+        "program": "node",
+        "args": [
+          "scripts/check-s2-compat.mjs",
+          "--input",
+          "packages/document-bundle/tests/fixtures/s2-final/reader.zip",
+          "--output",
+          ".superpowers/sdd/2026-10-27-learning-site-s3/task-13-evidence/final-s2-fixed"
+        ],
+        "startedAt": "2026-10-27T23:41:12.600Z",
+        "finishedAt": "2026-10-27T23:41:12.957Z",
+        "exitCode": 0
+      },
+      {
+        "name": "s2-original",
+        "program": "node",
+        "args": [
+          "scripts/check-s2-compat.mjs",
+          "--input",
+          "data/pdf-s2/final-fix/current",
+          "--output",
+          ".superpowers/sdd/2026-10-27-learning-site-s3/task-13-evidence/final-s2-original"
+        ],
+        "startedAt": "2026-10-27T23:41:12.957Z",
+        "finishedAt": "2026-10-27T23:41:18.664Z",
+        "exitCode": 0
+      },
+      {
+        "name": "audit",
+        "program": "npm",
+        "args": [
+          "audit",
+          "--json"
+        ],
+        "startedAt": "2026-10-27T23:41:18.664Z",
+        "finishedAt": "2026-10-27T23:41:19.700Z",
+        "exitCode": 0
+      }
+    ]
+  },
+  "inventory": {
+    "at": "2026-10-27T23:43:55.385Z",
+    "comparisons": [
+      {
+        "inventory": "source-freeze-3",
+        "files": 734,
+        "changes": []
+      },
+      {
+        "inventory": "dist-freeze-2",
+        "files": 728,
+        "changes": []
+      }
+    ]
+  }
+}

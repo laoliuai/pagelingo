@@ -502,3 +502,7 @@ out-of-scope cursors return 400. Device credentials cannot use this endpoint.
 Discovery never decrypts configuration, changes job status, starts work or finalizes
 results. The Reader uses the opened immutable source/parse, so reload and another
 browser can recover existing jobs without creating one.
+
+## S3 acceptance and operations
+
+See [capture workflow](../../docs/extension-site-capture.md) and [validation boundaries](../../docs/learning-site-s3-validation.md). From the repository root, build the site and extension, then run `npm run check:web-capture -- --samples tests/fixtures/web-s3/samples.json --output <new-directory>`. This declares synthetic inputs explicitly and uses the actual native extension, service, private store and independent mock worker. It reads no user environment file and makes no paid model call.

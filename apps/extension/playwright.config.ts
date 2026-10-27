@@ -1,6 +1,8 @@
 import { defineConfig } from '@playwright/test';
 import { fileURLToPath } from 'node:url';
 
+// Playwright sets FORCE_COLOR for child processes; do not also inherit NO_COLOR.
+delete process.env.NO_COLOR;
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: false,
