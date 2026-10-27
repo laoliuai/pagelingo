@@ -1,5 +1,5 @@
 // Synthetic pages shared by DOM tests and the Node 24 fixture server.
-export const fixtureNames = ['arxiv', 'github-readme', 'technical-doc', 'x-post', 'x-article'] as const;
+export const fixtureNames = ['arxiv', 'github-readme', 'technical-doc', 'x-post', 'x-article', 'archive-source'] as const;
 
 function page(title: string, style: string, body: string, script = ''): string {
   return `<!doctype html>
@@ -140,6 +140,7 @@ body{font:18px/1.6 system-ui;color:#0f1419;background:#fff}main{max-width:720px;
 
 export function renderFixture(name: string): string {
   switch (name) {
+    case 'archive-source': return page('Archive source fixture', 'body{font:16px/1.6 sans-serif}article{max-width:760px;margin:30px auto}', '<article><p>Original browser source explains a useful technical feature.</p><p>Repeated original paragraph.</p><p>Repeated original paragraph.</p><img alt="Tiny local image" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="><form><input value="private-form-value"></form><div hidden>hidden application state</div></article>');
     case 'arxiv': return arxivPage();
     case 'github-readme': return githubPage();
     case 'technical-doc': return technicalDocPage();

@@ -1,3 +1,5 @@
+import { captureContentCommandSchema } from '../archive/grants';
+import { CaptureUnavailableError } from '../archive/collector';
 import { errorMessage, type Result, type PageStatus } from '../shared/types';
 import { contentCommandSchema, isTrustedExtensionSender } from '../shared/translation';
 import { PageController } from './page-controller';
@@ -17,6 +19,19 @@ if (!scope.__pagelingo) {
     reply: (response: Result<PageStatus>) => void,
   ) => {
     if (!isTrustedExtensionSender(sender)) return;
+    const capture = captureContentCommandSchema.safeParse(message);
+    if (capture.success) {
+      const respond = reply as (r: unknown) => void;
+      if (capture.data.type === 'capture:identity') {
+        try { respond({ ok: true, value: controller.captureIdentity() }); }
+        catch (error) { respond({ ok: false, error: errorMessage(error) }); }
+        return;
+      }
+      void controller.collectCapture(capture.data.grant).then(value => respond({ ok: true, value }), error => respond({
+        ok: false, error: errorMessage(error), ...(error instanceof CaptureUnavailableError ? { linkFallback: error.fallback } : {}),
+      }));
+      return true;
+    }
     const assistant = contentAssistantSchema.safeParse(message);
     if (assistant.success) {
       try {

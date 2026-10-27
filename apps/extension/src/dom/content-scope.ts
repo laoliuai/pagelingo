@@ -4,6 +4,8 @@ export interface ContentScope {
   roots: HTMLElement[];
   blockSelector: string;
   keepSource: boolean;
+  /** Exact requested post, also when it contains media without a text root. */
+  sourcePost?: HTMLElement;
 }
 
 const X_RICH_TEXT = '[data-testid="twitterArticleRichTextView"],[data-testid="longformRichTextComponent"],[data-testid="articleRichContent"]';
@@ -49,7 +51,7 @@ export function findContentScope(document: Document): ContentScope {
     const reader = richText.closest<HTMLElement>(X_READER) ?? richText.closest<HTMLElement>(X_POST) ?? container;
     const title = Array.from(reader.querySelectorAll<HTMLElement>(X_TITLE)).find(available);
     // Counters, author information, navigation and replies are outside these roots.
-    return { roots: title && !richText.contains(title) ? [title, richText] : [richText], blockSelector: `${X_BLOCKS},${X_TITLE}`, keepSource: true };
+    return { roots: title && !richText.contains(title) ? [title, richText] : [richText], blockSelector: `${X_BLOCKS},${X_TITLE}`, keepSource: true, sourcePost: requestedPost };
   }
   const selectedPosts = requestedId ? requestedPost ? [requestedPost] : [] : posts;
   const roots = selectedPosts.flatMap(post => {
@@ -58,7 +60,7 @@ export function findContentScope(document: Document): ContentScope {
     return text ? [text] : [];
   });
   // An unloaded status must not fall back to translating a different reply.
-  return { roots, blockSelector: `${BLOCK_SELECTOR},[data-testid="tweetText"]`, keepSource: true };
+  return { roots, blockSelector: `${BLOCK_SELECTOR},[data-testid="tweetText"]`, keepSource: true, sourcePost: requestedPost };
 }
 
 export function headingLevel(element: HTMLElement): number | undefined {

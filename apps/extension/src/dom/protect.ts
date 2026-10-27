@@ -120,7 +120,7 @@ export function protectNodes(parent: HTMLElement, nodes: Node[], id: string, sec
     return [{ type: 'format', id, kind, children }];
   }
 
-  const block: TranslationBlock = { id, kind: blockKind(parent), sectionPath, content: nodes.flatMap(visit) };
+  const block: TranslationBlock = { id, kind: blockKind(parent), ...(sectionPath.length ? { sectionPath } : {}), content: nodes.flatMap(visit) };
   const input = encodeBlock(block);
   for (const slot of input.slots) {
     if (slot.kind === 'close') domSlots.set(slot.token, { kind: 'close' });

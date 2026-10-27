@@ -24,6 +24,7 @@ sanitizeNodeSnapshot(input, limits?, resources?): SanitizedSnapshot    // /node
 extractPublicArticle(html: string, url: string, limits?): SanitizedSnapshot // /node, worker
 
 normalizeCaptureUrl(url: string): string
+normalizeCaptureResourceUrl(url: string, sourceUrl?: string): string
 captureContentFingerprint(snapshot, resources: readonly CaptureResource[],
   files?: readonly CaptureFile[]): Promise<string>
 inspectImageResource(bytes: Uint8Array, file: CaptureFile,
@@ -41,6 +42,8 @@ projectWebReader(snapshot, manifest, {
   assets: readonly WebReaderAsset[];
   limits?: CaptureLimits;
 }): Promise<WebReaderIR>
+projectSnapshotTranslationSources(snapshot: SanitizedSnapshot, limits?: CaptureLimits):
+  Array<{ nodeId: string; source: TranslationBlock }>
 validateWebGraph(ir: WebReaderIR): void
 canonicalManifestBytes(value: unknown): Uint8Array
 sha256(bytes: Uint8Array): Promise<string>
@@ -119,3 +122,22 @@ npm run test:browser --workspace @pagelingo/web-capture
 
 Browser checks use actual Chromium and bundle dependency inspection. No Python,
 model downloads, keys, real API calls or external page requests are needed.
+
+## Browser capture handoff
+
+Source/navigation URLs remain HTTP(S)-only. Image resources additionally accept bounded
+raster base64 data and same-source-origin `blob:http(s)` locators. Local locators are
+provenance, not outbound-fetch targets; acquisition requires the issuing document's
+trusted capture grant and selected-resource membership. JSON transport remains at
+16 MiB and snapshot HTML at 8 MiB. The encoded locator ceiling also bounds decoded
+bytes below the existing 16 MiB resource ceiling. Scripts and hotlinks never execute
+inside sanitization. Available blob fingerprints use origin plus actual byte metadata;
+missing blobs retain their exact locator and reason because equality is unproven.
+
+`projectSnapshotTranslationSources` shares the Reader's semantic/inline projection
+without inventing a manifest or IR. Extension candidates must match these original
+blocks exactly except for the top-level block ID. The draft-only candidate permits a
+null content fingerprint; it already binds the exact source snapshot hash. After
+resource acquisition the extension finalizer computes the actual content fingerprint
+and validates the strict upload candidate. Unsupported source proofs warn and skip
+translations while preserving the original.

@@ -1,3 +1,9 @@
+import type { PendingCaptureResource } from '@pagelingo/document-contracts';
+import type { TranslationProvenance } from '../shared/translation';
+import type { ExistingTranslationEvidence } from '../archive/existing-translations';
+import { collectOriginalCapture } from '../archive/collector';
+import { captureGrantSchema, type CaptureGrant, type CaptureIdentity } from '../archive/grants';
+import { originalTree, selectArchiveSource, originalSourceSignature } from '../archive/original-tree';
 import { extractBlocks, extractBlocksSync } from '../dom/extractor';
 import { DomRenderer } from '../dom/renderer';
 import { blockDocumentVersion, sourceChangeReason, sourceDocumentVersion, translationTitle } from '../dom/document-version';
@@ -9,6 +15,13 @@ import { errorMessage, type DisplayMode, type PageStatus } from '../shared/types
 import { translateInBackground } from './background-translation';
 
 export class PageController {
+  private readonly captureSessionId = crypto.randomUUID();
+  private captureRevision = 0;
+  private captureSource = '';
+  private readonly consumedCaptureGrants = new Set<string>();
+  private disposed = false;
+  private capturedResources?: { grant: CaptureGrant; resources: ReadonlyMap<string, PendingCaptureResource> };
+  private translationProvenance?: TranslationProvenance;
   private renderer = new DomRenderer();
   private engine = new TranslationEngine(new MockProvider());
   private blocks: ProtectedBlock[] = [];
@@ -55,6 +68,58 @@ export class PageController {
 
   get status(): PageStatus {
     return { ...this.state, fallback: this.renderer.fallbackCount };
+  }
+
+  /** Read-only source identity; does not restore or toggle live translation state. */
+  captureIdentity(): CaptureIdentity {
+    if (this.disposed) throw new Error('Capture document is disposed');
+    const source = selectArchiveSource(this.document);
+    const tree = originalTree(this.document, source);
+    const fingerprint = originalSourceSignature(this.document, source, tree);
+    if (fingerprint !== this.captureSource) { this.captureRevision++; this.captureSource = fingerprint; }
+    return { contentSessionId: this.captureSessionId, revision: this.captureRevision, url: this.document.URL };
+  }
+
+  async collectCapture(input: CaptureGrant) {
+    const grant = captureGrantSchema.parse(input);
+    if (this.document.defaultView && this.document.defaultView.top !== this.document.defaultView) throw new Error('Only frame 0 may capture');
+    if (this.consumedCaptureGrants.has(grant.grantId)) throw new Error('Capture grant already consumed');
+    const assertCurrent = () => {
+      const current = this.captureIdentity();
+      if (current.contentSessionId !== grant.contentSessionId || current.revision !== grant.revision || current.url !== grant.url) throw new Error('Capture source changed; stale grant');
+    };
+    assertCurrent();
+    // Bound lifetime memory. A document that exhausts grants must be reloaded,
+    // rather than forgetting consumed capabilities and accepting a replay.
+    if (this.consumedCaptureGrants.size >= 256) throw new Error('Capture grant limit reached; reload this document');
+    this.consumedCaptureGrants.add(grant.grantId);
+    this.capturedResources = undefined;
+    const draft = await collectOriginalCapture(this.document, { captureId: grant.captureId, assertCurrent, translations: this.captureTranslations() });
+    assertCurrent();
+    this.capturedResources = { grant, resources: new Map(draft.pendingResources.map(resource => [resource.id, resource])) };
+    return draft;
+  }
+
+  /** Task8 local acquisition must select a recorded resource, never an arbitrary supplied URL. */
+  captureResource(input: CaptureGrant, resourceId: string): PendingCaptureResource {
+    const grant = captureGrantSchema.parse(input);
+    const captured = this.capturedResources;
+    if (!captured || JSON.stringify(captured.grant) !== JSON.stringify(grant)) throw new Error('Capture resource grant mismatch');
+    const current = this.captureIdentity();
+    if (current.contentSessionId !== grant.contentSessionId || current.revision !== grant.revision || current.url !== grant.url) throw new Error('Capture source changed; stale resource grant');
+    const resource = captured.resources.get(resourceId);
+    if (!resource) throw new Error('Resource was not selected by this capture');
+    return { ...resource };
+  }
+
+  private captureTranslations(): ExistingTranslationEvidence | undefined {
+    if (this.state.execution !== 'translation' || !this.translationProvenance || !this.sourceVersion
+      || sourceDocumentVersion(this.document) !== this.sourceVersion) return undefined;
+    const blocks = this.blocks.flatMap(block => {
+      const rawText = this.translated.get(block.block.id);
+      return rawText !== undefined && this.renderer.isCurrent(block) ? [{ source: structuredClone(block.block), rawText }] : [];
+    });
+    return { ...this.translationProvenance, blocks };
   }
 
   private navigationKey(): string {
@@ -183,6 +248,7 @@ export class PageController {
           if (!this.isCurrentSource()) return false;
           return true;
         },
+        onProvenance: value => { this.translationProvenance = value; },
         onRecover: () => { this.state.status = 'recovering'; this.state.recoveries++; },
       })
         : this.engine.translate(document, { targetLanguage: 'zh-CN', signal });
@@ -233,6 +299,7 @@ export class PageController {
     this.blocks = [];
     this.byId.clear();
     this.translated.clear();
+    this.translationProvenance = undefined;
     this.sourceVersion = undefined;
     this.blockVersion = undefined;
     this.state = {
@@ -241,6 +308,8 @@ export class PageController {
   }
 
   dispose(): void {
+    this.disposed = true;
+    this.capturedResources = undefined;
     this.restore();
     this.observer.disconnect();
     clearInterval(this.interval);

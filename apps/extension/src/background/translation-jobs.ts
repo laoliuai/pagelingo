@@ -1,4 +1,4 @@
-import { ConcurrencyScheduler, TranslationEngine, contentHash, documentFingerprint, normalizeDocumentUrl, CheckpointConflictError } from '@pagelingo/translation-core';
+import { ConcurrencyScheduler, TranslationEngine, PROMPT_VERSION, PROTECTION_VERSION, contentHash, documentFingerprint, normalizeDocumentUrl, CheckpointConflictError } from '@pagelingo/translation-core';
 import { createProvider, providerIdentity, requireApiPermission } from '../settings/connection';
 import { readSettings } from '../settings/storage';
 import type { UserSettings } from '../settings/schema';
@@ -113,6 +113,8 @@ export function connectTranslation(port: chrome.runtime.Port): void {
         identity: providerIdentity(settings), budget: budget(settings), cache: database,
         state: database.stateStore(job.id, job.epoch), scheduler,
       } });
+      post({ type: 'translation:provenance', value: { sdkVersion: '0.4.0', promptVersion: PROMPT_VERSION, protectionVersion: PROTECTION_VERSION,
+        sourceLanguage: message.document.sourceLanguage ?? null, targetLanguage: settings.targetLanguage } });
       for await (const batch of engine.translate(message.document, { targetLanguage: settings.targetLanguage, signal: abort.signal,
         glossary: settings.customGlossary, glossaryDomain: settings.glossaryDomain })) {
         abort.signal.throwIfAborted(); const stats = await database.stats();

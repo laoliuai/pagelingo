@@ -208,7 +208,114 @@
       "maxItems": 50000,
       "type": "array",
       "items": {
-        "oneOf": [
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              },
+              "url": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 8192,
+                    "pattern": "^https?:\\/\\/(?![^/?#]*@)[^/?#\\s\\x00-\\x1f\\x7f]+[^\\s\\x00-\\x1f\\x7f]*$"
+                  },
+                  {
+                    "type": "string",
+                    "maxLength": 16777216,
+                    "pattern": "^data:image\\/(?:png|jpeg|webp|gif);base64,(?=[A-Za-z0-9+/])(?:[A-Za-z0-9+/][A-Za-z0-9+/][A-Za-z0-9+/][A-Za-z0-9+/])*(?:[A-Za-z0-9+/][AQgw]==|[A-Za-z0-9+/][A-Za-z0-9+/][AEIMQUYcgkosw048]=)?$"
+                  },
+                  {
+                    "type": "string",
+                    "maxLength": 8192,
+                    "pattern": "^blob:https?:\\/\\/(?![^/?#]*@)[^/?#\\s\\x00-\\x1f\\x7f]+\\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                  }
+                ]
+              },
+              "role": {
+                "type": "string",
+                "const": "image"
+              },
+              "status": {
+                "type": "string",
+                "const": "available"
+              },
+              "fileId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              }
+            },
+            "required": [
+              "id",
+              "url",
+              "role",
+              "status",
+              "fileId"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              },
+              "url": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 8192,
+                    "pattern": "^https?:\\/\\/(?![^/?#]*@)[^/?#\\s\\x00-\\x1f\\x7f]+[^\\s\\x00-\\x1f\\x7f]*$"
+                  },
+                  {
+                    "type": "string",
+                    "maxLength": 16777216,
+                    "pattern": "^data:image\\/(?:png|jpeg|webp|gif);base64,(?=[A-Za-z0-9+/])(?:[A-Za-z0-9+/][A-Za-z0-9+/][A-Za-z0-9+/][A-Za-z0-9+/])*(?:[A-Za-z0-9+/][AQgw]==|[A-Za-z0-9+/][A-Za-z0-9+/][AEIMQUYcgkosw048]=)?$"
+                  },
+                  {
+                    "type": "string",
+                    "maxLength": 8192,
+                    "pattern": "^blob:https?:\\/\\/(?![^/?#]*@)[^/?#\\s\\x00-\\x1f\\x7f]+\\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                  }
+                ]
+              },
+              "role": {
+                "type": "string",
+                "const": "image"
+              },
+              "status": {
+                "type": "string",
+                "const": "missing"
+              },
+              "reason": {
+                "type": "string",
+                "enum": [
+                  "unavailable",
+                  "unsupported",
+                  "blocked",
+                  "too-large",
+                  "timeout",
+                  "not-loaded",
+                  "invalid"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "url",
+              "role",
+              "status",
+              "reason"
+            ],
+            "additionalProperties": false
+          },
           {
             "type": "object",
             "properties": {
@@ -224,10 +331,7 @@
               },
               "role": {
                 "type": "string",
-                "enum": [
-                  "image",
-                  "css"
-                ]
+                "const": "css"
               },
               "status": {
                 "type": "string",
@@ -263,10 +367,7 @@
               },
               "role": {
                 "type": "string",
-                "enum": [
-                  "image",
-                  "css"
-                ]
+                "const": "css"
               },
               "status": {
                 "type": "string",

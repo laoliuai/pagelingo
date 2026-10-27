@@ -20,7 +20,9 @@
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
     "zod": "4.6.7",
-    "@pagelingo/assistant-core": "0.2.0"
+    "@pagelingo/assistant-core": "0.2.0",
+    "@pagelingo/document-contracts": "0.3.0",
+    "@pagelingo/web-capture": "0.1.0"
   },
   "devDependencies": {
     "@crxjs/vite-plugin": "3.0.0",

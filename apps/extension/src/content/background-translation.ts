@@ -1,5 +1,5 @@
 import type { TranslationBatchResult, TranslationDocument } from '@pagelingo/translation-core';
-import { TRANSLATION_PORT, translationEventSchema, type TranslationEvent } from '../shared/translation';
+import { TRANSLATION_PORT, translationEventSchema, type TranslationEvent, type TranslationProvenance } from '../shared/translation';
 
 const connections = new Map<string, () => void>();
 export function wakeTranslation(sessionId: string): boolean {
@@ -8,7 +8,7 @@ export function wakeTranslation(sessionId: string): boolean {
 
 /** Reconnect only after the page confirms its current source snapshot. */
 export async function* translateInBackground(document: TranslationDocument, sessionId: string, signal: AbortSignal,
-  hooks: { isCurrent?: () => boolean; onRecover?: () => void } = {}): AsyncGenerator<TranslationBatchResult> {
+  hooks: { isCurrent?: () => boolean; onRecover?: () => void; onProvenance?: (value: TranslationProvenance) => void } = {}): AsyncGenerator<TranslationBatchResult> {
   signal.throwIfAborted();
   const cancel = () => { void chrome.runtime.sendMessage({ type: 'translation:cancel', sessionId }).catch(() => {}); };
   signal.addEventListener('abort', cancel, { once: true }); let reconnects = 0;
@@ -35,6 +35,7 @@ export async function* translateInBackground(document: TranslationDocument, sess
           signal.throwIfAborted(); if (failure) throw failure;
           const event = events.shift();
           if (!event) { if (disconnected) break; await new Promise<void>((resolve) => { wake = resolve; }); wake = undefined; continue; }
+          if (event.type === 'translation:provenance') { hooks.onProvenance?.(event.value); continue; }
           if (event.type === 'translation:error') throw new Error(event.error);
           if (event.type === 'translation:done') return;
           if (event.type !== 'translation:batch') continue;

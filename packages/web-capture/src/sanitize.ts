@@ -1,5 +1,5 @@
 import { snapshotInputSchema, sanitizedSnapshotSchema, pendingCaptureResourceSchema, type CaptureLimits, type PendingCaptureResource, type SanitizedSnapshot, type SnapshotInput } from '@pagelingo/document-contracts';
-import { normalizeCaptureUrl } from './fingerprint.js';
+import { normalizeCaptureUrl, normalizeCaptureResourceUrl } from './fingerprint.js';
 import { sanitizeMath } from './safe-math.js';
 import { htmlTags, forbidden, containerTags, structuralTags } from './policy.js';
 import { sanitizeStyle } from './styles.js';
@@ -85,8 +85,8 @@ export function sanitizeSnapshot(value: SnapshotInput, environment: SnapshotEnvi
       const registered = placeholder ? registry.get(placeholder) : undefined;
       const raw = original.find(a => a.name === 'src')?.value ?? registered?.url;
       try {
-        check(raw, 'not-loaded'); const url = normalizeCaptureUrl(new URL(raw, input.url).href);
-        origins.add(new URL(url).origin); check(origins.size <= limits.maxResourceOrigins, 'Resource origin budget exceeded');
+        check(raw, 'not-loaded'); const url = normalizeCaptureResourceUrl(new URL(raw, input.url).href, input.url);
+        if (!url.startsWith('data:')) origins.add(new URL(url).origin); check(origins.size <= limits.maxResourceOrigins, 'Resource origin budget exceeded');
         let id = resourceUrls.get(url);
         if (!id) { check(resources.length < limits.maxFiles - 1, 'Resource file budget exceeded'); if (registered) { check(registered.url === url && registered.role === 'image', 'Replay resource URL mismatch'); id = registered.id; }
           else { let counter = resources.length + 1; do { id = `r_${counter++}`; } while (registry.has(id) || resources.some(resource => resource.id === id)); }

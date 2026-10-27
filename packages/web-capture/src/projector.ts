@@ -1,5 +1,5 @@
-import { detectWebLanguage, naturalText, webCaptureManifestSchema, sanitizedSnapshotSchema, webReaderAssetSchema, type CaptureLimits, type ReaderBinding, type SanitizedSnapshot, type WebCaptureManifest, type WebReaderAsset, type WebReaderBlock, type WebReaderIR } from '@pagelingo/document-contracts';
-import { encodeBlock, type BlockKind, type FormatKind, type InlineContent } from '@pagelingo/translation-core';
+import { detectWebLanguage, naturalText, webCaptureManifestSchema, sanitizedSnapshotSchema, webReaderAssetSchema, type CaptureLimits, type CaptureResource, type ReaderBinding, type SanitizedSnapshot, type WebCaptureManifest, type WebReaderAsset, type WebReaderBlock, type WebReaderIR } from '@pagelingo/document-contracts';
+import { encodeBlock, type BlockKind, type FormatKind, type InlineContent, type TranslationBlock } from '@pagelingo/translation-core';
 import { canonicalJson, sha256 } from './fingerprint.js';
 import { mathAst } from './safe-math.js';
 import { semanticProjection, type SemanticUnit } from './semantic.js';
@@ -27,6 +27,24 @@ export async function projectWebReader(snapshot: SanitizedSnapshot, input: WebCa
     const file = manifest.files.find(file => file.id === asset.id);
     check(file?.role === 'image' && file.bytes === asset.bytes && file.sha256 === asset.sha256 && file.path === asset.path && file.mediaType === asset.mediaType, 'Asset metadata does not match manifest');
   }
+  const { blocks, semantic, warnings, usedAssets } = projectSnapshotContent(snapshot, manifest.resources, assets, limits);
+  const manifestSha256 = await sha256(manifestBytes); const configSha256 = await sha256(utf8(canonicalJson(limits)));
+  const partial = !snapshot.scope.completeWithinScope || warnings.size > 0;
+  const ir: WebReaderIR = { schemaVersion: 'web-reader-ir/1', metadata: { title: manifest.metadata.title, language: detectWebLanguage(blocks.flatMap(block => block.type === 'text' ? [naturalText(block.value.content)] : []).join('\n')) },
+    source: { kind: 'web', manifestSha256, snapshotSha256, bytes: manifestBytes.length },
+    parse: { id: `p_${await sha256(utf8(`${manifestSha256}\n${PROJECTOR_VERSION}\n${configSha256}`))}`, inputManifestSha256: manifestSha256, projectorVersion: PROJECTOR_VERSION, configSha256, coverage: partial ? 'partial' : 'full', status: partial ? 'partial' : 'complete' },
+    roots: semantic.roots, nodes: semantic.nodes, blocks, assets: [...assets.values()].filter(asset => usedAssets.has(asset.id)), warnings: [...warnings],
+  };
+  for (const block of blocks) check(byteLength(JSON.stringify(block)) <= limits.maxOversizedBlockBytes, 'Web block byte budget exceeded');
+  check(byteLength(JSON.stringify(ir)) <= limits.maxIrBytes, 'IR byte budget exceeded'); validateWebGraph(ir); return ir;
+}
+/** Canonical source proof only: no source manifest, final IR or byte identity is invented. */
+export function projectSnapshotTranslationSources(snapshot: SanitizedSnapshot, limits?: CaptureLimits): Array<{ nodeId: string; source: TranslationBlock }> {
+  const { blocks } = projectSnapshotContent(sanitizedSnapshotSchema.parse(snapshot), [], new Map(), limitsFor(limits));
+  return blocks.flatMap(block => block.type === 'text' ? [{ nodeId: block.sourceRefs[0]!.nodeId, source: block.value }] : []);
+}
+function projectSnapshotContent(snapshot: SanitizedSnapshot, resources: readonly CaptureResource[], assets: ReadonlyMap<string, WebReaderAsset>, limits: CaptureLimits) {
+  const resourceMap = new Map(resources.map(resource => [resource.id, resource]));
   const usedAssets = new Set<string>(); const warnings = new Set(snapshot.warnings);
   const semantic = semanticProjection(snapshot, limits);
   const blocks: WebReaderBlock[] = [];
@@ -89,15 +107,8 @@ export async function projectWebReader(snapshot: SanitizedSnapshot, input: WebCa
     const heading = headingLevelFor(unit);
     blocks.push({ ...base, type: 'text', ...(heading ? { headingLevel: heading } : {}), value, bindings, safeMath, language: detectWebLanguage(naturalText(content), attr(unit.element, 'lang') ?? null) });
   }
-  const manifestSha256 = await sha256(manifestBytes); const configSha256 = await sha256(utf8(canonicalJson(limits)));
-  const partial = !snapshot.scope.completeWithinScope || warnings.size > 0;
-  const ir: WebReaderIR = { schemaVersion: 'web-reader-ir/1', metadata: { title: manifest.metadata.title, language: detectWebLanguage(blocks.flatMap(block => block.type === 'text' ? [naturalText(block.value.content)] : []).join('\n')) },
-    source: { kind: 'web', manifestSha256, snapshotSha256, bytes: manifestBytes.length },
-    parse: { id: `p_${await sha256(utf8(`${manifestSha256}\n${PROJECTOR_VERSION}\n${configSha256}`))}`, inputManifestSha256: manifestSha256, projectorVersion: PROJECTOR_VERSION, configSha256, coverage: partial ? 'partial' : 'full', status: partial ? 'partial' : 'complete' },
-    roots: semantic.roots, nodes: semantic.nodes, blocks, assets: [...assets.values()].filter(asset => usedAssets.has(asset.id)), warnings: [...warnings],
-  };
   for (const block of blocks) check(byteLength(JSON.stringify(block)) <= limits.maxOversizedBlockBytes, 'Web block byte budget exceeded');
-  check(byteLength(JSON.stringify(ir)) <= limits.maxIrBytes, 'IR byte budget exceeded'); validateWebGraph(ir); return ir;
+  return { blocks, semantic, warnings, usedAssets };
 }
 function tagFor(unit: SemanticUnit): string {
   return attr(unit.element, 'data-pl-run') === '1' && unit.element.parentNode && isElement(unit.element.parentNode)

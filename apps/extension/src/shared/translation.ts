@@ -7,7 +7,13 @@ export const translationStartSchema = z.strictObject({
   type: z.literal('translation:start'), sessionId: z.uuid(), document: translationDocumentSchema,
   resume: z.boolean().default(false),
 });
+export const translationProvenanceSchema = z.strictObject({
+  sdkVersion: z.string().min(1).max(100), promptVersion: z.string().min(1).max(100), protectionVersion: z.string().min(1).max(100),
+  sourceLanguage: z.string().min(2).max(63).nullable(), targetLanguage: z.string().min(2).max(63),
+});
+export type TranslationProvenance = z.infer<typeof translationProvenanceSchema>;
 export const translationEventSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('translation:provenance'), value: translationProvenanceSchema }),
   z.object({ type: z.literal('translation:batch'), value: z.object({
     documentId: z.string(), completed: z.number().int().nonnegative(), total: z.number().int().nonnegative(),
     translations: z.array(z.object({ id: z.string(), text: z.string(), content: z.array(inlineContentSchema) })),

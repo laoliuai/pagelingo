@@ -78,3 +78,12 @@ it('retains actual heading levels through mixed heading content', async () => {
   const headings = ir.blocks.filter(block => block.type === 'text' && block.value.kind === 'heading');
   expect(headings.map(block => block.type === 'text' ? block.headingLevel : undefined)).toEqual([3, 5]);
 });
+it('exposes exactly the canonical translation source without fabricating a manifest or IR', async () => {
+  const { projectSnapshotTranslationSources } = await import('../src/index.js');
+  const snapshot = sanitizeNodeSnapshot(snapshotInput('<article><p>Plain source.</p><p>With <strong>format</strong> and <code>code</code><img src="/image.png"></p></article>'));
+  const sources = projectSnapshotTranslationSources(snapshot);
+  const manifest = await manifestFor(snapshot);
+  const ir = await projectWebReader(snapshot, manifest, projectionOptions(manifest));
+  expect(sources).toEqual(ir.blocks.flatMap(block => block.type === 'text' ? [{ nodeId: block.sourceRefs[0].nodeId, source: block.value }] : []));
+  expect(sources[0].source).toMatchObject({ kind: 'paragraph', content: [{ type: 'text', text: 'Plain source.' }] });
+});

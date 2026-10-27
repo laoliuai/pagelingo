@@ -124,3 +124,18 @@ test('each native mixed-content block resolves to a preview containing its own a
   }, { input, draft });
   expect(result).toEqual(['Before', 'Middle', 'After'].map(quote => ({ quote, anchoredText: quote, included: true })));
 });
+test('native and Node replay retain data and document-origin blob evidence without fetching it', async ({ page }) => {
+  await page.goto(origin);
+  const raw = { ...snapshotInput('<article><p>Local resource evidence</p></article>'), url: origin };
+  const result = await page.evaluate(input => {
+    const blob = URL.createObjectURL(new Blob(['actual local bytes'], { type: 'image/png' }));
+    const data = 'data:image/png;base64,aGVsbG8=';
+    const snapshot = window.Capture.sanitizeBrowserSnapshot({ ...input, html: `<article><img src="${data}"><img src="${blob}"></article>` });
+    const replay = window.Capture.sanitizeBrowserSnapshot({ html: snapshot.html, url: snapshot.sourceUrl, scope: snapshot.scope }, undefined, snapshot.resources);
+    URL.revokeObjectURL(blob);
+    return { snapshot, replay, blob, data };
+  }, raw);
+  expect(result.snapshot.resources.map(resource => resource.url)).toEqual([result.data, result.blob]);
+  expect(result.replay).toEqual(result.snapshot);
+  expect(sanitizeNodeSnapshot({ html: result.snapshot.html, url: result.snapshot.sourceUrl, scope: result.snapshot.scope }, undefined, result.snapshot.resources)).toEqual(result.snapshot);
+});

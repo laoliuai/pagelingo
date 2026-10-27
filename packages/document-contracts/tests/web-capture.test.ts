@@ -121,3 +121,25 @@ test('keeps missing resource roles replayable and rejects role/file mismatches',
   const resource = { id: 'resource', url: 'https://example.com/resource', status: 'available', role: 'css', fileId: 'image' };
   expect(contracts.webCaptureManifestSchema.safeParse({ ...manifest, files: [file, image], resources: [resource] }).success).toBe(false);
 });
+test('validates resource-only local image locators with portable/runtime parity and bounded large input', async () => {
+  const { Ajv2020 } = await import('ajv/dist/2020.js');
+  const { z } = await import('zod');
+  const validate = new Ajv2020({ strict: true }).compile(z.toJSONSchema(contracts.captureResourceSchema));
+  for (const [url, valid] of [
+    ['data:image/png;base64,aGVsbG8=', true],
+    ['blob:https://example.com/ca64f96f-205e-46f3-af4a-47e1a61e1310', true],
+    ['data:image/png;base64,', false], ['data:image/png;base64,a=', false],
+    ['data:image/png;base64,ab==', false], ['data:image/svg+xml;base64,PHN2Zz4=', false],
+    ['blob:https://user@example.com/ca64f96f-205e-46f3-af4a-47e1a61e1310', false],
+    ['data:image/png;base64,' + 'a'.repeat(12 * 1024 * 1024), true],
+    ['data:image/png;base64,' + 'a'.repeat(12 * 1024 * 1024) + '!', false],
+  ] as const) {
+    const resource = { id: 'image', role: 'image', url, status: 'missing', reason: 'unavailable' };
+    expect(contracts.captureResourceSchema.safeParse(resource).success).toBe(valid);
+    expect(validate(resource)).toBe(valid);
+    expect(contracts.captureUrlSchema.safeParse(url).success).toBe(false);
+  }
+  const css = { id: 'css', role: 'css', url: 'data:image/png;base64,aGVsbG8=', status: 'missing', reason: 'unavailable' };
+  expect(contracts.captureResourceSchema.safeParse(css).success).toBe(false);
+  expect(validate(css)).toBe(false);
+});
