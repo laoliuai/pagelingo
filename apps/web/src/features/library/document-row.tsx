@@ -1,9 +1,16 @@
 import { FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import type { DocumentSummary } from '@pagelingo/document-contracts';
+import { readingProgressSchema, type DocumentSummary } from '@pagelingo/document-contracts';
+import { useQuery } from '@tanstack/react-query';
+import { useSession } from '../../app/session';
+import { apiRequest } from '../../shared/api-client';
 import { translationLabel } from './import-status';
 import { Badge } from '../../shared/ui/badge';
 export function DocumentRow({ document }: { document: DocumentSummary }) {
+  const { user, epoch } = useSession();
+  const progress = useQuery({ queryKey: [user!.id, 'reading-progress', document.id, epoch],
+    queryFn: async ({ signal }) => { const value = await apiRequest(`/api/v1/documents/${document.id}/progress`, { signal }); return value === null ? null : readingProgressSchema.parse(value); },
+    enabled: !!document.reader, gcTime: 0 });
   return (
     <article className="document-row">
       <div className="source-icon">
@@ -28,6 +35,7 @@ export function DocumentRow({ document }: { document: DocumentSummary }) {
       </div>
       <div className="document-status">
         <Badge active>原文已保存</Badge>
+        {progress.data && <Link to={`/library/${document.id}?versionId=${progress.data.position.readerVersionId}`}>继续上次阅读</Link>}
         <time dateTime={document.createdAt}>{document.createdAt.slice(0, 10)}</time>
       </div>
     </article>

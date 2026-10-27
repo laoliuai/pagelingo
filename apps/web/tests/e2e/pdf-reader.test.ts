@@ -118,8 +118,9 @@ test('20,000 imported blocks bound chunks and keep nested directory visibility b
     const expected = bundle.build.chunks[current - 1]; await expect(content.locator(`[data-block-id="${expected.blockIds[0]}"]`)).toBeAttached();
     let userAnchor: { id: string; top: number } | undefined;
     if (current === middle) {
+      const beforeWheel = await content.evaluate(el => el.scrollTop);
       await content.hover(); await page.mouse.wheel(0, 180);
-      await expect.poll(() => content.evaluate(el => el.scrollTop)).toBeGreaterThan(0);
+      await expect.poll(() => content.evaluate(el => el.scrollTop)).not.toBe(beforeWheel);
       userAnchor = await content.evaluate(el => { const top = el.getBoundingClientRect().top; const block = [...el.querySelectorAll<HTMLElement>('[data-block-id]')].find(node => node.getBoundingClientRect().bottom > top + 1)!; return { id: block.dataset.blockId!, top: block.getBoundingClientRect().top - top }; });
       releasePrevious();
     }

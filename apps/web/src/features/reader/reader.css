@@ -50,3 +50,6 @@
   .native-reader .reader-view-split .reader-source-pane, .native-reader .reader-view-split .reader-resizer { display: none; }
   .native-reader .reader-chunk-nav { gap: 6px; }
 }
+
+.native-reader .reader-version-label select { max-width: min(260px, 60vw); }
+.native-reader .reader-version-pages { display: flex; align-items: center; gap: 8px; font-size: 12px; }

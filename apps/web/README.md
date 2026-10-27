@@ -28,7 +28,7 @@ PDF.js 按当前页渲染单个 canvas，支持翻页、缩放与原件下载；
 
 资料库与 PDF 详情均可“导入阅读包”。选择本地完整 ZIP 后，浏览器按认证接口返回的生效限额限制文件，以稳定幂等键创建任务，并直接上传 File，不整包读取到 JavaScript 内存。关闭弹窗继续保留任务；重开后可从当前账号最近导入恢复。显式取消会先请求服务器，再停止本地上传；回应丢失或取消与完成竞态均先查询服务器确认。
 
-“阅读包导入完成”只表示服务器已校验并保存包。中文无需翻译、原文待处理、部分译文、缺页/解析不完整、区域图限制和模拟译文分别显示。导入反馈读取确切的 imported readerVersionId；新包未提升为当前版本时，原有已完成版本仍保留。有阅读包的详情使用 PDF / HTML 双屏入口；仅原件的资料继续使用原 PDF 阅读器。阅读进度持久化属于后续阶段。恢复的任务未提供原目标标识时显示“此前的导入任务”，不假定绑定当前详情页；如需导入当前 PDF，应先取消此前任务再重新选择包。
+“阅读包导入完成”只表示服务器已校验并保存包。中文无需翻译、原文待处理、部分译文、缺页/解析不完整、区域图限制和模拟译文分别显示。导入反馈读取确切的 imported readerVersionId；新包未提升为当前版本时，原有已完成版本仍保留。有阅读包的详情使用 PDF / HTML 双屏入口；仅原件的资料继续使用原 PDF 阅读器。阅读位置会在实际阅读交互后同步保存。恢复的任务未提供原目标标识时显示“此前的导入任务”，不假定绑定当前详情页；如需导入当前 PDF，应先取消此前任务再重新选择包。
 
 阅读包 UI 的浅色/深色、桌面/移动截图见 [S2 import validation](../../docs/superpowers/specs/assets/2026-10-27-s2-import-validation/)。
 
@@ -40,6 +40,12 @@ Reader 默认桌面双栏（分隔条可拖拽，方向键每次 5%，Home / End
 
 ReaderDescriptor.pages 提供从不可变 IR 返回的完整有序 PDF 页元数据。区域坐标已是旋转后 CropBox 的归一化坐标；渲染完成后核对实际 PDF.js 的页数、page.view、rotate、viewport 尺寸与仿射变换。只有相容时显示高亮；页级来源或失配会明确说明仅定位到原页。重绘期间不显示旧高亮。默认测试的四旋转 PDF 用 Node 生成，与 Task 1 独立 golden 及 canvas 红区比较，无 Python / 原始论文依赖。
 
-ReaderPage 接受 documentId 与可选 versionId（详情 URL 可带 ?versionId=）；ReaderContent 暴露位置与 target 回调，InteractionOrigin 为 user / restore / layout。原生 scroll 本身不代表用户操作，只有滚轮、触摸、阅读键或滚动条操作会开启用户意图窗口；恢复、字号、窗口重挂载和布局调整清除意图。Task 10 不发进度 PUT；这些接口供后续进度工作接入。
+ReaderPage 接受 documentId 与可选 versionId（详情 URL 可带 ?versionId=）；ReaderContent 暴露位置与 target 回调，InteractionOrigin 为 user / restore / layout。原生 scroll 本身不代表用户操作，只有滚轮、触摸、阅读键或滚动条操作会开启用户意图窗口；恢复、字号、窗口重挂载和布局调整清除意图。只有 user 回调会触发进度保存，restore / layout 回调保持只读。
 
 Reader 双屏的浅色/深色、桌面/移动截图见 [S2 Reader validation](../../docs/superpowers/specs/assets/2026-10-27-s2-reader-validation/)。
+
+阅读版本来自认证的分页历史接口，普通入口始终打开服务端 current reader；新导入未提升为 current 的版本仍可在选择器中阅读。资料库的“继续上次阅读”以真实最后确认版本生成显式 `?versionId=` 链接。每个版本使用 descriptor 的有效历史位置恢复，同时使用当前文档全局 revision；新 parse 无法保留 block 时按物理 PDF 页定位并提示，旧历史保留。
+
+首次加载、恢复、调整窗口/字号及正文分片重挂载不写进度。实际阅读滚动、翻页或阅读视图/语言操作按 1.5 秒 debounce 保存，持续阅读最多等待 5 秒；同一视图只保留最新待保存位置并串行执行 CAS。离开时 best effort 刷新待保存位置，不重复已经在途的请求。409 会保留服务器成功位置并暂停自动写入；用户显式“从当前位置继续”才 GET 最新全局 revision 后保存当前所在位置。普通失败同样要求手动重试；会话撤销、账号/版本/资料切换中止旧请求，迟到回应不能更新新的阅读会话。所有操作只读取已保存原件/译文，不调用模型。
+
+进度冲突与资料库继续阅读的浅色/深色、桌面/移动截图见 [S2 progress validation](../../docs/superpowers/specs/assets/2026-10-27-s2-progress-validation/)。

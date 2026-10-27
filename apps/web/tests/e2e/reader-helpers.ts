@@ -23,7 +23,7 @@ export function rotationPdf() {
   pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n${offsets.slice(1).map(offset => `${String(offset).padStart(10, '0')} 00000 n \n`).join('')}trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
   return Buffer.from(pdf);
 }
-export async function readerBundle(large = false, mismatch = false, prefix = '译文 ') {
+export async function readerBundle(large = false, mismatch = false, prefix = '译文 ', options: { newParse?: boolean; pending?: boolean; longParagraph?: boolean } = {}) {
   const files = await fixture();
   const ir: ReaderIR = JSON.parse(files.get('source-ir.json')!.toString());
   const translation: ReaderTranslation = JSON.parse(files.get('translation.json')!.toString());
@@ -32,9 +32,17 @@ export async function readerBundle(large = false, mismatch = false, prefix = '�
   const pdf = rotationPdf(); files.set('source.pdf', pdf);
   ir.metadata.title = large ? 'Twenty thousand blocks' : 'Rotation reader';
   Object.assign(ir.source, { sha256: hash(pdf), bytes: pdf.length });
+  if (options.newParse) {
+    ir.parse.projectorVersion += '-progress-v2';
+    Object.assign(ir, JSON.parse(JSON.stringify(ir).replace(/b_[0-9a-f]{32}/g, id => 'b_ffff' + id.slice(6))));
+  }
   ir.parse.id = deriveParseId(ir.source.sha256, ir.parse.inputManifestSha256, ir.parse.projectorVersion, ir.parse.configSha256);
   ir.blocks[0].sourceRefs = goldens.map((value: { pageIndex: number; bbox: number[] }) => ({ ...value, precision: 'bbox' }));
   for (const block of ir.blocks) if (block.type === 'code') block.code = 'const example = ' + 'wide_code_'.repeat(80);
+  if (options.longParagraph) {
+    const paragraph = ir.blocks[1];
+    if (paragraph.type === 'text') paragraph.value.content.push({ type: 'text', text: ' Reading this paragraph preserves the position across devices.'.repeat(80) });
+  }
   if (mismatch) ir.pages[1] = { ...ir.pages[0], pageIndex: 1 };
   if (large) {
     ir.metadata.language = { language: 'zh', reason: 'han-only' };
@@ -66,11 +74,16 @@ export async function readerBundle(large = false, mismatch = false, prefix = '�
   const plan = planUnits(toTranslationDocument(ir, translation.selectionBlockIds), translation.targetLanguage, translation.profile, translation.budget, translation);
   translation.units = plan.units.map(unit => ({ id: unit.id, part: unit.part, blockId: plan.inputs[unit.blockIndex].id, status: 'covered-by-block' }));
   translation.blocks = large ? ir.blocks.map(b => ({ blockId: b.id, status: 'source-only', reason: 'language-not-required' })) : plan.inputs.map(input => ({ blockId: input.id, status: 'translated', rawText: `${prefix}${input.protectedText}` }));
+  if (options.pending) {
+    translation.status = 'pending'; translation.generationKind = 'none';
+    translation.blocks = plan.inputs.map(input => ({ blockId: input.id, status: 'source-only', reason: 'pending' }));
+    translation.units = plan.units.map(unit => ({ id: unit.id, part: unit.part, blockId: plan.inputs[unit.blockIndex].id, status: 'pending' }));
+  }
   files.set('source-ir.json', json(ir)); translation.readerIrSha256 = hash(files.get('source-ir.json')!); files.set('translation.json', json(translation));
   const build = buildReader(ir, translation);
   for (const key of files.keys()) if (key.startsWith('render/')) files.delete(key);
   for (const file of createStaticFilePlan(build, { title: ir.metadata.title, originalFilename: ir.metadata.originalFilename }).generatedFiles) files.set(file.path, Buffer.from(file.content));
-  Object.assign(manifest, { packageId: randomUUID(), title: ir.metadata.title, source: ir.source, parse: { ...manifest.parse, id: ir.parse.id }, readerIrSha256: translation.readerIrSha256, translation: { id: translation.id, sha256: hash(files.get('translation.json')!), status: translation.status, generationKind: translation.generationKind } });
+  Object.assign(manifest, { packageId: randomUUID(), title: ir.metadata.title, source: ir.source, parse: { ...manifest.parse, id: ir.parse.id, projectorVersion: ir.parse.projectorVersion }, readerIrSha256: translation.readerIrSha256, translation: { id: translation.id, sha256: hash(files.get('translation.json')!), status: translation.status, generationKind: translation.generationKind } });
   const previous = new Map(manifest.files.map(file => [file.path, file]));
   manifest.files = [...files].filter(([path]) => path !== 'manifest.json').map(([path, bytes]) => ({ ...(previous.get(path) ?? { path, role: 'render', mediaType: 'text/javascript' }), bytes: bytes.length, sha256: hash(bytes) }));
   files.set('manifest.json', json(manifest));

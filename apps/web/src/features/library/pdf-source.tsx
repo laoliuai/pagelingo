@@ -17,11 +17,19 @@ export interface PdfSourceProps {
 }
 export function PdfSource({ sourceUrl, title, pageIndex: controlledPage, onPageChange, highlight, pageMetadata, pageCount, onInteraction }: PdfSourceProps) {
   const { clear } = useSession();
+  const userUntil = useRef(0);
+  const armScroll = () => { userUntil.current = performance.now() + 800; };
   const [document, setDocument] = useState<PDFDocumentProxy | null>(null);
   const [internalPage, setPageIndex] = useState(0);
   const pageIndex = controlledPage ?? internalPage;
-  const changePage = (next: number) => { if (controlledPage === undefined) setPageIndex(next); onPageChange?.(next, 'user'); onInteraction?.('user'); };
+  const changePage = (next: number) => { if (controlledPage === undefined) setPageIndex(next); onPageChange?.(next, 'user'); if (!onPageChange) onInteraction?.('user'); };
   const [scale, setScale] = useState(1);
+  useEffect(() => { userUntil.current = 0; }, [pageIndex, scale]);
+  useEffect(() => {
+    const resetIntent = () => { userUntil.current = 0; };
+    window.addEventListener('resize', resetIntent);
+    return () => window.removeEventListener('resize', resetIntent);
+  }, []);
   const [attempt, setAttempt] = useState(0);
   const [error, setError] = useState('');
   const [renderedFrame, setRenderedFrame] = useState<{
@@ -184,7 +192,11 @@ export function PdfSource({ sourceUrl, title, pageIndex: controlledPage, onPageC
             </p>
           )}
           {rendered && highlight?.pageIndex === pageIndex && <p className="pdf-location-status" role="status">{highlight.precision === 'page' ? '仅定位到原页；此段没有可信区域坐标。' : !compatibleGeometry(renderedFrame!.geometry, pageMetadata, pageCount) ? '页面几何信息不匹配，已仅定位到原页。' : '已定位到原页区域。'}</p>}
-          <div className="pdf-scroll" tabIndex={0} aria-label="PDF 页面，可横向滚动">
+          <div className="pdf-scroll" tabIndex={0} aria-label="PDF 页面，可横向滚动"
+            onWheel={armScroll} onTouchMove={armScroll}
+            onPointerDown={event => { if (event.target === event.currentTarget) armScroll(); }}
+            onKeyDown={event => { if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(event.key)) armScroll(); }}
+            onScroll={() => { if (performance.now() < userUntil.current) onInteraction?.('user'); }}>
             <div className="pdf-frame" style={{ position: 'relative', width: 'max-content', margin: '0 auto' }}>
             <canvas
               ref={canvas}

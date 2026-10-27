@@ -12,6 +12,7 @@ export interface ReaderContentProps {
   onPositionChange?: (position: ContentPosition, origin: InteractionOrigin) => void;
   target?: ContentTarget;
   large?: boolean;
+  visible?: boolean;
 }
 const TrustedChunk = memo(function TrustedChunk({ chunk, descriptor, mode }: { chunk: ReaderChunk; descriptor: ReaderDescriptor; mode: ContentMode }) {
   const rendered = useMemo(() => renderChunk(chunk, { mode, resolveAsset: id => {
@@ -26,10 +27,16 @@ const TrustedChunk = memo(function TrustedChunk({ chunk, descriptor, mode }: { c
     {rendered.warnings.map(warning => <p role="status" key={warning}>{warning}</p>)}
   </div>;
 });
-export function ReaderContent({ descriptor, mode, onLocate, onPositionChange, target, large = false }: ReaderContentProps) {
+export function ReaderContent({ descriptor, mode, onLocate, onPositionChange, target, large = false, visible = true }: ReaderContentProps) {
   const store = useMemo(() => new ReaderWindow(descriptor), [descriptor.documentId, descriptor.versionId, descriptor.parseId, descriptor.source.sha256]);
   const state = useSyncExternalStore(store.subscribe, store.getSnapshot);
   const root = useRef<HTMLDivElement>(null);
+  const [tailSpace, setTailSpace] = useState(0);
+  useLayoutEffect(() => {
+    const element = root.current; if (!element) return;
+    const resize = new ResizeObserver(() => setTailSpace(element.clientHeight));
+    resize.observe(element); return () => resize.disconnect();
+  }, []);
   const [input, setInput] = useState('1');
   const pendingTarget = useRef<ContentTarget | null>(null);
   const anchor = useRef<{ id: string; top: number } | null>(null);
@@ -45,7 +52,7 @@ export function ReaderContent({ descriptor, mode, onLocate, onPositionChange, ta
   useEffect(() => { store.select(0); return () => store.dispose(); }, [store]);
   useEffect(() => { if (target) jump(target); }, [target, store]);
   useLayoutEffect(() => {
-    const element = root.current; if (!element) return;
+    const element = root.current; if (!element || !visible || !element.clientHeight) return;
     const destination = pendingTarget.current;
     if (destination) {
       if (state.loading) return;
@@ -61,7 +68,7 @@ export function ReaderContent({ descriptor, mode, onLocate, onPositionChange, ta
       if (block) { userUntil.current = 0; element.scrollTop += block.getBoundingClientRect().top - anchor.current.top; }
       if (!state.loading) anchor.current = null;
     }
-  }, [state, descriptor]);
+  }, [state, descriptor, visible, tailSpace]);
   useLayoutEffect(() => { userUntil.current = 0; }, [mode, large]);
   useEffect(() => {
     const resetIntent = () => { userUntil.current = 0; };
@@ -108,6 +115,7 @@ export function ReaderContent({ descriptor, mode, onLocate, onPositionChange, ta
       {state.loading && <p role="status" className="reader-message">正在加载正文…</p>}
       {state.error && <div className="reader-message" role="alert">{state.error}<Button onClick={() => store.select(state.current)}>重试正文</Button></div>}
       {state.chunks.map(chunk => <TrustedChunk key={chunk.id} chunk={chunk} descriptor={descriptor} mode={mode} />)}
+      <div aria-hidden="true" style={{ height: tailSpace, flexShrink: 0 }} />
     </div>
   </div>;
 }

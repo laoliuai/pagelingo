@@ -25,6 +25,7 @@ async function request<T>(
     signal?: AbortSignal;
     idempotencyKey?: string;
     zip?: File;
+    keepalive?: boolean;
   } = {},
 ): Promise<T> {
   if (
@@ -45,6 +46,7 @@ async function request<T>(
     method,
     credentials: 'include',
     cache: 'no-store',
+    keepalive: options.keepalive,
     signal,
     headers: {
       ...(options.idempotencyKey ? { 'Idempotency-Key': options.idempotencyKey } : {}),
@@ -75,7 +77,7 @@ async function request<T>(
 }
 /** JSON/multipart requests share the same identity fence as binary uploads. */
 export function apiRequest<T>(path: string, options: {
-  method?: string; body?: unknown | FormData; signal?: AbortSignal; idempotencyKey?: string;
+  method?: string; body?: unknown | FormData; signal?: AbortSignal; idempotencyKey?: string; keepalive?: boolean;
 } = {}): Promise<T> {
   return request<T>(path, options);
 }
@@ -96,3 +98,6 @@ export function errorMessage(error: unknown): string {
   }
   return '操作失败，请稍后重试。';
 }
+
+/** Captured by long-lived writers so teardown can never adopt a newer identity. */
+export function apiSessionSignal(): AbortSignal { return generation.signal; }
