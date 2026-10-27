@@ -62,7 +62,7 @@
 
 - `captureId` 是插件生成并持久化的 UUID；同一条 outbox 重试始终使用同一 UUID / Idempotency-Key。ingestion、document、sourceVersion、readerVersion、job、device 使用不同 UUID。
 - 新增 `WebCaptureManifest`（`web-capture/1`）、`WebReaderIR`（`web-reader-ir/1`）、`WebTranslation`（`web-reader-translation/1`）、`WebReaderIndex / WebReaderChunk / WebReaderDescriptor`，Zod strict + JSON Schema 同步。contracts 升为 0.3.0；已有 PDF JSON 形状与 `reader-ir/1` 不变。
-- manifest 含来源 URL、候选 canonical、类型 / 来源、标题 / 作者 / 来源时间 / 采集时间、scope、原文 HTML 文件描述、资源描述、可获取的原 CSS 及可选现有译文；每个实际文件都含 `id/path/bytes/sha256/mediaType/role`。不含 owner、Token、Key、请求头或 DOM 运行对象。
+- manifest 含来源 URL、候选 canonical、类型 / 来源、标题 / 作者 / 来源时间 / 采集时间、scope、原文 HTML 文件描述、资源描述、可获取的原 CSS 及可选现有译文；每个实际文件都含 `id/path/bytes/sha256/mediaType/role`。每个资源（含缺失项）明确 `role:image|css`，可用资源须与文件角色相符。不含 owner、Token、Key、请求头或 DOM 运行对象。
 - scope 区分 article / x-post / answer，并含 `completeWithinScope` 和警告。只保存单条回答 / 主帖不代表整个问题 / 线程；展开不足、不可读 frame、closed Shadow DOM、付费或未加载区域明确标记。
 - `normalizeCaptureUrl(url)` 只去除已知 `utm_* / fbclid / gclid / msclkid` 追踪参数，保留其余 query / hash；不复用 SDK 的缓存 URL 归一化，不用候选 canonical 自动合并不同来源。归档 URL 只允许 HTTP/HTTPS，禁止 userinfo。
 - source 的 SHA 是最终来源 manifest 的实际字节 SHA；`contentFingerprint` 只用于同 owner、来源身份与 scope 下的去重。它基于服务器规范化的正文、结构、资源摘要与缺失状态，排除 captureId / 采集时间 / 上传尝试。相同 URL 不同内容建新 source；相同内容复用 source，保留新的收藏事件；不跨用户去重。
@@ -89,7 +89,7 @@ Web Reader 分片最多 128 blocks / 256 KiB，单超大块最多 512 KiB；正�
 | contracts | 上述 DTO / schema、`CaptureLimits / defaultCaptureLimits`；不导出服务端凭据或会话内部对象 |
 | web-capture | `sanitizeSnapshot(input: SnapshotInput, environment: SnapshotEnvironment): SanitizedSnapshot`；`projectWebReader(snapshot, manifest, options: WebProjectionOptions): Promise<WebReaderIR>`；`validateWebGraph(ir): void`；`normalizeCaptureUrl(url): string`；`captureContentFingerprint(snapshot, resources): Promise<string>` |
 | web-capture | `buildSnapshotPreviews(snapshot, resourceResolvedManifestDraft, limits): Promise<SnapshotPreviewBuild>`；`inspectImageResource(bytes, file, limits): Promise<WebReaderAsset>`；`resolveSnapshotAnchor(index, nodeId): {previewId,anchorId}|null`，预览 ID / node ID / 资源闭包进入不可变 source manifest |
-| web-capture/browser | `sanitizeBrowserSnapshot(input: SnapshotInput): SanitizedSnapshot`；使用原生 DOM，不包含站点适配或 Chrome I/O，也不导入 jsdom |
+| web-capture/browser | `sanitizeBrowserSnapshot(input, limits?, resources?): SanitizedSnapshot`；使用原生 DOM，不包含站点适配或 Chrome I/O，也不导入 jsdom |
 | web-capture/node | `extractPublicArticle(html, url): SanitizedSnapshot`；禁脚本 / 子资源的 jsdom + Readability；仅在可终止 worker 内运行 |
 | renderer | `toWebTranslationDocument(ir, selection, sourceLanguage?): TranslationDocument`；`validateWebTranslation(ir, translation): ValidatedWebTranslation`；`buildWebReader(ir, translation): WebReaderBuild`；`renderWebChunk(chunk, { mode, resolveAsset }): TrustedReaderHtml`，mode 为 source / translation / bilingual |
 | renderer compat | `resolveTrustedCatalog({version, codeSha256}): TrustedRendererCatalog`；现有 `createStaticFilePlan(build, metadata, catalog?)` 增加可选目录选择，原调用不变 |
@@ -108,6 +108,8 @@ Web Reader 分片最多 128 blocks / 256 KiB，单超大块最多 512 KiB；正�
 预览先以资源已经解析、预览为空的 manifest draft 构建，`SnapshotPreviewBuild` 返回 `{index:SnapshotPreviewIndex,files:Array<{descriptor:CaptureFile,html:string}>}`，包含实际预览字节摘要及资源预算。将生成文件与 index 加入最终 manifest 后再投影 IR，避免预览与来源摘要循环依赖。`WebProjectionOptions` 为 `{manifestBytes:Uint8Array,assets:readonly WebReaderAsset[],limits?:CaptureLimits}`；核对这些实际字节解析后的合同与参数一致，来源 SHA 使用实际 manifestBytes。资源检查核对实际字节 / SHA / 图片元数据，局部资产 ID 对应 CaptureFile.id。node / block ID 不依赖最终 manifest SHA。摘要相关函数用原生 WebCrypto 异步计算，不伪造同步摘要。
 
 root 的 `SnapshotEnvironment` 只注入字符串输入 / 输出的清洗能力；DOMPurify / DOM 对象留在 browser / node adapter。root 用 parse5 处理纯数据树并进行清洗前后检查，不新增 SanitizedSnapshot tree 字段。
+
+重复清洗通过 `SnapshotEnvironment.resources?:readonly PendingCaptureResource[]` 提供已验证 manifest 的资源上下文，只解析已知占位 ID，不把原始 URL 暗藏在 HTML 中。`replayResourcesFromManifest(manifest)` 生成此上下文；服务端重新校验用 `sanitizeNodeSnapshot(input,limits?,resources?)`，不再次运行 Readability。二次清洗须保持正文指纹、node 映射与 SVG 局部引用。CSS 采集由插件完成，归档 CSS 始终不执行。
 
 关键 DTO 的字段名固定如下，其余嵌套 schema 在任务 1 的对应模块定义：
 
