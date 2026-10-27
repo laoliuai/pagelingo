@@ -247,13 +247,13 @@ ZIP 从私有暂存文件逐项读取，`lazyEntries:true, strictFileNames:true,
 
 迁移的持久引用约定：parse_runs 的 id 是 ReaderIR.parse.id（text），保存 source_version_id / ir_asset_id / ir_sha256；translation_runs 的 id 是译文快照 UUID，保存 parse_id / translation_asset_id / sha256 / status；reader_versions 的 id 是服务生成 UUID，保存 source_version_id / parse_id / translation_id / package_id / manifest_sha256 / archive_asset_id / index_asset_id。reader_chunks 以 reader_version_id + chunk id 保存 data_asset_id，bundle_files 以 reader_version_id + path 映射原始文件 asset_id。每张表另含 owner_id / document_id 及必要时间；不得通过仅有 id 的 FK 绕过 owner。reading_state 保存文档级 revision 与最新位置，reading_positions 以 reader_version_id 保留历史。bundle_imports 保存请求摘要、target_document_id、状态 / epoch / heartbeat、成功 refs 或稳定 errorCode。
 
-- [ ] **Step 1:** 写失败 PG 测试：原件先上传后导入同条目、直接包创建条目；显式 target 必须属于当前 owner 且 source hash / bytes 相同；无 target 时只在本人范围复用同源 PDF。相同包幂等、相同 packageId 不同内容冲突、导入旧包不回退新 current，已有原件 / 成功版本在任何失败后保持可读。
-- [ ] **Step 2:** 运行 `npm run test:service:db -- tests/integration/bundle-imports.test.ts`，确认失败。
-- [ ] **Step 3:** migration 按上述持久引用约定建表，资产仍登记在 assets；documents.current_reader_version_id 的延迟 FK 同时包含 owner、document 和 current_source_version_id，确保两侧源身份一致。包身份唯一键为 owner + packageId，逻辑 parse / translation 身份相同但内容不同拒绝；active import 使用 owner 的部分唯一索引。不同 owner 的同源包不去重对象、不返回已有用户的信息。不改 001–004 已应用迁移。
-- [ ] **Step 4:** 导入状态短事务领取后，在事务外接收、逐项校验与写不可变对象；发布事务按用户 / 会话 → import → 文档 → object-publication lock 顺序，重查 actor、epoch / status、源身份、对象 stat 后插入 refs 和切换 current。并行首次同源导入 / 原件上传在同 owner 锁下去重。验证 / hash / 长上传不能占业务事务。纯验证与 SDK / renderer 的同步 CPU 工作在可终止的隔离 Node worker 中执行，父进程负责 auth / heartbeat / cancel / DB；worker 不接收用户 Key 或主密钥。超时 / 取消能终止 worker，不以事件循环恢复后才检查的 timer 代替硬截止。
-- [ ] **Step 5:** 加入 cancel / disable / password reset / stale lease / 重启测试：旧 epoch 不能提交；completed 后取消返回明确冲突；进程失去上传后仍可 GET 状态并重试新 ingestion。active claim 15 秒更新心跳，失活 15 分钟后标失败；对象清理沿用 (204716,2) 锁、查询 assets 全部引用，临时输入 UUID 文件按相同年龄 / 心跳规则清理，不触碰被引用对象。
-- [ ] **Step 6:** 故障注入对象写入后 DB 回滚、发布与清理器竞争、最后时刻对象消失、源冲突和断流，证明未发布任何半版本。运行全部服务 PG 测试与 typecheck。
-- [ ] **Step 7:** 提交 `feat: publish PDF bundles atomically per user`。
+- [x] **Step 1:** 写失败 PG 测试：原件先上传后导入同条目、直接包创建条目；显式 target 必须属于当前 owner 且 source hash / bytes 相同；无 target 时只在本人范围复用同源 PDF。相同包幂等、相同 packageId 不同内容冲突、导入旧包不回退新 current，已有原件 / 成功版本在任何失败后保持可读。
+- [x] **Step 2:** 运行 `npm run test:service:db -- tests/integration/bundle-imports.test.ts`，确认失败。
+- [x] **Step 3:** migration 按上述持久引用约定建表，资产仍登记在 assets；documents.current_reader_version_id 的延迟 FK 同时包含 owner、document 和 current_source_version_id，确保两侧源身份一致。包身份唯一键为 owner + packageId，逻辑 parse / translation 身份相同但内容不同拒绝；active import 使用 owner 的部分唯一索引。不同 owner 的同源包不去重对象、不返回已有用户的信息。不改 001–004 已应用迁移。
+- [x] **Step 4:** 导入状态短事务领取后，在事务外接收、逐项校验与写不可变对象；发布事务按用户 / 会话 → import → 文档 → object-publication lock 顺序，重查 actor、epoch / status、源身份、对象 stat 后插入 refs 和切换 current。并行首次同源导入 / 原件上传在同 owner 锁下去重。验证 / hash / 长上传不能占业务事务。纯验证与 SDK / renderer 的同步 CPU 工作在可终止的隔离 Node worker 中执行，父进程负责 auth / heartbeat / cancel / DB；worker 不接收用户 Key 或主密钥。超时 / 取消能终止 worker，不以事件循环恢复后才检查的 timer 代替硬截止。
+- [x] **Step 5:** 加入 cancel / disable / password reset / stale lease / 重启测试：旧 epoch 不能提交；completed 后取消返回明确冲突；进程失去上传后仍可 GET 状态并重试新 ingestion。active claim 15 秒更新心跳，失活 15 分钟后标失败；对象清理沿用 (204716,2) 锁、查询 assets 全部引用，临时输入 UUID 文件按相同年龄 / 心跳规则清理，不触碰被引用对象。
+- [x] **Step 6:** 故障注入对象写入后 DB 回滚、发布与清理器竞争、最后时刻对象消失、源冲突和断流，证明未发布任何半版本。运行全部服务 PG 测试与 typecheck。
+- [x] **Step 7:** 提交 `feat: publish PDF bundles atomically per user`。
 
 ### Task 8: 认证的导入、分片、下载与进度 API
 
