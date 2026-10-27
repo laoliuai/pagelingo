@@ -137,7 +137,7 @@ type WebReadingProgress = { position: WebReadingPosition; revision: number; upda
 // WebReaderChunk 使用 id/parseId/sourceSha256/blocks/contextBlockIds/nodes/roots/assets，均无 PDF pageIndices。
 ```
 
-`buildWebReader(ir,translation)` 不持有快照 index，输出的 previewId 可为 null；来源定位以 descriptor.snapshots 与 source node ID 查找为准，不猜预览 ID。跨分片的表头 / caption 可重复携带原块，明确列入 `contextBlockIds`；每个主块只属于一个分片，上下文副本也计入块数 / 字节预算，不能产生新的翻译单元或冒充主进度 / TOC 锚点。上下文 DOM / SVG ID 按 chunk / 显示侧限定。
+`buildWebReader(ir,translation)` 不持有快照 index，输出的 previewId 可为 null；来源定位以 descriptor.snapshots 与 source node ID 查找为准，不猜预览 ID。跨分片的表头 / caption / 跨行单元格可重复携带原块，明确列入 `contextBlockIds`；每个主块只属于一个分片，上下文副本也计入块数 / 字节预算，不能产生新的翻译单元或冒充主进度 / TOC 锚点。上下文 DOM / SVG ID 按 chunk / 显示侧限定。
 
 尚无翻译产物时直接构建原文 Reader，generationKind 为 none；中文或没有可翻译文字为 not-required，其余保留待译 / 手动选择状态。不为原文阅读虚构 Provider、job 或翻译摘要，Web reader version 的 translation 引用允许为空。
 
