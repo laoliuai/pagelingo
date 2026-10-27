@@ -317,11 +317,11 @@ ZIP 从私有暂存文件逐项读取，`lazyEntries:true, strictFileNames:true,
 
 **Interfaces:** `resolvePosition(index:ReaderIndex,saved:ReadingProgress|null): ResolvedPosition {chunkId,blockId,blockOffset,pdfPageIndex,fallbackReason?}`；`useReadingProgress({documentId,descriptor,onConflict})` 在用户产生实际交互后保存，按 §2.3 debounce / CAS。只消费 Task 8 DTO，不从 localStorage 决定跨账号 / 跨版本身份。
 
-- [ ] **Step 1:** 写失败测试：在设备 A 定位段落内并退出，设备 B 相同账号恢复相同 reader / block / 偏移 / PDF 页；新 parse 无 block 时降级对应页、提示且旧记录可回看。仅读取和自动恢复零 PUT，中文 / 英文旧译文重开零模型请求。
-- [ ] **Step 2:** 运行该套真实 API Playwright，确认失败。
-- [ ] **Step 3:** 实现 version 选择、restore 与进度保存、source-only 模式保存 PDF 页；版本改变重建窗口。CAS 冲突保留服务器成功位置，用户可显式“从当前位置继续”取最新 revision 后发起新写入，不在后台自动重试；短时间快速滚动只保存最后一份有效位置。
-- [ ] **Step 4:** 测试两 tab 逆序响应、旧页面关闭时迟到保存、退出 / 重置密码 / 切用户中断请求、缺片错误后的重试，均不复活旧状态或丢失已确认位置。运行 Reader 及 account-isolation 浏览器测试。
-- [ ] **Step 5:** 提交 `feat: restore PDF reading progress across devices`。
+- [x] **Step 1:** 写失败测试：在设备 A 定位段落内并退出，设备 B 相同账号恢复相同 reader / block / 偏移 / PDF 页；新 parse 无 block 时降级对应页、提示且旧记录可回看。仅读取和自动恢复零 PUT，中文 / 英文旧译文重开零模型请求。
+- [x] **Step 2:** 运行该套真实 API Playwright，确认失败。
+- [x] **Step 3:** 实现 version 选择、restore 与进度保存、source-only 模式保存 PDF 页；版本改变重建窗口。CAS 冲突保留服务器成功位置，用户可显式“从当前位置继续”取最新 revision 后发起新写入，不在后台自动重试；短时间快速滚动只保存最后一份有效位置。
+- [x] **Step 4:** 测试两 tab 逆序响应、旧页面关闭时迟到保存、退出 / 重置密码 / 切用户中断请求、缺片错误后的重试，均不复活旧状态或丢失已确认位置。运行 Reader 及 account-isolation 浏览器测试。
+- [x] **Step 5:** 提交 `feat: restore PDF reading progress across devices`。
 
 ### Task 12: 真实样本、离线、升级 / 重启与交付文档
 
