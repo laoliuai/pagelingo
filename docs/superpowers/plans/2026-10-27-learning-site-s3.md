@@ -300,10 +300,10 @@ lease：heartbeat 5 秒、30 秒失效；claim 使用 SKIP LOCKED 并增加 epoc
 
 **Files:** 新建 `apps/document-service/src/glossary/{service,routes}.ts`、`apps/document-service/src/web-jobs/{profile,preferences,routes}.ts`、`apps/web/src/features/settings/{save-preferences,glossary-panel}.tsx`；修改 Provider settings UI / app，新增 integration / browser tests。
 **Interfaces:** 实现 prefs / glossary / create job / cancel / retry API；`resolveJobProfile(lease)` 以 owner / authVersion / profileRevision 检查并临时解密，不复用 requireSession 或把 Key 返回 DTO。
-- [ ] **Step 1:** RED：默认 auto=false；保存 / 测试配置不启动历史资料；用户显式开始才建 job；中文 / no-language 零请求；术语用 SDK 校验 / 合并 / 上限，跨用户隔离。
-- [ ] **Step 2:** 保存不可变术语修订与非敏感 job 配置，profile 修订不匹配暂停。新模型 / 新术语只在新 run 使用；重试只接受相同有效配置，失效时返回明确 PROFILE_CHANGED，引导显式新 run。
-- [ ] **Step 3:** 新增 service `tests/integration/{web-job-settings,glossary}.test.ts`、web `tests/e2e/web-job-settings.test.ts`，经 DB / site runner 验证 keep / replace / delete Key、换配置并发、旧来源可读、停用不能启动；`expect(callsAfterSavingProfileOnly).toBe(0)`，device 不能读 glossary / Provider，错误 / 快照无假 Key。
-- [ ] **Step 4:** 提交 `feat: bind web jobs to personal settings and glossary`。
+- [x] **Step 1:** RED：默认 auto=false；保存 / 测试配置不启动历史资料；用户显式开始才建 job；中文 / no-language 零请求；术语用 SDK 校验 / 合并 / 上限，跨用户隔离。
+- [x] **Step 2:** 保存不可变术语修订与非敏感 job 配置，profile 修订不匹配暂停。新模型 / 新术语只在新 run 使用；重试只接受相同有效配置，失效时返回明确 PROFILE_CHANGED，引导显式新 run。
+- [x] **Step 3:** 新增 service `tests/integration/{web-job-settings,glossary}.test.ts`、web `tests/e2e/web-job-settings.test.ts`，经 DB / site runner 验证 keep / replace / delete Key、换配置并发、旧来源可读、停用不能启动；`expect(callsAfterSavingProfileOnly).toBe(0)`，device 不能读 glossary / Provider，错误 / 快照无假 Key。
+- [x] **Step 4:** 提交 `feat: bind web jobs to personal settings and glossary`。
 
 ### Task 10: 链接记录与受控公开页面补抓
 
