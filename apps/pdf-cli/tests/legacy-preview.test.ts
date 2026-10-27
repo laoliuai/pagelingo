@@ -186,3 +186,66 @@ test('keeps actual lower-alpha labels as readable source-only content while deci
   ).toBe(true);
   expect(JSON.stringify(ir)).not.toContain('duplicate');
 });
+
+test.each([false, true])(
+  'preserves nested start=3 numbering and boundaries inside an alphabetic item (wrapped=%s)',
+  async (wrapped) => {
+    const nested =
+      '<ol start="3"><li>Nested third</li><li>Nested fourth</li></ol>';
+    const f = await fixture(`<article class="docvortex-document">
+    <ol class="pl-source-list" start="1" style="list-style-type:lower-alpha">
+      <li>Outer step${wrapped ? `<div>${nested}</div>` : nested}<p>After nested steps</p></li>
+      <li>Next alphabetic item</li>
+    </ol>
+  </article>`);
+    const result = await processPdf(
+      { ...f, p0RunDir: f.run, previewDir: f.preview },
+      { inspectPdf: async () => f.inspection },
+    );
+    const ir = JSON.parse(
+      await readFile(join(f.runDir, result.paths.ir), 'utf8'),
+    );
+    const nestedList = ir.nodes.find(
+      (node: { kind: string }) => node.kind === 'list',
+    );
+    expect(nestedList).toMatchObject({ ordered: true, start: 3 });
+    expect(nestedList.children).toHaveLength(2);
+    expect(
+      ir.blocks.map(
+        (block: { value: { content: unknown[] } }) => block.value.content,
+      ),
+    ).toEqual([
+      [
+        {
+          type: 'protected',
+          id: 'list-source',
+          kind: 'literal',
+          source: 'a. Outer step',
+        },
+      ],
+      [{ type: 'text', text: 'Nested third' }],
+      [{ type: 'text', text: 'Nested fourth' }],
+      [
+        {
+          type: 'protected',
+          id: 'list-source',
+          kind: 'literal',
+          source: 'After nested steps',
+        },
+      ],
+      [
+        {
+          type: 'protected',
+          id: 'list-source',
+          kind: 'literal',
+          source: 'b. Next alphabetic item',
+        },
+      ],
+    ]);
+    expect(
+      ir.warnings.some((warning: string) =>
+        warning.startsWith('unsupported-list-markers:lower-alpha:source-only:'),
+      ),
+    ).toBe(true);
+  },
+);

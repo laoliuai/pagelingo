@@ -173,41 +173,94 @@ export async function projectLegacyPages(
       const blockId = (): string => makeId('b_', source, path);
       const tag = element(n) ? n.tagName : '';
       if (sourceOnlyMarker !== undefined) {
-        const id = blockId();
-        const projected = projectInline(children(n), ir.warnings);
-        const original = `${sourceOnlyMarker} ${inlineSource(projected.content).trim()}`;
-        return [
-          addBlock(
-            {
-              id,
-              type: 'text',
-              sourceRefs: [mapping.ref],
-              value: {
+        const itemNodes: string[] = [];
+        let inline: HtmlNode[] = [];
+        let marker = sourceOnlyMarker;
+        let segment = 0;
+        const flushSource = (includeEmptyLabel = false): void => {
+          const projected = projectInline(inline, ir.warnings);
+          const text = inlineSource(projected.content).trim();
+          if (!text && !(includeEmptyLabel && marker)) {
+            inline = [];
+            return;
+          }
+          const original = [marker, text].filter(Boolean).join(' ');
+          const segmentPath = `${path}/source-${segment}`;
+          const id = makeId('b_', source, segmentPath);
+          itemNodes.push(
+            addBlock(
+              {
                 id,
-                kind: 'list-item',
-                content: [
+                type: 'text',
+                sourceRefs: [mapping.ref],
+                value: {
+                  id,
+                  kind: 'list-item',
+                  content: [
+                    {
+                      type: 'protected',
+                      id: 'list-source',
+                      kind: 'literal',
+                      source: original,
+                    },
+                  ],
+                },
+                bindings: [
                   {
-                    type: 'protected',
+                    kind: 'protected',
                     id: 'list-source',
-                    kind: 'literal',
-                    source: original,
+                    object: { type: 'literal', text: original },
                   },
                 ],
+                language: { language: 'und', reason: 'no-language' },
               },
-              bindings: [
-                {
-                  kind: 'protected',
-                  id: 'list-source',
-                  object: { type: 'literal', text: original },
-                },
-              ],
-              language: { language: 'und', reason: 'no-language' },
-            },
-            n,
-            path,
-            context,
-          ),
-        ];
+              segment === 0 ? n : (inline[0] ?? n),
+              segmentPath,
+              context,
+            ),
+          );
+          segment++;
+          marker = '';
+          inline = [];
+        };
+        // Preserve block boundaries while keeping nested lists on the normal
+        // recursive projection path, including lists inside wrapper elements.
+        const collect = async (
+          nodes: HtmlNode[],
+          parentPath: string,
+        ): Promise<void> => {
+          for (const [i, child] of nodes.entries()) {
+            const childPath = `${parentPath}/${i}`;
+            if (element(child) && ['ol', 'ul'].includes(child.tagName)) {
+              flushSource(true);
+              itemNodes.push(...(await visit(child, childPath, context)));
+            } else if (
+              element(child) &&
+              attr(child, 'data-docvortex-latex') === undefined &&
+              (containers.has(child.tagName) ||
+                [
+                  'p',
+                  'h1',
+                  'h2',
+                  'h3',
+                  'h4',
+                  'h5',
+                  'h6',
+                  'figcaption',
+                ].includes(child.tagName))
+            ) {
+              flushSource();
+              await collect(children(child), childPath);
+              flushSource();
+            } else inline.push(child);
+          }
+        };
+        await collect(children(n), path);
+        flushSource(true);
+        if (itemNodes.length === 1) return itemNodes;
+        const id = makeId('n_', source, `${path}/source-only`);
+        ir.nodes.push({ id, kind: 'group', children: itemNodes });
+        return [id];
       }
       // Reader v1 cannot encode alphabetic list markers. Keep each original
       // label and item readable as protected source text instead of renumbering.
