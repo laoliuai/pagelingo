@@ -1,3 +1,5 @@
+import type { BundleLimits } from '@pagelingo/document-contracts';
+import { readBundleLimits } from './bundle-imports/limits.js';
 import { isIP } from 'node:net';
 import { resolve } from 'node:path';
 
@@ -11,6 +13,7 @@ export interface RuntimeConfig {
   webDir?: string;
   keyring: { activeKeyId: string; keys: Readonly<Record<string, Uint8Array>> };
   maxPdfBytes: number;
+  bundleLimits: BundleLimits;
 }
 
 export function readConfig(env: NodeJS.ProcessEnv): RuntimeConfig {
@@ -52,6 +55,7 @@ export function readConfig(env: NodeJS.ProcessEnv): RuntimeConfig {
     }
     if (!Object.hasOwn(keys, activeKeyId)) throw new Error();
   } catch { throw new Error('Invalid master keyring'); }
+  const maxPdfBytes = integer('PAGELINGO_MAX_PDF_BYTES', 256 * 1024 * 1024);
   const config: RuntimeConfig = {
     mode, publicOrigin: origin.origin,
     host: env.PAGELINGO_SERVICE_HOST ?? '127.0.0.1',
@@ -59,7 +63,7 @@ export function readConfig(env: NodeJS.ProcessEnv): RuntimeConfig {
     dataDir: resolve(required('PAGELINGO_DATA_DIR')), databaseUrl,
     ...(env.PAGELINGO_WEB_DIR ? { webDir: resolve(env.PAGELINGO_WEB_DIR) } : {}),
     keyring: { activeKeyId, keys: Object.freeze(keys) },
-    maxPdfBytes: integer('PAGELINGO_MAX_PDF_BYTES', 256 * 1024 * 1024),
+    maxPdfBytes, bundleLimits: readBundleLimits(env.PAGELINGO_BUNDLE_LIMITS_JSON, maxPdfBytes),
   };
   // A config can be passed accidentally to structured logging; expose no fields.
   Object.defineProperty(config, 'toJSON', { value: () => '[RuntimeConfig redacted]' });

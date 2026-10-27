@@ -7,17 +7,24 @@ import type { StoredObject } from '../storage/object-store.js';
 export interface DocumentRow {
   id: string; title: string; original_filename: string; created_at: Date;
   source_version_id: string; asset_id: string; sha256: string; bytes: string; object_key: string;
+  reader_version_id: string | null; translation_status: NonNullable<DocumentSummary['reader']>['translationStatus'];
+  parse_coverage: NonNullable<DocumentSummary['reader']>['parseCoverage']; reader_warnings: string[];
 }
 const documentSelect = `SELECT d.id, d.title, d.original_filename, d.created_at,
-  s.id AS source_version_id, s.asset_id, s.sha256, s.bytes, a.object_key
+  s.id AS source_version_id, s.asset_id, s.sha256, s.bytes, a.object_key,
+  r.id AS reader_version_id,t.status AS translation_status,p.coverage AS parse_coverage,p.warnings AS reader_warnings
   FROM documents d JOIN source_versions s ON (s.owner_id, s.document_id, s.id) =
     (d.owner_id, d.id, d.current_source_version_id)
-  JOIN assets a ON (a.owner_id, a.document_id, a.id) = (s.owner_id, s.document_id, s.asset_id)`;
+  JOIN assets a ON (a.owner_id, a.document_id, a.id) = (s.owner_id, s.document_id, s.asset_id)
+  LEFT JOIN reader_versions r ON (r.owner_id,r.document_id,r.id)=(d.owner_id,d.id,d.current_reader_version_id)
+  LEFT JOIN translation_runs t ON (t.owner_id,t.id)=(r.owner_id,r.translation_id)
+  LEFT JOIN parse_runs p ON (p.owner_id,p.id)=(r.owner_id,r.parse_id)`;
 export function summary(row: DocumentRow): DocumentSummary {
   return { id: row.id, kind: 'pdf', title: row.title, originalFilename: row.original_filename,
     createdAt: row.created_at.toISOString(), source: { documentId: row.id,
       sourceVersionId: row.source_version_id, assetId: row.asset_id, sha256: row.sha256, bytes: Number(row.bytes) },
-    saveStatus: 'original-saved', reader: null, processingStatus: 'awaiting-local-processing' };
+    saveStatus: 'original-saved', reader: row.reader_version_id ? { versionId: row.reader_version_id, translationStatus: row.translation_status, parseCoverage: row.parse_coverage, warnings: row.reader_warnings } : null,
+    processingStatus: row.reader_version_id ? 'reader-ready' : 'awaiting-local-processing' };
 }
 export async function findDocument(client: PoolClient, owner: string, id: string, byAsset = false): Promise<DocumentRow> {
   const row = (await client.query<DocumentRow>(`${documentSelect} WHERE d.owner_id = $1 AND ${byAsset ? 'a.id' : 'd.id'} = $2`, [owner, id])).rows[0];

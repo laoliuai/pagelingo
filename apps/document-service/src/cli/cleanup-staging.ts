@@ -5,6 +5,7 @@ import type { Database } from '../db/database.js';
 import { openDatabase } from '../db/database.js';
 import { readConfig } from '../config.js';
 import { verifyDatabaseSchema } from '../db/migrate.js';
+import { expireImports } from '../bundle-imports/repository.js';
 import { lockObjectPublication } from '../documents/repository.js';
 import { createLocalObjectStore, isObjectKey } from '../storage/local-object-store.js';
 
@@ -12,7 +13,9 @@ import { createLocalObjectStore, isObjectKey } from '../storage/local-object-sto
 export async function cleanupStaging({ db, dataDir }: { db: Database; dataDir: string }): Promise<{ objects: number; staging: number }> {
   const root = resolve(dataDir); const store = createLocalObjectStore(root);
   const cutoff = Date.now() - 24 * 3600_000; const removed = { objects: 0, staging: 0 };
-  for (const kind of ['objects', 'staging'] as const) {
+  await db.transaction(client => expireImports(client));
+  for (const kind of ['objects', 'staging', 'bundle-staging'] as const) {
+    const ageCutoff = kind === 'bundle-staging' ? Date.now() - 15 * 60_000 : cutoff;
     const directory = join(root, kind);
     try {
       if ((await realpath(directory)) !== directory || !(await lstat(directory)).isDirectory()) throw new Error('Unsafe storage directory');
@@ -21,7 +24,7 @@ export async function cleanupStaging({ db, dataDir }: { db: Database; dataDir: s
       if (!isObjectKey(key)) continue;
       const path = join(directory, key);
       const info = await lstat(path).catch(error => { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined; throw error; });
-      if (!info?.isFile() || info.isSymbolicLink() || info.mtimeMs >= cutoff) continue;
+      if (!info?.isFile() || info.isSymbolicLink() || info.mtimeMs >= ageCutoff) continue;
       await db.transaction(async client => {
         await lockObjectPublication(client);
         // A publisher also holds this lock and stats its file before committing.
@@ -32,10 +35,15 @@ export async function cleanupStaging({ db, dataDir }: { db: Database; dataDir: s
         } else {
           // Recheck after lock acquisition; actively written staging files remain fresh.
           const current = await lstat(path).catch(error => { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined; throw error; });
-          if (!current?.isFile() || current.isSymbolicLink() || current.mtimeMs >= cutoff) return;
+          if (!current?.isFile() || current.isSymbolicLink() || current.mtimeMs >= ageCutoff) return;
+          if (kind === 'bundle-staging') {
+            const active = await client.query(`SELECT id FROM bundle_imports WHERE staging_key=$1
+              AND status IN ('created','receiving','validating') AND heartbeat_at >= now() - interval '15 minutes'`, [key]);
+            if (active.rowCount) return;
+          }
           await unlink(path);
         }
-        removed[kind]++;
+        removed[kind === 'objects' ? 'objects' : 'staging']++;
       });
     }
   }

@@ -4,7 +4,7 @@ S1 / 0.1.0 已实现运行配置、PostgreSQL 迁移、health API、管理员初
 
 账号、原件、资源和 Provider 均按当前会话 owner 隔离；管理员只额外管理账号。数据库、对象卷和主密钥在运行时注入。Dockerfile 使用固定 Node 镜像，多阶段构建及非 root runtime；Compose 是 loopback local 预览，并非公网生产部署。
 
-S2 将在独立迁移中加入解析 / 翻译 run、包导入和完整译文 Reader。当前只有原件、source version 与不可变对象存储，没有运行中的 parser / translation worker 或导入路由。来源绑定使用 `documents.current_source_version_id`；未来包必须绑定同一 owner / document / source。后台任务、助手、设备授权与完整备份恢复按后续阶段实现，设计见 [PDF 规格](../../docs/pdf-spec.md) 与 [处理设计](../../docs/pdf-processing.md)。
+S2 已通过迁移 005 加入不可变解析 / 翻译快照、Reader 版本、分片及包导入发布服务。导入 HTTP 路由、Reader API 和进度写入将在后续任务接入；服务器不运行 parser 或模型推理。来源绑定使用 `documents.current_source_version_id`；未来包必须绑定同一 owner / document / source。后台任务、助手、设备授权与完整备份恢复按后续阶段实现，设计见 [PDF 规格](../../docs/pdf-spec.md) 与 [处理设计](../../docs/pdf-processing.md)。
 
 ## Persistence foundation
 
@@ -179,3 +179,68 @@ rejected. Redirects and ambient proxies are not used. Responses are buffered
 within the size/time limits and each request's dispatcher is destroyed.
 `outboundFetch` injection is permitted only in test mode. Unit tests use in-memory
 sockets; integration tests use fake Provider responses, never real API keys.
+
+
+## Bundle ingestion and immutable Reader versions
+
+`createBundleImportsService({ db, store, config })` is the application boundary for
+`create(actor, { targetDocumentId? }, idempotencyKey)`,
+`receive(actor, importId, AsyncIterable<Uint8Array>, signal?)`, `get(actor, id)`,
+`list(actor)` and `cancel(actor, id)`. All return contract `BundleImport` views
+(`list` returns an array), without owner IDs or object keys. HTTP adapters must
+obtain the actor from the existing session/CSRF guards. `receive` resolves only
+after publication; failures reject with sanitized `ServiceError` and persist an
+error code readable through `get`. A completed import returns its existing view
+on repeat receive. Retry a failed import with receive to acquire a higher epoch,
+or create a new import. Cancelled imports require a new import; completed ones
+reject cancellation with `BUNDLE_IMPORT_COMPLETED`.
+
+The process accepts one active receiver; the database permits one active import
+per owner, including `created` requests. Contention returns `BUNDLE_IMPORT_BUSY`.
+Owner-scoped idempotency keys bind the creation request. Package identity is
+owner + packageId + canonical manifest digest; conflicting package/parse/
+translation identities return `BUNDLE_IDENTITY_CONFLICT`. An explicit target
+must belong to the actor and have the same PDF hash and bytes. Otherwise only
+that owner's matching original is reused. Historical package retries never
+move current backwards. Completed/not-required translations are protected from
+incomplete replacements; partial translations are protected from empty ones,
+and full successful parses are protected from partial-parse replacements.
+New incomplete versions remain in history, and a first source/partial version
+can be current.
+
+Uploads stream into exclusive 0600 UUID files under `bundle-staging/` (0700).
+The upload deadline is 15 minutes. Validation, SDK replay, renderer work and
+chunk JSON serialization run in a terminable Node worker with a five-minute
+parent deadline and only `LANG`/`TZ` in its environment. The parent owns actor
+checks, 15-second database heartbeats, cancellation and storage/publication.
+The worker receives only a private input path and public BundleLimits; no
+runtime config, keyring, user key, parser, Python or provider is involved.
+All original bundle files, the exact uploaded ZIP, and generated structured
+Reader index/chunks become immutable registered assets. No uploaded executable
+file is used as site code.
+
+Publication uses short transactions: actor/user, import, document, then the
+shared `(204716,2)` object lock. Under that lock all new and reused referenced
+objects are statted before references/current change atomically. Expired claims
+(15 minutes without a heartbeat) fail with `BUNDLE_LEASE_EXPIRED` on get/list/
+create/receive or cleanup. A running receiver rechecks its epoch and account at
+publication; heartbeat loss also aborts its worker. Cleanup preserves every
+registered asset, removes unreferenced objects/staging after 24 hours, and
+removes orphan bundle input files after 15 minutes only when no fresh active
+import owns that staging UUID.
+
+`RuntimeConfig.bundleLimits` contains the effective frozen-contract defaults.
+`PAGELINGO_BUNDLE_LIMITS_JSON` accepts a strict partial JSON object, for example
+`{"maxArchiveBytes":134217728,"maxNodes":50000}`. Values must be positive safe
+integers; structural limits can only tighten. `maxPdfBytes` is excluded from
+this JSON and continues to derive from `PAGELINGO_MAX_PDF_BYTES`.
+
+Reader persistence uses owner/document/source compound foreign keys.
+`parse_runs.id` is the ReaderIR text parse ID; `translation_runs.id` is its
+immutable snapshot UUID. `reader_versions.id` is server generated and stores
+source/parse/translation identities, package identity, archive/index asset IDs.
+`bundle_files` maps version + original path to an asset; `reader_chunks` maps
+version + chunk ID to a generated JSON asset. `reading_state` starts at revision
+0 with null position; later progress writes use its document-wide CAS and
+`reading_positions` for each version's history. Position JSON repeats the
+source/parse/reader identities, constrained to agree with the compound refs.

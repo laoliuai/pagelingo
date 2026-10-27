@@ -44,3 +44,11 @@ describe('runtime configuration', () => {
     expect(JSON.stringify(readConfig(env()))).not.toContain(Buffer.alloc(32, 7).toString('base64'));
   });
 });
+
+it('applies strict bundle budgets while deriving the PDF limit from its single existing setting', () => {
+  const config = readConfig({ ...env(), PAGELINGO_MAX_PDF_BYTES: '1234', PAGELINGO_BUNDLE_LIMITS_JSON: '{"maxNodes":12,"maxArchiveBytes":536870912}' });
+  expect(config.bundleLimits).toMatchObject({ maxPdfBytes: 1234, maxNodes: 12, maxArchiveBytes: 536870912, maxExpandedBytes: 1073741824 });
+  for (const raw of ['null', '[]', '{', '{"maxPdfBytes":1}', '{"unknown":1}', '{"maxNodes":100001}', '{"maxDepth":33}', '{"maxArchiveBytes":0}', '{"maxFiles":1.5}', '{"maxArchiveBytes":"1"}']) {
+    expect(() => readConfig({ ...env(), PAGELINGO_BUNDLE_LIMITS_JSON: raw })).toThrow('Invalid PAGELINGO_BUNDLE_LIMITS_JSON');
+  }
+});
