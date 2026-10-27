@@ -93,6 +93,7 @@ Web Reader 分片最多 128 blocks / 256 KiB，单超大块最多 512 KiB；正�
 | web-capture/browser | `sanitizeBrowserSnapshot(input, limits?, resources?): SanitizedSnapshot`；使用原生 DOM，不包含站点适配或 Chrome I/O，也不导入 jsdom |
 | web-capture/node | `extractPublicArticle(html, url): SanitizedSnapshot`；禁脚本 / 子资源的 jsdom + Readability；仅在可终止 worker 内运行 |
 | renderer | `toWebTranslationDocument(ir, selection, sourceLanguage?): TranslationDocument`；`validateWebTranslation(ir, translation): ValidatedWebTranslation`；`buildWebReader(ir, translation?: WebTranslation|null): WebReaderBuild`；`renderWebChunk(chunk, { mode, resolveAsset }): TrustedReaderHtml`，mode 为 source / translation / bilingual |
+| renderer import | `buildWebImportedReader(ir, imported): {build:WebReaderBuild,translation:WebImportedTranslation|null,rejectedBlockIds:string[]}`；共享分片规划，按最小正文及必要上下文的实际预算剔除不可展示的导入候选；最多两轮完整规划，保留原文和不相关的有效译文，不改变普通 builder / PDF 行为 |
 | renderer compat | `resolveTrustedCatalog({version, codeSha256}): TrustedRendererCatalog`；现有 `createStaticFilePlan(build, metadata, catalog?)` 增加可选目录选择，原调用不变 |
 | devices | 在服务内部定义 `CapturePrincipal = {kind:'session'; actor:Actor} | DeviceActor`，Actor 是现有 auth/sessions 的类型；`requireCapturePrincipal(request, scope): Promise<CapturePrincipal>`；`assertCapturePrincipalCurrent(client, principal): Promise<void>` |
 | captures | `createWebCapturesService({db,store,...})` 返回 create / status / receiveFile / commit / cancel；commit 只发布经服务器投影验证的版本 |
