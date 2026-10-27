@@ -10,7 +10,7 @@
 
 **Spec:** [2026-10-26-personal-learning-site-design.md](../specs/2026-10-26-personal-learning-site-design.md)，用户于 2026-10-27 批准；主要实现 §5.3–5.4、§6.2–6.3、§10、§13 中的 S2。
 
-状态：S1 已合入并同步到 main，基线为 `056c5c5`。本计划在 `feat/learning-site-s2` 分支编写；执行方式沿用 S1 的逐任务实现、独立审查与最终整分支审查。
+状态：S1 已合入并同步到 main，基线为 `056c5c5`。用户于 2026-10-27 审阅并同意执行本计划；在 `feat/learning-site-s2` 分支沿用 S1 的逐任务实现、独立审查与最终整分支审查，无需逐任务再次确认。
 
 ## Global Constraints
 
@@ -88,7 +88,7 @@ ZIP 采用 [yauzl 的逐项读取](https://github.com/thejoshwolfe/yauzl#readme)
 - `ReaderBlock` 按 `type` 区分 `text`、`image`、`code`、`math`、`rule`，共同有 `id` 和 `sourceRefs`。text 的 `value` 完整复用 `TranslationBlock`，其 id 必须等于 block.id；附加 `bindings` 和 `language`，不得另造 inline 类型。image 保存 assetId、alt、role 和 originalRegion；caption 是单独 text block；code 保存原文和可选语言；math 保存原始 LaTeX、displayMode 和可选区域图回退。
 - `bindings` 只允许链接（HTTPS / HTTP / mailto 或文内 block）、受限样式（强调 / 对齐 / 等宽枚举，color / backgroundColor 仅 `#[0-9a-f]{6}`）、protected 对象（inline math、code、literal、asset）。格式 / protected ID 都是 block 内局部 ID，绑定与 inline 引用逐个对应；资源引用是逻辑 assetId，不是磁盘路径。`ReaderAsset {id,path,sha256,bytes,mediaType,width,height}` 只用于 PNG / JPEG / WebP；原 SVG / HTML 可归档，不直接渲染。
 - `PdfSourceRef {pageIndex, precision:'page'|'bbox', bbox?}`；bbox 是 `[x0,y0,x1,y1]`、有限数、严格正面积且在 `[0,1]`，page 不能携带 bbox。每页 `PdfPageMetadata` 保存 pageIndex、原始 MediaBox / CropBox、有效 displayCropBox、rotation `0|90|180|270`、displayWidth / displayHeight 和六元 pdfToDisplay 仿射矩阵。页面索引和 coverage 必须与全源页数一致；无法可靠确定的变换 / repair 降级为 page，并记录 warning。
-- `ReaderTranslation.schemaVersion = 'reader-translation/1'`；包含独立 `id`（每次导出的不可变译文快照 UUID）、`jobId`、sourceSha256、parseId、readerIrSha256、SDK / prompt / protection 版本、targetLanguage、profile、预算、术语及其 hash、selectionBlockIds、Provider 的 model / endpointFingerprint、metrics、block 结果、unit 结果和整体状态。仅导出允许字段，不导出原始 Base URL、配置对象或 Key。
+- `ReaderTranslation.schemaVersion = 'reader-translation/1'`；包含独立 `id`（每次导出的不可变译文快照 UUID）、`jobId`、sourceSha256、parseId、readerIrSha256、SDK / prompt / protection 版本、targetLanguage、profile、预算、术语及其 hash、selectionBlockIds、Provider 的 model / endpointFingerprint、metrics、block 结果、unit 结果和整体状态。`generationKind:'model'|'mock'|'none'` 明确区分真实生成、流程验收模拟和无译文；模拟内容在包与页面显示标识。仅导出允许字段，不导出原始 Base URL、配置对象或 Key。
 - `selectionBlockIds` 必须按 IR 阅读顺序选择 text block；`toTranslationDocument(ir, selectionBlockIds)` 是唯一投影。保存 SDK checkpoint.blocks 中的原始 protected text，不拿已恢复术语的 batch.text 反向编码。`planUnits` 重建完全相同的 inputs / units，逐单元 `validateStructure`，完整 block 通过 `decodeTranslation` 恢复可信原文对象与术语；不接受外来格式树直接替换源绑定。
 - 每个 text block 有 `translated` 或 `source-only` 结果；后者原因限于 `language-not-required|manual-choice|pending|failed|cancelled`。unit 状态包含 `covered-by-block`，只在整个 block 的缓存 / 检查点结果通过复验时允许；否则 completed 必须有通过 SDK 验证的 rawText。未知 / 重复 / 缺失 block、unit 或不同源 hash 拒绝。
 - 整体状态为 `not-required|pending|partial|completed|failed|cancelled`。仅中文 / 无自然语言内容为 not-required；外语未翻译或语言不确定为 pending；有成功译文且仍有待处理 / 失败单元为 partial；全部应译文本完成才为 completed。解析 coverage、缺页和保留原件区域单独显示，completed 不代表图片内文字已翻译。
@@ -144,7 +144,7 @@ ZIP 从私有暂存文件逐项读取，`lazyEntries:true, strictFileNames:true,
 
 **Files:** 新建 `packages/document-contracts/src/{reader,reader-source,reader-translation,bundle,reader-api,progress}.ts`，`schemas/{reader-ir,reader-translation,document-bundle}.schema.json`，`tests/reader-contracts.test.ts`，`fixtures/reader-v1/`；修改 `src/{documents,index}.ts`、package.json 与内部版本引用。
 
-**Interfaces:** 输出上述类型 / Zod schemas（`readerIrSchema`、`readerTranslationSchema`、`documentBundleManifestSchema`、`readingPositionSchema`）；`validateReaderGraph(ir: ReaderIR): void` 检查树 / 绑定 / 资源 / 来源闭包。`DocumentSummary.processingStatus` 扩展为 `awaiting-local-processing|reader-ready`，另加 nullable `reader {versionId, translationStatus, parseCoverage, warnings}`，保留 S1 字段。API DTO 沿用 strictObject 和原错误 envelope。
+**Interfaces:** 输出上述类型 / Zod schemas（`readerIrSchema`、`readerTranslationSchema`、`documentBundleManifestSchema`、`readingPositionSchema`）；`validateReaderGraph(ir: ReaderIR): void` 检查树 / 绑定 / 资源 / 来源闭包，`validateReaderTranslationReferences(ir:ReaderIR, translation:ReaderTranslation):void` 检查版本、source / parse、文本块引用和完成状态的一致性，SDK marker 重放留给 Task 2。`DocumentSummary.processingStatus` 扩展为 `awaiting-local-processing|reader-ready`，另加 nullable `reader {versionId, translationStatus, parseCoverage, warnings}`，保留 S1 字段。Task 1 同步迁移 S1 repository 的无 Reader producer 和类型 fixture，返回 reader:null；实际 Reader 查询 / 状态在 Task 7 接通。API DTO 沿用 strictObject 和原错误 envelope。
 
 - [ ] **Step 1:** 写失败测试 `rejects_graph_aliases_and_binding_mismatches`、`retains_distinct_ids_for_repeated_text`、`requires_explicit_untranslated_results`，断言重复 ID / 环 / 未引用资产 / 假完成 / 不同 source 拒绝，中文 not-required 接受。为四旋转 fixture 写独立 golden：0°红框 `[40/360,260/420,120/360,360/420]`，90° `[60/420,40/360,160/420,120/360]`，180° `[240/360,60/420,320/360,160/420]`，270° `[260/420,240/360,360/420,320/360]`；页级引用不含 bbox。
 - [ ] **Step 2:** 运行 `npm run test --workspace @pagelingo/document-contracts -- --run tests/reader-contracts.test.ts`，确认新合同缺失导致失败。
