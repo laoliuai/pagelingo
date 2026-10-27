@@ -39,6 +39,7 @@ test('distributes strict portable Web JSON shapes matching the public Zod DTOs',
   const timestamp = '2026-10-27T00:00:00.000Z';
   const translation = { ...JSON.parse(readFileSync(new URL('../fixtures/reader-v1/translation.json', import.meta.url), 'utf8')), schemaVersion: 'web-reader-translation/1' };
   const cases = [
+    { name: 'web-capture-translation-candidate', schema: contracts.webCaptureTranslationCandidateSchema, value: { schemaVersion: 'web-capture-translation-candidate/1', sourceSnapshotSha256: sha, sourceContentFingerprint: sha, sourceLanguage: 'en', targetLanguage: 'zh', sdkVersion: '0.4.0', promptVersion: '1', protectionVersion: '1', blocks: [{ nodeId: 'source-1', sourceTextSha256: sha, source: { id: 'original-1', kind: 'paragraph', content: [{ type: 'text', text: 'Original' }] }, rawText: '译文' }] } },
     { name: 'web-capture', schema: contracts.webCaptureManifestSchema, value: manifest },
     { name: 'web-reader-ir', schema: contracts.webReaderIrSchema, value: ir },
     { name: 'web-reader-translation', schema: contracts.webTranslationSchema, value: translation },

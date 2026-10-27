@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { translationBlockSchema } from '@pagelingo/translation-core';
+import { sourceLanguageSchema } from './language.js';
 import { bundlePathSchema, safeNonnegativeIntegerSchema, sha256Schema, withJsonDepthLimit } from './reader-common.js';
 
 const MiB = 1024 * 1024;
@@ -62,6 +64,38 @@ export const snapshotPreviewIndexSchema = z.strictObject({
   nodeLocations: z.record(webLocalIdSchema, z.strictObject({ previewId: webLocalIdSchema, anchorId: webLocalIdSchema })),
 });
 export type SnapshotPreviewIndex = z.infer<typeof snapshotPreviewIndexSchema>;
+/** Candidate file payload, independent of server-generated parse/IR identities.
+ * Exporters supply the original source block and the complete SDK result after
+ * glossary restoration: rawText must validate against encodeBlock(source), never
+ * translated DOM HTML or a model-provided format tree. Consumers compare the
+ * server-projected source/protected input, verify hashes and replay public SDK
+ * validateStructure/decodeTranslation. Unknown versions/mismatches skip only the
+ * candidate with a warning, preserving the archived source. */
+export const captureTranslationCandidateBlockSchema = z.strictObject({
+  nodeId: webLocalIdSchema,
+  sourceTextSha256: sha256Schema.describe('SHA-256 of UTF-8 naturalText(source.content), without whitespace normalization.'),
+  source: translationBlockSchema,
+  rawText: z.string().min(1).max(defaultCaptureLimits.maxOversizedBlockBytes)
+    .refine(value => new TextEncoder().encode(value).byteLength <= defaultCaptureLimits.maxOversizedBlockBytes, 'Candidate result exceeds UTF-8 byte budget'),
+});
+export type CaptureTranslationCandidateBlock = z.infer<typeof captureTranslationCandidateBlockSchema>;
+export const webCaptureTranslationCandidateShapeSchema = z.strictObject({
+  schemaVersion: z.literal('web-capture-translation-candidate/1'),
+  sourceSnapshotSha256: sha256Schema, sourceContentFingerprint: sha256Schema,
+  sourceLanguage: sourceLanguageSchema.nullable(), targetLanguage: sourceLanguageSchema,
+  sdkVersion: z.string().min(1).max(100), promptVersion: z.string().min(1).max(100), protectionVersion: z.string().min(1).max(100),
+  blocks: z.array(captureTranslationCandidateBlockSchema).min(1).max(defaultCaptureLimits.maxBlocks),
+});
+export const webCaptureTranslationCandidateSchema = withJsonDepthLimit(webCaptureTranslationCandidateShapeSchema.superRefine((value, ctx) => {
+  if (new Set(value.blocks.map(block => block.nodeId)).size !== value.blocks.length || new Set(value.blocks.map(block => block.source.id)).size !== value.blocks.length) {
+    ctx.addIssue({ code: 'custom', message: 'Duplicate candidate source node or block ID' });
+  }
+  if (new TextEncoder().encode(JSON.stringify(value)).byteLength > defaultCaptureLimits.maxResourceBytes) {
+    ctx.addIssue({ code: 'custom', message: 'Candidate file exceeds byte budget' });
+  }
+}));
+export type WebCaptureTranslationCandidate = z.infer<typeof webCaptureTranslationCandidateSchema>;
+
 export const captureExistingTranslationSchema = z.strictObject({
   fileId: webLocalIdSchema, sourceSnapshotSha256: sha256Schema, sourceContentFingerprint: sha256Schema,
   targetLanguage: z.string().min(1).max(40),
@@ -131,6 +165,6 @@ export const captureDraftSchema = z.strictObject({
   captureId: z.uuid(), snapshot: sanitizedSnapshotSchema,
   metadata: webCaptureManifestShapeSchema.shape.metadata, canonicalUrl: captureUrlSchema.nullable(),
   kind: z.enum(['article', 'x-post', 'answer']), pendingResources: z.array(pendingCaptureResourceSchema),
-  existingTranslation: z.strictObject({ text: z.string(), sourceSnapshotSha256: sha256Schema, sourceContentFingerprint: sha256Schema, targetLanguage: z.string().min(1) }).nullable(),
+  existingTranslation: webCaptureTranslationCandidateSchema.nullable(),
 });
 export type CaptureDraft = z.infer<typeof captureDraftSchema>;

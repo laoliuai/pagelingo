@@ -63,3 +63,11 @@ test('returns validation errors for malformed resource URLs without throwing', (
   expect(() => contracts.webCaptureManifestSchema.safeParse(value)).not.toThrow();
   expect(contracts.webCaptureManifestSchema.safeParse(value).success).toBe(false);
 });
+test('shares a source-bound SDK candidate file instead of translated DOM HTML', () => {
+  const candidate = { schemaVersion: 'web-capture-translation-candidate/1', sourceSnapshotSha256: sha, sourceContentFingerprint: 'b'.repeat(64), sourceLanguage: 'en', targetLanguage: 'zh', sdkVersion: '0.4.0', promptVersion: '1', protectionVersion: '1', blocks: [{ nodeId: 'source-1', sourceTextSha256: sha, source: { id: 'original-1', kind: 'paragraph', content: [{ type: 'text', text: 'Original input' }] }, rawText: '译文' }] };
+  expect(contracts.webCaptureTranslationCandidateSchema.parse(candidate)).toEqual(candidate);
+  expect(contracts.captureDraftSchema.safeParse({ captureId: manifest.captureId, snapshot: { html: '<p>Original input</p>', sourceUrl: manifest.source.url, scope: manifest.scope, nodeIds: ['source-1'], resources: [], warnings: [] }, metadata: manifest.metadata, canonicalUrl: null, kind: 'article', pendingResources: [], existingTranslation: candidate }).success).toBe(true);
+  for (const patch of [{ translatedHtml: '<p>not authoritative</p>' }, { ownerId: manifest.captureId }, { readerIrSha256: sha }, { blocks: [candidate.blocks[0], candidate.blocks[0]] }, { blocks: [{ ...candidate.blocks[0], rawText: '汉'.repeat(180000) }] }]) {
+    expect(contracts.webCaptureTranslationCandidateSchema.safeParse({ ...candidate, ...patch }).success).toBe(false);
+  }
+});
