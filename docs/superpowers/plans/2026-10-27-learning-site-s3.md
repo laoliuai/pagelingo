@@ -237,10 +237,12 @@ lease：heartbeat 5 秒、30 秒失效；claim 使用 SKIP LOCKED 并增加 epoc
 
 **Files:** 新建 `apps/document-service/migrations/006-web-capture.sql`、`apps/document-service/src/{devices,web-captures,web-readers,web-jobs,glossary}/repository.ts`、`apps/document-service/tests/integration/web-database.test.ts`；修改 `apps/document-service/src/db/migrate.ts`。
 **Interfaces:** 持久化 §2.6 实体；repository 只做绑定 SQL。source / reader 的 FK 与 kind 约束、job epoch、设备 / profile / glossary 修订在数据库中可验证。
-- [ ] **Step 1:** RED：`migrates_populated_s2_without_changing_pdf_rows`、`rejects_cross_owner_web_refs`、`rejects_immutable_updates`、`keeps_pdf_and_web_current_separate`。
-- [ ] **Step 2:** 新增 006；新增 nullable 网页字段、latest source / requested job 与当前网页 Reader FK。source manifest 使用 assets 的实际 byte hash；checkpoint / owner cache 单独可变行，不借用不可变 S2 translation_runs。
-- [ ] **Step 3:** 用 `npm run test:service:db -- --run tests/integration/web-database.test.ts` 在独立 schema 验证迁移重放 / rollback / 约束；`expect(oldMigrationChecksumsAfter).toEqual(before)`，旧 PDF 数据 / Range / reader FK 仍通过。
-- [ ] **Step 4:** 提交 `feat: persist private web captures and job state`。
+- [x] **Step 1:** RED：`migrates_populated_s2_without_changing_pdf_rows`、`rejects_cross_owner_web_refs`、`rejects_immutable_updates`、`keeps_pdf_and_web_current_separate`。
+- [x] **Step 2:** 新增 006；新增 nullable 网页字段、latest source / requested job 与当前网页 Reader FK。source manifest 使用 assets 的实际 byte hash；checkpoint / owner cache 单独可变行，不借用不可变 S2 translation_runs。
+- [x] **Step 3:** 用 `npm run test:service:db -- --run tests/integration/web-database.test.ts` 在独立 schema 验证迁移重放 / rollback / 约束；`expect(oldMigrationChecksumsAfter).toEqual(before)`，旧 PDF 数据 / Range / reader FK 仍通过。
+- [x] **Step 4:** 提交 `feat: persist private web captures and job state`。
+
+任务4验证记录：28项新增数据库回归、类型检查和构建通过；整套151/152，旧PDF幂等测试超时后单独复跑通过。完整套件的干净运行留在任务13最终整体验证，不能以单测复跑冒充全量通过。
 
 ### Task 5: 配对、设备授权与设置入口
 
