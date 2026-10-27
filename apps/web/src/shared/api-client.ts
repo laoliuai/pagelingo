@@ -90,6 +90,10 @@ export function uploadBundleContent<T>(importId: string, file: File, signal?: Ab
 export function errorMessage(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.status === 401) return '用户名或密码不正确，请重新登录。';
+    if (error.code === 'PROFILE_CHANGED') return '模型配置已变化，请确认当前配置并明确开始新一轮翻译。旧结果仍可阅读。';
+    if (error.code === 'PROVIDER_NOT_CONFIGURED') return '请先保存模型地址、名称与 API Key。原文仍可阅读。';
+    if (error.code === 'SOURCE_LANGUAGE_REQUIRED') return '请选择明确的外文语种后开始翻译；中文和无语言内容无需翻译。';
+    if (error.code === 'REVISION_CONFLICT') return '设置已在其他页面更新，请刷新后重新保存。';
     if (error.status === 409) return '数据已更新或用户名已存在，请刷新后重试。';
     if (error.status === 429) return '请求过于频繁，请稍后重试。';
     if (error.code === 'PROVIDER_INCOMPLETE') return '请先填写模型地址、名称与 API Key。';

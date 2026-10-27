@@ -34,3 +34,8 @@ export async function ensureGlossaryRevision(client: PoolClient, ownerId: string
   await client.query("INSERT INTO glossary_revisions (owner_id,revision,entries) VALUES ($1,0,'[]') ON CONFLICT DO NOTHING", [ownerId]);
   return (await readGlossaryRevision(client,ownerId))!;
 }
+
+/** Small metadata read for the short publication scheduler; never load the term payload here. */
+export async function currentGlossaryRevision(client: PoolClient, ownerId: string): Promise<number> {
+  return (await client.query<{ revision: number }>('SELECT revision FROM glossary_revisions WHERE owner_id=$1 ORDER BY revision DESC LIMIT 1', [ownerId])).rows[0]?.revision ?? 0;
+}

@@ -1,11 +1,11 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
-import type { CaptureDraft, CaptureFile, CaptureResource, CreateWebCaptureRequest, CreateDocumentLinkRequest, WebCaptureResult, DocumentLinkResult } from '@pagelingo/document-contracts';
+import type { CaptureDraft, CaptureFile, CaptureResource, TranslationIntent, CreateWebCaptureRequest, CreateDocumentLinkRequest, WebCaptureResult, DocumentLinkResult } from '@pagelingo/document-contracts';
 import { partition, type SiteBinding } from './binding.js';
 import type { CaptureGrant } from './grants.js';
 
 export interface ArchiveEntry {
   id: string; partition: string; kind: 'capture' | 'link'; state: 'permission' | 'pending' | 'retry' | 'manual' | 'completed' | 'cancelled';
-  draft?: CaptureDraft; grant?: CaptureGrant; grantGeneration?: string; request?: CreateWebCaptureRequest; linkRequest?: CreateDocumentLinkRequest; linkAttempted?: boolean;
+  translationIntent?: TranslationIntent; draft?: CaptureDraft; grant?: CaptureGrant; grantGeneration?: string; request?: CreateWebCaptureRequest; linkRequest?: CreateDocumentLinkRequest; linkAttempted?: boolean;
   resources: CaptureResource[]; ingestionId?: string; result?: WebCaptureResult; linkResult?: DocumentLinkResult;
   attempts: number; nextAttemptAt: number; createdAt: number; warnings: string[]; error?: string; cancelRequested?: boolean;
 }

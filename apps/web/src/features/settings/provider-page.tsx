@@ -1,3 +1,5 @@
+import { SavePreferencesPanel } from './save-preferences';
+import { GlossaryPanel } from './glossary-panel';
 import { useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
@@ -91,7 +93,7 @@ function ProviderForm({ profile }: { profile: ProviderProfile }) {
         <h2>翻译模型</h2>
         <Badge active={saved.hasApiKey}>{saved.hasApiKey ? '已保存 Key' : '未配置 Key'}</Badge>
       </div>
-      <p>此配置属于当前账号。API Key 仅在保存时发送，不会回显。留空保留已有 Key。</p>
+      <p>此配置属于当前账号。API Key 仅在保存时发送，不会回显。留空保留已有 Key。保存配置不会启动历史资料；配置变化后，旧任务需要明确开始新一轮翻译。</p>
       <form onSubmit={submit}>
         <fieldset disabled={pending}>
           <Field label="Base URL">
@@ -262,7 +264,9 @@ export function ProviderPage() {
       <PageHeader title="模型与账户" description="使用自己的 API，为资料生成译文。" />
       {profile.isPending && <p role="status">加载配置…</p>}
       <Feedback message={profile.error ? errorMessage(profile.error) : ''} error />
-      {profile.data && <ProviderForm profile={profile.data} />}
+      {profile.data && <ProviderForm key={user!.id} profile={profile.data} />}
+      <SavePreferencesPanel />
+      <GlossaryPanel />
       <DevicesPanel />
       <ChangePassword />
     </>

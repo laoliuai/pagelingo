@@ -37,7 +37,7 @@ it('rejects dropped protected markers and preserves source binding identity', ()
   const result = t.blocks[0]; if (result.status === 'translated') result.rawText = 'Before translated';
   expect(() => validateWebTranslation(ir, t)).toThrow(/markers/);
 });
-it.each(['und', 'mul', 'zxx', 'x', 'fr_XX', 'javascript:fr'])('rejects invalid manual source language %s', language => {
+it.each(['und', 'mul', 'zxx', 'und-US', 'mul-Latn', 'zxx-US', 'x', 'fr_XX', 'javascript:fr'])('rejects invalid manual source language %s', language => {
   const ir = webBook(); expect(() => toWebTranslationDocument(ir, [ir.blocks[0].id], language)).toThrow();
 });
 it('does not fabricate completion for an unselected foreign paragraph', () => {

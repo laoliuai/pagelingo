@@ -93,7 +93,7 @@ async function receiveDelivery(message: z.infer<typeof deliverySchema>, sender: 
     id = await outbox.enqueueCapture(issuedGrant.binding, payload.value, message.grant, required.length > 0);
   } else {
     if (payload.linkFallback.url !== normalizeCaptureUrl(message.grant.url)) throw new Error('链接来源不一致。');
-    id = await outbox.enqueueLink(issuedGrant.binding, { url: payload.linkFallback.url, ...(payload.linkFallback.title ? { title: payload.linkFallback.title } : {}), translationIntent: 'none' }, payload.linkFallback.warnings);
+    id = await outbox.enqueueLink(issuedGrant.binding, { url: payload.linkFallback.url, ...(payload.linkFallback.title ? { title: payload.linkFallback.title } : {}), translationIntent: 'auto' }, payload.linkFallback.warnings);
   }
   await assertBinding(issuedGrant.binding); void wakeArchive(); return { id, generation: issuedGrant.binding.generation };
 }

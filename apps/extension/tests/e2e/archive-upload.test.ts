@@ -21,10 +21,10 @@ function faultSite() {
       if (path === '/api/v1/documents/links') {
         const input = createDocumentLinkRequestSchema.parse(JSON.parse(bytes.toString())); const key = `${owner}/${req.headers['idempotency-key']}`;
         if (!links.has(key)) links.set(key, { documentId: randomUUID(), jobId: null });
-        expect(input.translationIntent).toBe('none'); send(201, links.get(key)); return;
+        expect(input.translationIntent).toBe('auto'); send(201, links.get(key)); return;
       }
       if (path === '/api/v1/captures' && req.method === 'POST') {
-        const input = createWebCaptureRequestSchema.parse(JSON.parse(bytes.toString())); const key = `${owner}/${req.headers['idempotency-key']}`;
+        const input = createWebCaptureRequestSchema.parse(JSON.parse(bytes.toString())); expect(input.translationIntent).toBe('auto'); const key = `${owner}/${req.headers['idempotency-key']}`;
         if (hold) { send(503, { error: { code: 'OFFLINE' } }); return; }
         let item = records.get(key);
         if (!item) { const timestamp = new Date().toISOString(); item = { request: input, owner: owner!, result: { id: randomUUID(), captureId: input.manifest.captureId, status: 'created', receivedFileIds: [], missingFileIds: input.manifest.files.map(f => f.id), documentId: null, sourceVersionId: null, readerVersionId: null, jobId: null, saveStatus: null, errorCode: null, warnings: [], createdAt: timestamp, updatedAt: timestamp } }; records.set(key, item); }

@@ -1,0 +1,31 @@
+.personal-settings-panel {
+  margin-top: 24px;
+}
+.glossary-entries {
+  display: grid;
+  gap: 1rem;
+  max-height: 32rem;
+  overflow-y: auto;
+}
+.glossary-entry {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: end;
+}
+.glossary-entry .field {
+  margin: 0;
+  min-width: 0;
+}
+.glossary-entry select {
+  width: 100%;
+  min-width: 0;
+}
+@media (max-width: 760px) {
+  .glossary-entry {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .glossary-entry > button {
+    justify-self: start;
+  }
+}

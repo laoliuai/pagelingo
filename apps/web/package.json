@@ -12,6 +12,7 @@
   "dependencies": {
     "@pagelingo/document-contracts": "0.3.0",
     "@pagelingo/document-renderer": "0.2.0",
+    "@pagelingo/translation-core": "0.4.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-router-dom": "7.18.4",

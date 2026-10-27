@@ -59,4 +59,5 @@ it('concurrent identical fallback deliveries consume one issued grant and create
   expect(result.ok).toBe(true); expect(deliveries.filter(reply => reply.ok)).toHaveLength(1);
   const entries = await database.list(connection.binding); expect(entries).toHaveLength(1);
   expect(entries[0]?.id).toBe(deliveries.find(reply => reply.ok)?.value?.id);
+  expect(entries[0]?.linkRequest?.translationIntent).toBe('auto');
 });

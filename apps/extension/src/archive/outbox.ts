@@ -16,7 +16,7 @@ export function createArchiveOutbox(deps: OutboxDependencies) {
   async function enqueueCapture(binding: SiteBinding, input: CaptureDraft, grant?: CaptureGrant, permission = false): Promise<string> {
     const draft = captureDraftSchema.parse(input); await assertCurrent(binding);
     if (await db.get(binding, draft.captureId)) throw new Error('采集已存在。');
-    await db.put(binding, { id: draft.captureId, partition: partition(binding), kind: 'capture', state: permission ? 'permission' : 'pending', draft, grant, grantGeneration: binding.generation, resources: [], attempts: 0, nextAttemptAt: 0, createdAt: now(), warnings: [...draft.snapshot.warnings, ...draft.snapshot.scope.warnings] });
+    await db.put(binding, { id: draft.captureId, partition: partition(binding), kind: 'capture', translationIntent: 'auto', state: permission ? 'permission' : 'pending', draft, grant, grantGeneration: binding.generation, resources: [], attempts: 0, nextAttemptAt: 0, createdAt: now(), warnings: [...draft.snapshot.warnings, ...draft.snapshot.scope.warnings] });
     await deps.schedule?.(now() + 2000); return draft.captureId;
   }
   async function enqueueLink(binding: SiteBinding, input: CreateDocumentLinkRequest, warnings: string[]): Promise<string> {

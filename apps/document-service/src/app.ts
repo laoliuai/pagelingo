@@ -1,3 +1,6 @@
+import { registerGlossaryRoutes } from './glossary/routes.js';
+import { registerWebJobsRoutes } from './web-jobs/routes.js';
+import { createCaptureJobScheduler } from './web-jobs/service.js';
 import { registerDocumentLinksRoutes } from './web-captures/links.js';
 import { registerStaticSite } from './static-site.js';
 import Fastify from 'fastify';
@@ -47,7 +50,9 @@ export async function createApp({ db, config, outboundFetch }: AppOptions): Prom
   registerDocumentsRoutes(app, store);
   registerBundleImportsRoutes(app, store);
   registerReadersRoutes(app, store);
-  registerWebCapturesRoutes(app, store);
+  registerGlossaryRoutes(app);
+  registerWebJobsRoutes(app, store);
+  registerWebCapturesRoutes(app, store, createCaptureJobScheduler());
   registerDocumentLinksRoutes(app);
   registerWebReadersRoutes(app, store);
   app.get('/health/live', async () => ({ status: 'ok' }));

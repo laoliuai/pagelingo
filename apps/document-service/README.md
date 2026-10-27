@@ -432,3 +432,51 @@ The existing buffered `createOutboundFetch` retains its old policy and lifecycle
 All three use the shared DNS/TLS/actual-peer connection layer; no production
 private-network override exists. The fetch runner's replacement fetch dependency
 is accepted only in test mode.
+
+### Personal Web translation settings and jobs
+
+`GET /api/v1/settings/save-preferences` returns `{revision,autoTranslate}` (initially
+`0,false`). Sessions and devices with `preferences:read` may read it; only sessions
+with Origin/CSRF may PUT `{expectedRevision,autoTranslate}`. These settings apply to
+future saves whose immutable intent is `auto`. Saving preferences, provider settings,
+or glossary entries never scans or restarts historical material. Explicit `none`
+remains an opt out; existing extension outbox requests retain their original intent.
+
+`GET / PUT /api/v1/settings/glossary` is session-only. PUT accepts
+`{expectedRevision,entries}` using the SDK glossary schema, merge semantics and
+5,000-entry limit; revisions are immutable. Provider keep/replace/delete saves
+atomically record an immutable non-secret settings revision alongside the current
+sealed key. Old jobs cannot silently adopt a replacement key or model.
+
+`POST /api/v1/documents/:id/web-jobs` accepts the shared `CreateWebJobRequest`:
+`sourceVersionId`, `parseId`, `profileRevision`, `glossaryRevision`, and optional
+`sourceLanguage` / `selectionBlockIds`. It validates the registered IR bytes outside
+locks, then rechecks the owner and immutable dependencies in the final transaction.
+Selections contain only source text blocks and are canonicalized to IR order;
+selecting all text is represented as `null`, as is an omitted selection. Explicit
+language tags are case-normalized. Equivalent input returns the same job, including
+terminal jobs; it does not restart them. Chinese/default no-language input and
+unconfigured providers create no executable translation job. Mixed, uncertain and
+short sources require a known non-Chinese language override; no-language sources
+still create no job. Ordinary saving and reading do not call a model.
+
+`GET /api/v1/web-jobs/:id`, `POST .../:id/cancel` (empty JSON), and
+`POST .../:id/retry` (`{profileRevision,glossaryRevision}`) are session-only.
+Cancellation increments the epoch and conditionally releases its worker slot,
+retaining confirmed checkpoints and Reader versions. Retry resumes the same durable
+input only; `PROFILE_CHANGED` requires an explicit new create request using current
+settings. A new glossary revision is used by new runs, while an existing job keeps
+its original glossary. Stale queued/running provider jobs become `paused-config`
+when inspected; worker lease/profile guards also reject them before execution.
+
+Worker integration: `createJobProfileResolver({db,keyring})` returns
+`resolveJobProfile(lease)`, which checks the current owner/authVersion, lease, slot
+and provider revision, then temporarily returns `{settings,apiKey,profileRevision,
+glossaryRevision,glossary}`. This internal result must never be serialized or logged.
+`createCaptureJobScheduler()` is the SQL-only `CapturePublicationHook`, installed
+for capture HTTP routes and available to the fetch worker via `onPublication`.
+It uses the actual selected Reader/source/parse/IR SHA and trusted source language
+metadata, skips missing legacy language, completed Readers (including complete imports),
+and not-required Readers, and returns
+a real durable translation job ID or null. Claim/heartbeat, model execution and
+checkpoint-based cancellation finalization belong to the worker lifecycle.

@@ -165,3 +165,16 @@ it('cancellation at the awaited pre-send boundary suppresses a never-sent link d
   expect(intervened).toBe(true); expect(sent).toBe(0); expect((await f.db.get(binding, id))?.state).toBe('cancelled');
   expect((await f.db.get(binding, id))?.linkAttempted).toBe(false);
 });
+it('new captures inherit server preference while persisted historical intent and explicit link opt outs remain unchanged', async () => {
+  const fresh = fixture(); const input = draft(); const outbox = fresh.build();
+  await outbox.enqueueCapture(binding,input); await outbox.resumeOutbox(binding);
+  expect((await fresh.db.get(binding,input.captureId))?.request?.translationIntent).toBe('auto');
+  const old = fixture(); const previous = draft(); await old.build().enqueueCapture(binding,previous);
+  const entry = (await old.db.get(binding,previous.captureId))!;
+  delete (entry as typeof entry & {translationIntent?:string}).translationIntent;
+  await old.db.put(binding,entry); await old.build().resumeOutbox(binding);
+  expect((await old.db.get(binding,previous.captureId))?.request?.translationIntent).toBe('none');
+  const id = await old.build().enqueueLink(binding,{url:'https://source.example/opt-out',translationIntent:'none'},[]);
+  await old.build().resumeOutbox(binding,id);
+  expect((await old.db.get(binding,id))?.linkRequest?.translationIntent).toBe('none');
+});

@@ -1,3 +1,4 @@
+import { insertProviderRevision } from '../web-jobs/repository.js';
 import { defaultProviderProfile, providerProfileSchema, providerProfileUpdateSchema } from '@pagelingo/document-contracts';
 import type { ProviderProfile, ProviderProfileUpdate } from '@pagelingo/document-contracts';
 import type { PoolClient } from 'pg';
@@ -43,7 +44,9 @@ export function createProvidersService({ db, keyring }: { db: Database; keyring:
         const { settings, key } = parsed.data;
         const secret = key.action === 'replace' ? sealApiKey(key.value, actor.userId, keyring)
           : key.action === 'delete' ? undefined : storedSecret(row);
-        return publicProfile(await saveProviderProfile(client, actor.userId, revision + 1, settings, secret));
+        const saved = await saveProviderProfile(client, actor.userId, revision + 1, settings, secret);
+        await insertProviderRevision(client, actor.userId, revision + 1, settings);
+        return publicProfile(saved);
       });
     },
     /** Internal call boundary only. Do not serialize, persist or log the returned key. */

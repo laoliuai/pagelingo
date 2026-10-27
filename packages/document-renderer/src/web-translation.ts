@@ -1,3 +1,4 @@
+import { sourceLanguageSchema } from '@pagelingo/document-contracts';
 import { webReaderIrSchema, webTranslationSchema, defaultCaptureLimits, type WebReaderIR, type WebTranslation, type WebImportedTranslation } from '@pagelingo/document-contracts';
 import { encodeBlock, validateStructure, decodeTranslation, PROMPT_VERSION, PROTECTION_VERSION, type TranslationDocument, type TranslationBlock } from '@pagelingo/translation-core';
 import { validateWebGraph } from '@pagelingo/web-capture';
@@ -12,7 +13,7 @@ export function toWebTranslationDocument(ir: WebReaderIR, selectionBlockIds: str
   check(selected.size === selectionBlockIds.length && selected.size <= defaultCaptureLimits.maxBlocks, 'Duplicate or excessive selection');
   const blocks = ir.blocks.filter(block => block.type === 'text' && selected.has(block.id));
   check(blocks.length === selected.size && blocks.every((block, index) => block.id === selectionBlockIds[index]), 'Selection must follow text reading order');
-  if (sourceLanguage !== undefined) check(/^[a-zA-Z]{2,8}(?:-[a-zA-Z0-9]{1,8})*$/.test(sourceLanguage) && sourceLanguage.length <= 63 && !['und', 'mul', 'zxx'].includes(sourceLanguage.toLowerCase()), 'Invalid explicit source language');
+  if (sourceLanguage !== undefined) check(sourceLanguageSchema.safeParse(sourceLanguage).success, 'Invalid explicit source language');
   const language = sourceLanguage ?? (['en', 'zh'].includes(ir.metadata.language.language) ? ir.metadata.language.language : undefined);
   return { id: ir.parse.id, title: ir.metadata.title, ...(language ? { sourceLanguage: language } : {}), blocks: blocks.map(block => { check(block.type === 'text', 'Expected text'); return structuredClone(block.value); }) };
 }
