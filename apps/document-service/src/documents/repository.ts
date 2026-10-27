@@ -27,16 +27,16 @@ export function summary(row: DocumentRow): PdfDocumentSummary {
     processingStatus: row.reader_version_id ? 'reader-ready' : 'awaiting-local-processing' };
 }
 export async function findDocument(client: PoolClient, owner: string, id: string, byAsset = false): Promise<DocumentRow> {
-  const row = (await client.query<DocumentRow>(`${documentSelect} WHERE d.owner_id = $1 AND ${byAsset ? 'a.id' : 'd.id'} = $2`, [owner, id])).rows[0];
+  const row = (await client.query<DocumentRow>(`${documentSelect} WHERE d.kind = 'pdf' AND d.owner_id = $1 AND ${byAsset ? 'a.id' : 'd.id'} = $2`, [owner, id])).rows[0];
   if (!row) throw new ServiceError(404, 'NOT_FOUND', 'Document not found');
   return row;
 }
 export async function findSamePdf(client: PoolClient, owner: string, sha256: string): Promise<DocumentRow | undefined> {
-  return (await client.query<DocumentRow>(`${documentSelect} WHERE d.owner_id = $1 AND s.sha256 = $2 ORDER BY d.created_at, d.id LIMIT 1`, [owner, sha256])).rows[0];
+  return (await client.query<DocumentRow>(`${documentSelect} WHERE d.kind = 'pdf' AND d.owner_id = $1 AND s.sha256 = $2 ORDER BY d.created_at, d.id LIMIT 1`, [owner, sha256])).rows[0];
 }
 export async function listDocuments(client: PoolClient, owner: string, query: { q?: string; page: number; pageSize: number }) {
   const pattern = `%${(query.q ?? '').replace(/[\\%_]/g, value => `\\${value}`)}%`;
-  const where = "d.owner_id = $1 AND d.title ILIKE $2 ESCAPE '\\'";
+  const where = "d.kind = 'pdf' AND d.owner_id = $1 AND d.title ILIKE $2 ESCAPE '\\'";
   const count = await client.query<{ total: number }>(`SELECT count(*)::int AS total FROM documents d WHERE ${where}`, [owner, pattern]);
   const rows = await client.query<DocumentRow>(`${documentSelect} WHERE ${where} ORDER BY d.created_at DESC, d.id DESC LIMIT $3 OFFSET $4`, [owner, pattern, query.pageSize, (query.page - 1) * query.pageSize]);
   return { items: rows.rows.map(summary), total: count.rows[0]!.total, page: query.page, pageSize: query.pageSize };
