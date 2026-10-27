@@ -303,12 +303,12 @@ ZIP 从私有暂存文件逐项读取，`lazyEntries:true, strictFileNames:true,
 
 **Interfaces:** `PdfSource({sourceUrl,title,pageIndex?,onPageChange?,highlight?:PdfSourceRef,pageMetadata?:PdfPageMetadata})`，兼容 S1 原件单看；`ReaderPage({documentId,versionId?})`；`ReaderContent({descriptor,mode,onLocate,onPositionChange})`。点击 block 的定位按钮展示多个来源选择；overlay 仅在 PDF.js 实际 page.view / rotate / viewport 与已验证元数据相容时绘制，失配明确降为页级。
 
-- [ ] **Step 1:** 写失败浏览器测试：默认左右布局、独立滚动、拖拽 / 键盘调整分栏、折叠目录、单看 / 原文正文 / 译文切换；点击跨页段落可分别打开来源。四旋转 fixture 按 Task 1 golden 与真实 PDF.js canvas 红区比对，缩放后 overlay 偏差 ≤2 CSS px；页级和错误 metadata 没有 bbox 高亮。
-- [ ] **Step 2:** 运行该套真实 API Playwright，确认失败。
-- [ ] **Step 3:** 实现 §2.3 布局和窗口，正文只消费 renderer 的品牌 HTML；委托事件只识别本地 block ID，不能从 HTML 决定 API URL。PDF.js 保留真实 worker、认证 Range、本地 cmap / fonts / WASM 和资源清理；重渲染期间不展示上一页高亮。窗口与章节切换取消旧请求，销毁过期 DOM 和 query cache。
-- [ ] **Step 4:** 用 20,000-block fixture 从首跳末再回中间，断言同时最多 3 个 chunk 元素 / 缓存响应、旧 block 已从 DOM 移除，顺序和列表编号正确。390px 手机默认正文、可切 PDF / 翻页 / 缩放，只有表格 / 代码局部横向滚动；light / dark 各保存 desktop / mobile 截图。
-- [ ] **Step 5:** 运行 PDF 原件现有浏览器回归和新 Reader 测试、web typecheck。
-- [ ] **Step 6:** 提交 `feat: read PDFs beside translated HTML`。
+- [x] **Step 1:** 写失败浏览器测试：默认左右布局、独立滚动、拖拽 / 键盘调整分栏、折叠目录、单看 / 原文正文 / 译文切换；点击跨页段落可分别打开来源。四旋转 fixture 按 Task 1 golden 与真实 PDF.js canvas 红区比对，缩放后 overlay 偏差 ≤2 CSS px；页级和错误 metadata 没有 bbox 高亮。
+- [x] **Step 2:** 运行该套真实 API Playwright，确认失败。
+- [x] **Step 3:** 实现 §2.3 布局和窗口，正文只消费 renderer 的品牌 HTML；委托事件只识别本地 block ID，不能从 HTML 决定 API URL。PDF.js 保留真实 worker、认证 Range、本地 cmap / fonts / WASM 和资源清理；重渲染期间不展示上一页高亮。窗口与章节切换取消旧请求，销毁过期 DOM 和 query cache。
+- [x] **Step 4:** 用 20,000-block fixture 从首跳末再回中间，断言同时最多 3 个 chunk 元素 / 缓存响应、旧 block 已从 DOM 移除，顺序和列表编号正确。390px 手机默认正文、可切 PDF / 翻页 / 缩放，只有表格 / 代码局部横向滚动；light / dark 各保存 desktop / mobile 截图。
+- [x] **Step 5:** 运行 PDF 原件现有浏览器回归和新 Reader 测试、web typecheck。
+- [x] **Step 6:** 提交 `feat: read PDFs beside translated HTML`。
 
 ### Task 11: 阅读位置、版本恢复与并发反馈
 
