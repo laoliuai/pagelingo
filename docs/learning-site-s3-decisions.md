@@ -1,6 +1,6 @@
 # S3 执行裁定记录
 
-对应已批准的 [S3 计划](superpowers/plans/2026-10-27-learning-site-s3.md)。本记录汇总执行期间的全部 R1–R30，保留原因及判断错误时的返工范围；原始裁定附于后文，避免仅存在临时会话记录中。
+对应已批准的 [S3 计划](superpowers/plans/2026-10-27-learning-site-s3.md)。本记录汇总执行期间的全部 R1–R31，保留原因及判断错误时的返工范围；原始裁定附于后文，避免仅存在临时会话记录中。
 
 这不是新增范围批准，也不代表真实登录态来源或译文语义质量已验收。最终能力与证据边界见 [验收记录](learning-site-s3-validation.md)。
 
@@ -36,6 +36,7 @@
 | R28 | 集成文件默认串行；保留隔离、原超时和显式多 worker 并发。 | 共享全库锁且领取允许为空，默认并行造成无效假设。 | 集成检查变慢，必要时改进夹具隔离。 |
 | R29 | 显式重译使用可重放 requestId；下一次主动操作使用新身份。 | 区分同一请求重放与同配置的新一轮，仍复用有效缓存。 | 调整可选请求字段、未发布006及仓库/界面。 |
 | R30 | 行内 CSS 使用空 URL 和文档 provenance，按原始字节归档且不执行。 | 行内样式没有真实外部资源 URL，仍需保存可用 CSS 证据。 | 调整局部 Web CSS 合同和采集消费者。 |
+| R31 | 将复审 N1 的极长 URL / 大草稿封装失败列为非阻塞后续，保留 16 MiB 上限。 | 原重要问题已解决；局部真实采集器探针证明少见的封装预算缺口，后台仍会拒绝超限消息。 | 此类保存暂时失败；后续需按完整消息计费并增加边界回归。 |
 
 R26 在容量边界复审后补充 UUID 游标与回绕；原有 1024 项退避上限保留。R28 的检查记录明确区分初次失败、测试框架调整、后续通过和实际已采集的源码/dist 清单；未补称不存在的早期 dist 清单。
 
@@ -162,3 +163,7 @@ Ruling: R29 — optional UUID requestId on CreateWebJobRequest identifies ONE ex
 ### R30
 
 Ruling: R30 — CSS-only inline resource variant url:null with provenance{kind:inline-style,documentUrl:HTTP(S),index:nonnegativeSafeInteger}; pending has boundedUTF8text OR missingReason, final hasactualfile/status/provenance andNOtext — inlineCSS has no honestHTTPresourceURL inoldcontract, approvedsnapshotrequiresavailableCSS — costifwrong: narrowWebCSScontracts/006ifneeded/sanitizer-fingerprint/extensionconsumeradjustment, notPDF/SDK/sourceURLchange. ExternalCSSkeepsHTTPurl andmaycarrypendingmissingReason; inlinevariantexclusivewithurlnull/provenance, imagesnevernullable. provenance.documentUrl equalsnormalizedcapturedsourceURL; collectionfromnon-pluginoriginaldocumentstyle/link nodes, source identity/styles checkedacrossasyncboundary. CaptureDraft/manifeststrictschemas+portableexportsupdatedBEFOREconsumers. Inlinebytespersistwithtrustedimmutableoriginaldraft, encodedtoactualCSSfilewithoutnetwork/hostgrant; no arbitraryURLfetch or clientcaller-byteoverride. Finalmanifestinlineprovenance bindsdoc+actualSHA/bytes/status insemanticfingerprint, no fabricatedURL/hash; source/navigationHTTP(S)andR17data/blobimage-onlypolicyunchanged. Existing16MiBresource/64MiBtotal/256files/16origins/8MiBHTML/16MiBdraftJSON/IPCceilingsapply; oversize/unavailable/unsupportedCSSexplicitmissingReason orboundedwarningwhenno representablelocator, never silentlycomplete. RawCSSarchiveattachment-only/nonexecuting; trustedpreviewneverexecutesrawCSS. Sameoriginalcaptureall3translationmodes, ownedpluginstylesexcluded; testexternal+inlinecollector→upload,denial/stale/unsupported/budget/inertness andsourcebinding. NullCSSmustnotreachgenericURL/origin/imagecodec paths.
+
+### R31
+
+Ruling: R31 — park scoped-review Minor N1, long-URL/near-limit CSS delivery-envelope rejection, as an explicit nonblocking follow-up; retain the 16 MiB transport ceiling and do not initiate a second final fix wave — I1/I2/I3/M1 are addressed with no new Critical/Important breakage; an actual-collector/inspected-image probe produced a 16772840-byte draft but a 16779158-byte delivery against 16777216, and the inspected background guard rejects before enqueue — cost if wrong: unusual long-URL/large-CSS-image saves remain rejected until complete-envelope budgeting and a focused boundary regression land. Chrome IPC/UI/IndexedDB rejection was not separately exercised; preserve that evidence limit.
