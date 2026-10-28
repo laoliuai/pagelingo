@@ -17,6 +17,7 @@ const commands = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('archive:capture'), tabId: z.number().int().nonnegative() }),
   z.strictObject({ type: z.literal('archive:retry'), id: z.uuid().optional() }),
   z.strictObject({ type: z.literal('archive:cancel'), id: z.uuid() }),
+  z.strictObject({ type: z.literal('archive:remove-local'), id: z.uuid() }),
 ]);
 const deliverySchema = z.strictObject({ type: z.literal('capture:deliver'), grant: captureGrantSchema,
   payload: z.union([
@@ -134,17 +135,16 @@ async function status() {
   const connection = await readConnection(); if (!connection) return { binding: null, username: null, items: [] };
   const current = connection.binding; const items = [];
   for (const entry of (await db.list(current)).sort((a,b) => b.createdAt - a.createdAt)) items.push({
-    id: entry.id, title: entry.draft?.metadata.title ?? entry.linkRequest?.title ?? entry.linkRequest?.url, state: entry.state,
+    id: entry.id, title: entry.title, state: entry.state,
     kind: entry.kind, saveStatus: entry.result?.status === 'completed' ? entry.result.saveStatus : entry.linkResult ? 'link-only' : null,
-    warnings: [...entry.warnings, ...(entry.result?.warnings ?? [])], error: entry.error, completeWithinScope: entry.draft?.snapshot.scope.completeWithinScope ?? null,
-    permissionOrigins: entry.state === 'permission' ? await permissionOrigins(entry) : [],
+    warnings: [...entry.warnings, ...(entry.result?.warnings ?? [])], error: entry.error, completeWithinScope: entry.completeWithinScope,
+    permissionOrigins: entry.state === 'permission' ? (await Promise.all(entry.permissionOrigins.map(async origin => !await chrome.permissions.contains({ origins: [origin] }) ? origin : null))).filter((origin): origin is string => origin !== null) : [],
   });
   await assertBinding(current); return { binding: current, username: connection.username, items };
 }
 export async function wakeArchive(): Promise<void> {
   try {
     const current = await binding(); await outbox.drainOutbox(current, new AbortController().signal);
-    for (const entry of await db.list(current)) if (['pending','retry'].includes(entry.state)) await schedule(entry.nextAttemptAt || Date.now() + 2000);
   } catch { /* Startup does not prompt for permissions or access another partition. */ }
 }
 export function handleArchiveRequest(raw: unknown, sender: chrome.runtime.MessageSender, respond: (response: unknown) => void, ensureContent: (tabId: number) => Promise<void>): boolean {
@@ -172,7 +172,8 @@ export function handleArchiveRequest(raw: unknown, sender: chrome.runtime.Messag
     if (command.type === 'archive:disconnect') { connectionEpoch++; issued.clear(); await writeConnection(disconnectSite); return null; }
     if (command.type === 'archive:capture') return startCapture(command.tabId, ensureContent);
     const current = await binding();
-    if (command.type === 'archive:cancel') void outbox.cancel(current, command.id).catch(() => {});
+    if (command.type === 'archive:remove-local') await outbox.removeLocal(current, command.id);
+    else if (command.type === 'archive:cancel') void outbox.cancel(current, command.id).catch(() => {});
     else void outbox.resumeOutbox(current, command.id).catch(() => {});
     return { generation: current.generation };
   };

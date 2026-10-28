@@ -1,3 +1,4 @@
+import { build } from 'vite';
 import { test as base, expect, chromium, type BrowserContext, type Page } from '@playwright/test';
 import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -6,11 +7,15 @@ import { fileURLToPath } from 'node:url';
 
 export const extensionDist = fileURLToPath(new URL('../../dist/', import.meta.url));
 
-export const test = base.extend<{ control: Page; extensionId: string }>({
-  context: async ({}, use) => {
+export const test = base.extend<{ control: Page; extensionId: string; archiveDatabaseHarness: boolean }>({
+  archiveDatabaseHarness: [false, { option: true }],
+  context: async ({ archiveDatabaseHarness }, use) => {
     const temporary = mkdtempSync(path.join(tmpdir(), 'pagelingo-e2e-'));
     const extension = path.join(temporary, 'extension');
     cpSync(extensionDist, extension, { recursive: true });
+    if (archiveDatabaseHarness) await build({ configFile: false, envDir: false, publicDir: false, logLevel: 'silent',
+      build: { lib: { entry: fileURLToPath(new URL('../../src/archive/database.ts', import.meta.url)), formats: ['es'], fileName: () => 'archive-database-harness.js' },
+        outDir: extension, emptyOutDir: false, copyPublicDir: false, minify: false } });
     const manifestPath = path.join(extension, 'manifest.json');
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
     // Only the test copy receives access to localhost. Headless action clicks

@@ -2,6 +2,7 @@ import type { PendingCaptureResource } from '@pagelingo/document-contracts';
 import type { TranslationProvenance } from '../shared/translation';
 import type { ExistingTranslationEvidence } from '../archive/existing-translations';
 import { collectOriginalCapture } from '../archive/collector';
+import { fitCaptureDelivery } from '../archive/delivery-budget';
 import { captureGrantSchema, type CaptureGrant, type CaptureIdentity } from '../archive/grants';
 import { originalTree, selectArchiveSource, originalSourceSignature } from '../archive/original-tree';
 import { extractBlocks, extractBlocksSync } from '../dom/extractor';
@@ -100,7 +101,7 @@ export class PageController {
       assertSource();
     };
     this.capturedResources = undefined;
-    const draft = await collectOriginalCapture(this.document, { captureId: grant.captureId, assertCurrent, translations: this.captureTranslations() });
+    const draft = fitCaptureDelivery(grant, await collectOriginalCapture(this.document, { captureId: grant.captureId, assertCurrent, translations: this.captureTranslations() }));
     assertCurrent();
     this.capturedResources = { grant, resources: new Map(draft.pendingResources.map(resource => [resource.id, structuredClone(resource)])) };
     return draft;

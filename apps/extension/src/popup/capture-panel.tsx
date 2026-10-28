@@ -19,7 +19,7 @@ export function CapturePanel({ tabId }: { tabId?: number }) {
     {status.binding ? <>
       <p className="hint archive-origin">{status.username} · {status.binding.siteOrigin}</p>
       <button className="primary full" disabled={busy || tabId === undefined} onClick={() => run({ type: 'archive:capture', tabId })}>保存当前页面原文</button>
-      <p className="hint">关闭面板后继续上传。保存原文不调用模型；可复用经过校验的现有译文。</p>
+      <p className="hint">关闭面板后继续上传。保存原文不调用模型，可复用已验证的现有译文。站点确认后清理本地载荷；取消仍保留，可移除本地记录。</p>
       {status.items.slice(0, showAll ? undefined : 10).map(item => <article key={item.id} className="archive-item">
         <strong>{item.title}</strong><p role="status">{savedLabel(item)}</p>
         {item.completeWithinScope !== null && <p className="hint">{item.completeWithinScope ? '所选正文范围完整' : '所选正文范围不完整'}</p>}
@@ -31,6 +31,7 @@ export function CapturePanel({ tabId }: { tabId?: number }) {
         </>}
         {['retry','manual'].includes(item.state) && <button disabled={busy} onClick={() => run({ type: 'archive:retry', id: item.id })}>重试保存</button>}
         {!['completed','cancelled'].includes(item.state) && <button disabled={busy} onClick={() => run({ type: 'archive:cancel', id: item.id })}>取消保存</button>}
+        {['completed','cancelled','manual'].includes(item.state) && <button disabled={busy} onClick={() => run({ type: 'archive:remove-local', id: item.id })}>移除本地记录</button>}
         {item.error && <p className="error">{item.error}</p>}
         {item.warnings.length > 0 && <details><summary>保存说明（{item.warnings.length}）</summary><ul>{item.warnings.map((warning, i) => <li key={i}>{warning}</li>)}</ul></details>}
       </article>)}

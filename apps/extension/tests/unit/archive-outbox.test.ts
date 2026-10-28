@@ -174,9 +174,11 @@ it('new captures inherit server preference while persisted historical intent and
   delete (entry as typeof entry & {translationIntent?:string}).translationIntent;
   await old.db.put(binding,entry); await old.build().resumeOutbox(binding);
   expect((await old.db.get(binding,previous.captureId))?.request?.translationIntent).toBe('none');
+  let sentLink: unknown; old.client.link = async input => { sentLink = input; return { documentId: crypto.randomUUID(), jobId: null }; };
   const id = await old.build().enqueueLink(binding,{url:'https://source.example/opt-out',translationIntent:'none'},[]);
   await old.build().resumeOutbox(binding,id);
-  expect((await old.db.get(binding,id))?.linkRequest?.translationIntent).toBe('none');
+  expect(sentLink).toMatchObject({ translationIntent: 'none' });
+  expect((await old.db.get(binding,id))?.linkRequest).toBeUndefined();
 });
 
 it.each([false, true])('resumes a failed server capture with the same identity (expired staging: %s)', async expired => {
@@ -209,11 +211,99 @@ it.each([false, true])('resumes a failed server capture with the same identity (
   const recovered = await f.db.get(binding, input.captureId);
   expect(recovered?.state).toBe('completed');
   expect(recovered?.ingestionId).toBe(ingestionId);
-  expect(recovered?.request).toEqual(attempt?.request);
+  expect(attempt?.request?.manifest.captureId).toBe(input.captureId);
+  expect(recovered?.request).toBeUndefined(); expect(await f.db.files(binding, input.captureId)).toEqual([]);
   expect(recovered?.result?.captureId).toBe(input.captureId);
   expect(commits).toBe(2);
   expect(f.counts().creates).toBe(1);
   expect(f.counts().puts).toEqual(expired ? ['html', 'html'] : ['html']);
   await f.build().resumeOutbox(binding);
   expect(commits).toBe(2);
+});
+
+it('finds an older pending payload beyond fifty completed headers after a restart', async () => {
+  const f = fixture(); const input = draft(); await f.build().enqueueCapture(binding, input);
+  const pending = (await f.db.get(binding, input.captureId))!; pending.createdAt = 1; await f.db.put(binding, pending);
+  for (let i = 0; i < 55; i++) await f.db.put(binding, { ...pending, id: crypto.randomUUID(), kind: 'link', draft: undefined, state: 'completed', createdAt: i + 2 });
+  expect((await f.db.list(binding)).some(header => header.id === input.captureId)).toBe(false);
+  await f.build().resumeOutbox(binding, input.captureId); await f.build().resumeOutbox(binding, input.captureId);
+  expect((await f.db.get(binding, input.captureId))?.state).toBe('completed'); expect(f.counts().creates).toBe(1);
+});
+
+it.each([404, 409, 410, 503])('retains original request and source bytes after server reconciliation error %s', async status => {
+  const f = fixture(); const input = draft(); const outbox = f.build(); await outbox.enqueueCapture(binding, input); await outbox.drainOutbox(binding, new AbortController().signal);
+  const before = (await f.db.get(binding, input.captureId))!; const files = await f.db.files(binding, input.captureId);
+  expect(before.state).toBe('retry'); expect(before.request).toBeDefined();
+  f.client.status = async () => { throw new ArchiveHttpError(status, 'CAPTURE_RETIRED'); };
+  await f.build().resumeOutbox(binding, input.captureId);
+  const after = (await f.db.get(binding, input.captureId))!; expect(after.request).toEqual(before.request); expect(after.ingestionId).toBe(before.ingestionId); expect(after.compactedAt).toBeUndefined();
+  expect((await f.db.files(binding, input.captureId)).map(file => Array.from(file.bytes))).toEqual(files.map(file => Array.from(file.bytes)));
+  expect(f.counts().creates).toBe(1);
+});
+
+it('rejects a wrong-identity completed commit ACK without compacting the original payload', async () => {
+  const f = fixture(); const input = draft(); f.client.commit = async () => ({ ...await f.client.status(), status: 'completed', captureId: crypto.randomUUID(), documentId: crypto.randomUUID(), sourceVersionId: crypto.randomUUID(), saveStatus: 'original-saved' });
+  await f.build().enqueueCapture(binding, input); await f.build().resumeOutbox(binding);
+  const saved = await f.db.get(binding, input.captureId); expect(saved?.state).toBe('retry'); expect(saved?.draft).toEqual(input); expect(saved?.request).toBeDefined(); expect(await f.db.files(binding, input.captureId)).toHaveLength(1);
+});
+
+it('keeps completed-but-unacknowledged bytes across account switch, then compacts only the original owner receipt', async () => {
+  const f = fixture(); const input = draft(); const commit = f.client.commit; let switched = false;
+  f.client.commit = async () => { try { await commit(); } catch {} const result = await f.client.status(); if (!switched) { switched = true; f.switch({ ...binding, ownerId: crypto.randomUUID(), generation: crypto.randomUUID() }); } return result; };
+  await f.build().enqueueCapture(binding, input); await f.build().resumeOutbox(binding);
+  const held = await f.db.get(binding, input.captureId); expect(held?.request).toBeDefined(); expect(held?.compactedAt).toBeUndefined(); expect(await f.db.files(binding, input.captureId)).toHaveLength(1);
+  const reconnect = { ...binding, deviceId: crypto.randomUUID(), generation: crypto.randomUUID() }; f.switch(reconnect);
+  await f.build().resumeOutbox(reconnect); const receipt = await f.db.get(reconnect, input.captureId);
+  expect(receipt?.state).toBe('completed'); expect(receipt?.draft).toBeUndefined(); expect(receipt?.request).toBeUndefined(); expect(await f.db.files(reconnect, input.captureId)).toEqual([]); expect(f.counts().creates).toBe(1); expect(f.counts().commits).toBe(1);
+});
+
+it('retains cancellation with unknown server outcome and permits only explicit owner-local removal', async () => {
+  const f = fixture(); const input = draft(); const outbox = f.build(); await outbox.enqueueCapture(binding, input); await outbox.resumeOutbox(binding);
+  const before = await f.db.get(binding, input.captureId); f.client.cancel = async () => { throw new Error('cancel ACK unknown'); };
+  // A failed status cannot be treated as cancellation or completion.
+  f.client.status = async () => { throw new Error('status unknown'); };
+  await outbox.cancel(binding, input.captureId); const unknown = await f.db.get(binding, input.captureId);
+  expect(unknown?.state).toBe('retry'); expect(unknown?.cancelRequested).toBe(true); expect(unknown?.request).toEqual(before?.request); expect(await f.db.files(binding, input.captureId)).toHaveLength(1);
+  await f.db.removeLocalEntry({ ...binding, ownerId: crypto.randomUUID() }, input.captureId); expect(await f.db.get(binding, input.captureId)).toBeDefined();
+  await outbox.removeLocal(binding, input.captureId); expect(await f.db.get(binding, input.captureId)).toBeUndefined(); expect(await f.db.files(binding, input.captureId)).toEqual([]);
+});
+
+it('finishes interrupted receipt compaction after restarting the outbox', async () => {
+  const f = fixture(); const input = draft(); await f.build().enqueueCapture(binding, input); await f.build().resumeOutbox(binding);
+  const interrupted = (await f.db.get(binding, input.captureId))!;
+  interrupted.state = 'completed'; interrupted.result = await f.client.status(); interrupted.completedBinding = binding; await f.db.put(binding, interrupted);
+  expect(interrupted.result.status).toBe('completed'); expect(await f.db.files(binding, input.captureId)).toHaveLength(1);
+  await f.build().drainOutbox(binding, new AbortController().signal);
+  expect((await f.db.get(binding, input.captureId))?.draft).toBeUndefined(); expect(await f.db.files(binding, input.captureId)).toEqual([]);
+});
+
+it('uses original durable completion proof after same-owner reconnect without manufacturing a new ACK', async () => {
+  const f = fixture(); const input = draft(); await f.build().enqueueCapture(binding, input); await f.build().resumeOutbox(binding);
+  const interrupted = (await f.db.get(binding, input.captureId))!; interrupted.state = 'completed'; interrupted.result = await f.client.status(); interrupted.completedBinding = binding; await f.db.put(binding, interrupted);
+  const other = { ...binding, ownerId: crypto.randomUUID(), generation: crypto.randomUUID() }; f.switch(other); await f.build().drainOutbox(other, new AbortController().signal);
+  expect(await f.db.files(binding, input.captureId)).toHaveLength(1);
+  const reconnect = { ...binding, deviceId: crypto.randomUUID(), generation: crypto.randomUUID() }; f.switch(reconnect); await f.build().drainOutbox(reconnect, new AbortController().signal);
+  const receipt = await f.db.get(reconnect, input.captureId); expect(receipt?.completedBinding).toEqual(binding); expect(receipt?.draft).toBeUndefined(); expect(await f.db.files(reconnect, input.captureId)).toEqual([]); expect(f.counts().creates).toBe(1); expect(f.counts().commits).toBe(1);
+});
+
+it('retains bytes for an unknown final server status instead of treating it as a completed receipt', async () => {
+  const f = fixture(); const input = draft(); f.client.commit = async () => ({ ...await f.client.status(), status: 'unknown' as WebCaptureResult['status'] });
+  await f.build().enqueueCapture(binding, input); await f.build().resumeOutbox(binding);
+  const entry = await f.db.get(binding, input.captureId); expect(entry?.state).toBe('retry'); expect(entry?.draft).toEqual(input); expect(entry?.request?.manifest.captureId).toBe(input.captureId); expect(entry?.compactedAt).toBeUndefined(); expect(await f.db.files(binding, input.captureId)).toHaveLength(1);
+});
+
+it('does not compact from a stale pump when the active generation changes during its header read', async () => {
+  const f = fixture(); const input = draft(); await f.build().enqueueCapture(binding, input); await f.build().resumeOutbox(binding);
+  const entry = (await f.db.get(binding, input.captureId))!; entry.state = 'completed'; entry.result = await f.client.status(); entry.completedBinding = binding; await f.db.put(binding, entry);
+  const list = f.db.list.bind(f.db); vi.spyOn(f.db, 'list').mockImplementationOnce(async (...args) => { const rows = await list(...args); f.switch({ ...binding, generation: crypto.randomUUID() }); return rows; });
+  await f.build().drainOutbox(binding, new AbortController().signal);
+  expect((await f.db.get(binding, input.captureId))?.compactedAt).toBeUndefined(); expect(await f.db.files(binding, input.captureId)).toHaveLength(1);
+});
+
+it('reschedules a future retry beyond fifty completed headers after restart', async () => {
+  const f = fixture(); const input = draft(); await f.build().enqueueCapture(binding, input);
+  const retry = (await f.db.get(binding, input.captureId))!; retry.createdAt = 1; retry.state = 'retry'; retry.nextAttemptAt = 1000; await f.db.put(binding, retry);
+  for (let i = 0; i < 55; i++) await f.db.put(binding, { ...retry, id: crypto.randomUUID(), state: 'completed', createdAt: i + 2 });
+  const scheduled: number[] = []; const restart = createArchiveOutbox({ database: f.db, current: async () => binding, client: () => f.client, acquire: async () => { throw Error('Unexpected acquisition'); }, now: () => 10, schedule: async when => { scheduled.push(when); } });
+  await restart.drainOutbox(binding, new AbortController().signal); expect(scheduled).toContain(1000); expect(f.counts().creates).toBe(0);
 });

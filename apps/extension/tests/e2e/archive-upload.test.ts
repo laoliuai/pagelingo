@@ -5,6 +5,8 @@ import { createHash, randomUUID } from 'node:crypto';
 import { expect, type Page } from '@playwright/test';
 import { createWebCaptureRequestSchema, createDocumentLinkRequestSchema, type WebCaptureResult } from '@pagelingo/document-contracts';
 import { test } from './extension-fixture';
+import { ownPngUrl } from '../helpers/archive-boundary';
+test.use({ archiveDatabaseHarness: true });
 
 // A local fault-injection HTTP peer, not a replacement for the service integration suite.
 function faultSite() {
@@ -65,6 +67,12 @@ test('archive survives popup/page close and actual worker termination; lost comm
     await expect.poll(async () => (await rpc(reopened, { type: 'archive:status' })).value.items[0]?.state).toBe('completed');
     expect(site.count()).toBe(1); expect(new Set(site.puts).size).toBe(site.puts.length);
     expect(site.records.values().next().value!.request.manifest.resources[0].status).toBe('available');
+    const stored = await reopened.evaluate(async id => {
+      const db = await new Promise<IDBDatabase>((resolve, reject) => { const request = indexedDB.open('pagelingo-archives-v1'); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
+      const tx = db.transaction('files'); const files = await new Promise<any[]>(resolve => { const request = tx.objectStore('files').getAll(); request.onsuccess = () => resolve(request.result); }); db.close();
+      return files.filter(file => file.captureId === id).length;
+    }, saved.value.id);
+    expect(stored).toBe(0);
   } finally { await new Promise<void>(resolve => site.server.close(() => resolve())); }
 });
 test('new owner cannot inspect or deliver queued archives; same-owner reconnect retains capture UUID', async ({ control, page }) => {
@@ -91,13 +99,13 @@ test('connection and capture UI keep server confirmation and resource consent vi
     const popup = await context.newPage(); await popup.setViewportSize({ width: 360, height: 600 }); await page.bringToFront(); await popup.goto(`chrome-extension://${extensionId}/src/popup/index.html`);
     await expect(popup.getByText('等待资源授权')).toBeVisible();
     await expect(popup.getByText('原文已保存', { exact: true })).toHaveCount(0);
-    await popup.locator('.popup').screenshot({ path: fileURLToPath(new URL('../../../../.superpowers/sdd/2026-10-27-learning-site-s3/task-8-popup.png', import.meta.url)) });
-    await control.screenshot({ path: fileURLToPath(new URL('../../../../.superpowers/sdd/2026-10-27-learning-site-s3/task-8-options.png', import.meta.url)), fullPage: true });
-    await popup.screenshot({ path: fileURLToPath(new URL('../../../../.superpowers/sdd/2026-10-27-learning-site-s3/task-8-popup-viewport.png', import.meta.url)) });
+    await popup.locator('.popup').screenshot({ path: fileURLToPath(new URL('../../../../.superpowers/sdd/2026-10-28-learning-site-s4/task-5-evidence/popup.png', import.meta.url)) });
+    await control.screenshot({ path: fileURLToPath(new URL('../../../../.superpowers/sdd/2026-10-28-learning-site-s4/task-5-evidence/options.png', import.meta.url)), fullPage: true });
+    await popup.screenshot({ path: fileURLToPath(new URL('../../../../.superpowers/sdd/2026-10-28-learning-site-s4/task-5-evidence/popup-viewport.png', import.meta.url)) });
     await popup.emulateMedia({ colorScheme: 'dark' });
-    await popup.screenshot({ path: fileURLToPath(new URL('../../../../.superpowers/sdd/2026-10-27-learning-site-s3/task-8-popup-dark.png', import.meta.url)) });
+    await popup.screenshot({ path: fileURLToPath(new URL('../../../../.superpowers/sdd/2026-10-28-learning-site-s4/task-5-evidence/popup-dark.png', import.meta.url)) });
     await control.setViewportSize({ width: 390, height: 844 });
-    await control.getByRole('region', { name: '资料站点连接' }).screenshot({ path: fileURLToPath(new URL('../../../../.superpowers/sdd/2026-10-27-learning-site-s3/task-8-options-mobile.png', import.meta.url)) });
+    await control.getByRole('region', { name: '资料站点连接' }).screenshot({ path: fileURLToPath(new URL('../../../../.superpowers/sdd/2026-10-28-learning-site-s4/task-5-evidence/options-mobile.png', import.meta.url)) });
     expect(await control.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await popup.evaluate(() => { chrome.permissions.request = async () => false; });
     await popup.getByRole('button', { name: '授权资源并保存' }).click();
@@ -106,6 +114,9 @@ test('connection and capture UI keep server confirmation and resource consent vi
     await expect(popup.getByText('等待重试')).toBeVisible();
     site.release(); await rpc(control, { type: 'archive:retry', id: saved.value.id });
     await expect(popup.getByText('原文已保存，部分资源缺失')).toBeVisible();
+    await popup.screenshot({ path: fileURLToPath(new URL('../../../../.superpowers/sdd/2026-10-28-learning-site-s4/task-5-evidence/native-remove-visible.png', import.meta.url)) });
+    await popup.getByRole('button', { name: '移除本地记录' }).click();
+    await expect(popup.locator('.archive-item')).toHaveCount(0); expect(site.count()).toBe(1);
   } finally { await new Promise<void>(resolve => site.server.close(() => resolve())); }
 });
 test('unavailable source uses the real link request shape; revoked token leaves original unconfirmed', async ({ control, page }) => {
@@ -140,5 +151,91 @@ test('native blob acquisition preserves actual bytes while an encoded-but-undeco
     expect(resources.find((r: any) => r.url.startsWith('blob:')).status).toBe('available');
     expect(resources.find((r: any) => r.url.startsWith('data:image/png')).status).toBe('missing');
     expect((await rpc(control, { type: 'archive:status' })).value.items[0].saveStatus).toBe('partial-resources');
+  } finally { await new Promise<void>(resolve => site.server.close(() => resolve())); }
+});
+
+test('native v1 cursor migration is atomic under quota failure and preserves old request bytes', async ({ control }) => {
+  const result = await control.evaluate(async () => {
+    const { ArchiveDatabase } = await import(chrome.runtime.getURL('archive-database-harness.js'));
+    const binding = { siteOrigin: 'https://own.example', siteId: crypto.randomUUID(), ownerId: crypto.randomUUID(), deviceId: crypto.randomUUID(), generation: crypto.randomUUID() };
+    const partition = JSON.stringify([binding.siteOrigin,binding.siteId,binding.ownerId]); const name = `native-v1-${crypto.randomUUID()}`;
+    const entry = { id: crypto.randomUUID(), partition, kind: 'link', state: 'retry', linkRequest: { url: 'https://own.example/original', translationIntent: 'none' }, resources: [], warnings: ['Own old input'], attempts: 1, nextAttemptAt: 0, createdAt: 1 };
+    const bytes = new Uint8Array([0,1,2,128,255]); const file = { partition, captureId: entry.id, descriptor: { id: 'own', path: 'own.bin', role: 'image', mediaType: 'image/png', bytes: 5, sha256: 'a'.repeat(64) }, bytes };
+    const open = (version: number) => new Promise<IDBDatabase>((resolve, reject) => { const request = indexedDB.open(name, version); request.onupgradeneeded = () => { const db = request.result; db.createObjectStore('entries', { keyPath: ['partition','id'] }).createIndex('partition','partition'); db.createObjectStore('files', { keyPath: ['partition','captureId','descriptor.id'] }).createIndex('capture',['partition','captureId']); }; request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
+    const old = await open(1); const tx = old.transaction(['entries','files'], 'readwrite'); tx.objectStore('entries').put(entry); const second = { ...entry, id: crypto.randomUUID() }; tx.objectStore('entries').put(second); tx.objectStore('files').put(file); await new Promise<void>((resolve, reject) => { tx.oncomplete = () => resolve(); tx.onabort = () => reject(tx.error); }); old.close();
+    const originalPut = IDBObjectStore.prototype.put; let attempted = false; let writes = 0;
+    IDBObjectStore.prototype.put = function(...args) { if (this.name === 'payloads' && ++writes === 2) { attempted = true; throw new DOMException('Injected owned quota boundary', 'QuotaExceededError'); } return originalPut.apply(this, args); };
+    let rejected = false;
+    try { await new ArchiveDatabase(name).get(binding, entry.id); } catch { rejected = true; } finally { IDBObjectStore.prototype.put = originalPut; }
+    const intact = await open(1); const version = intact.version; const stores = Array.from(intact.objectStoreNames);
+    const read = intact.transaction(['entries','files']);
+    const unchanged = await new Promise<any>(resolve => { const request = read.objectStore('entries').get([partition,entry.id]); request.onsuccess = () => resolve(request.result); });
+    const unchangedSecond = await new Promise<any>(resolve => { const request = read.objectStore('entries').get([partition,second.id]); request.onsuccess = () => resolve(request.result); });
+    const originalFile = await new Promise<any>(resolve => { const request = read.objectStore('files').get([partition,entry.id,'own']); request.onsuccess = () => resolve(request.result); }); intact.close();
+    const upgraded = new ArchiveDatabase(name); const joined = await upgraded.get(binding, entry.id); const headers = await upgraded.list(binding); const recoveredFiles = await upgraded.files(binding, entry.id);
+    return { attempted, rejected, version, stores, unchanged: JSON.stringify(unchanged) === JSON.stringify(entry) && JSON.stringify(unchangedSecond) === JSON.stringify(second), oldBytes: Array.from(originalFile.bytes), joined: JSON.stringify(joined.linkRequest) === JSON.stringify(entry.linkRequest), headerHasPayload: 'linkRequest' in headers[0], recoveredBytes: Array.from(recoveredFiles[0].bytes) };
+  });
+  expect(result).toEqual({ attempted: true, rejected: true, version: 1, stores: ['entries','files'], unchanged: true, oldBytes: [0,1,2,128,255], joined: true, headerHasPayload: false, recoveredBytes: [0,1,2,128,255] });
+});
+
+for (const failure of ['payload', 'file'] as const) test(`native confirmed compaction abort at ${failure} deletion keeps receipt and bytes atomic; cancellation needs explicit own-user removal`, async ({ control }) => {
+  const result = await control.evaluate(async failure => {
+    const { ArchiveDatabase } = await import(chrome.runtime.getURL('archive-database-harness.js'));
+    const binding = { siteOrigin: 'https://own.example', siteId: crypto.randomUUID(), ownerId: crypto.randomUUID(), deviceId: crypto.randomUUID(), generation: crypto.randomUUID() };
+    const partition = JSON.stringify([binding.siteOrigin,binding.siteId,binding.ownerId]); const db = new ArchiveDatabase(`native-compact-${crypto.randomUUID()}`);
+    const entry = { id: crypto.randomUUID(), partition, kind: 'link', state: 'completed', completedBinding: binding, linkResult: { documentId: crypto.randomUUID(), jobId: null }, linkRequest: { url: 'https://own.example/confirmed', translationIntent: 'none' }, resources: [], warnings: [], attempts: 0, nextAttemptAt: 0, createdAt: 1 };
+    const descriptor = { id: 'own', path: 'own.bin', role: 'image', mediaType: 'image/png', bytes: 3, sha256: 'b'.repeat(64) };
+    await db.put(binding, entry); await db.putFile(binding, entry.id, descriptor, new Uint8Array([7,8,9]));
+    const originalDelete = IDBObjectStore.prototype.delete; const originalCursorDelete = IDBCursor.prototype.delete;
+    IDBCursor.prototype.delete = function() { if (failure === 'file') throw new DOMException('Injected file deletion failure', 'QuotaExceededError'); return originalCursorDelete.call(this); };
+    IDBObjectStore.prototype.delete = function(...args) { if (failure === 'payload' && this.name === 'payloads') throw new DOMException('Injected quota failure', 'QuotaExceededError'); return originalDelete.apply(this, args); };
+    let rejected = false; try { await db.compactCompletedEntry(binding, entry.id); } catch { rejected = true; } finally { IDBObjectStore.prototype.delete = originalDelete; IDBCursor.prototype.delete = originalCursorDelete; }
+    const afterFailure = await db.get(binding, entry.id); const bytesAfterFailure = await db.files(binding, entry.id);
+    const wrongOwner = { ...binding, ownerId: crypto.randomUUID() }; const denied = await db.compactCompletedEntry(wrongOwner, entry.id);
+    const wrongGeneration = await db.compactCompletedEntry({ ...binding, generation: crypto.randomUUID() }, entry.id);
+    const compacted = await db.compactCompletedEntry(binding, entry.id); const receipt = await db.get(binding, entry.id);
+    const cancelled = { ...entry, id: crypto.randomUUID(), state: 'cancelled', completedBinding: undefined }; await db.put(binding, cancelled); await db.putFile(binding, cancelled.id, descriptor, new Uint8Array([7,8,9]));
+    const notCompacted = await db.compactCompletedEntry(binding, cancelled.id); await db.removeLocalEntry(wrongOwner, cancelled.id); const stillPresent = (await db.files(binding, cancelled.id)).length;
+    await db.removeLocalEntry(binding, cancelled.id);
+    return { rejected, atomic: !!afterFailure.linkRequest && afterFailure.compactedAt === undefined, preservedBytes: Array.from(bytesAfterFailure[0].bytes), denied, wrongGeneration, compacted, receipt: receipt.linkResult, originalReceipt: entry.linkResult, payloadGone: receipt.linkRequest === undefined, filesGone: (await db.files(binding, entry.id)).length, notCompacted, stillPresent, removed: (await db.get(binding, cancelled.id)) === undefined };
+  }, failure);
+  expect(result.rejected).toBe(true); expect(result.atomic).toBe(true); expect(result.preservedBytes).toEqual([7,8,9]); expect(result.denied).toBe(false); expect(result.wrongGeneration).toBe(false); expect(result.compacted).toBe(true); expect(result.receipt).toEqual(result.originalReceipt); expect(result.payloadGone).toBe(true); expect(result.filesGone).toBe(0); expect(result.notCompacted).toBe(false); expect(result.stillPresent).toBe(1); expect(result.removed).toBe(true);
+});
+
+test('native long-URL PNG/two-CSS capture passes real IPC and persists the downgraded draft', async ({ control, page }) => {
+  const site = faultSite(); const origin = await listen(site.server);
+  try {
+    await pair(control, origin); await page.goto('http://127.0.0.1:4317/archive-source.html');
+    const png = ownPngUrl();
+    await page.evaluate(data => {
+      const prefix = `${location.origin}/archive-source.html?source=`; history.replaceState(null, '', prefix + 'x'.repeat(6030 - prefix.length));
+      document.head.querySelectorAll('style,link[rel="stylesheet"]').forEach(node => node.remove());
+      document.body.innerHTML = `<article><p>Own boundary original source.</p><img src="${data}"></article>`;
+      for (let i = 0; i < 2; i++) { const style = document.createElement('style'); style.textContent = '/**/'; document.head.append(style); }
+    }, png);
+    const initial = await capture(control, page); expect(initial.ok).toBe(true);
+    await expect.poll(async () => (await rpc(control, { type: 'archive:status' })).value.items.find((item: any) => item.id === initial.value.id)?.state).toBe('retry');
+    const small = await control.evaluate(async id => {
+      const { ArchiveDatabase } = await import(chrome.runtime.getURL('archive-database-harness.js'));
+      const connection = (await chrome.storage.local.get('archiveSiteConnection')).archiveSiteConnection as { binding: unknown };
+      const entry = await new ArchiveDatabase().get(connection.binding, id);
+      return new TextEncoder().encode(JSON.stringify(entry.draft)).byteLength;
+    }, initial.value.id);
+    await page.evaluate(bytes => {
+      const targetText = 16 * 1024 * 1024 - 4096 - bytes + 8;
+      const styles = document.querySelectorAll('style');
+      styles[0].textContent = '/*' + 'a'.repeat(8 * 1024 * 1024 - 4) + '*/';
+      styles[1].textContent = '/*' + 'b'.repeat(targetText - 8 * 1024 * 1024 - 4) + '*/';
+    }, small);
+    const saved = await capture(control, page); expect(saved.ok, JSON.stringify(saved)).toBe(true);
+    await expect.poll(async () => (await rpc(control, { type: 'archive:status' })).value.items[0]?.state).toBe('retry');
+    const stored = await control.evaluate(async id => {
+      const { ArchiveDatabase } = await import(chrome.runtime.getURL('archive-database-harness.js'));
+      const connection = (await chrome.storage.local.get('archiveSiteConnection')).archiveSiteConnection as { binding: unknown };
+      const entry = await new ArchiveDatabase().get(connection.binding, id);
+      return { bytes: new TextEncoder().encode(JSON.stringify({ type: 'capture:deliver', grant: entry.grant, payload: { ok: true, value: entry.draft } })).byteLength, html: entry.draft.snapshot.html, css: entry.draft.pendingResources.filter((r: any) => r.role === 'css').map((r: any) => ({ missing: r.missingReason ?? null, text: 'text' in r })), warnings: entry.warnings };
+    }, saved.value.id);
+    expect(stored.bytes).toBeLessThanOrEqual(16 * 1024 * 1024); expect(stored.html).toContain('Own boundary original source'); expect(stored.css).toHaveLength(2); expect(stored.css.some((r: any) => r.missing === 'too-large')).toBe(true);
+    await control.screenshot({ path: fileURLToPath(new URL('../../../../.superpowers/sdd/2026-10-28-learning-site-s4/task-5-evidence/native-boundary.png', import.meta.url)) });
   } finally { await new Promise<void>(resolve => site.server.close(() => resolve())); }
 });

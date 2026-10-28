@@ -1,6 +1,6 @@
 import { captureDraftSchema, createDocumentLinkRequestSchema, type CaptureDraft, type CreateDocumentLinkRequest } from '@pagelingo/document-contracts';
 import { partition, sameBinding, type SiteBinding } from './binding.js';
-import { ArchiveDatabase, type ArchiveEntry } from './database.js';
+import { ArchiveDatabase, type ArchiveEntry, type ArchivePageCursor } from './database.js';
 import { ArchiveHttpError, type ArchiveClient } from './client.js';
 import { prepareCapture, type AcquiredResource } from './upload.js';
 import type { CaptureGrant } from './grants.js';
@@ -94,13 +94,18 @@ export function createArchiveOutbox(deps: OutboxDependencies) {
               catch (error) { if (!(error instanceof ArchiveHttpError) || error.code !== 'CAPTURE_REBASE_REQUIRED' || rebase >= 2) throw error; }
             }
           }
-          await check(); entry.result = result;
+          await check();
+          if (result.captureId !== entry.id || result.id !== entry.ingestionId) throw new Error('站点返回的采集身份不一致。');
+          entry.result = result;
           if (result.status === 'completed') entry.state = 'completed';
           else if (result.status === 'cancelled') entry.state = 'cancelled';
           else throw new Error(result.errorCode ?? '服务器尚未确认保存。');
         }
       }
-      await check(); entry.error = undefined; await db.put(binding, entry);
+      await check(); entry.error = undefined;
+      if (entry.state === 'completed') entry.completedBinding = binding;
+      await db.put(binding, entry);
+      await check(); if (entry.state === 'completed') { await db.compactCompletedEntry(binding, entry.id); await check(); }
     } catch (error) {
       if (!sameBinding(await deps.current(), binding) || signal.aborted) return;
       entry.attempts++; entry.error = error instanceof Error ? error.message : '上传失败。';
@@ -110,11 +115,26 @@ export function createArchiveOutbox(deps: OutboxDependencies) {
       await db.put(binding, entry); if (entry.state === 'retry') await deps.schedule?.(entry.nextAttemptAt);
     }
   }
+  async function* headers(binding: SiteBinding) {
+    let before: ArchivePageCursor | undefined;
+    for (;;) {
+      const page = await db.list(binding, before);
+      for (const entry of page) yield entry;
+      if (page.length < 50) return;
+      const last = page[page.length - 1]; before = [last.createdAt, last.id];
+    }
+  }
   async function drainEntries(binding: SiteBinding, signal: AbortSignal): Promise<void> {
     await assertCurrent(binding);
-    for (const entry of await db.list(binding)) {
+    for await (const header of headers(binding)) {
       if (signal.aborted || !sameBinding(await deps.current(), binding)) return;
-      if (['pending','retry'].includes(entry.state) && entry.nextAttemptAt <= now()) await process(binding, entry, signal);
+      if (header.state === 'completed' && header.compactedAt === undefined && header.completedBinding && partition(header.completedBinding) === partition(binding)) {
+        await db.compactCompletedEntry(header.completedBinding!, header.id); await assertCurrent(binding);
+      } else if (['pending','retry'].includes(header.state) && header.nextAttemptAt <= now()) {
+        const entry = await db.get(binding, header.id); if (entry) await process(binding, entry, signal);
+      } else if (['pending','retry'].includes(header.state)) {
+        await deps.schedule?.(header.nextAttemptAt);
+      }
     }
   }
   function serialized(operation: () => Promise<void>): Promise<void> {
@@ -129,7 +149,8 @@ export function createArchiveOutbox(deps: OutboxDependencies) {
   function resumeOutbox(binding: SiteBinding, id?: string): Promise<void> {
     return serialized(async () => {
       await assertCurrent(binding);
-      for (const entry of await db.list(binding)) if ((!id || entry.id === id) && ['pending','retry','manual', ...(id ? ['permission'] : [])].includes(entry.state)) {
+      for await (const header of headers(binding)) if ((!id || header.id === id) && ['pending','retry','manual', ...(id ? ['permission'] : [])].includes(header.state)) {
+        const entry = await db.get(binding, header.id); if (!entry) continue;
         entry.state = 'pending'; entry.attempts = 0; entry.nextAttemptAt = 0; await db.put(binding, entry);
       }
       await drainEntries(binding, new AbortController().signal);
@@ -139,5 +160,8 @@ export function createArchiveOutbox(deps: OutboxDependencies) {
     await assertCurrent(binding); await db.requestCancel(binding, id);
     await drainOutbox(binding, new AbortController().signal);
   }
-  return { enqueueCapture, enqueueLink, drainOutbox, resumeOutbox, cancel };
+  function removeLocal(binding: SiteBinding, id: string): Promise<void> {
+    return serialized(async () => { await assertCurrent(binding); await db.removeLocalEntry(binding, id); });
+  }
+  return { enqueueCapture, enqueueLink, drainOutbox, resumeOutbox, cancel, removeLocal };
 }

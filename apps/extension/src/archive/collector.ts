@@ -23,7 +23,9 @@ export async function collectOriginalCapture(document: Document, options: Collec
   if (!source.roots.length) throw new CaptureUnavailableError({ kind: 'link-only', url, title: source.title, warnings: source.warnings });
   const clone = originalTree(document, source);
   const signature = originalSourceSignature(document, source, clone);
-  const snapshot = sanitizeBrowserSnapshot({ html: clone.outerHTML, url, scope: { kind: source.kind, rootNodeId: 'pending', completeWithinScope: source.warnings.length === 0, warnings: source.warnings } });
+  const html = clone.outerHTML;
+  if (new TextEncoder().encode(html).byteLength > defaultCaptureLimits.maxHtmlBytes) throw new CaptureUnavailableError({ kind: 'link-only', url, title: source.title, warnings: ['Original HTML exceeds the capture byte budget; only the source link can be saved.'] });
+  const snapshot = sanitizeBrowserSnapshot({ html, url, scope: { kind: source.kind, rootNodeId: 'pending', completeWithinScope: source.warnings.length === 0, warnings: source.warnings } });
   const stylesheets = collectOriginalStylesheets(document, url);
   const pendingResources = [...snapshot.resources];
   const origins = new Set(snapshot.resources.flatMap(resource => resource.url && !resource.url.startsWith('data:') ? [new URL(resource.url).origin] : []));
@@ -80,5 +82,6 @@ export async function collectOriginalCapture(document: Document, options: Collec
     snapshot.warnings.push(warning); snapshot.scope.warnings.push(warning);
     draftBytes += 2 * (new TextEncoder().encode(JSON.stringify(warning)).byteLength + 1);
   }
+  if (new TextEncoder().encode(JSON.stringify(draft)).byteLength > defaultCaptureLimits.maxIrBytes) throw new CaptureUnavailableError({ kind: 'link-only', url, title: source.title, warnings: ['Capture draft exceeds the delivery byte budget; only the source link can be saved.'] });
   return captureDraftSchema.parse(draft);
 }

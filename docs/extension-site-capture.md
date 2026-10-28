@@ -17,11 +17,13 @@
 
 扩展克隆已确认的原文，不把注入译文或表单、Cookie、应用隐藏状态作为原文。图片以实际字节保存并校验，代码和受保护的公式保持结构。脚本、表单和不安全样式被清洗；回溯快照并非原站可执行页面。原件下载和清洗后的快照片段是不同用途。
 
+完整采集消息（含授权与 JSON 转义）仍限制为 16 MiB。发送前按实际 UTF-8 字节计费，必要时按发现顺序将内联 CSS 标记为超限并留下警告；正文不因阅读模式而改写。仍无法容纳时明确改存链接，不提高上限或资源权限。
+
 原页面的外部样式表按资源权限取得，内联样式表随原文证据保存；扩展自有样式不进入归档。无法取得、不支持或超过预算的样式会留下缺失记录或明确警告。CSS 原件仅供下载，回溯快照不执行其中的样式、导入或网络引用，不能据此期待原站外观完全复现。
 
 关闭弹窗或页面、浏览器后台重启后，已持久化的队列继续恢复；未取得的页面资源可能无法补取。上传按文件恢复，不支持半个文件的字节 Range 续传。丢失确认时复用同一采集标识查询或重试，不应新建副本。自动重试用尽后需手动重试。只有服务器确认完成才显示“原文已保存”。原站后来离线不影响已归档的正文和成功保存的私有资源。
 
-服务器暂时提交失败或暂存文件过期时，重试会核对缺失文件，用已持久化的原始字节补传并提交同一采集。当前版本尚未实现终态队列清理：已完成或取消的条目仍保留本地载荷，持续日常使用会增长扩展存储；需后续明确保留与移除策略，不能把待确认或待恢复的唯一副本直接删除。
+服务器暂时提交失败或暂存文件过期时，重试会核对缺失文件，用已持久化的原始字节补传并提交同一采集。服务器完成确认经过身份与连接校验并持久化后，扩展在同一事务内保留本地收据、移除草稿、请求和文件载荷；重启或同账号重连后可继续完成中断的整理。待确认、重试、出错及取消但结果未知的唯一副本继续保留，原请求 UUID 不变。取消条目不会自动删除本地数据；可明确点击“移除本地记录”，此操作只移除当前账号本机记录，不撤销服务器资料。旧版已完成但没有可信确认凭据的记录也不会推断完成并自动清理。
 
 资料库包含 PDF、网页和仅链接条目。Reader 可切换原文、译文和段落双语，查看范围/警告、版本、目录及源节点快照，下载归档原件。新成果不会自动替换当前打开版本；选择切换后再阅读。阅读位置按文档 CAS 保存，设备冲突需明确选择从当前位置继续。
 
@@ -40,3 +42,15 @@ Reader 的“翻译任务”允许选择段落、填写源语言、开始新一�
 站点设备列表可撤销指定设备；撤销阻止新写入与迟到提交。扩展“断开连接”清除连接信息。重新生成配对码并连接同一站点、同一账号后，可恢复该账号队列；不同账号看不到、也不能投递旧账号的队列。普通站点退出会撤销本会话配对设备；已接受的服务器任务独立于浏览器运行。停用账号或重置身份会围栏旧任务。
 
 遇到认证过期先在站点确认账号，再重新配对，不反复创建新收藏。上传失败可以查看队列警告并重试；“部分资源缺失”和“范围内不完整”各自保留真实原因。当前来源与验证边界见 [S3 验证记录](learning-site-s3-validation.md)。
+
+## 扩展存储接口（S4 / Task6）
+
+数据库名称保留 `pagelingo-archives-v1`，IndexedDB 版本为 **2**。升级在单一 versionchange 事务中逐行游标迁移，不重新解析或补齐历史请求的可选分类字段；任一步失败/配额中止会保留原 v1 库与原字节。
+
+- `entries`：键 `[partition,id]`，索引 `partition` 与 `partitionCreatedAt:[partition,createdAt,id]`。`ArchiveHeader` 保留状态、重试/取消标记、可选 `translationIntent`、`title`、`completeWithinScope`、`permissionOrigins`、完成收据及原始 `completedBinding`；不含 `draft/request/linkRequest/grant/resources`。警告最多 20 条、每条 500 UTF-16 单位；标题/错误最多 2000 单位；资源 origin 最多 16 个。完整警告在未整理的 payload 中保留。收据保留发布身份、状态、时间、保存结果及有限警告，不保留上传文件的完整列表；非空 missingFileIds 保留首项；整理前先验证原始完整结果，非法结果带 invalid-local-receipt 缺失标记，不能因裁剪数组/警告而制造完成证明。
+- `payloads`：键 `[partition,id]`，`ArchivePayload` 含原始 `draft/request/linkRequest/grant/resources/warnings`（以及键），缺省分类提示保持缺省。`files` 键 `[partition,captureId,descriptor.id]`，`capture:[partition,captureId]` 索引保持不变；实际 `Uint8Array` 字节不改写。
+- `partition = JSON.stringify([siteOrigin,siteId,ownerId])`；`sameBinding` 另验证 `deviceId/generation`。`get(binding,id)` 按需组合头与载荷。`list(binding,before?:[createdAt,id])` 只读头索引，按时间/id 降序最多 50 条，游标排除上一页末项；后台上传泵逐页推进，较旧队列不因前 50 项已完成而丢失。状态 UI 仅展示最近 50 条。
+- `compactCompletedEntry(binding,id):Promise<boolean>` 在事务中重新验证原始完整连接凭据、完成状态和共享结果 schema（网页要求发布的 document/source/reader ID、saveStatus、零缺失上传文件），并绑定采集 UUID 与 ingestion ID。链接使用独立的 link-result schema。成功原子写入 `compactedAt` 并删除 payload/files。重启整理使用已持久化的原始 `completedBinding`；同 owner 重连时仍先后校验当前连接代次，不能将旧凭据改成新代次来制造确认。
+- `archive:remove-local {id}` 需要可信扩展页面与当前连接；与投递串行，原子删除当前 partition 的头/载荷/文件。仅用户明确操作调用。Task6 新分类选项应保留原始请求编码与 UUID，列表 UI 从有界头读取，需要编辑某项时再取 payload。
+
+采集接口 `fitCaptureDelivery(grant,draft):CaptureDraft` 按完整 `{type:'capture:deliver',grant,payload:{ok:true,value:draft}}` 实际 JSON UTF-8 计费。返回最终草稿后才保存可信资源映射；超限 CSS 原文不再保留在资源授权中，使用 `missingReason:'too-large'` 与显式警告。无有效降级时抛出带 `link-only` 结果的 `CaptureUnavailableError`，已有后台 16 MiB 拒绝与来源/授权时效检查继续生效。
