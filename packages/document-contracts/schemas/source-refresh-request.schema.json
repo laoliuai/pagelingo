@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "translationIntent": {
+      "type": "string",
+      "enum": [
+        "auto",
+        "none"
+      ]
+    }
+  },
+  "required": [
+    "translationIntent"
+  ],
+  "additionalProperties": false,
+  "$id": "https://pagelingo.dev/schemas/source-refresh-request/1",
+  "$comment": "Shape validation only. Reader graph, translation references, SDK replay, resource closure and actual byte hashes require their dedicated validators."
+}

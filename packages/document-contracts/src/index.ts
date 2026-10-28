@@ -19,3 +19,5 @@ export * from './save-preferences.js';
 export * from './glossary.js';
 export * from './language.js';
 export * from './language-words.js';
+export * from './library-management.js';
+export * from './source-details.js';

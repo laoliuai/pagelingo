@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "organization": {
+      "type": "object",
+      "properties": {
+        "collectionId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tagIds": {
+          "maxItems": 32,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "collectionId",
+        "tagIds"
+      ],
+      "additionalProperties": false
+    },
+    "discoveredFromDocumentId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "url": {
+      "type": "string",
+      "maxLength": 8192,
+      "pattern": "^https?:\\/\\/(?![^/?#]*@)[^/?#\\s\\x00-\\x1f\\x7f]+[^\\s\\x00-\\x1f\\x7f]*$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "article",
+        "x-post",
+        "repository",
+        "paper"
+      ]
+    },
+    "translationIntent": {
+      "type": "string",
+      "enum": [
+        "none",
+        "auto",
+        "translate"
+      ]
+    }
+  },
+  "required": [
+    "url",
+    "translationIntent"
+  ],
+  "additionalProperties": false,
+  "$id": "https://pagelingo.dev/schemas/document-link-request/1",
+  "$comment": "Shape validation only. Reader graph, translation references, SDK replay, resource closure and actual byte hashes require their dedicated validators."
+}

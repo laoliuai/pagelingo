@@ -58,7 +58,8 @@
 
 保留既有 `DocumentSummary` 的 PDF/article/x-post payload 字段与 source 身份；组织字段单独返回，避免把可变收藏信息写入 Reader。扩展 summary 的新 repository Web / paper PDF 变体由任务1定义、任务8/9启用。
 
-- `DocumentOrganization = {documentId,revision,title,collectionId:UUID|null,tagIds:UUID[],note,readingStatus:'unread'|'reading'|'read',updatedAt}`。
+- `DocumentOrganization = {documentId,revision,lifecycleEpoch,title,collectionId:UUID|null,tagIds:UUID[],note,readingStatus:'unread'|'reading'|'read',updatedAt}`；`lifecycleEpoch`为服务端提供的正safe integer、初始1，供trash/restore的expectedEpoch使用，与metadata revision独立，不接受客户端PATCH修改。
+- Portable JSON Schema负责结构/shape校验；`uniqueItems`拒绝完全相同的tag字符串，共享runtime额外按UUID身份（忽略大小写且保留原编码）拒绝逻辑重复，并继续执行身份/跨字段语义校验。
 - `PatchDocumentOrganization = {expectedRevision,...非空的title/collectionId/tagIds/note/readingStatus子集}`；409 `METADATA_CONFLICT` 后读取现值，不自动覆盖。删除状态不能由 PATCH 修改。
 - `GET/PATCH /api/v1/documents/:id/organization`；`GET /api/v1/library` 返回 `{items:[{document:DocumentSummary,organization:DocumentOrganization,origin:DocumentOrigin}],total,page,pageSize}`。原 documents 列表保留，统一排除回收站；筛选参数使用2.1的上限。
 - `LibraryQuery` 的wire字段为page/pageSize/q/kind/origin/readingStatus/collectionId/tagIds；collectionId允许UUID或`none`（未分类），tagIds用重复查询参数，单值string/多值array进入有界normalize，不接受逗号拼接。collection/tag引用都须本人；同一请求的count/items用短的consistent DB snapshot，不在逐行ObjectStore查询中拼接状态。

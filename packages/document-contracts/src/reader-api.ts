@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { documentSaveHintsShape } from './library-management.js';
+import { safePositiveIntegerSchema } from './reader-common.js';
 import { readerContractCeilings } from './reader-limits.js';
 import { translationBlockSchema } from '@pagelingo/translation-core';
 import { pdfPageMetadataSchema } from './reader-source.js';
@@ -45,7 +47,10 @@ export type ReaderDescriptor = z.infer<typeof readerDescriptorSchema>;
 
 export const bundleImportStatusSchema = z.enum(['created', 'receiving', 'validating', 'completed', 'failed', 'cancelled']);
 export type BundleImportStatus = z.infer<typeof bundleImportStatusSchema>;
-export const createBundleImportRequestSchema = z.strictObject({ targetDocumentId: z.uuid().optional() });
+export const createBundleImportRequestSchema = z.strictObject({
+  ...documentSaveHintsShape, targetDocumentId: z.uuid().optional(), targetSourceVersionId: z.uuid().optional(), targetPaperVersion: safePositiveIntegerSchema.optional(),
+}).refine(value => (!value.targetSourceVersionId && value.targetPaperVersion === undefined) || value.targetDocumentId !== undefined, 'Target source or paper version requires a target document')
+  .meta({ dependentRequired: { targetSourceVersionId: ['targetDocumentId'], targetPaperVersion: ['targetDocumentId'] } });
 export type CreateBundleImportRequest = z.infer<typeof createBundleImportRequestSchema>;
 export const bundleImportSchema = z.strictObject({
   id: z.uuid(), status: bundleImportStatusSchema, epoch: safeNonnegativeIntegerSchema,

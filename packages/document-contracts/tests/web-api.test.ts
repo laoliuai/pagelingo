@@ -21,10 +21,11 @@ test('keeps link-only sources nullable without weakening PDF summaries', () => {
   expect(contracts.documentSummarySchema.parse(summary)).toEqual(summary);
   expect(contracts.documentSummarySchema.safeParse({ ...summary, kind: 'pdf' }).success).toBe(false);
 });
-test('restricts repository and paper entries to links in S3', () => {
+test('keeps paper Web entries link-only while repository sources use Web identities', () => {
   const source = { documentId: uuid, sourceVersionId: uuid, manifestAssetId: uuid, sha256: 'a'.repeat(64), snapshotSha256: 'b'.repeat(64), bytes: 100 };
   const value = { id: uuid, kind: 'repository', title: 'Repo', originalFilename: null, createdAt: '2026-10-27T00:00:00.000Z', url: 'https://example.com/', source, saveStatus: 'original-saved', processingStatus: 'reader-ready', reader: null };
-  expect(contracts.webDocumentSummarySchema.safeParse(value).success).toBe(false);
+  expect(contracts.webDocumentSummarySchema.safeParse(value).success).toBe(true);
+  expect(contracts.webDocumentSummarySchema.safeParse({ ...value, kind: 'paper' }).success).toBe(false);
 });
 test('distributes strict portable Web JSON shapes matching the public Zod DTOs', async () => {
   const { readFileSync } = await import('node:fs');

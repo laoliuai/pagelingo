@@ -21,6 +21,17 @@ for (const [name, schema] of [
   ['web-reading-position', contracts.webReadingPositionSchema],
   ['web-reading-progress', contracts.webReadingProgressSchema],
   ['web-api', contracts.createWebCaptureRequestShapeSchema],
+  ['document-summary', contracts.documentSummarySchema],
+  ['document-organization', contracts.documentOrganizationSchema],
+  ['patch-document-organization', contracts.patchDocumentOrganizationSchema],
+  ['library-query', contracts.libraryQueryShapeSchema],
+  ['library-page', contracts.libraryPageSchema],
+  ['document-link-request', contracts.createDocumentLinkRequestSchema],
+  ['bundle-import-request', contracts.createBundleImportRequestSchema],
+  ['source-details', contracts.sourceDetailsSchema],
+  ['source-refresh-request', contracts.sourceRefreshRequestSchema],
+  ['source-reference', contracts.sourceReferenceSchema],
+  ['source-versions', contracts.sourceVersionsSchema],
   ['devices', contracts.deviceDtoSchema],
   ['web-jobs', contracts.webJobSchema],
   ['web-job-list', contracts.webJobListSchema],
@@ -30,7 +41,7 @@ for (const [name, schema] of [
   ['glossary', contracts.glossaryRevisionSchema],
   ['web-language', contracts.webLanguageDecisionSchema],
 ]) {
-  const jsonSchema = z.toJSONSchema(schema, { target: 'draft-2020-12' });
+  const jsonSchema = z.toJSONSchema(schema, { target: 'draft-2020-12', ...(name === 'library-query' ? { io: 'input' } : {}) });
   jsonSchema.$id = `https://pagelingo.dev/schemas/${name}/1`;
   jsonSchema.$comment = 'Shape validation only. Reader graph, translation references, SDK replay, resource closure and actual byte hashes require their dedicated validators.';
   writeFileSync(new URL(`../schemas/${name}.schema.json`, import.meta.url), `${JSON.stringify(jsonSchema, null, 2)}\n`);

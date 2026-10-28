@@ -19,7 +19,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@pagelingo/document-contracts": "0.3.0",
+    "@pagelingo/document-contracts": "0.4.0",
     "@pagelingo/document-renderer": "0.3.0",
     "@pagelingo/document-bundle": "0.1.0",
     "@pagelingo/translation-core": "0.4.0",

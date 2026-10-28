@@ -1,9 +1,11 @@
 import { captureUrlSchema } from './web-capture.js';
 import { webSourceIdentitySchema } from './web-reader.js';
-import { webSaveStatusSchema } from './web-api.js';
 import { z } from 'zod';
 import { parseCoverageSchema } from './reader-common.js';
 import { readerTranslationStatusSchema } from './reader-translation.js';
+
+export const webSaveStatusSchema = z.enum(['link-only', 'original-saved', 'partial-resources']);
+export type WebSaveStatus = z.infer<typeof webSaveStatusSchema>;
 
 export const sourceIdentitySchema = z.strictObject({
   documentId: z.uuid(),
@@ -14,7 +16,7 @@ export const sourceIdentitySchema = z.strictObject({
 });
 export type SourceIdentity = z.infer<typeof sourceIdentitySchema>;
 
-export const pdfDocumentSummarySchema = z.strictObject({
+const pdfDocumentSummaryShape = {
   id: z.uuid(),
   kind: z.literal('pdf'),
   title: z.string().min(1),
@@ -24,10 +26,20 @@ export const pdfDocumentSummarySchema = z.strictObject({
   saveStatus: z.literal('original-saved'),
   processingStatus: z.enum(['awaiting-local-processing', 'reader-ready']),
   reader: z.strictObject({ versionId: z.uuid(), translationStatus: readerTranslationStatusSchema, parseCoverage: parseCoverageSchema, warnings: z.array(z.string().min(1)) }).nullable(),
-}).refine(value => (value.processingStatus === 'reader-ready') === (value.reader !== null), {
+};
+const pdfReadinessJsonSchema = { anyOf: [
+  { properties: { processingStatus: { const: 'reader-ready' }, reader: { type: 'object' } } },
+  { properties: { processingStatus: { const: 'awaiting-local-processing' }, reader: { type: 'null' } } },
+] };
+const readerReadiness = (value: { processingStatus: string; reader: unknown }) => (value.processingStatus === 'reader-ready') === (value.reader !== null);
+export const pdfDocumentSummarySchema = z.strictObject(pdfDocumentSummaryShape).refine(readerReadiness, {
   message: 'Reader readiness must match the reader version', path: ['reader'],
-});
+}).meta(pdfReadinessJsonSchema);
 export type PdfDocumentSummary = z.infer<typeof pdfDocumentSummarySchema>;
+export const paperPdfDocumentSummarySchema = z.strictObject({ ...pdfDocumentSummaryShape, kind: z.literal('paper'), url: captureUrlSchema }).refine(readerReadiness, {
+  message: 'Reader readiness must match the reader version', path: ['reader'],
+}).meta(pdfReadinessJsonSchema);
+export type PaperPdfDocumentSummary = z.infer<typeof paperPdfDocumentSummarySchema>;
 export const webDocumentSummarySchema = z.strictObject({
   id: z.uuid(), kind: z.enum(['article', 'x-post', 'repository', 'paper']), title: z.string().min(1),
   originalFilename: z.null(), createdAt: z.iso.datetime(), url: captureUrlSchema,
@@ -36,10 +48,18 @@ export const webDocumentSummarySchema = z.strictObject({
   reader: z.strictObject({ versionId: z.uuid(), translationStatus: readerTranslationStatusSchema, warnings: z.array(z.string().min(1)) }).nullable(),
 }).refine(value => (value.source === null) === (value.saveStatus === 'link-only'), 'Web source and save status must agree')
   .refine(value => value.reader === null || value.source !== null, 'Web reader requires an archived source')
-  .refine(value => !['repository', 'paper'].includes(value.kind) || (value.source === null && value.reader === null), 'Repository and paper entries are links only');
+  .refine(value => value.kind !== 'paper' || (value.source === null && value.reader === null), 'Paper Web entries are links only').meta({ anyOf: [
+    { properties: { source: { type: 'null' }, saveStatus: { const: 'link-only' }, reader: { type: 'null' } } },
+    { properties: { source: { type: 'object' }, saveStatus: { enum: ['original-saved', 'partial-resources'] }, kind: { enum: ['article', 'x-post', 'repository'] } } },
+  ] });
 export type WebDocumentSummary = z.infer<typeof webDocumentSummarySchema>;
-export const documentSummarySchema = z.union([pdfDocumentSummarySchema, webDocumentSummarySchema]);
+export const documentSummarySchema = z.union([pdfDocumentSummarySchema, webDocumentSummarySchema, paperPdfDocumentSummarySchema]);
 export type DocumentSummary = z.infer<typeof documentSummarySchema>;
+
+/** Dispatch validated summaries by their stored PDF source capability, never URL suffix. */
+export function isPdfReadableDocument(value: DocumentSummary): value is PdfDocumentSummary | PaperPdfDocumentSummary {
+  return value.kind === 'pdf' || (value.kind === 'paper' && value.source !== null && 'assetId' in value.source);
+}
 
 export const documentListSchema = z.strictObject({
   items: z.array(documentSummarySchema),
