@@ -2,7 +2,7 @@
 
 `@pagelingo/document-bundle` 0.1.0 validates Reader v1 ZIPs without extraction,
 replays the public SDK through the renderer, and writes immutable complete ZIPs.
-It has no database, authentication, browser, Python, or model dependencies.
+It has no database, authentication, Python, or model dependencies.
 
 ```ts
 import { defaultBundleLimits } from '@pagelingo/document-contracts';
@@ -109,3 +109,35 @@ See [S2 validation](../../docs/learning-site-s2-validation.md) and
 [reader workflow](../../docs/pdf-reader-workflow.md) for explicit local corpus inputs,
 offline resource checks, capacity measurements and upgrade/restart scope.
 Default checks use mocks and do not install Python/models or call paid APIs.
+
+## Independent Web bundles
+
+`validateWebBundle(source, options)` and `writeWebBundle(source, destination,
+options)` use `pagelingo-web-document-bundle/1`. PDF and Web validators reject
+each other's packages. Web results contain `source` (capture manifest), `ir`,
+nullable `translation`, `readerBuild`, manifest/files and actual byte identity.
+Unlike PDF v1 canonical identity, a Web `manifestSha256` hashes the exact original
+manifest bytes, which the writer preserves. `title` is the export-time document
+header snapshot; the immutable IR/Reader title remains the saved source title.
+
+Validation first streams every member, checking paths, counts, bytes and hashes.
+It then replays the archived source through the shared Web projection and SDK
+translation checks, and compares the complete installed trusted Web catalog
+output. Archived preview HTML and registered raster bytes are verified inputs
+to trusted preview regeneration; IR is never substituted for an archived preview.
+Raw HTML/CSS remain inactive source attachments. No model requests are made.
+Source manifest and IR retain their original 16 MiB ceiling, alongside all bundle,
+capture, image and Reader structural limits. Local resource IDs are data; multiple
+resource references may use one registered image file without duplicate bytes.
+
+This first format supports `web-projector/1` with `defaultCaptureLimits` only.
+Unknown or historically tightened capture configurations fail closed with
+`BUNDLE_UNSUPPORTED_SOURCE` before projection. Configurations cannot be recovered
+from their hash, and the package does not add a configuration field. Callers must
+surface this terminal unsupported-source result without changing saved Readers
+or retrying models. Unsupported original sources remain unchanged.
+
+Both writers stream and rehash before atomic no-overwrite publication. Abort or
+failure removes only the operation's owned temporary directory. Linux filesystem
+adapter restrictions above also apply to Web validation. Web ZIP reimport and
+private export scheduling are outside these package APIs.

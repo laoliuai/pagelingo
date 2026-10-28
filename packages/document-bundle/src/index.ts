@@ -25,3 +25,6 @@ export { parseParserConfig } from './parser-config.js';
 export type { ParserConfig } from './parser-config.js';
 export { inspectImage } from './images.js';
 export type { ImageMetadata } from './images.js';
+export { validateWebBundle } from './web-validate.js';
+export { writeWebBundle } from './web-zip-writer.js';
+export type { ValidatedWebBundle } from './types.js';

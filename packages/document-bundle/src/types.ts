@@ -34,3 +34,12 @@ export interface ValidatedBundle extends BundleIdentity {
   readerBuild: ReaderBuild;
   files: readonly BundleFile[];
 }
+
+export interface ValidatedWebBundle extends BundleIdentity {
+  manifest: import('@pagelingo/document-contracts').WebDocumentBundleManifest;
+  source: import('@pagelingo/document-contracts').WebCaptureManifest;
+  ir: import('@pagelingo/document-contracts').WebReaderIR;
+  translation: import('@pagelingo/document-contracts').WebTranslation | null;
+  readerBuild: import('@pagelingo/document-renderer').WebReaderBuild;
+  files: readonly BundleFile[];
+}

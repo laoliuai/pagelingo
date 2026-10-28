@@ -10,6 +10,7 @@ for (const [name, schema] of [
   ['reader-ir', readerIrShapeSchema],
   ['reader-translation', readerTranslationShapeSchema],
   ['document-bundle', documentBundleManifestShapeSchema],
+  ['web-document-bundle', contracts.webDocumentBundleManifestShapeSchema],
   ['web-capture', contracts.webCaptureManifestShapeSchema],
   ['web-capture-translation-candidate', contracts.webCaptureTranslationCandidateShapeSchema],
   ['web-reader-ir', contracts.webReaderIrShapeSchema],

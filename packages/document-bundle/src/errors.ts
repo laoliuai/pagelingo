@@ -3,11 +3,13 @@ export type BundleErrorCode =
   | 'BUNDLE_TOO_LARGE'
   | 'BUNDLE_MISSING_RESOURCE'
   | 'BUNDLE_ABORTED'
+  | 'BUNDLE_UNSUPPORTED_SOURCE'
   | 'BUNDLE_DESTINATION_EXISTS';
 const messages: Record<BundleErrorCode, string> = {
   INVALID_BUNDLE: 'Invalid document bundle',
   BUNDLE_TOO_LARGE: 'Document bundle exceeds configured limits',
   BUNDLE_MISSING_RESOURCE: 'Document bundle is missing a required resource',
+  BUNDLE_UNSUPPORTED_SOURCE: 'Unsupported Web source projection configuration',
   BUNDLE_ABORTED: 'Document bundle operation was aborted',
   BUNDLE_DESTINATION_EXISTS: 'Document bundle destination already exists',
 };
