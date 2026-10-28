@@ -3,6 +3,20 @@ import { classifySourceUrl } from '../../src/source-adapters/url.js';
 import { createSourceTransport } from '../../src/source-adapters/network.js';
 import { wire, lookup } from '../helpers/pinned-wire.js';
 const signal = () => new AbortController().signal;
+it('streams images with explicit Accept, the resource byte ceiling and managed cleanup', async () => {
+  for (const mode of ['success', 'failure', 'limit'] as const) {
+    const socket = wire('HTTP/1.1 200 OK\r\nContent-Type: image/png\r\nContent-Length: 5\r\n\r\nimage');
+    const transport = createSourceTransport({ lookup, connector: async () => socket.stream });
+    const result = transport.downloadResource('https://images.example/figure.png', { accept: 'image/png,image/jpeg,image/webp,image/gif', maxBytes: mode === 'limit' ? 4 : 16 * 1024 * 1024, signal: signal() }, async (body, response) => {
+      expect(response.headers.get('content-type')).toBe('image/png'); expect(socket.stream.destroyed).toBe(false);
+      let bytes = ''; for await (const chunk of body) bytes += Buffer.from(chunk).toString();
+      if (mode === 'failure') throw new Error('image validation failed'); return bytes;
+    });
+    if (mode === 'success') expect(await result).toBe('image'); else await expect(result).rejects.toThrow();
+    expect(socket.bytes().toLowerCase()).toContain('accept: image/png,image/jpeg,image/webp,image/gif');
+    expect(socket.bytes().toLowerCase()).not.toMatch(/cookie:|authorization:/); expect(socket.stream.destroyed).toBe(true);
+  }
+});
 it('classifies repository roots and versioned arxiv identities', () => {
   expect(classifySourceUrl('https://github.com/OpenAI/Repo.git/')).toEqual({ provider: 'github', owner: 'OpenAI', repo: 'Repo', url: 'https://github.com/OpenAI/Repo' });
   expect(classifySourceUrl('https://arxiv.org/pdf/2401.12345v2.pdf')).toEqual({ provider: 'arxiv', baseId: '2401.12345', version: 2, url: 'https://arxiv.org/abs/2401.12345v2' });

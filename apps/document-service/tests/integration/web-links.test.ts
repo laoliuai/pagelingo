@@ -26,7 +26,7 @@ it('saves a durable real link and queues one job across concurrent lost-ACK retr
   expect((await t.app.inject({ url: `/api/v1/documents/${first.json().documentId}`, headers: t.headers })).json()).toMatchObject({ source: null, saveStatus: 'link-only' });
   expect(t.modelCalls()).toBe(0);
 });
-it.each(['https://x.com/u/status/123', 'https://www.zhihu.com/question/123/answer/456', 'https://mp.weixin.qq.com/s/article', 'https://github.com/a/b/issues', 'https://arxiv.org/search', 'https://example.com/account/login'])('keeps unsupported/browser-only source %s as an honest link', async url => {
+it.each(['https://x.com/u/status/123', 'https://www.zhihu.com/question/123/answer/456', 'https://mp.weixin.qq.com/s/article', 'https://github.com/a/b/issues', 'https://gitlab.com/a/b', 'https://arxiv.org/search', 'https://example.com/account/login'])('keeps unsupported/browser-only source %s as an honest link', async url => {
   const t = await setup(); const response = await t.save(url); expect(response.statusCode, response.body).toBe(201); expect(response.json().jobId).toBeNull();
   expect((await t.db.pool.query('SELECT id FROM web_jobs')).rows).toHaveLength(0);
   expect((await t.app.inject({ url: `/api/v1/documents/${response.json().documentId}`, headers: t.headers })).json()).toMatchObject({ source: null, reader: null, saveStatus: 'link-only' });

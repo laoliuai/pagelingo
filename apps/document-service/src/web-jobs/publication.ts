@@ -145,5 +145,27 @@ async function promote(client: PoolClient, job: WebJobRow, source: readers.WebSo
     String(previous.metadata.capturedAt ?? '')>String(source.metadata.capturedAt ?? '') ||
     previous.scope.completeWithinScope && !source.scope.completeWithinScope ||
     previous.metadata.coverage === 'full' && source.metadata.coverage !== 'full'))) return;
+  let githubRevisionId: string | undefined;
+  if (document.kind === 'repository') {
+    // Retained source selection uses the translation's current authorization, never
+    // the original fetch lease. Preserve an already matching selected revision.
+    const selected = (await client.query(`SELECT v.id FROM documents d JOIN github_versions v
+      ON(v.owner_id,v.document_id,v.id)=(d.owner_id,d.id,d.current_github_revision_id)
+      WHERE d.owner_id=$1 AND d.id=$2 AND v.source_version_id=$3`, [job.owner_id, job.document_id, source.source_version_id])).rows[0];
+    githubRevisionId = selected?.id;
+    if (!githubRevisionId) {
+      const mapped = (await client.query(`SELECT DISTINCT v.id FROM github_versions v JOIN web_jobs f
+        ON(f.owner_id,f.document_id,f.source_github_revision_id)=(v.owner_id,v.document_id,v.id)
+        JOIN web_captures c ON(c.owner_id,c.target_document_id,c.fetch_job_id)=(f.owner_id,f.document_id,f.id)
+        WHERE v.owner_id=$1 AND v.document_id=$2 AND v.source_version_id=$3 AND c.job_id=$4`, [job.owner_id, job.document_id, source.source_version_id, job.id])).rows;
+      const candidates = mapped.length ? mapped : (await client.query('SELECT id FROM github_versions WHERE owner_id=$1 AND document_id=$2 AND source_version_id=$3', [job.owner_id, job.document_id, source.source_version_id])).rows;
+      if (candidates.length !== 1) {
+        await client.query("UPDATE web_jobs SET warnings=(SELECT jsonb_agg(DISTINCT value) FROM jsonb_array_elements(warnings || '[\"SOURCE_REVISION_SELECTION_AMBIGUOUS\"]'::jsonb)) WHERE owner_id=$1 AND id=$2", [job.owner_id, job.id]);
+        return;
+      }
+      githubRevisionId = candidates[0]!.id;
+    }
+  }
   await readers.setCurrentWebReader(client, job.owner_id, job.document_id, source.source_version_id, versionId);
+  if (githubRevisionId) await client.query('UPDATE documents SET current_github_revision_id=$3 WHERE owner_id=$1 AND id=$2', [job.owner_id, job.document_id, githubRevisionId]);
 }

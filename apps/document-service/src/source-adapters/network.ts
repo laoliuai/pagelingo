@@ -6,12 +6,12 @@ type Options = Pick<PinnedOptions, 'lookup' | 'connector' | 'httpConnector'> & {
 export function createSourceTransport(options: Options = {}): SourceTransport {
   const timeoutMs = options.timeoutMs ?? 120_000, firstByteMs = options.firstByteMs ?? 20_000, idleMs = options.idleMs ?? 20_000;
   if (![timeoutMs, firstByteMs, idleMs].every(n => Number.isSafeInteger(n) && n > 0) || timeoutMs > 120_000 || firstByteMs > 20_000 || idleMs > 20_000) throw new Error('Invalid source transport limits');
-  async function consumeResponse<T>(value: string, input: { maxBytes: number; signal: AbortSignal }, accept: string, consume: (body: AsyncIterable<Uint8Array>, response: { status: number; url: string; headers: Headers }) => Promise<T>): Promise<T> {
+  async function consumeResponse<T>(value: string, input: { maxBytes: number; signal: AbortSignal }, accept: string, consume: (body: AsyncIterable<Uint8Array>, response: { status: number; url: string; headers: Headers }) => Promise<T>, totalMs = timeoutMs): Promise<T> {
     if (!Number.isSafeInteger(input.maxBytes) || input.maxBytes <= 0) throw new Error('Invalid source byte limit');
     const controller = new AbortController();
     const abort = () => controller.abort(new Error('Source transport aborted'));
     input.signal.addEventListener('abort', abort, { once: true }); if (input.signal.aborted) abort();
-    const total = setTimeout(abort, timeoutMs);
+    const total = setTimeout(abort, totalMs);
     let first: ReturnType<typeof setTimeout> | undefined;
     try {
       let url = new URL(value);
@@ -59,5 +59,9 @@ export function createSourceTransport(options: Options = {}): SourceTransport {
       });
     },
     downloadPdf: (url, input, consume) => consumeResponse(url, input, 'application/pdf', consume),
+    downloadResource: (url, input, consume) => {
+      if (input.maxBytes > 16 * 1024 * 1024) throw new Error('Resource response limit exceeded');
+      return consumeResponse(url, input, input.accept, consume, Math.min(timeoutMs, 20_000));
+    },
   };
 }

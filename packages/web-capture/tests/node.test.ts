@@ -11,5 +11,6 @@ it('requires a terminable worker and preserves article resources through Readabi
     expect(snapshot.html).toContain('Important');
     expect(snapshot.resources).toEqual([{ id: 'r_1', url: 'https://e.test/figure.png', role: 'image' }]);
     expect(snapshot.html).not.toContain('src=');
+    expect(Object.keys(snapshot).sort()).toEqual(['html', 'nodeIds', 'resources', 'scope', 'sourceUrl', 'warnings']);
   } finally { await worker.terminate(); }
 });

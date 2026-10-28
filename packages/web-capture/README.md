@@ -111,6 +111,12 @@ access. Raw source links belong in the outer reader; source CSS is not a theme.
 
 ## Checks
 
+The node entrypoint also exports `extractPublicArticleWithMetadata(html, url, limits)`
+for terminable workers. It returns `{snapshot, metadata}`, where bounded title,
+author and published date come from the same Readability result as the content.
+Missing authors/dates remain null. The existing `extractPublicArticle` and
+`sanitizeNodeSnapshot` still return only the strict `SanitizedSnapshot` shape.
+
 From the repository root:
 
 ```sh

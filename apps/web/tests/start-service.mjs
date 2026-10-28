@@ -98,7 +98,7 @@ try {
   });
   await app.listen({ host: '127.0.0.1', port: 4338 });
   worker = spawn(process.execPath, ['--import', 'tsx', resolve('../document-service/tests/helpers/mock-worker-process.ts'), schema], {
-    env: { PATH: process.env.PATH, TEST_WORKER_PUBLICATION_CONTROL: '1', TEST_WORKER_LINK_FIXTURES: '1', PAGELINGO_SITE_MODE: 'test', PAGELINGO_SITE_ORIGIN: 'http://127.0.0.1:4338', PAGELINGO_DATA_DIR: dataDir, DATABASE_URL: url,
+    env: { PATH: process.env.PATH, TEST_WORKER_GITHUB_FIXTURES: '1', TEST_WORKER_PUBLICATION_CONTROL: '1', TEST_WORKER_LINK_FIXTURES: '1', PAGELINGO_SITE_MODE: 'test', PAGELINGO_SITE_ORIGIN: 'http://127.0.0.1:4338', PAGELINGO_DATA_DIR: dataDir, DATABASE_URL: url,
       PAGELINGO_MASTER_KEY_ID: 'test', PAGELINGO_MASTER_KEYS_JSON: JSON.stringify({ test: testKey.toString('base64') }) },
     stdio: ['ignore', 'inherit', 'inherit', 'ipc'],
   });

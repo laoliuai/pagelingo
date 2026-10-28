@@ -2,7 +2,7 @@ import { Worker } from 'node:worker_threads';
 import type { CaptureLimits, WebCaptureManifest, WebReaderIR, WebTranslation } from '@pagelingo/document-contracts';
 import type { WebReaderBuild } from '@pagelingo/document-renderer';
 import { ServiceError } from '../errors.js';
-export interface ValidationInput { publicArticle?: { finalUrl: string }; manifest: WebCaptureManifest; files: Array<{ id: string; path: string }>; limits: CaptureLimits; retained?: { sourceVersionId: string; manifestBytes: Uint8Array; irBytes: Uint8Array } }
+export interface ValidationInput { publicArticle?: { finalUrl: string }; resourceBaseUrl?: string; manifest: WebCaptureManifest; files: Array<{ id: string; path: string }>; limits: CaptureLimits; retained?: { sourceVersionId: string; manifestBytes: Uint8Array; irBytes: Uint8Array } }
 export interface PreparedCapture {
   retainedSourceVersionId?: string; manifest: WebCaptureManifest; manifestBytes: Uint8Array; fingerprint: string; ir: WebReaderIR;
   translation: WebTranslation | null; build: WebReaderBuild; warnings: string[];

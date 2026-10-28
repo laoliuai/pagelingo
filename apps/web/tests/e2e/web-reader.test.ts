@@ -21,15 +21,20 @@ test('mixed library opens actual archived Web source in three modes without mode
   await page.waitForTimeout(1700);
   expect(puts).toBe(0); expect(jobs).toBe(0);
 });
-test('link dialog saves a typed link-only repository through the real API', async ({ page }) => {
+test('link dialog archives a fixed repository README through the API and independent worker', async ({ page }, testInfo) => {
   await newReader(page, 'web-link');
   await page.getByRole('button', { name: '添加链接', exact: true }).click();
-  await page.getByLabel('网页地址').fill('https://github.com/example/project');
+  await page.getByLabel('网页地址').fill('https://github.com/Org/Repo');
   await page.getByLabel('链接标题').fill('项目资料');
+  const savedResponse = page.waitForResponse(response => response.url().endsWith('/api/v1/documents/links') && response.request().method() === 'POST');
   await page.getByRole('button', { name: '保存链接', exact: true }).click();
+  const saved = await (await savedResponse).json();
+  await expect.poll(async () => (await page.request.get(`/api/v1/documents/${saved.documentId}/web-reader`)).status(), { timeout: 7000 }).toBe(200);
   await expect(page.getByRole('dialog')).toBeHidden();
   await page.getByRole('link', { name: '项目资料', exact: true }).click();
-  await expect(page.getByText('仅保存链接', { exact: false })).toBeVisible();
+  await expect(page.getByLabel('正文，可独立滚动')).toContainText('Fixed source');
+  await expect(page.getByRole('region', { name: '网页阅读器', exact: true })).toHaveAttribute('data-version-id', /.+/);
+  await page.screenshot({ path: process.env.PAGELINGO_TEST_GITHUB_EVIDENCE_DIR ? `${process.env.PAGELINGO_TEST_GITHUB_EVIDENCE_DIR}/github-reader-${testInfo.testId}.png` : testInfo.outputPath('github-reader.png'), fullPage: true });
 });
 test('explicit selected translation uses current revisions and discovers a new immutable version without replacing the opened text', async ({ page }) => {
   const { defaultProviderProfile } = await import('@pagelingo/document-contracts');

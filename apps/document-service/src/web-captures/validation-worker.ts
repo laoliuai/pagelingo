@@ -3,7 +3,7 @@ import { constants } from 'node:fs';
 import { open } from 'node:fs/promises';
 import { parentPort, workerData } from 'node:worker_threads';
 import { webCaptureManifestSchema, webReaderIrSchema, type WebReaderAsset, type WebReaderIR, type WebImportedTranslation } from '@pagelingo/document-contracts';
-import { sanitizeNodeSnapshot, extractPublicArticle } from '@pagelingo/web-capture/node';
+import { sanitizeNodeSnapshot, extractPublicArticleWithMetadata } from '@pagelingo/web-capture/node';
 import { canonicalManifestBytes, sha256, normalizeCaptureUrl, replayResourcesFromManifest, captureContentFingerprint, buildSnapshotPreviews, inspectImageResource, projectWebReader } from '@pagelingo/web-capture';
 import { importCandidates } from './candidates.js';
 import { buildWebReader, buildWebImportedReader } from '@pagelingo/document-renderer';
@@ -39,14 +39,19 @@ async function prepare(input: ValidationInput): Promise<PreparedCapture> {
       if ('childNodes' in node) for (const child of node.childNodes) nodes.push(child);
     }
   }
-  const snapshot = input.publicArticle
-    ? extractPublicArticle(html, input.publicArticle.finalUrl, limits)
-    : sanitizeNodeSnapshot({ html, url: normalizeCaptureUrl(manifest.source.url), scope: manifest.scope }, limits,
-      replayResourcesFromManifest(manifest).filter(resource => resource.role === 'image'));
+  const article = input.publicArticle ? extractPublicArticleWithMetadata(html, input.publicArticle.finalUrl, limits) : null;
+  const snapshot = article?.snapshot ?? sanitizeNodeSnapshot({ html, url: input.resourceBaseUrl ?? normalizeCaptureUrl(manifest.source.url), scope: manifest.scope }, limits,
+    replayResourcesFromManifest(manifest).filter(resource => resource.role === 'image'));
+  const metadata = article?.metadata;
+  if (input.resourceBaseUrl) snapshot.sourceUrl = normalizeCaptureUrl(manifest.source.url);
   if (input.publicArticle) {
     check(!snapshot.warnings.includes('Readability could not identify an article'));
     // Redirects resolve relative resources; the saved source identity stays the requested URL.
     snapshot.sourceUrl = normalizeCaptureUrl(manifest.source.url);
+    if (metadata) {
+      if (metadata.title) manifest.metadata.title = metadata.title;
+      manifest.metadata.author = metadata.author; manifest.metadata.publishedAt = metadata.publishedAt;
+    }
   }
   for (const resource of snapshot.resources) if (!manifest.resources.some(r => r.id === resource.id)) manifest.resources.push({ ...resource, status: 'missing', reason: 'unavailable' });
   const warnings = [...snapshot.warnings]; const assets: WebReaderAsset[] = [];

@@ -42,8 +42,8 @@ it('does not retarget a pre-existing article when the same URL now identifies a 
   const saved = await t.save('https://github.com/Org/Repo'); expect(saved.documentId).not.toBe(oldId);
   expect((await t.db.pool.query('SELECT kind,title FROM documents WHERE id=$1', [oldId])).rows[0]).toEqual({ kind: 'article', title: 'Retained article' });
 });
-it('unimplemented provider dispatch explicitly fails unsupported without publishing', async () => {
-  const t = await setup(); const saved = await t.save('https://github.com/Org/Repo'); const lease = await t.lease(saved.jobId); expect(lease).not.toBeNull();
+it('unimplemented arXiv dispatch explicitly fails unsupported without publishing', async () => {
+  const t = await setup(); const saved = await t.save('https://arxiv.org/abs/2401.12345v1'); const lease = await t.lease(saved.jobId); expect(lease).not.toBeNull();
   const { runFetchJob } = await import('../../src/web-captures/fetch-runner.js');
   await runFetchJob(lease!, { db: t.db, config: t.config, store: t.store, signal: new AbortController().signal });
   expect((await t.db.pool.query('SELECT status,error_code FROM web_jobs WHERE id=$1', [saved.jobId])).rows[0]).toEqual({ status: 'failed', error_code: 'UNSUPPORTED_SOURCE' });
@@ -250,8 +250,8 @@ it('reports real article fetch attempts through the link details variant',async(
 it('dispatches a source lease through the shared worker with only an explicit source transport',async()=>{
   const t=await setup();const saved=await t.save('https://github.com/Org/Repo');const lease=(await t.lease(saved.jobId))!;
   const {runWebJob}=await import('../../src/web-jobs/translation-runner.js');const {createSourceTransport}=await import('../../src/source-adapters/network.js');
-  await runWebJob(lease,{db:t.db,store:t.store,config:t.config,signal:new AbortController().signal,sourceTransport:createSourceTransport({lookup:async()=>{throw new Error('No provider is implemented');}})});
-  expect((await t.db.pool.query('SELECT status,error_code FROM web_jobs WHERE id=$1',[saved.jobId])).rows[0]).toEqual({status:'failed',error_code:'UNSUPPORTED_SOURCE'});
+  await runWebJob(lease,{db:t.db,store:t.store,config:t.config,signal:new AbortController().signal,sourceTransport:createSourceTransport({lookup:async()=>{throw new Error('Fixture refuses external DNS');}})});
+  expect((await t.db.pool.query('SELECT status,error_code FROM web_jobs WHERE id=$1',[saved.jobId])).rows[0]).toEqual({status:'failed',error_code:'GITHUB_SOURCE_UNAVAILABLE'});
 });
 it.each([false, true])('canonicalizes uppercase trash and restore IDs with aliases=%s', async grouped => {
   const t = await setup();

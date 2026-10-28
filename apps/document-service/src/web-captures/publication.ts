@@ -11,15 +11,17 @@ import { completeWebCapture, type WebCaptureRow } from './repository.js';
 import type { PreparedCapture } from './worker-client.js';
 import { ServiceError } from '../errors.js';
 import { checkRetainedDependencies } from './retained-dependencies.js';
+import { assertGithubCapture, type GithubCaptureProof } from '../source-adapters/github-publication.js';
 export interface CaptureAsset extends StoredObject { id: string; key: string; mediaType: string; kind: 'file' | 'manifest' | 'ir' | 'index' | 'chunk' | 'translation' | 'original'; localId?: string }
 const conflict = () => new ServiceError(409, 'CAPTURE_SUPERSEDED', 'Capture is no longer current');
-export async function publishCapture(client: PoolClient, store: ObjectStore, row: WebCaptureRow, prepared: PreparedCapture, assets: CaptureAsset[]) {
+export async function publishCapture(client: PoolClient, store: ObjectStore, row: WebCaptureRow, prepared: PreparedCapture, assets: CaptureAsset[], githubProof?: GithubCaptureProof) {
   const ownerId = row.owner_id; const manifest = prepared.manifest;
+  if (githubProof) await assertGithubCapture(client, githubProof, row.fetch_job_id, row.target_document_id, manifest.source.url);
   if (row.target_document_id) await assertDocumentActive(client, ownerId, row.target_document_id, Number(row.document_epoch));
   else await assertIdentityNotRetired(client, ownerId, 'url', manifest.source.url, { table: 'web_captures', key: row.id });
   let document = row.target_document_id ? await readers.findWebDocument(client, ownerId, row.target_document_id)
     : (await client.query<readers.WebDocumentRow>(`SELECT * FROM documents WHERE owner_id=$1 AND source_url=$2 AND kind=$3 ORDER BY created_at,id LIMIT 1`, [ownerId, manifest.source.url, manifest.source.kind === 'x-post' ? 'x-post' : 'article'])).rows[0];
-  if (row.target_document_id && (!document || !['article', 'x-post'].includes(document.kind) || document.source_url !== manifest.source.url)) throw new ServiceError(409, 'CAPTURE_SOURCE_CONFLICT', 'Capture source does not match target');
+  if (row.target_document_id && (!document || !(githubProof ? document.kind === 'repository' : ['article', 'x-post'].includes(document.kind)) || document.source_url !== manifest.source.url)) throw new ServiceError(409, 'CAPTURE_SOURCE_CONFLICT', 'Capture source does not match target');
   if (document) { await client.query('SELECT id FROM documents WHERE owner_id=$1 AND id=$2 FOR UPDATE', [ownerId, document.id]); await assertDocumentActive(client, ownerId, document.id); }
   await lockObjectPublication(client);
   // All staged objects are immutable and checked while holding the same lock as orphan collection.

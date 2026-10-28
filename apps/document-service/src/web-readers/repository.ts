@@ -55,11 +55,11 @@ export async function registerWebReaderAsset(client: PoolClient, input: { ownerI
   await client.query('INSERT INTO web_reader_assets (owner_id,document_id,reader_version_id,local_id,asset_id) VALUES ($1,$2,$3,$4,$5)', [input.ownerId,input.documentId,input.readerVersionId,input.localId,input.assetId]);
 }
 export async function setLatestWebSource(client: PoolClient, ownerId: string, documentId: string, sourceId: string): Promise<void> {
-  await client.query("UPDATE documents SET latest_web_source_version_id=$3,updated_at=clock_timestamp() WHERE owner_id=$1 AND id=$2 AND kind IN ('article','x-post')", [ownerId,documentId,sourceId]);
+  await client.query("UPDATE documents SET latest_web_source_version_id=$3,updated_at=clock_timestamp() WHERE owner_id=$1 AND id=$2 AND kind IN ('article','x-post','repository')", [ownerId,documentId,sourceId]);
 }
 /** Caller applies promotion policy while holding user -> document -> publication lock. */
 export async function setCurrentWebReader(client: PoolClient, ownerId: string, documentId: string, sourceId: string, readerId: string): Promise<void> {
-  await client.query("UPDATE documents SET current_source_version_id=$3,current_web_reader_version_id=$4,updated_at=clock_timestamp() WHERE owner_id=$1 AND id=$2 AND kind IN ('article','x-post')", [ownerId,documentId,sourceId,readerId]);
+  await client.query("UPDATE documents SET current_source_version_id=$3,current_web_reader_version_id=$4,updated_at=clock_timestamp() WHERE owner_id=$1 AND id=$2 AND kind IN ('article','x-post','repository')", [ownerId,documentId,sourceId,readerId]);
   await projectSelectedMetadata(client,ownerId,documentId);
 }
 export async function findWebReaderVersion(client: PoolClient, ownerId: string, documentId: string, versionId?: string): Promise<WebReaderVersionRow | undefined> {
@@ -122,5 +122,5 @@ export async function findWebParse(client: PoolClient, ownerId: string, document
   return (await client.query<WebParseRow>('SELECT * FROM web_parse_runs WHERE owner_id=$1 AND document_id=$2 AND source_version_id=$3 AND id=$4', [ownerId,documentId,sourceId,parseId])).rows[0];
 }
 export async function setRequestedWebJob(client: PoolClient, ownerId: string, documentId: string, jobId: string | null): Promise<void> {
-  await client.query("UPDATE documents SET requested_web_job_id=$3,updated_at=clock_timestamp() WHERE owner_id=$1 AND id=$2 AND kind IN ('article','x-post')", [ownerId,documentId,jobId]);
+  await client.query("UPDATE documents SET requested_web_job_id=$3,updated_at=clock_timestamp() WHERE owner_id=$1 AND id=$2 AND kind IN ('article','x-post','repository')", [ownerId,documentId,jobId]);
 }

@@ -4,6 +4,7 @@ import { openDatabase } from '../../src/db/database.js';
 import { readConfig } from '../../src/config.js';
 import { createLocalObjectStore } from '../../src/storage/local-object-store.js';
 import { runWorker } from '../../src/worker/main.js';
+import { fixtureTransport, githubFixture } from './github-fixture.js';
 const config = readConfig(process.env);
 if (config.mode !== 'test') throw new Error('Mock worker is test-only');
 const db = openDatabase(config.databaseUrl, process.argv[2] || undefined);
@@ -38,6 +39,7 @@ const store={...baseStore,async putImmutable(...args:Parameters<typeof baseStore
 }};
 try {
   await runWorker({ db, config, store, signal: controller.signal, provider,
+    sourceTransport: fixtureTransport(process.env.TEST_WORKER_GITHUB_FIXTURES === '1' ? githubFixture() : {}),
     captureFetch: async (input, init) => {
       const url = new URL(String(input));
       if (process.env.TEST_WORKER_LINK_FIXTURES !== '1' || url.origin !== 'https://site-link-fixture.example') throw new Error('No external fetch in mock worker');

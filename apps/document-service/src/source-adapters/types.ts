@@ -5,6 +5,7 @@ export type SourceReference = { provider: 'github'; owner: string; repo: string;
 export interface SourceTransport {
   readSmall(url: string, input: { accept: string; maxBytes: number; signal: AbortSignal }): Promise<Response>;
   downloadPdf<T>(url: string, input: { maxBytes: number; signal: AbortSignal }, consume: (body: AsyncIterable<Uint8Array>, response: { status: number; url: string; headers: Headers }) => Promise<T>): Promise<T>;
+  downloadResource<T>(url: string, input: { accept: string; maxBytes: number; signal: AbortSignal }, consume: (body: AsyncIterable<Uint8Array>, response: { status: number; url: string; headers: Headers }) => Promise<T>): Promise<T>;
 }
 export interface SourceFetchDependencies { db: Database; store: ObjectStore; config: RuntimeConfig; signal: AbortSignal; sourceTransport?: SourceTransport }
 export interface SourceAssetInfo { assetId: string; sha256: string; bytes: number; mediaType: string; filename: string }

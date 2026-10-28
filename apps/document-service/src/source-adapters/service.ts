@@ -8,11 +8,10 @@ import { assertActorCurrent, type Actor } from '../auth/guards.js';
 import type { Database } from '../db/database.js';
 import { assertDocumentActive, lockDocument } from '../document-lifecycle/guards.js';
 import { ServiceError } from '../errors.js';
-import { insertWebJob, assertJobLeaseCurrent, type JobLease } from '../web-jobs/repository.js';
-import { finishWebJob } from '../web-jobs/lease.js';
+import { insertWebJob } from '../web-jobs/repository.js';
 import { classifySourceUrl } from './url.js';
 import { sourceRequestDigest } from './receipts.js';
-import type { SourceDetails, SourceFetchDependencies, SourceReference, SourceRefreshInput } from './types.js';
+import type { SourceDetails, SourceReference, SourceRefreshInput } from './types.js';
 export const sourceRefreshSchema = z.strictObject({ ref: z.string().min(1).max(1024).optional(), translationIntent: z.enum(['auto','none']) });
 function requestedReference(reference: SourceReference, ref?: string): SourceReference {
   if (ref === undefined) return reference;
@@ -84,8 +83,11 @@ export function createSourceAdaptersService({ db }: { db: Database }) {
           const selected = revisionId ?? (ref.provider==='github' ? d.current_github_revision_id : d.current_arxiv_revision_id);
           const current = selected ? await sourceRevision(client,actor.userId,d.id,ref.provider,selected) : null;
           if (revisionId && !current) throw new ServiceError(404,'NOT_FOUND','Source revision not found');
-          if (current) { base.status = current.sourceVersionId ? 'source-saved' : 'metadata-saved'; base.errorCode=null; }
-          if (current?.kind==='github' && current.readme && !current.readme.renderedHtml) base.warnings=[...base.warnings,'SOURCE_PREVIEW_UNAVAILABLE'];
+          if (current) {
+            const source = current.sourceVersionId && ref.provider === 'github' ? (await client.query('SELECT metadata FROM web_sources WHERE owner_id=$1 AND document_id=$2 AND source_version_id=$3', [actor.userId, d.id, current.sourceVersionId])).rows[0] : null;
+            base.status = current.sourceVersionId ? source?.metadata.saveStatus === 'partial-resources' ? 'partial-resources' : 'source-saved' : 'metadata-saved'; base.errorCode=null;
+          }
+          if (current?.kind==='github' && current.readme && !current.sourceVersionId) base.warnings=[...base.warnings,'SOURCE_PREVIEW_UNAVAILABLE'];
           if (base.latestAttempt) base.latestAttempt.resolvedRevision=ref.provider==='github' ? job.source_github_revision_id : job.source_arxiv_revision_id;
           return { ...base, kind: ref.provider, current } as SourceDetails;
         }
@@ -96,10 +98,4 @@ export function createSourceAdaptersService({ db }: { db: Database }) {
     },
   };
 }
-/** Provider implementations are deliberately absent until Tasks 8/9. */
-export async function runSourceFetchJob(lease: JobLease, deps: SourceFetchDependencies): Promise<void> {
-  if (lease.kind !== 'fetch-link') throw new Error('Source fetch requires fetch-link lease');
-  if (deps.sourceTransport && deps.config.mode !== 'test') throw new Error('Source transport injection requires test mode');
-  deps.signal.throwIfAborted(); await deps.db.transaction(c => assertJobLeaseCurrent(c, lease));
-  await finishWebJob(lease, deps.db, 'failed', 'UNSUPPORTED_SOURCE');
-}
+export { runSourceFetchJob } from './dispatch.js';

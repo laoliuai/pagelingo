@@ -559,3 +559,27 @@ PostgreSQL and explicit test workers; they do not call real models.
 S4 资料管理页面使用现有 organization / taxonomy / library / relation / trash API。新增 `GET /api/v1/capture-options` 以 `preferences:read` 接受会话或设备身份，严格校验 kind、q（最多 80）、UUID cursor 与 limit（默认 50、最多 100），仅返回本人 `{items:[{id,name}],nextCursor}`。显式 Bearer 身份失败不会回退 Cookie。新增会话专用 `GET /api/v1/trash/:id/receipt` 只读取本人已有清理收据，不创建清理工作；从列表消失不等于物理清理完成。
 
 未发布的 007 扩展 `bundle_imports.admitted_request` 不可变 JSON 与有界 warnings。带分类提示的新请求在接受时校验本人引用并记录规范 UUID；重放从记录恢复先前授权身份，分类被删除不阻止已接受材料发布。省略提示时保持原 JSON 编码/hash 和不透明幂等键大小写。只为新资料初始化归类，重复包或已指定目标保留既有信息。001–006、PDF v1 envelope 和 Reader 原始材料不变。008/009 后续表仍须加入统一 purge 依赖图。
+
+S4 GitHub repository-root saves now use migration 008's existing source ledger and
+shared worker. Anonymous repository metadata resolves a full commit before README
+descriptor, raw and rendered HTML acquisition. Raw Git blob SHA1 and actual SHA256
+are verified; raw README is capped at 1 MiB, rendered HTML at 8 MiB, images at
+16 MiB and acquired repository material at 64 MiB. Only registered raster images
+enter the real Web IR/SDK Reader. Source HTML remains an inert attachment; missing
+images are explicit. A missing README keeps metadata without manufacturing a Reader.
+The immutable document kind remains `repository`.
+
+`source-details.current` follows the selected readable revision; `latestAttempt`
+reports the latest refresh independently, including failures and revision reuse.
+Old Reader version URLs stay readable. Renamed repositories resolve by stable ID;
+minimum aliases and edited conflicts never retarget jobs or receive another
+document's material. Public capture DTO/target validation is unchanged. Automatic
+translation uses the existing save-intent, preference, language and provider checks.
+Ordinary blog title/author/date metadata uses the same Readability extraction with
+no additional fetch and preserves user/legacy titles. GitLab stays link-only;
+arXiv acquisition remains explicitly unsupported pending its provider runner.
+
+Stop old API/worker writers before applying 008, then run matching binaries. Source
+identity/acquisition/revision references are already in the unified restore/purge
+graph. Tests inject explicit managed source transports; they do not establish live
+GitHub acceptance or replace the pinned DNS/peer-validation tests.
