@@ -109,6 +109,7 @@
 - `createWebStaticFilePlan(input:WebStaticPlanInput):WebStaticFilePlan`，input为 `{ir:WebReaderIR,translation:WebTranslation|null,index:WebReaderIndex,chunks:readonly WebReaderChunk[],capture:WebCaptureManifest,assets:readonly WebOfflineAsset[],previews?:readonly WebOfflinePreview[],previewImages?:readonly WebOfflinePreviewImage[]}`；`WebOfflinePreview={fileId:string,html:string}` 为严格UTF-8解码的实际归档预览；`WebOfflinePreviewImage={fileId:string,data:Uint8Array}` 为实际登记raster图片。生成器重验role/bytes/hash及既有预算，opaque file sandbox预览使用派生data:image和可信内联样式；缺少输入明确不可用，不以IR冒充快照，不放宽浏览器安全设置。`WebOfflineAsset={id,path,mediaType,bytes,sha256}` 的path是已验证包内路径，不伪装成安装包TrustedAsset。返回WebStaticFilePlan复用StaticFilePlan形状：rendererVersion/rendererSha256、仅运行时/字体的trustedAssets、惰性generatedFiles。`validateWebBundle(input:BundleFileSource,options:BundleOptions):Promise<ValidatedWebBundle>`、`writeWebBundle(input:BundleFileSource,destination:string,options:BundleOptions):Promise<BundleIdentity>` 复用安全路径/ZIP流式机制，独立验证Web合同。
 - Web包保留原capture manifest/文件、IR、真实可空译文、可信完整离线Reader和来源/缺失说明。新manifest固定 `pagelingo-web-document-bundle/1`，带packageId、source/IR/translation/runtime实际hash及完整files；不伪造PDF字段或模型记录。原始HTML/CSS惰性保存。
 - `WebDocumentBundleManifest = {schemaVersion,packageId,createdAt,title,source:{manifestPath:'source/manifest.json',manifestSha256,snapshotSha256,contentFingerprint},parse:{id,readerIrSha256},translation:{path:'translation.json',sha256,status,generationKind}|null,renderer:{version,codeSha256},files:BundleFile[]}`。固定入口 `render/index.html`、IR `source-ir.json`，原件放source/下并保留原capture内部相对路径；Reader数据/预览/资源只引用已登记包内路径。title是本次导出的资料头快照，不重写原IR标题。
+- 首个Web包格式支持可重现的 `web-projector/1` / `defaultCaptureLimits` 投影；未存实际参数的历史收紧配置或未知projector明确返回 `BUNDLE_UNSUPPORTED_SOURCE`，不从hash猜配置、不重写原parse身份。站点导出显示终止错误，原资料继续保留；不声称任意历史自定义配置均可导出。
 - 沿用defaultBundleLimits：ZIP256MiB、展开1GiB、manifest2MiB、IR/译文各32MiB、provenance单件128MiB、其他单件64MiB及readerContractCeilings。配置只读复用，不提高旧预算；每个流重新计数/hash、原子不覆盖输出。
 - Web源manifest/IR仍受原16MiB限制，不能用bundle的32MiB替代原Web ceiling。相同已保存图片可由多个本地ID引用同一登记路径，不用重复字节或符号链接凑闭包。
 
@@ -244,11 +245,11 @@
 
 **Files:** 新建 `packages/document-contracts/src/web-bundle.ts`、`packages/document-contracts/tests/web-bundle.test.ts`、`packages/document-bundle/src/{web-manifest,web-validate,web-zip-writer}.ts`、`packages/document-bundle/tests/web-bundle-validation.test.ts`；按需提取同包私有zip-output.ts，修改index/schema生成，不放宽PDF validateBundle。
 **Interfaces:** 实现 `webDocumentBundleManifestSchema`、`ValidatedWebBundle`（manifest/source/IR/真实可空translation/build/files/实际身份）及2.4的validate/write。共用BundleFileSource/BundleOptions/BundleIdentity，Web payload不能进入PDF入口冒充source.pdf。
-- [ ] **Step 1:** 写 `roundtrips an original-only and partial Web package`、`rejects missing assets hostile paths and untrusted runtime bytes`：hash/字节/来源指纹/SDK proof、缺文件/重复路径/目录逃逸/符号链接/压缩炸弹/未知运行时、非文件引用的__proto__/constructor/toString本地ID；跨类型包互相拒绝，原输入前后SHA一致。
-- [ ] **Step 2:** 运行 `npm run test --workspace @pagelingo/document-contracts -- tests/web-bundle.test.ts`、`npm run test --workspace @pagelingo/document-bundle -- tests/web-bundle-validation.test.ts`，确认格式缺失的RED；schema形状通过不代表资源闭包通过。
-- [ ] **Step 3:** 先验证全部实际文件，再用共享Web投影/SDK校验/renderer重建比较可信派生内容。未匹配或不完整的译文保持源状态或拒绝冲突，不把未证明文字当译文。流式写出重新计数/hash，临时目录/失败中止只清本次文件，原子不覆盖目标；PDF写出路径仍先走原validateBundle。
-- [ ] **Step 4:** 运行contracts/bundle/renderer tests与离线Chrome回归，固定S2/S3包仍通过；在最大路径/JSON深度/单文件/总量边界断言明确错误，普通校验/导出0模型请求。
-- [ ] **Step 5:** 自检并提交 `feat: validate and write complete Web reading bundles`。
+- [x] **Step 1:** 写 `roundtrips an original-only and partial Web package`、`rejects missing assets hostile paths and untrusted runtime bytes`：hash/字节/来源指纹/SDK proof、缺文件/重复路径/目录逃逸/符号链接/压缩炸弹/未知运行时、非文件引用的__proto__/constructor/toString本地ID；跨类型包互相拒绝，原输入前后SHA一致。
+- [x] **Step 2:** 运行 `npm run test --workspace @pagelingo/document-contracts -- tests/web-bundle.test.ts`、`npm run test --workspace @pagelingo/document-bundle -- tests/web-bundle-validation.test.ts`，确认格式缺失的RED；schema形状通过不代表资源闭包通过。
+- [x] **Step 3:** 先验证全部实际文件，再用共享Web投影/SDK校验/renderer重建比较可信派生内容。未匹配或不完整的译文保持源状态或拒绝冲突，不把未证明文字当译文。流式写出重新计数/hash，临时目录/失败中止只清本次文件，原子不覆盖目标；PDF写出路径仍先走原validateBundle。
+- [x] **Step 4:** 运行contracts/bundle/renderer tests与离线Chrome回归，固定S2/S3包仍通过；在最大路径/JSON深度/单文件/总量边界断言明确错误，普通校验/导出0模型请求。
+- [x] **Step 5:** 自检并提交 `feat: validate and write complete Web reading bundles`。
 
 ### Task 13: 私有下载、可恢复导出任务与界面
 
@@ -282,7 +283,7 @@
 
 ### 当前执行进度（2026-10-29）
 
-任务0–11已完成并通过独立任务审查与必要的修正复核，交付段A资料组织/生命周期和B来源适配完成，C的离线Reader已完成。当前支持GitHub固定README、arXiv固定版本原件、历史来源与Reader配对、论文目标导入及明确关联收藏；任务12–14继续推进完整阅读包、私有下载导出与整体回归。
+任务0–12已完成并通过独立任务审查与必要的修正复核，交付段A资料组织/生命周期和B来源适配完成，C的离线Reader与完整阅读包校验/写出已完成。当前支持GitHub固定README、arXiv固定版本原件、历史来源与Reader配对、论文目标导入及明确关联收藏；任务13–14继续推进站点私有下载导出与整体回归。
 
 | 任务 | 结果与提交 |
 | --- | --- |
@@ -298,6 +299,7 @@
 | 9 | arXiv固定版本元信息/PDF、同字节论文版本绑定、明确目标导入和历史原件；`f63f527`、`619dcb2`。 |
 | 10 | 来源/历史界面、插件已知来源入口、发现链接与论文导入重试状态、来源配对验证；`75ed0a4`、`2268119`。 |
 | 11 | 独立可信Web目录、三模式本地阅读、真实无脚本快照、资源失败提示与有界长文；`0119517`。 |
+| 12 | 独立Web完整包、原件/SDK/可信执行文件闭包校验、原子流式写出与普通离线浏览器往返；`c4af15c`。 |
 
 任务4保留309项服务端完整集成快照；最终恢复引用修订通过42项相关回归，预算与维护错误修正通过23项回收站回归、139项单元测试及类型检查/构建。任务5的最终修正通过91项归档单元测试、14项原生浏览器测试及类型检查/构建，验证真实IndexedDB失败回滚与确认后仅本地重试；不冒称物理磁盘耗尽验收。
 
@@ -308,6 +310,8 @@
 任务10使用匿名受控传输实际取得公开GitHub固定提交材料与arXiv固定版本元信息/PDF，记录URL、时间与hash；这只证明材料获取，完整真实来源到界面的验收仍在任务14。一次旧测试硬编码输出覆盖了任务6的一张历史正向截图，原图无法恢复；已保留所见字节、provenance erratum及修正后的独立输出证据，不将新截图冒充原图。M5非法日历日期修正、最终全量检查和输出警告核对仍待任务14。
 
 任务11通过92项Renderer测试、5项普通file://浏览器测试、PDF静态检查及两个固定旧包验证；初次类型检查中的负向测试类型写法已修正，最终类型检查及1项单元/1项浏览器专项通过。生产/运行时字节在测试修订前后相同，两次无源码变化构建的PDF/Web目录逐字节一致。系统深色首次主题切换与浏览器诊断分类两项Minor须在任务14冻结前修正。完整ZIP闭包与替换文件拒绝由任务12实现，不把未验证脚本的自我检查当作完整性保证。
+
+任务12冻结检查通过109项合同测试、92项Renderer测试、6项普通离线浏览器用例及三个包的类型检查。包测试为180/181，唯一失败是旧S2/S3兼容用例的5秒超时；未改源码的单项复验通过，360份冻结文件哈希一致。该记录保留为超时后专项通过，不写成全量181项重跑，也不认定并发负载已被证明是唯一原因。最终根/站点验收仍在任务14。
 
 四份原始S2大样本ZIP在当前环境缺失；新增旧包兼容验证使用仓库固定S2/S3合成包，真实大样本验证沿用既有验收记录，不记作本轮重跑。逐任务失败、修正和验证原始证据保留在本工作区的ignored执行目录。
 
