@@ -1,5 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { assertActorCurrent } from '../auth/guards.js';
+import { purgeReceipt, type PurgeRow } from './repository.js';
 import { requireJson, requireSession, requireWriteRequest } from '../auth/guards.js';
 import { ServiceError } from '../errors.js';
 import type { ObjectStore } from '../storage/object-store.js';
@@ -19,6 +21,16 @@ export function registerDocumentLifecycleRoutes(app: FastifyInstance, store: Obj
     const query = z.strictObject({ limit:z.coerce.number().int().min(1).max(100).optional(),cursor:z.uuid().optional() }).safeParse(request.query);
     if (!query.success) throw new ServiceError(400,'INVALID_REQUEST','Invalid trash query');
     return service.listTrash(actor,query.data);
+  });
+  app.get('/api/v1/trash/:id/receipt', async request => {
+    const actor = await requireSession(request); const params = idParams.safeParse(request.params);
+    if (!params.success || Object.keys(request.query as object).length) throw new ServiceError(400,'INVALID_REQUEST','Invalid receipt request');
+    return app.authContext.db.transaction(async client => {
+      await assertActorCurrent(client,actor);
+      const row=(await client.query<PurgeRow>('SELECT * FROM document_purges WHERE owner_id=$1 AND document_id=$2',[actor.userId,params.data.id])).rows[0];
+      if (!row) throw new ServiceError(404,'NOT_FOUND','Receipt not found');
+      return purgeReceipt(row);
+    });
   });
   app.delete('/api/v1/trash/:id', async (request,reply) => {
     const actor = await requireSession(request); await requireWriteRequest(request,actor);

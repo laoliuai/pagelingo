@@ -1,9 +1,9 @@
 import { webCaptureResultSchema, type WebCaptureResult } from '@pagelingo/document-contracts';
-import type { ArchiveEntry } from './database';
-import { hostPermission } from './binding';
+import type { ArchiveEntry } from './database.js';
+import { hostPermission } from './binding.js';
 
-export type ArchivePayload = Pick<ArchiveEntry, 'partition' | 'id' | 'draft' | 'request' | 'linkRequest' | 'grant' | 'resources' | 'warnings'>;
-export type ArchiveHeader = Omit<ArchiveEntry, 'draft' | 'request' | 'linkRequest' | 'grant' | 'resources'> & {
+export type ArchivePayload = Pick<ArchiveEntry, 'organization' | 'partition' | 'id' | 'draft' | 'request' | 'linkRequest' | 'grant' | 'resources' | 'warnings'>;
+export type ArchiveHeader = Omit<ArchiveEntry, 'organization' | 'draft' | 'request' | 'linkRequest' | 'grant' | 'resources'> & {
   title: string; completeWithinScope: boolean | null; permissionOrigins: string[];
 };
 const boundedWarnings = (warnings: string[]) => warnings.slice(0, 20).map(warning => warning.slice(0, 500));
@@ -20,14 +20,14 @@ function boundedReceipt(result: WebCaptureResult | undefined): WebCaptureResult 
     warnings: boundedWarnings(result.warnings), createdAt: result.createdAt.slice(0, 64), updatedAt: result.updatedAt.slice(0, 64) };
 }
 export function splitArchiveEntry(entry: ArchiveEntry): { header: ArchiveHeader; payload: ArchivePayload } {
-  const { draft, request, linkRequest, grant, resources, warnings, ...status } = entry;
+  const { organization, draft, request, linkRequest, grant, resources, warnings, ...status } = entry;
   return {
     header: { ...status, title: (draft?.metadata.title ?? linkRequest?.title ?? linkRequest?.url ?? '').slice(0, 2000),
       completeWithinScope: draft?.snapshot.scope.completeWithinScope ?? null,
       permissionOrigins: [...new Set(draft?.pendingResources.flatMap(resource => resource.url?.startsWith('https:') && !('missingReason' in resource && resource.missingReason) ? [hostPermission(resource.url)] : []) ?? [])].slice(0, 16),
       warnings: boundedWarnings(warnings), error: status.error?.slice(0, 2000),
       result: boundedReceipt(status.result) },
-    payload: { partition: entry.partition, id: entry.id, draft, request, linkRequest, grant, resources, warnings },
+    payload: { partition: entry.partition, id: entry.id, organization, draft, request, linkRequest, grant, resources, warnings },
   };
 }
 export function joinArchiveEntry(header: ArchiveHeader, payload?: ArchivePayload): ArchiveEntry {

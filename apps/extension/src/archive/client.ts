@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { createWebCaptureRequestSchema, createDocumentLinkRequestSchema, webCaptureResultSchema, documentLinkResultSchema, deviceExchangeRequestSchema, deviceExchangeResultSchema, type CaptureFile, type CreateWebCaptureRequest, type CreateDocumentLinkRequest } from '@pagelingo/document-contracts';
 import { readConnection, sameBinding, siteOrigin, hostPermission, type SiteBinding } from './binding.js';
 export class ArchiveHttpError extends Error { constructor(readonly status: number, readonly code: string) { super(`站点请求失败 (${status} ${code})`); } }
@@ -22,6 +23,11 @@ export function createArchiveClient(binding: SiteBinding, signal: AbortSignal) {
     return jsonResponse(response);
   }
   return {
+    async options(kind: 'collections' | 'tags', q = '', cursor?: string) {
+      const page = z.strictObject({items:z.array(z.strictObject({id:z.uuid(),name:z.string().min(1).max(80)})).max(100),nextCursor:z.uuid().nullable()});
+      const result=page.parse(await request(`capture-options?${new URLSearchParams({kind,q,...(cursor?{cursor}:{})})}`));
+      if (!sameBinding((await readConnection())?.binding ?? null,binding)) throw new Error('站点连接已变化。'); return result;
+    },
     async create(input: CreateWebCaptureRequest, key: string) { return webCaptureResultSchema.parse(await request('captures', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Idempotency-Key': key }, body: JSON.stringify(createWebCaptureRequestSchema.parse(input)) })); },
     async status(id: string) { return webCaptureResultSchema.parse(await request(`captures/${encodeURIComponent(id)}`)); },
     async put(id: string, file: CaptureFile, bytes: Uint8Array) { await request(`captures/${encodeURIComponent(id)}/files/${encodeURIComponent(file.id)}`, { method: 'PUT', headers: { 'Content-Type': file.mediaType }, body: bytes as BodyInit }); },

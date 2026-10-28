@@ -1,3 +1,4 @@
+import { retainedSaveHints } from '../document-management/repository.js';
 import { assertDocumentActive } from '../document-lifecycle/guards.js';
 import { assertIdentityNotRetired } from '../document-lifecycle/retired-identities.js';
 import { randomUUID } from 'node:crypto';
@@ -24,8 +25,10 @@ export async function publishCapture(client: PoolClient, store: ObjectStore, row
   // All staged objects are immutable and checked while holding the same lock as orphan collection.
   for (const asset of assets) if ((await store.stat(asset.key)).bytes !== asset.bytes) throw new Error('Missing capture object');
   const documentId = document?.id ?? randomUUID();
+  let hintWarnings: string[] = [];
   if (!document) {
-    await readers.insertWebDocument(client, { id: documentId, ownerId, title: manifest.metadata.title, url: manifest.source.url, kind: manifest.source.kind === 'x-post' ? 'x-post' : 'article', hints:row.save_hints });
+    const retained = await retainedSaveHints(client,ownerId,row.save_hints); hintWarnings=retained.warnings;
+    await readers.insertWebDocument(client, { id: documentId, ownerId, title: manifest.metadata.title, url: manifest.source.url, kind: manifest.source.kind === 'x-post' ? 'x-post' : 'article', hints:retained.hints });
     document = (await readers.findWebDocument(client, ownerId, documentId))!;
   }
   const previous = (await client.query<{ source_version_id: string; reader_version_id: string }>(`SELECT s.source_version_id,r.id AS reader_version_id FROM web_sources s
@@ -88,6 +91,6 @@ export async function publishCapture(client: PoolClient, store: ObjectStore, row
     if (promote) await readers.setCurrentWebReader(client, ownerId, documentId, sourceId, readerId);
   }
   async function finish(sourceVersionId: string, readerVersionId: string) {
-    if (!await completeWebCapture(client, ownerId, row.id, Number(row.epoch), { documentId, sourceVersionId, readerVersionId, jobId: null, saveStatus: manifest.resources.some(r => r.status === 'missing') ? 'partial-resources' : 'original-saved', warnings: prepared.warnings })) throw conflict();
+    if (!await completeWebCapture(client, ownerId, row.id, Number(row.epoch), { documentId, sourceVersionId, readerVersionId, jobId: null, saveStatus: manifest.resources.some(r => r.status === 'missing') ? 'partial-resources' : 'original-saved', warnings: [...hintWarnings, ...prepared.warnings].slice(0,1000) })) throw conflict();
   }
 }

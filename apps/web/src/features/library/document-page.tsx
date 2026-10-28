@@ -10,15 +10,16 @@ import { Feedback } from '../../shared/ui/toast';
 import { BundleImportDialog } from './bundle-import-dialog';
 import { WebJobStatus } from '../web-reader/web-job-status';
 import { webSaveLabel, webProcessingLabel } from './import-status';
+import { OrganizationPanel } from './organization-panel';
 import { PdfSource } from './pdf-source';
 const ReaderPage = lazy(() => import('../reader/reader-page').then(module => ({ default: module.ReaderPage })));
 const WebReaderPage = lazy(() => import('../web-reader/web-reader-page').then(module => ({ default: module.WebReaderPage })));
 export function DocumentPage() {
   const { id } = useParams();
   const [search] = useSearchParams();
-  const { user } = useSession();
+  const { user, epoch } = useSession();
   const query = useQuery({
-    queryKey: [user!.id, 'document', id],
+    queryKey: [user!.id, 'document', id, epoch],
     queryFn: ({ signal }) =>
       apiRequest<DocumentSummary>(`/api/v1/documents/${encodeURIComponent(id!)}`, { signal }),
   });
@@ -39,6 +40,7 @@ export function DocumentPage() {
         error
       />
       {query.isError && <Button onClick={() => void query.refetch()}>重试加载</Button>}
+      {query.data && <OrganizationPanel key={`${id}:${epoch}`} documentId={query.data.id} />}
       {query.data && !isPdfReadableDocument(query.data) && <><PageHeader title={query.data.title} description={`${webSaveLabel(query.data.saveStatus)} · ${webProcessingLabel(query.data.processingStatus)}`} action={<a href={query.data.url} target="_blank" rel="noopener noreferrer">打开原网站</a>} />{query.data.reader ? <Suspense fallback={<p>正在加载阅读器…</p>}><WebReaderPage key={query.data.id} document={query.data} versionId={search.get('versionId') ?? undefined} /></Suspense> : <><WebJobStatus documentId={query.data.id} /><Button onClick={() => void query.refetch()}>刷新归档状态</Button><p>尚无归档正文。可使用浏览器扩展保存当前网页。</p></>}</>}
       {query.data && isPdfReadableDocument(query.data) && (
         <>

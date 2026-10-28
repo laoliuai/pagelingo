@@ -66,7 +66,7 @@ export async function prepareCapture(entry: ArchiveEntry, binding: SiteBinding, 
     stylesheetFileIds: entry.resources.filter(resource => resource.role === 'css' && resource.status === 'available').map(resource => (resource as Extract<CaptureResource, { status: 'available' }>).fileId),
     // Server constructs authoritative preview files and Reader IR from these actual source bytes.
     snapshots: { previews: [], nodeLocations: {} }, existingTranslation: candidate ? { fileId: 'translation', sourceSnapshotSha256: candidate.sourceSnapshotSha256, sourceContentFingerprint: candidate.sourceContentFingerprint, targetLanguage: candidate.targetLanguage } : null };
-  entry.request = createWebCaptureRequestSchema.parse({ manifest, translationIntent: entry.translationIntent ?? 'none' });
+  entry.request = createWebCaptureRequestSchema.parse({ manifest, translationIntent: entry.translationIntent ?? 'none', ...(entry.organization ? {organization:entry.organization} : {}) });
   if (new TextEncoder().encode(JSON.stringify(entry.request)).byteLength > defaultCaptureLimits.maxIrBytes) throw new Error('采集请求超过限制。');
   await assertCurrent(); await db.put(binding, entry);
 }

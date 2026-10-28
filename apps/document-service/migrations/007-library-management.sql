@@ -183,3 +183,11 @@ CREATE TABLE document_purge_captures (
   PRIMARY KEY(owner_id,task_id,capture_id),
   FOREIGN KEY(owner_id,task_id) REFERENCES document_purges(owner_id,id) ON DELETE CASCADE
 );
+
+-- Canonical authorized admission hints are immutable; legacy rows retain their exact hash.
+ALTER TABLE bundle_imports ADD COLUMN admitted_request jsonb CHECK(admitted_request IS NULL OR jsonb_typeof(admitted_request)='object');
+ALTER TABLE bundle_imports ADD COLUMN warnings jsonb NOT NULL DEFAULT '[]' CHECK(jsonb_typeof(warnings)='array');
+CREATE FUNCTION protect_bundle_admitted_request() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+  IF NEW.admitted_request IS DISTINCT FROM OLD.admitted_request THEN RAISE EXCEPTION 'Immutable bundle admission'; END IF; RETURN NEW;
+END; $$;
+CREATE TRIGGER immutable_bundle_admission BEFORE UPDATE ON bundle_imports FOR EACH ROW EXECUTE FUNCTION protect_bundle_admitted_request();

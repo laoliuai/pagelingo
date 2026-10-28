@@ -1,8 +1,8 @@
 import { normalizeCaptureUrl } from '@pagelingo/web-capture';
 import { z } from 'zod';
-import { captureDraftSchema, captureUrlSchema, defaultCaptureLimits } from '@pagelingo/document-contracts';
+import { captureDraftSchema, captureUrlSchema, defaultCaptureLimits, saveOrganizationSchema, type SaveOrganization } from '@pagelingo/document-contracts';
 import { isTrustedExtensionSender } from '../shared/translation';
-import { readConnection, storeConnection, disconnectSite, sameBinding, hostPermission, type SiteBinding } from './binding';
+import { readConnection, storeConnection, disconnectSite, sameBinding, hostPermission, siteBindingSchema, type SiteBinding } from './binding';
 import { exchangeSite, createArchiveClient } from './client';
 import { ArchiveDatabase, type ArchiveEntry } from './database';
 import { createArchiveOutbox } from './outbox';
@@ -14,7 +14,8 @@ const commands = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('archive:status') }),
   z.strictObject({ type: z.literal('archive:pair'), origin: z.string().max(8192), code: z.string().min(1).max(200) }),
   z.strictObject({ type: z.literal('archive:disconnect') }),
-  z.strictObject({ type: z.literal('archive:capture'), tabId: z.number().int().nonnegative() }),
+  z.strictObject({ type: z.literal('archive:capture'), tabId: z.number().int().nonnegative(), organization:saveOrganizationSchema.optional(), expectedBinding:siteBindingSchema.optional() }),
+  z.strictObject({ type:z.literal('archive:options'),kind:z.enum(['collections','tags']),q:z.string().max(80).optional(),cursor:z.uuid().optional(),expectedBinding:siteBindingSchema }),
   z.strictObject({ type: z.literal('archive:retry'), id: z.uuid().optional() }),
   z.strictObject({ type: z.literal('archive:cancel'), id: z.uuid() }),
   z.strictObject({ type: z.literal('archive:remove-local'), id: z.uuid() }),
@@ -27,7 +28,7 @@ const deliverySchema = z.strictObject({ type: z.literal('capture:deliver'), gran
 });
 const ALARM = 'pagelingo-archive-outbox';
 const db = new ArchiveDatabase();
-const issued = new Map<string, { grant: CaptureGrant; binding: SiteBinding; expiresAt: number; consumed: boolean }>();
+const issued = new Map<string, { grant: CaptureGrant; binding: SiteBinding; expiresAt: number; consumed: boolean; organization?: SaveOrganization }>();
 interface IncomingResource { bytes?: Uint8Array; received: number; mediaType?: string; total?: number }
 const incoming = new Map<string, IncomingResource>();
 let connectionEpoch = 0;
@@ -92,10 +93,10 @@ async function receiveDelivery(message: z.infer<typeof deliverySchema>, sender: 
     if (payload.value.captureId !== message.grant.captureId || payload.value.snapshot.sourceUrl !== normalizeCaptureUrl(message.grant.url)) throw new Error('采集源身份不一致。');
     const required = await permissionOrigins({ draft: payload.value } as ArchiveEntry);
     await assertBinding(issuedGrant.binding);
-    id = await outbox.enqueueCapture(issuedGrant.binding, payload.value, message.grant, required.length > 0);
+    id = await outbox.enqueueCapture(issuedGrant.binding, payload.value, message.grant, required.length > 0, issuedGrant.organization);
   } else {
     if (payload.linkFallback.url !== normalizeCaptureUrl(message.grant.url)) throw new Error('链接来源不一致。');
-    id = await outbox.enqueueLink(issuedGrant.binding, { url: payload.linkFallback.url, ...(payload.linkFallback.title ? { title: payload.linkFallback.title } : {}), translationIntent: 'auto' }, payload.linkFallback.warnings);
+    id = await outbox.enqueueLink(issuedGrant.binding, { url: payload.linkFallback.url, ...(payload.linkFallback.title ? { title: payload.linkFallback.title } : {}), translationIntent: 'auto', ...(issuedGrant.organization?{organization:issuedGrant.organization}:{}) }, payload.linkFallback.warnings);
   }
   await assertBinding(issuedGrant.binding); void wakeArchive(); return { id, generation: issuedGrant.binding.generation };
 }
@@ -113,8 +114,9 @@ async function receiveFrame(raw: unknown, sender: chrome.runtime.MessageSender) 
   state.bytes.set(bytes, message.offset); state.received += bytes.length;
   await assertResourceGrant(entry, current, message.resourceId);
 }
-async function startCapture(tabId: number, ensureContent: (tabId: number) => Promise<void>) {
-  const current = await binding(); await ensureContent(tabId);
+async function startCapture(tabId: number, ensureContent: (tabId: number) => Promise<void>, organization?: SaveOrganization, expectedBinding?: SiteBinding) {
+  const current = await binding();
+  if (organization && (!expectedBinding || !sameBinding(current,expectedBinding))) throw new Error('站点连接已变化。'); await ensureContent(tabId);
   const tab = await chrome.tabs.get(tabId);
   const [frame] = await chrome.scripting.executeScript({ target: { tabId, frameIds: [0] }, func: () => null });
   if (!frame?.documentId) throw new Error('无法确认页面身份。');
@@ -125,7 +127,7 @@ async function startCapture(tabId: number, ensureContent: (tabId: number) => Pro
   await assertBinding(current); await assertDocument(grant);
   for (const [id, value] of issued) if (value.expiresAt < Date.now() || value.consumed) issued.delete(id);
   if (issued.size >= 32) throw new Error('正在采集的页面过多。');
-  issued.set(grant.grantId, { grant, binding: current, expiresAt: Date.now() + 30000, consumed: false });
+  issued.set(grant.grantId, { grant, binding: current, expiresAt: Date.now() + 30000, consumed: false, ...(organization?{organization}:{}) });
   try {
     const result = await chrome.tabs.sendMessage(tabId, { type: 'capture:begin', grant }, { documentId: grant.documentId, frameId: 0 });
     await assertBinding(current); if (!result?.ok) throw new Error(result?.error ?? '采集失败。'); return result.value;
@@ -170,7 +172,8 @@ export function handleArchiveRequest(raw: unknown, sender: chrome.runtime.Messag
       void wakeArchive(); return { binding: connected.binding, username: connected.username };
     }
     if (command.type === 'archive:disconnect') { connectionEpoch++; issued.clear(); await writeConnection(disconnectSite); return null; }
-    if (command.type === 'archive:capture') return startCapture(command.tabId, ensureContent);
+    if (command.type === 'archive:options') { const current=await binding(); if (!sameBinding(current,command.expectedBinding)) throw new Error('站点连接已变化。'); const result=await createArchiveClient(current,new AbortController().signal).options(command.kind,command.q,command.cursor); await assertBinding(current); return result; }
+    if (command.type === 'archive:capture') return startCapture(command.tabId, ensureContent, command.organization, command.expectedBinding);
     const current = await binding();
     if (command.type === 'archive:remove-local') await outbox.removeLocal(current, command.id);
     else if (command.type === 'archive:cancel') void outbox.cancel(current, command.id).catch(() => {});

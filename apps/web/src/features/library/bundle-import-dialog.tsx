@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import type { BundleImport, DocumentSummary } from '@pagelingo/document-contracts';
+import type { BundleImport, DocumentSummary, SaveOrganization } from '@pagelingo/document-contracts';
 import { useSession } from '../../app/session';
 import { Modal } from '../../shared/ui/dialog';
 import { Button } from '../../shared/ui/button';
@@ -10,16 +10,18 @@ import { Feedback } from '../../shared/ui/toast';
 import { activeImport, ImportStatus, ReaderStatus } from './import-status';
 import { useBundleImport } from './use-bundle-import';
 
+import { OrganizationChoices } from './organization-choices';
 interface BundleImportDialogProps {
   targetDocument?: DocumentSummary;
   onImported: (result: BundleImport) => void;
 }
 export function BundleImportDialog(props: BundleImportDialogProps) {
-  const { user } = useSession();
+  const { user, epoch } = useSession();
   // A known target and retained File belong only to this owner/document context.
-  return <BundleImportScope key={`${user!.id}:${props.targetDocument?.id ?? 'library'}`} {...props} />;
+  return <BundleImportScope key={`${user!.id}:${epoch}:${props.targetDocument?.id ?? 'library'}`} {...props} />;
 }
 function BundleImportScope({ targetDocument, onImported }: BundleImportDialogProps) {
+  const [organization, setOrganization] = useState<SaveOrganization>({collectionId:null,tagIds:[]});
   const [open, setOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [fileChoice, setFileChoice] = useState(0);
@@ -44,11 +46,12 @@ function BundleImportScope({ targetDocument, onImported }: BundleImportDialogPro
     <Modal title="导入阅读包" open={open} onOpenChange={setOpen}
       description={restoredUploadable ? '正在查看当前账号此前的导入任务。任务目标以创建时为准。' : targetDocument ? '为此 PDF 导入本地生成的完整阅读包。原件保持不变，仅当前账号可见。' : '导入本地生成的完整阅读包 ZIP。原件和阅读内容仅当前账号可见。'}
       trigger={<Button>导入阅读包</Button>}>
-      <form onSubmit={event => { event.preventDefault(); if (file && !oversized && !priorTarget) void state.submit(file); }}>
+      <form onSubmit={event => { event.preventDefault(); if (file && !oversized && !priorTarget) void state.submit(file, organization.collectionId || organization.tagIds.length ? organization : undefined); }}>
         <Field label="阅读包 ZIP">
           <Input key={fileChoice} type="file" accept=".zip,application/zip" disabled={state.busy || priorTarget || (active && state.result?.status !== 'created')}
             onChange={event => { state.selectFile(); setFile(event.target.files?.[0] ?? null); }} />
         </Field>
+        {!targetDocument && !state.result && <fieldset disabled={state.busy || state.classificationLocked}><OrganizationChoices value={organization} onChange={setOrganization} />{state.classificationLocked && <p className="muted">本次分类随导入请求保留，重试使用相同选择。</p>}</fieldset>}
         {file && <p className="muted">已选择：{file.name}</p>}
         {state.limits.data && <p className="muted">服务器大小限制：ZIP ≤ {formatBytes(state.limits.data.maxArchiveBytes)}；原 PDF ≤ {formatBytes(state.limits.data.maxPdfBytes)}；解压后 ≤ {formatBytes(state.limits.data.maxExpandedBytes)}，最多 {state.limits.data.maxFiles} 个文件。</p>}
         {state.limits.isPending && <p role="status">正在读取服务器限额…</p>}

@@ -2,6 +2,7 @@ import { assertDocumentActive } from '../document-lifecycle/guards.js';
 import { assertIdentityNotRetired } from '../document-lifecycle/retired-identities.js';
 import { randomUUID } from 'node:crypto';
 import type { PoolClient } from 'pg';
+import { retainedSaveHints } from '../document-management/repository.js';
 import { projectSelectedMetadata } from '../document-management/metadata-projection.js';
 import type { ObjectStore, StoredObject } from '../storage/object-store.js';
 import { findDocument, findSamePdf, insertDocument, lockObjectPublication } from '../documents/repository.js';
@@ -9,6 +10,7 @@ import { conflict, importView, type ImportRow } from './repository.js';
 import type { PreparedBundle } from './worker-client.js';
 export interface StagedAsset extends StoredObject { id: string; key: string; mediaType: string; path?: string; chunkId?: string; kind: 'file' | 'index' | 'chunk' | 'archive' }
 export async function publishBundle(client: PoolClient, store: ObjectStore, row: ImportRow, bundle: PreparedBundle, assets: StagedAsset[]) {
+  let hintWarnings: string[] = [];
   const owner = row.owner_id; const manifest = bundle.manifest;
   if (row.target_document_id) await assertDocumentActive(client, owner, row.target_document_id, Number(row.document_epoch));
   else await assertIdentityNotRetired(client, owner, 'source-sha256', manifest.source.sha256, { table: 'bundle_imports', key: row.id });
@@ -34,7 +36,10 @@ export async function publishBundle(client: PoolClient, store: ObjectStore, row:
   for (const asset of assets) if ((await store.stat(asset.key)).bytes !== asset.bytes) throw new Error('Stored object mismatch');
   if (document && (await store.stat(document.object_key)).bytes !== Number(document.bytes)) throw new Error('Stored source mismatch');
   const source = assets.find(asset => asset.path === 'source.pdf')!;
-  if (!document) document = await insertDocument(client, owner, { title: manifest.title, originalFilename: manifest.originalFilename, ...source });
+  if (!document) {
+    const retained = await retainedSaveHints(client,owner,row.admitted_request ?? {}); hintWarnings=retained.warnings;
+    document = await insertDocument(client, owner, { title: manifest.title, originalFilename: manifest.originalFilename, hints:retained.hints, ...source });
+  }
   const doc = document.id; const sourceId = document.source_version_id;
   // Reuse the document's original source asset; never make duplicate bytes another source version.
   source.id = document.asset_id;
@@ -77,8 +82,8 @@ export async function publishBundle(client: PoolClient, store: ObjectStore, row:
   return complete(doc, version);
 
   async function complete(documentId: string, versionId: string) {
-    const result = await client.query<ImportRow>(`UPDATE bundle_imports SET status='completed',document_id=$4,reader_version_id=$5,error_code=NULL,staging_key=NULL,updated_at=now(),heartbeat_at=now()
-      WHERE owner_id=$1 AND id=$2 AND epoch=$3 AND status='validating' RETURNING *`, [owner, row.id, row.epoch, documentId, versionId]);
+    const result = await client.query<ImportRow>(`UPDATE bundle_imports SET status='completed',document_id=$4,reader_version_id=$5,warnings=$6,error_code=NULL,staging_key=NULL,updated_at=now(),heartbeat_at=now()
+      WHERE owner_id=$1 AND id=$2 AND epoch=$3 AND status='validating' RETURNING *`, [owner, row.id, row.epoch, documentId, versionId,JSON.stringify(hintWarnings)]);
     if (!result.rows[0]) throw conflict('BUNDLE_IMPORT_SUPERSEDED');
     return importView(result.rows[0]);
   }

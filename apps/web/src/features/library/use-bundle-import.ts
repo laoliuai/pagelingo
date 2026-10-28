@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { BundleImport, BundleLimits, DocumentSummary, ReaderDescriptor } from '@pagelingo/document-contracts';
+import type { BundleImport, BundleLimits, DocumentSummary, ReaderDescriptor, SaveOrganization, CreateBundleImportRequest } from '@pagelingo/document-contracts';
 import { useSession } from '../../app/session';
 import { ApiError, apiRequest, uploadBundleContent } from '../../shared/api-client';
 import { activeImport } from './import-status';
@@ -32,6 +32,8 @@ export function useBundleImport(open: boolean, targetDocument: DocumentSummary |
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const key = useRef('');
+  const admittedRequest = useRef<CreateBundleImportRequest | null>(null);
+  const [classificationLocked,setClassificationLocked] = useState(false);
   const locked = useRef(false);
   const cancelling = useRef(false);
   const content = useRef<AbortController | null>(null);
@@ -96,12 +98,12 @@ export function useBundleImport(open: boolean, targetDocument: DocumentSummary |
   function selectFile() {
     if (busy) return;
     if (activeImport(result)) { setError(''); return; }
-    key.current = '';
+    key.current = ''; admittedRequest.current=null; setClassificationLocked(false);
     resultRef.current = null;
     setResult(null);
     setError('');
   }
-  async function submit(file: File) {
+  async function submit(file: File, organization?: SaveOrganization) {
     if (locked.current || !limits.data || file.size > limits.data.maxArchiveBytes) return;
     // Restored uploadable tasks lack a target in the DTO; never infer this detail's PDF.
     if (targetDocument && result && !createdHere.current.has(result.id)) return;
@@ -113,8 +115,10 @@ export function useBundleImport(open: boolean, targetDocument: DocumentSummary |
       if (current) current = await apiRequest<BundleImport>(`/api/v1/bundle-imports/${current.id}`, { signal });
       if (!current) {
         key.current ||= crypto.randomUUID();
+        admittedRequest.current ??= targetDocument ? {targetDocumentId:targetDocument.id} : (organization ? {organization:structuredClone(organization)} : {});
+        setClassificationLocked(true);
         current = await apiRequest<BundleImport>('/api/v1/bundle-imports', {
-          method: 'POST', body: targetDocument ? { targetDocumentId: targetDocument.id } : {},
+          method: 'POST', body: admittedRequest.current,
           idempotencyKey: key.current, signal,
         });
         createdHere.current.add(current.id);
@@ -167,6 +171,6 @@ export function useBundleImport(open: boolean, targetDocument: DocumentSummary |
       setError('取消尚未确认，请检查网络后重试取消。');
     } finally { cancelling.current = false; }
   }
-  return { result, busy, error: result?.status === 'failed' ? importError(result.errorCode) : error,
+  return { result, busy, classificationLocked, error: result?.status === 'failed' ? importError(result.errorCode) : error,
     limits, recent, descriptor, submit, cancel, selectFile, restore: accept, restored: !!result && !createdHere.current.has(result.id) };
 }

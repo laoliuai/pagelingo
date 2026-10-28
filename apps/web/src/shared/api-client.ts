@@ -90,6 +90,9 @@ export function uploadBundleContent<T>(importId: string, file: File, signal?: Ab
 export function errorMessage(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.status === 401) return '用户名或密码不正确，请重新登录。';
+    if (error.code === 'RESTORE_MATERIAL_UNAVAILABLE') return '原件或阅读材料暂时缺失，无法恢复。资料仍保留在回收站。';
+    if (error.code === 'DOCUMENT_PURGING') return '这份资料正在永久清理，无法恢复。';
+    if (error.code === 'NAME_CONFLICT') return '已有同名集合或标签，请换一个名称。';
     if (error.code === 'PROFILE_CHANGED') return '模型配置已变化，请确认当前配置并明确开始新一轮翻译。旧结果仍可阅读。';
     if (error.code === 'PROVIDER_NOT_CONFIGURED') return '请先保存模型地址、名称与 API Key。原文仍可阅读。';
     if (error.code === 'SOURCE_LANGUAGE_REQUIRED') return '请选择明确的外文语种后开始翻译；中文和无语言内容无需翻译。';

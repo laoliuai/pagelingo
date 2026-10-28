@@ -319,3 +319,62 @@ it('advances backfill past a persistent oldest failure across worker processes a
   expect(await metadataBackfillProcess(schema,t.config.dataDir)).toEqual({selected:1,projected:1,skipped:0,failed:0});
   expect((await t.request('GET','/api/v1/library?q=Recovered%20author')).json().items.map((item:{document:{id:string}})=>item.document.id)).toEqual([oldest]);
 });
+
+it('offers only bounded owned capture options under preferences read without bearer fallback', async () => {
+  const t = await setup(); const own = await t.taxonomy('collections','Own option'); await t.taxonomy('collections','Foreign option',t.bob);
+  const response = await t.request('GET','/api/v1/capture-options?kind=collections&limit=1');
+  expect(response.statusCode,response.body).toBe(200); expect(response.json()).toEqual({items:[{id:own,name:'Own option'}],nextCursor:null});
+  expect((await t.request('GET','/api/v1/capture-options?kind=collections&limit=101')).statusCode).toBe(400);
+  expect((await t.app.inject({url:'/api/v1/capture-options?kind=collections',headers:{...t.headers(),authorization:'Bearer invalid'}})).statusCode).toBe(401);
+});
+it('authorizes immutable bundle hints and retains material when accepted classifications are deleted', async () => {
+  const t = await setup(); const { bundleFixture } = await import('../helpers/bundles.js');
+  const collection=await t.taxonomy('collections','Bundle collection'), tag=await t.taxonomy('tags','Bundle tag');
+  const foreign=await t.taxonomy('tags','Foreign bundle tag',t.bob); const source=await t.save('https://x.com/u/status/bundle-source');
+  const fixture=await bundleFixture(t.config.dataDir); const key='Bundle-Opaque-Key';
+  const create=(hints:object,operationKey=key)=>t.app.inject({method:'POST',url:'/api/v1/bundle-imports',headers:{...t.headers(),'idempotency-key':operationKey},payload:hints});
+  expect((await create({organization:{collectionId:null,tagIds:[foreign]}},'foreign')).statusCode).toBe(404);
+  const hints={organization:{collectionId:collection.toUpperCase(),tagIds:[tag.toUpperCase()]},discoveredFromDocumentId:source.toUpperCase()};
+  const first=await create(hints); expect(first.statusCode,first.body).toBe(201);
+  await t.request('DELETE',`/api/v1/collections/${collection}`); await t.request('DELETE',`/api/v1/tags/${tag}`);
+  const replay=await create({organization:{collectionId:collection,tagIds:[tag]},discoveredFromDocumentId:source}); expect(replay.statusCode,replay.body).toBe(201); expect(replay.json()).toEqual(first.json());
+  const received=await t.app.inject({method:'PUT',url:`/api/v1/bundle-imports/${first.json().id}/content`,headers:{...t.headers(),'content-type':'application/zip'},payload:fixture.bytes});
+  expect(received.statusCode,received.body).toBe(200); expect(received.json().status).toBe('completed'); expect(received.json().warnings).toContain('部分收藏分类已删除，原文已保留。');
+  expect((await t.request('GET',`/api/v1/documents/${received.json().documentId}/organization`)).json()).toMatchObject({collectionId:null,tagIds:[]});
+});
+
+it('publishes accepted capture material with a bounded warning after classification deletion', async () => {
+  const t=await setup(); const {capture}=await import('../helpers/web-capture.js');const fixture=capture();
+  const collection=await t.taxonomy('collections','Accepted capture collection'),tag=await t.taxonomy('tags','Accepted capture tag');
+  const first=await t.app.inject({method:'POST',url:'/api/v1/captures',headers:{...t.headers(),'idempotency-key':fixture.manifest.captureId},payload:{manifest:fixture.manifest,translationIntent:'none',organization:{collectionId:collection,tagIds:[tag]}}});expect(first.statusCode,first.body).toBe(201);
+  await t.request('DELETE',`/api/v1/collections/${collection}`);await t.request('DELETE',`/api/v1/tags/${tag}`);
+  expect((await t.app.inject({method:'PUT',url:`/api/v1/captures/${first.json().id}/files/html`,headers:{...t.headers(),'content-type':'text/html'},payload:fixture.body})).statusCode).toBe(200);
+  const result=await t.request('POST',`/api/v1/captures/${first.json().id}/commit`,{});expect(result.statusCode,result.body).toBe(200);expect(result.json()).toMatchObject({status:'completed',saveStatus:'original-saved',warnings:expect.arrayContaining(['部分收藏分类已删除，原文已保留。'])});
+  expect((await t.request('GET',`/api/v1/documents/${result.json().documentId}/organization`)).json()).toMatchObject({collectionId:null,tagIds:[]});expect(t.modelCalls()).toBe(0);
+});
+it('preserves exact omitted-hint bundle hashes and opaque key casing and never overwrites duplicate organization', async()=>{
+  const t=await setup();const {bundleFixture}=await import('../helpers/bundles.js');const fixture=await bundleFixture(t.config.dataDir);
+  const collection=await t.taxonomy('collections','Original bundle'),other=await t.taxonomy('collections','Duplicate bundle');
+  const created=await t.app.inject({method:'POST',url:'/api/v1/bundle-imports',headers:{...t.headers(),'idempotency-key':'Legacy-Key'},payload:{}});expect(created.statusCode).toBe(201);
+  expect((await t.db.pool.query('SELECT request_hash FROM bundle_imports WHERE id=$1',[created.json().id])).rows[0].request_hash).toBe(createHash('sha256').update('{}').digest('hex'));
+  const uploaded=await t.app.inject({method:'PUT',url:`/api/v1/bundle-imports/${created.json().id}/content`,headers:{...t.headers(),'content-type':'application/zip'},payload:fixture.bytes});expect(uploaded.statusCode,uploaded.body).toBe(200);
+  const doc=uploaded.json().documentId;await t.request('PATCH',`/api/v1/documents/${doc}/organization`,{expectedRevision:0,collectionId:collection});
+  const duplicate=await t.app.inject({method:'POST',url:'/api/v1/bundle-imports',headers:{...t.headers(),'idempotency-key':'legacy-key'},payload:{organization:{collectionId:other,tagIds:[]}}});expect(duplicate.statusCode).toBe(201);expect(duplicate.json().id).not.toBe(created.json().id);
+  const result=await t.app.inject({method:'PUT',url:`/api/v1/bundle-imports/${duplicate.json().id}/content`,headers:{...t.headers(),'content-type':'application/zip'},payload:fixture.bytes});expect(result.statusCode,result.body).toBe(200);expect(result.json().documentId).toBe(doc);expect((await t.request('GET',`/api/v1/documents/${doc}/organization`)).json()).toMatchObject({collectionId:collection,revision:1});
+});
+
+it('reads classification options with only preferences scope and denies all document bodies',async()=>{
+  const t=await setup();const own=await t.taxonomy('tags','Device own');await t.taxonomy('tags','Device foreign',t.bob);
+  const code=await t.request('POST','/api/v1/devices/pairing-codes',{});const exchanged=await t.app.inject({method:'POST',url:'/api/v1/devices/exchange',payload:{code:code.json().code,deviceName:'Scoped test',extensionId:'test-extension',extensionVersion:'1.0'}});expect(exchanged.statusCode).toBe(201);
+  await t.db.pool.query("UPDATE devices SET scopes=ARRAY['preferences:read']::text[] WHERE id=$1",[exchanged.json().device.id]);
+  const headers={authorization:`Bearer ${exchanged.json().token}`};const response=await t.app.inject({url:'/api/v1/capture-options?kind=tags',headers});expect(response.statusCode,response.body).toBe(200);expect(response.json()).toEqual({items:[{id:own,name:'Device own'}],nextCursor:null});
+  for(const url of ['/api/v1/library','/api/v1/documents','/api/v1/trash'])expect((await t.app.inject({url,headers})).statusCode).toBe(401);
+  await t.db.pool.query("UPDATE devices SET scopes=ARRAY['captures:read']::text[] WHERE id=$1",[exchanged.json().device.id]);expect((await t.app.inject({url:'/api/v1/capture-options?kind=tags',headers})).statusCode).toBe(403);
+});
+
+it('reads only existing owned purge receipts and reports actual completion after document removal',async()=>{
+  const t=await setup();const id=await t.save('https://x.com/receipt/status/1');expect((await t.request('GET',`/api/v1/trash/${id}/receipt`)).statusCode).toBe(404);expect((await t.db.pool.query('SELECT id FROM document_purges')).rows).toHaveLength(0);
+  expect((await t.request('POST',`/api/v1/documents/${id}/trash`,{expectedEpoch:1})).statusCode).toBe(200);const receipt=await t.request('DELETE',`/api/v1/trash/${id}`);expect(receipt.statusCode).toBe(202);expect(receipt.json().status).toBe('processing');expect((await t.request('GET',`/api/v1/trash/${id}/receipt`)).json()).toEqual(receipt.json());expect((await t.request('GET',`/api/v1/trash/${id}/receipt`,undefined,t.bob)).statusCode).toBe(404);
+  const {createLocalObjectStore}=await import('../../src/storage/local-object-store.js');const {runDocumentMaintenance}=await import('../../src/document-lifecycle/maintenance.js');const deps={db:t.db,store:createLocalObjectStore(t.config.dataDir),dataDir:t.config.dataDir,signal:new AbortController().signal};
+  for(let n=0;n<8;n++)await runDocumentMaintenance(deps,{limit:100});expect((await t.db.pool.query('SELECT id FROM documents WHERE id=$1',[id])).rows).toHaveLength(0);expect((await t.request('GET',`/api/v1/trash/${id}/receipt`)).json()).toEqual({...receipt.json(),status:'completed'});
+});

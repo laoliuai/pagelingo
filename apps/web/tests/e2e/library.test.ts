@@ -207,7 +207,7 @@ test('an old upload refresh cannot cancel a newly opened upload', async ({ page 
     releaseNewUpload = resolve;
   });
   let intercepted = false;
-  await page.route('**/api/v1/documents?*', async (route) => {
+  await page.route(/\/api\/v1\/library(?:\?|$)/, async (route) => {
     if (intercepted) return route.continue();
     intercepted = true;
     const response = await route.fetch();

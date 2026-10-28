@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import type { SaveOrganization } from '@pagelingo/document-contracts';
+import { CaptureOptions } from './capture-options';
+import { useEffect, useState } from 'react';
 import { archiveCommand, useArchiveStatus, type ArchiveSummary } from '../archive/ui';
 const labels: Record<ArchiveSummary['state'], string> = { permission: '等待资源授权', pending: '正在保存…', retry: '等待重试', manual: '需要手动重试', completed: '已确认保存', cancelled: '已取消' };
 function savedLabel(item: ArchiveSummary) {
@@ -6,19 +8,23 @@ function savedLabel(item: ArchiveSummary) {
 }
 export function CapturePanel({ tabId }: { tabId?: number }) {
   const { status, error: readError, epoch } = useArchiveStatus(); const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [showAll, setShowAll] = useState(false);
+  const [selection,setSelection]=useState<{generation:string;value:SaveOrganization}|null>(null);
+  const organization=selection && selection.generation===status.binding?.generation?selection.value:{collectionId:null,tagIds:[]};
+  useEffect(()=>{setSelection(null);setError('');setBusy(false);setShowAll(false);},[status.binding?.ownerId,status.binding?.generation]);
   function run(command: unknown, permission?: Promise<boolean>) {
     const version = epoch.current; setBusy(true); setError('');
     void (async () => {
       if (permission && !await permission) throw new Error('资源访问未获授权；可选择不授权继续保存。');
       if (version !== epoch.current) return;
       await archiveCommand(command);
-    })().catch(e => { if (version === epoch.current) setError(e instanceof Error ? e.message : '保存失败。'); }).finally(() => setBusy(false));
+    })().catch(e => { if (version === epoch.current) setError(e instanceof Error ? e.message : '保存失败。'); }).finally(() => { if(version===epoch.current)setBusy(false); });
   }
   return <section className="card capture-panel" aria-label="保存资料">
     <h2>保存到资料站点</h2>
     {status.binding ? <>
       <p className="hint archive-origin">{status.username} · {status.binding.siteOrigin}</p>
-      <button className="primary full" disabled={busy || tabId === undefined} onClick={() => run({ type: 'archive:capture', tabId })}>保存当前页面原文</button>
+      <CaptureOptions key={status.binding.generation} binding={status.binding} value={organization} onChange={value=>setSelection({generation:status.binding!.generation,value})} />
+      <button className="primary full" disabled={busy || tabId === undefined} onClick={() => run({ type: 'archive:capture', tabId, ...(organization.collectionId||organization.tagIds.length?{organization,expectedBinding:status.binding}:{}) })}>保存当前页面原文</button>
       <p className="hint">关闭面板后继续上传。保存原文不调用模型，可复用已验证的现有译文。站点确认后清理本地载荷；取消仍保留，可移除本地记录。</p>
       {status.items.slice(0, showAll ? undefined : 10).map(item => <article key={item.id} className="archive-item">
         <strong>{item.title}</strong><p role="status">{savedLabel(item)}</p>
@@ -35,7 +41,7 @@ export function CapturePanel({ tabId }: { tabId?: number }) {
         {item.error && <p className="error">{item.error}</p>}
         {item.warnings.length > 0 && <details><summary>保存说明（{item.warnings.length}）</summary><ul>{item.warnings.map((warning, i) => <li key={i}>{warning}</li>)}</ul></details>}
       </article>)}
-      {status.items.length > 10 && <button onClick={() => setShowAll(!showAll)}>{showAll ? '收起历史记录' : '显示全部记录'}</button>}
+      {status.items.length > 10 && <button onClick={() => setShowAll(!showAll)}>{showAll ? '收起历史记录' : '显示最近 50 条记录（更早记录仍保留）'}</button>}
     </> : <><p className="hint">先在设置中连接你的资料站点。</p><button onClick={() => { void chrome.runtime.openOptionsPage(); }}>连接站点 ↗</button></>}
     {(error || readError) && <p role="alert" className="error">{error || readError}</p>}
   </section>;

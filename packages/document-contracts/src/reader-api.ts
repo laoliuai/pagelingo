@@ -56,6 +56,7 @@ export const bundleImportSchema = z.strictObject({
   id: z.uuid(), status: bundleImportStatusSchema, epoch: safeNonnegativeIntegerSchema,
   documentId: z.uuid().optional(), readerVersionId: z.uuid().optional(), errorCode: z.string().min(1).optional(),
   createdAt: z.iso.datetime(), updatedAt: z.iso.datetime(),
+  warnings: z.array(z.string().min(1).max(500)).max(20).optional(),
 });
 export type BundleImport = z.infer<typeof bundleImportSchema>;
 export const bundleImportLimitsSchema = bundleLimitsSchema;

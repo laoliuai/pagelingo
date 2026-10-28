@@ -34,7 +34,7 @@ export function ImportStatus({ result }: { result: BundleImport }) {
     cancelled: '导入已取消',
     failed: '阅读包导入失败',
   };
-  return <p role="status">{labels[result.status]}</p>;
+  return <><p role="status">{labels[result.status]}</p>{result.warnings?.map(warning => <p key={warning} role="status">{warning}</p>)}</>;
 }
 
 export function webSaveLabel(status: WebDocumentSummary['saveStatus']) {

@@ -58,3 +58,21 @@ export async function organization(client: PoolClient, ownerId: string, document
   if (!row) throw notFound();
   return documentOrganizationSchema.parse({ documentId: row.document_id, revision: Number(row.revision), lifecycleEpoch: Number(row.lifecycle_epoch), title: row.title, collectionId: row.collection_id, tagIds: row.tag_ids, note: row.note, readingStatus: row.reading_status, updatedAt: row.updated_at.toISOString() });
 }
+
+/** Only persisted hints that passed admission authorization may reach publication here.
+ * Deleted classifications cannot discard already accepted source material. */
+export async function retainedSaveHints(client: PoolClient, ownerId: string, recorded: OrganizationHints): Promise<{ hints: OrganizationHints; warnings: string[] }> {
+  const hints: OrganizationHints = {}; let removed = false;
+  if (recorded.organization) {
+    const requested = recorded.organization;
+    const collection = requested.collectionId ? (await client.query<{id:string}>('SELECT id FROM collections WHERE owner_id=$1 AND id=$2',[ownerId,requested.collectionId])).rows[0]?.id ?? null : null;
+    const tags = (await client.query<{id:string}>('SELECT id FROM tags WHERE owner_id=$1 AND id=ANY($2::uuid[])',[ownerId,requested.tagIds])).rows.map(row=>row.id);
+    removed = collection !== requested.collectionId || tags.length !== requested.tagIds.length;
+    hints.organization = {collectionId:collection,tagIds:tags};
+  }
+  if (recorded.discoveredFromDocumentId) {
+    const row = (await client.query<{id:string}>('SELECT id FROM documents WHERE owner_id=$1 AND id=$2 AND deleted_at IS NULL',[ownerId,recorded.discoveredFromDocumentId])).rows[0];
+    if (row) hints.discoveredFromDocumentId=row.id; else removed=true;
+  }
+  return {hints,warnings:removed?['部分收藏分类已删除，原文已保留。']:[]};
+}

@@ -1,10 +1,11 @@
 import { assertOperationNotRetired } from '../document-lifecycle/retired-identities.js';
 import { assertDocumentActive, lockDocument } from '../document-lifecycle/guards.js';
 import type { PoolClient } from 'pg';
-import type { BundleImport, BundleImportStatus } from '@pagelingo/document-contracts';
+import type { BundleImport, BundleImportStatus, CreateBundleImportRequest } from '@pagelingo/document-contracts';
 import { ServiceError } from '../errors.js';
 export interface ImportRow {
   id: string; owner_id: string; status: BundleImportStatus; epoch: string; target_document_id: string | null; document_epoch: string | null;
+  admitted_request: CreateBundleImportRequest | null; warnings: string[];
   request_hash: string; document_id: string | null; reader_version_id: string | null;
   error_code: string | null; created_at: Date; updated_at: Date; staging_key: string | null;
 }
@@ -13,6 +14,7 @@ export function importView(row: ImportRow): BundleImport {
     ...(row.document_id ? { documentId: row.document_id } : {}),
     ...(row.reader_version_id ? { readerVersionId: row.reader_version_id } : {}),
     ...(row.error_code ? { errorCode: row.error_code } : {}),
+    ...(row.warnings?.length ? { warnings: row.warnings } : {}),
     createdAt: row.created_at.toISOString(), updatedAt: row.updated_at.toISOString() };
 }
 export function conflict(code = 'BUNDLE_IMPORT_CONFLICT'): ServiceError { return new ServiceError(409, code, 'Bundle import conflicts with current state'); }

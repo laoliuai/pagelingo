@@ -349,3 +349,14 @@ it('does not treat a failed ACK-persistence write as durable completion', async 
   const compact = vi.spyOn(f.db, 'compactCompletedEntry'); await outbox.drainOutbox(binding, new AbortController().signal);
   const saved = (await f.db.get(binding, id))!; expect(saved.state).toBe('retry'); expect(saved.linkRequest).toBeDefined(); expect(saved.compactedAt).toBeUndefined(); expect(saved.completedBinding).toBeUndefined(); expect(compact).not.toHaveBeenCalled();
 });
+
+it('retains capture classification in durable lazy payload and identical request after offline and lost ACK', async () => {
+  const f=fixture(); const input=draft(); const organization={collectionId:crypto.randomUUID(),tagIds:[crypto.randomUUID()]};
+  const outbox=f.build(); await outbox.enqueueCapture(binding,input,undefined,false,organization);
+  const header=(await f.db.list(binding))[0]; expect(header).not.toHaveProperty('organization');
+  const original=f.client.create; let offline=true; const requests:unknown[]=[];
+  f.client.create=async (...args)=>{requests.push(structuredClone(args[0])); if(offline){offline=false;throw new Error('offline');} return original(...args);};
+  await outbox.resumeOutbox(binding); await f.build().resumeOutbox(binding); await f.build().resumeOutbox(binding);
+  expect(requests).toHaveLength(2); expect(requests[0]).toEqual(requests[1]); expect(requests[0]).toMatchObject({organization});
+  expect((await f.db.get(binding,input.captureId))?.state).toBe('completed');
+});

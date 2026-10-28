@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom
 import { useSession } from './session';
 import { AppShell } from '../shared/layouts/app-shell';
 import { PageHeader } from '../shared/layouts/page-header';
+import { TrashPage } from '../features/library/trash-page';
 import { LibraryPage } from '../features/library/library-page';
 import { LoginPage } from '../features/auth/login-page';
 import { UsersPage } from '../features/users/users-page';
@@ -40,6 +41,7 @@ export function Router() {
         <Route element={<Private />}>
           <Route element={<AppShell />}>
             <Route path="/library" element={<LibraryPage />} />
+            <Route path="/trash" element={<TrashPage />} />
             <Route
               path="/library/:id"
               element={

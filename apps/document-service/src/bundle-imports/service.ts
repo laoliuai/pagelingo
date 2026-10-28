@@ -1,10 +1,11 @@
 import { lockDocument } from '../document-lifecycle/guards.js';
 import { assertOperationNotRetired } from '../document-lifecycle/retired-identities.js';
+import { assertSaveHintsOwned, replaySaveHints } from '../document-management/repository.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { unlink } from 'node:fs/promises';
 import { createArchiveFileSource, BundleError } from '@pagelingo/document-bundle';
-import { createBundleImportRequestSchema, type BundleImport } from '@pagelingo/document-contracts';
+import { createBundleImportRequestSchema, type BundleImport, type CreateBundleImportRequest } from '@pagelingo/document-contracts';
 import { z } from 'zod';
 import { assertActorCurrent, type Actor } from '../auth/guards.js';
 import type { Database } from '../db/database.js';
@@ -35,19 +36,25 @@ export function createBundleImportsService({ db, store, config }: { db: Database
     return db.transaction(async client => { await assertActorCurrent(client, actor); await expireImports(client, actor.userId); return importView(await lockImport(client, actor.userId, id)); });
   }
   return {
-    async create(actor: Actor, input: { targetDocumentId?: string }, idempotencyKey: string): Promise<BundleImport> {
+    async create(actor: Actor, input: CreateBundleImportRequest, idempotencyKey: string): Promise<BundleImport> {
       const parsed = createBundleImportRequestSchema.safeParse(input);
       if (!parsed.success || typeof idempotencyKey !== 'string' || !/^[\x21-\x7e]{1,200}$/.test(idempotencyKey)) throw new ServiceError(400, 'INVALID_REQUEST', 'Invalid bundle import request');
-      const requestHash = createHash('sha256').update(JSON.stringify(parsed.data)).digest('hex');
+      const hash = (value: CreateBundleImportRequest) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
       return db.transaction(async client => {
         await assertActorCurrent(client, actor); await expireImports(client, actor.userId);
         await assertOperationNotRetired(client, actor.userId, 'bundle-import', idempotencyKey);
         const existing = (await client.query<ImportRow>('SELECT * FROM bundle_imports WHERE owner_id=$1 AND idempotency_key=$2 FOR UPDATE', [actor.userId, idempotencyKey])).rows[0];
-        if (existing) { if (existing.request_hash !== requestHash) throw conflict('IDEMPOTENCY_CONFLICT'); return importView(existing); }
+        if (existing) {
+          const replay = existing.admitted_request ? { ...parsed.data, ...replaySaveHints(parsed.data,existing.admitted_request) } : parsed.data;
+          if (existing.request_hash !== hash(replay)) throw conflict('IDEMPOTENCY_CONFLICT'); return importView(existing);
+        }
+        const hints = await assertSaveHintsOwned(client, actor.userId, parsed.data);
+        const admitted = { ...parsed.data, ...hints };
+        const requestHash = hash(admitted);
         if (parsed.data.targetDocumentId) await findDocument(client, actor.userId, parsed.data.targetDocumentId);
         if ((await client.query("SELECT id FROM bundle_imports WHERE owner_id=$1 AND status IN ('created','receiving','validating')", [actor.userId])).rowCount) throw conflict('BUNDLE_IMPORT_BUSY');
-        return importView((await client.query<ImportRow>(`INSERT INTO bundle_imports (owner_id,idempotency_key,request_hash,target_document_id)
-          VALUES ($1,$2,$3,$4) RETURNING *`, [actor.userId, idempotencyKey, requestHash, parsed.data.targetDocumentId ?? null])).rows[0]!);
+        return importView((await client.query<ImportRow>(`INSERT INTO bundle_imports (owner_id,idempotency_key,request_hash,target_document_id,admitted_request)
+          VALUES ($1,$2,$3,$4,$5) RETURNING *`, [actor.userId, idempotencyKey, requestHash, parsed.data.targetDocumentId ?? null, JSON.stringify(admitted)])).rows[0]!);
       });
     },
     get: read,

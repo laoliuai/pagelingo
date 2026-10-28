@@ -1,6 +1,9 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { requireSession, requireWriteRequest } from '../auth/guards.js';
+import { requireCapturePrincipal, assertCapturePrincipalCurrent } from '../devices/guards.js';
+import { taxonomyQuerySchema, taxonomyPageSchema } from './service.js';
+import { literalPattern } from './names.js';
 import { ServiceError } from '../errors.js';
 import { createDocumentManagementService } from './service.js';
 import type { PatchDocumentOrganization } from '@pagelingo/document-contracts';
@@ -22,6 +25,18 @@ export function registerDocumentManagementRoutes(app: FastifyInstance): void {
     parse(empty, request.query);
     return actor;
   };
+  app.get('/api/v1/capture-options', async request => {
+    const principal = await requireCapturePrincipal(request, 'preferences:read');
+    const { kind, ...query } = parse(taxonomyQuerySchema.extend({ kind: z.enum(['collections', 'tags']) }), request.query);
+    const owner = principal.kind === 'session' ? principal.actor.userId : principal.userId;
+    return app.authContext.db.transaction(async client => {
+      await assertCapturePrincipalCurrent(client, principal);
+      if (query.cursor && !(await client.query(`SELECT id FROM ${kind} WHERE owner_id=$1 AND id=$2`, [owner,query.cursor])).rowCount) throw new ServiceError(404,'NOT_FOUND','Option not found');
+      const rows = (await client.query<{id:string;name:string}>(`SELECT id,name FROM ${kind} WHERE owner_id=$1 AND ($2::uuid IS NULL OR id>$2) AND name ILIKE $3 ESCAPE '\\' ORDER BY id LIMIT $4`, [owner,query.cursor ?? null,literalPattern(query.q ?? ''),query.limit+1])).rows;
+      const items = rows.slice(0,query.limit);
+      return taxonomyPageSchema.parse({items,nextCursor:rows.length>query.limit?items.at(-1)!.id:null});
+    });
+  });
   app.get('/api/v1/library', async request => service.library(await requireSession(request), request.query));
   app.get('/api/v1/documents/:id/organization', async request => {
     const actor = await requireSession(request); parse(empty, request.query);

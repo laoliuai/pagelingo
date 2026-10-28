@@ -1,0 +1,15 @@
+import { useEffect, useRef, useState } from 'react';
+import type { SaveOrganization } from '@pagelingo/document-contracts';
+import { archiveCommand } from '../archive/ui';
+import type { SiteBinding } from '../archive/binding';
+type Page={items:{id:string;name:string}[];nextCursor:string|null};
+export function CaptureOptions({binding,value,onChange}:{binding:SiteBinding;value:SaveOrganization;onChange:(value:SaveOrganization)=>void}) {
+  return <details><summary>保存到集合与标签</summary><Options kind="collections" binding={binding} value={value} onChange={onChange}/><Options kind="tags" binding={binding} value={value} onChange={onChange}/><p className="hint">仅新建资料使用本次分类，重复保存保留已有分类。</p></details>;
+}
+function Options({kind,binding,value,onChange}:{kind:'collections'|'tags';binding:SiteBinding;value:SaveOrganization;onChange:(value:SaveOrganization)=>void}) {
+  const [q,setQ]=useState(''),[page,setPage]=useState<Page>({items:[],nextCursor:null}),[error,setError]=useState(''),[busy,setBusy]=useState(false);
+  const [retry,setRetry]=useState(0); const version=useRef(0);
+  useEffect(()=>{version.current++;let disposed=false;setPage({items:[],nextCursor:null});setBusy(true);setError('');void archiveCommand<Page>({type:'archive:options',kind,q,expectedBinding:binding}).then(result=>{if(!disposed)setPage(result);}).catch(e=>{if(!disposed)setError(e.message);}).finally(()=>{if(!disposed)setBusy(false);});return()=>{disposed=true;version.current++;};},[binding.generation,kind,q,retry]);
+  async function more(){const current=version.current;setBusy(true);try{const result=await archiveCommand<Page>({type:'archive:options',kind,q,cursor:page.nextCursor,expectedBinding:binding});if(current!==version.current)return;setPage(previous=>({items:[...previous.items,...result.items],nextCursor:result.nextCursor}));}catch(e){if(current===version.current)setError(e instanceof Error?e.message:'读取失败');}finally{if(current===version.current)setBusy(false);}}
+  return <div className="capture-options"><label>查找{kind==='collections'?'集合':'标签'}<input maxLength={80} value={q} onChange={e=>setQ(e.target.value)}/></label>{kind==='collections'?<label>所属集合<select value={value.collectionId??''} onChange={e=>onChange({...value,collectionId:e.target.value||null})}><option value="">未分类</option>{value.collectionId&&!page.items.some(i=>i.id===value.collectionId)&&<option value={value.collectionId}>已选集合</option>}{page.items.map(i=><option key={i.id} value={i.id}>{i.name}</option>)}</select></label>:<fieldset><legend>标签</legend>{page.items.map(i=><label key={i.id}><input type="checkbox" checked={value.tagIds.includes(i.id)} disabled={!value.tagIds.includes(i.id)&&value.tagIds.length>=32} onChange={e=>onChange({...value,tagIds:e.target.checked?[...value.tagIds,i.id]:value.tagIds.filter(id=>id!==i.id)})}/>{i.name}</label>)}</fieldset>}{page.nextCursor&&<button disabled={busy} onClick={()=>void more()}>加载更多选项</button>}{error&&<p role="alert">{error}<button onClick={()=>setRetry(n=>n+1)}>重试分类</button></p>}</div>;
+}

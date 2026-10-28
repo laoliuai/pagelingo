@@ -102,3 +102,9 @@ Selected actual desktop and 390×844 viewport captures in both themes are in
 ## S3 acceptance and operations
 
 See [capture workflow](../../docs/extension-site-capture.md) and [validation boundaries](../../docs/learning-site-s3-validation.md). From the repository root, build the site and extension, then run `npm run check:web-capture -- --samples tests/fixtures/web-s3/samples.json --output <new-directory>`. This declares synthetic inputs explicitly and uses the actual native extension, service, private store and independent mock worker. It reads no user environment file and makes no paid model call.
+
+资料管理使用 `/api/v1/library`：搜索、类型、来源、阅读状态、集合和多标签组合筛选保留在 URL，分页和刷新保留条件。详情页“管理资料”默认折叠，允许修改标题、收藏备注、一个集合、多标签和独立阅读状态。仅提交实际变化的字段；遇到其他设备修改则加载服务器当前值，要求重新核对编辑，不自动覆盖。集合/标签重命名与删除只改变归类；明确添加/解除资料关联不会采集或删除关联目标。
+
+`/trash` 显示本人回收站，默认保留 30 天。恢复会核对原件与阅读材料，材料缺失时仍留在回收站。永久删除需明确确认，页面轮询只读清理收据，只有收据返回完成才显示“已永久删除”。账号或认证 epoch 变化会清空管理表单、选项、游标及迟到响应。
+
+添加链接、导入新阅读包以及扩展保存可选择集合/标签。选项从 `/api/v1/capture-options?kind=collections|tags&q&cursor&limit` 取得，默认 50、最多 100，仅含当前身份的 id/name；扩展沿用 `preferences:read`，不增加资料读取权限。分类只初始化新资料，重复保存不覆盖已有归类。服务已接受后分类被删除仍保存原件，并在保存说明中提示。扩展仅列最近 50 条本地摘要，更早记录仍保留并由后台分页续传。

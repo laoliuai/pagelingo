@@ -1,4 +1,4 @@
-import { captureDraftSchema, createDocumentLinkRequestSchema, type CaptureDraft, type CreateDocumentLinkRequest } from '@pagelingo/document-contracts';
+import { captureDraftSchema, createDocumentLinkRequestSchema, type SaveOrganization, type CaptureDraft, type CreateDocumentLinkRequest } from '@pagelingo/document-contracts';
 import { partition, sameBinding, type SiteBinding } from './binding.js';
 import { ArchiveDatabase, type ArchiveEntry, type ArchivePageCursor } from './database.js';
 import { ArchiveHttpError, type ArchiveClient } from './client.js';
@@ -6,17 +6,17 @@ import { prepareCapture, type AcquiredResource } from './upload.js';
 import type { CaptureGrant } from './grants.js';
 class CapturePreparationCancelled extends Error {}
 export interface OutboxDependencies {
-  database: ArchiveDatabase; current(): Promise<SiteBinding | null>; client(binding: SiteBinding, signal: AbortSignal): ArchiveClient;
+  database: ArchiveDatabase; current(): Promise<SiteBinding | null>; client(binding: SiteBinding, signal: AbortSignal): Omit<ArchiveClient, 'options'>;
   acquire(draft: CaptureDraft, resourceId: string, entry: ArchiveEntry): Promise<AcquiredResource>;
   schedule?(when: number): Promise<void>; now?(): number;
 }
 export function createArchiveOutbox(deps: OutboxDependencies) {
   const db = deps.database; const now = deps.now ?? Date.now; let running: Promise<void> | undefined;
   async function assertCurrent(binding: SiteBinding) { if (!sameBinding(await deps.current(), binding)) throw new Error('站点连接已变化。'); }
-  async function enqueueCapture(binding: SiteBinding, input: CaptureDraft, grant?: CaptureGrant, permission = false): Promise<string> {
+  async function enqueueCapture(binding: SiteBinding, input: CaptureDraft, grant?: CaptureGrant, permission = false, organization?: SaveOrganization): Promise<string> {
     const draft = captureDraftSchema.parse(input); await assertCurrent(binding);
     if (await db.get(binding, draft.captureId)) throw new Error('采集已存在。');
-    await db.put(binding, { id: draft.captureId, partition: partition(binding), kind: 'capture', translationIntent: 'auto', state: permission ? 'permission' : 'pending', draft, grant, grantGeneration: binding.generation, resources: [], attempts: 0, nextAttemptAt: 0, createdAt: now(), warnings: [...draft.snapshot.warnings, ...draft.snapshot.scope.warnings] });
+    await db.put(binding, { id: draft.captureId, partition: partition(binding), kind: 'capture', ...(organization ? { organization } : {}), translationIntent: 'auto', state: permission ? 'permission' : 'pending', draft, grant, grantGeneration: binding.generation, resources: [], attempts: 0, nextAttemptAt: 0, createdAt: now(), warnings: [...draft.snapshot.warnings, ...draft.snapshot.scope.warnings] });
     await deps.schedule?.(now() + 2000); return draft.captureId;
   }
   async function enqueueLink(binding: SiteBinding, input: CreateDocumentLinkRequest, warnings: string[]): Promise<string> {

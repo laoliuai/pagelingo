@@ -729,3 +729,29 @@ input[type='checkbox'] {
 .recent-imports { border-top: 1px solid var(--border); margin-top: 20px; padding-top: 12px; }
 .recent-imports h3 { font-size: 13px; }
 .recent-imports button { display: block; margin-top: 8px; }
+
+.library-management-actions { display:flex; gap:16px; align-items:center; margin-bottom:16px; flex-wrap:wrap; }
+.library-filters { display:grid; grid-template-columns:minmax(200px,2fr) repeat(4,minmax(120px,1fr)); gap:12px; padding:16px; border:1px solid var(--border); border-radius:var(--radius); margin-bottom:20px; background:var(--surface); }
+.library-filters .filter-tags, .library-filters .form-actions { grid-column:1/-1; }
+.filter-tags { display:flex; gap:16px; flex-wrap:wrap; }
+.management-panel { padding:0; margin:16px 0; border:1px solid var(--border); border-radius:var(--radius); background:var(--surface); }
+.management-panel > summary { cursor:pointer; padding:12px 16px; color:var(--accent); }
+.management-panel > form, .management-panel > section { padding:16px; max-width:800px; }
+.management-panel fieldset, .organization-choices fieldset, .taxonomy-editor fieldset, .filter-tags { min-width:0; border:0; padding:0; }
+.organization-choices { display:grid; gap:12px; }
+.organization-choices fieldset { display:flex; gap:12px; flex-wrap:wrap; }
+textarea { width:100%; resize:vertical; border:1px solid var(--border); padding:8px; border-radius:var(--radius-sm); background:var(--page); color:var(--ink); font:inherit; }
+.taxonomy-editor { margin:16px 0; }
+.taxonomy-row, .relation-row { display:flex; gap:8px; margin:8px 0; align-items:center; flex-wrap:wrap; }
+.taxonomy-row input { flex:1; min-width:100px; }
+.relation-row a { flex:1; overflow-wrap:anywhere; }
+.trash-item { display:flex; gap:16px; align-items:center; justify-content:space-between; padding:20px; border-bottom:1px solid var(--border); }
+.trash-item h2 { overflow-wrap:anywhere; }
+.organization-summary { margin:-8px 0 12px 64px; color:var(--muted); font-size:13px; }
+@media(max-width:800px) { .library-filters { grid-template-columns:repeat(2,minmax(0,1fr)); } .library-filters > .field:first-child { grid-column:1/-1; } .trash-item { flex-direction:column; align-items:stretch; } .management-panel > form, .management-panel > section { padding:12px; } }
+
+@media (max-width: 800px) {
+  .document-page > .management-panel:not([open]) { float: right; margin: 0; }
+  .document-page:has(> .management-panel:not([open])) > .back-link { min-height: 44px; margin-bottom: 0; display: inline-flex; align-items: center; }
+  .document-page:has(> .management-panel:not([open])) > .page-header { clear: both; }
+}

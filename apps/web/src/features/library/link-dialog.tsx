@@ -1,15 +1,17 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { createDocumentLinkRequestSchema, type DocumentLinkResult } from '@pagelingo/document-contracts';
+import { createDocumentLinkRequestSchema, type DocumentLinkResult, type SaveOrganization } from '@pagelingo/document-contracts';
 import { useSession } from '../../app/session';
 import { apiRequest, errorMessage } from '../../shared/api-client';
 import { Modal } from '../../shared/ui/dialog';
 import { Button } from '../../shared/ui/button';
 import { Input } from '../../shared/ui/input';
 import { Field } from '../../shared/ui/field';
+import { OrganizationChoices } from './organization-choices';
 export function LinkDialog() {
   const { user } = useSession();
   const cache = useQueryClient();
+  const [organization, setOrganization] = useState<SaveOrganization>({collectionId:null,tagIds:[]});
   const [open, setOpen] = useState(false);
   const [url, setUrl] = useState('');
   const [title, setTitle] = useState('');
@@ -22,6 +24,7 @@ export function LinkDialog() {
   const close = () => {
     request.current?.abort();
     request.current = null;
+    setOrganization({collectionId:null,tagIds:[]});
     setOpen(false);
     setUrl('');
     setTitle('');
@@ -35,6 +38,7 @@ export function LinkDialog() {
     if (pending) return;
     const parsed = createDocumentLinkRequestSchema.safeParse({
       url,
+      ...(organization.collectionId || organization.tagIds.length ? { organization } : {}),
       ...(title.trim() ? { title: title.trim() } : {}),
       translationIntent: skipTranslation ? 'none' : 'auto',
     });
@@ -76,6 +80,7 @@ export function LinkDialog() {
           <Field label="链接标题">
             <Input maxLength={2000} value={title} onChange={event => { setTitle(event.target.value); key.current = ''; }} />
           </Field>
+          <OrganizationChoices value={organization} onChange={value => { setOrganization(value); key.current = ''; }} />
           <label className="checkbox">
             <input type="checkbox" checked={skipTranslation} onChange={event => { setSkipTranslation(event.target.checked); key.current = ''; }} />
             本次不自动翻译
