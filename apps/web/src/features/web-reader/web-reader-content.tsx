@@ -3,7 +3,7 @@ import { ScanLine } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { renderWebChunk } from '@pagelingo/document-renderer';
 import type { WebSourceRef, WebReaderChunk, WebReaderDescriptor } from '@pagelingo/document-contracts';
-import { LinkDialog } from '../library/link-dialog';
+import { useDiscoveredLinks } from '../library/discovered-links';
 import { Button } from '../../shared/ui/button';
 import { type ContentPosition, type ContentTarget, type InteractionOrigin } from '../reader/window-state';
 import { WebReaderWindow } from './web-reader-window';
@@ -20,6 +20,7 @@ export interface ReaderContentProps {
   visible?: boolean;
 }
 const TrustedChunk = memo(function TrustedChunk({ chunk, descriptor, mode, selection, onSelection }: { chunk: WebReaderChunk; descriptor: WebReaderDescriptor; mode: ContentMode; selection?: ReadonlySet<string>; onSelection?: (id: string, selected: boolean) => void }) {
+  const discover = useDiscoveredLinks();
   const rendered = useMemo(() => renderWebChunk(chunk, { mode, resolveAsset: id => {
     const asset = descriptor.assetMap[id]; if (!asset || !/^[a-f0-9-]{36}$/.test(asset)) throw new Error('Missing owned Reader asset');
     return `/api/v1/documents/${descriptor.documentId}/web-reader/versions/${descriptor.versionId}/assets/${asset}`;
@@ -43,7 +44,7 @@ const TrustedChunk = memo(function TrustedChunk({ chunk, descriptor, mode, selec
     {links.length > 0 && <details className="reader-discovered-links">
       <summary>收藏本段外链</summary>
       <p>仅保存你选择的链接，并记录由此资料发现。每组最多列出 50 个链接。</p>
-      {links.map(link => <p key={link.url}><LinkDialog discoveredFromDocumentId={descriptor.documentId} initialUrl={link.url} initialTitle={link.title} triggerLabel={`收藏外链：${link.title}`} /></p>)}
+      {links.map(link => <p key={link.url}><Button onClick={() => discover({ documentId: descriptor.documentId, ...link })}>{`收藏外链：${link.title}`}</Button></p>)}
     </details>}
   </div>;
 });

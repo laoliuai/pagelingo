@@ -9,16 +9,18 @@ import { Button } from '../../shared/ui/button';
 import { Input } from '../../shared/ui/input';
 import { Field } from '../../shared/ui/field';
 import { OrganizationChoices } from './organization-choices';
-interface LinkDialogProps { discoveredFromDocumentId?: string; initialUrl?: string; initialTitle?: string; triggerLabel?: string }
+interface LinkDialogProps { discoveredFromDocumentId?: string; initialUrl?: string; initialTitle?: string; triggerLabel?: string; openRequest?: number; onDismiss?: (retained: boolean) => void }
 export function LinkDialog(props: LinkDialogProps) {
   const { user, epoch } = useSession();
   return <LinkDialogScope key={`${user!.id}:${epoch}:${props.discoveredFromDocumentId ?? ''}:${props.initialUrl ?? ''}`} {...props} />;
 }
-function LinkDialogScope({ discoveredFromDocumentId, initialUrl = '', initialTitle = '', triggerLabel }: LinkDialogProps) {
+function LinkDialogScope({ discoveredFromDocumentId, initialUrl = '', initialTitle = '', triggerLabel, openRequest, onDismiss }: LinkDialogProps) {
   const { user, epoch } = useSession();
   const cache = useQueryClient();
   const [organization, setOrganization] = useState<SaveOrganization>({ collectionId: null, tagIds: [] });
   const [open, setOpen] = useState(false);
+  const openRef = useRef(open);
+  openRef.current = open;
   const [url, setUrl] = useState(initialUrl);
   const [title, setTitle] = useState(initialTitle);
   const [skipTranslation, setSkipTranslation] = useState(false);
@@ -30,9 +32,18 @@ function LinkDialogScope({ discoveredFromDocumentId, initialUrl = '', initialTit
   const admittedResult = useRef<DocumentLinkResult | null>(null);
   const lifetime = useRef(new AbortController());
   useEffect(() => () => lifetime.current.abort(), []);
+  useEffect(() => {
+    if (openRequest === undefined) return;
+    if (!admission.current) setSaved(null);
+    openRef.current = true;
+    setOpen(true);
+  }, [openRequest]);
   function close() {
+    openRef.current = false;
     setOpen(false);
-    if (pending || admission.current) return;
+    const retained = pending || admission.current !== null;
+    onDismiss?.(retained);
+    if (retained) return;
     setOrganization({ collectionId: null, tagIds: [] });
     setUrl(initialUrl); setTitle(initialTitle); setSkipTranslation(false); setError(''); setSaved(null);
   }
@@ -68,6 +79,7 @@ function LinkDialogScope({ discoveredFromDocumentId, initialUrl = '', initialTit
       setSaved(result);
       if (discoveredFromDocumentId) {
         await cache.invalidateQueries({ queryKey: [user!.id, 'relations', discoveredFromDocumentId, epoch] });
+        if (!openRef.current) onDismiss?.(false);
       } else {
         setOpen(false); setUrl(''); setTitle(''); setOrganization({ collectionId: null, tagIds: [] }); setSkipTranslation(false);
       }
@@ -83,7 +95,7 @@ function LinkDialogScope({ discoveredFromDocumentId, initialUrl = '', initialTit
   return <><Modal title={discoveredFromDocumentId ? '收藏发现的链接' : '添加链接'}
     description="保存你选择的公开链接。仓库固定 README commit，论文固定版本；外链由你逐条选择，不自动收集。"
     open={open} onOpenChange={value => {
-      if (value) { if (!admission.current) setSaved(null); setOpen(true); }
+      if (value) { if (!admission.current) setSaved(null); openRef.current = true; setOpen(true); }
       else close();
     }}
     trigger={<Button>{triggerLabel ?? (discoveredFromDocumentId ? '收藏发现的链接' : '添加链接')}</Button>}>

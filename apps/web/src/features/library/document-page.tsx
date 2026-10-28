@@ -12,13 +12,14 @@ import { WebJobStatus } from '../web-reader/web-job-status';
 import { webSaveLabel, webProcessingLabel } from './import-status';
 import { OrganizationPanel } from './organization-panel';
 import { SourceDetails } from './source-details';
+import { DiscoveredLinksProvider } from './discovered-links';
 import { PdfSource } from './pdf-source';
 const ReaderPage = lazy(() => import('../reader/reader-page').then(module => ({ default: module.ReaderPage })));
 const WebReaderPage = lazy(() => import('../web-reader/web-reader-page').then(module => ({ default: module.WebReaderPage })));
 export function DocumentPage() {
   const { user, epoch } = useSession();
   const { id } = useParams();
-  return <DocumentScope key={`${user?.id}:${epoch}:${id}`} />;
+  return <DiscoveredLinksProvider key={`${user?.id}:${epoch}:${id}`} documentId={id!}><DocumentScope /></DiscoveredLinksProvider>;
 }
 function DocumentScope() {
   const { id } = useParams();

@@ -17,6 +17,7 @@ export async function readerSourceRevision(
   )).rows[0];
   if (!reader) throw new ServiceError(404, 'NOT_FOUND', 'Reader not found');
   let candidates: { id: string }[];
+  let sourceOnlyFallback = false;
   if (provider === 'arxiv') {
     candidates = (await client.query<{ id: string }>(
       `SELECT arxiv_version_id AS id FROM paper_reader_bindings
@@ -33,13 +34,16 @@ export async function readerSourceRevision(
        AND (c.reader_version_id=$3 OR t.reader_version_id=$3)`,
       [ownerId, documentId, readerVersionId, reader.source_version_id],
     )).rows;
-    if (!candidates.length) candidates = (await client.query<{ id: string }>(
-      'SELECT id FROM github_versions WHERE owner_id=$1 AND document_id=$2 AND source_version_id=$3',
-      [ownerId, documentId, reader.source_version_id],
-    )).rows;
+    if (!candidates.length) {
+      sourceOnlyFallback = true;
+      candidates = (await client.query<{ id: string }>(
+        'SELECT id FROM github_versions WHERE owner_id=$1 AND document_id=$2 AND source_version_id=$3',
+        [ownerId, documentId, reader.source_version_id],
+      )).rows;
+    }
   }
   if (revisionId) {
-    if (!candidates.some(row => row.id === revisionId.toLowerCase())) {
+    if ((sourceOnlyFallback && candidates.length !== 1) || !candidates.some(row => row.id === revisionId.toLowerCase())) {
       throw new ServiceError(404, 'NOT_FOUND', 'Source revision does not belong to Reader');
     }
     return { revisionId: revisionId.toLowerCase() };

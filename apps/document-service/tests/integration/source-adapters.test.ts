@@ -312,3 +312,59 @@ it('verifies repository Reader provenance through the owned capture and fetch re
   expect((await t.app.inject({ url: `/api/v1/documents/${saved.documentId}/source-details?readerVersionId=${summary.reader.versionId}&revisionId=${randomUUID()}`, headers: t.headers })).statusCode).toBe(404);
   expect((await t.db.pool.query('SELECT count(*)::int AS n FROM web_jobs')).rows[0].n).toBe(count);
 });
+
+it.each([false, true])('verifies source-only GitHub fallback only when unique, ambiguous=%s', async ambiguous => {
+  const t = await setup();
+  const { runSourceFetchJob } = await import('../../src/source-adapters/service.js');
+  const { fixtureTransport, githubFixture } = await import('../helpers/github-fixture.js');
+  const saved = await t.save('https://github.com/Org/Repo');
+  await runSourceFetchJob((await t.lease(saved.jobId))!, {
+    db: t.db, config: t.config, store: t.store, signal: new AbortController().signal,
+    sourceTransport: fixtureTransport(githubFixture()),
+  });
+  const summary = (await t.app.inject({ url: `/api/v1/documents/${saved.documentId}`, headers: t.headers })).json();
+  const original = (await t.app.inject({ url: `/api/v1/documents/${saved.documentId}/source-details`, headers: t.headers })).json().current;
+  const revisions = [original.id];
+  if (ambiguous) {
+    const clone = randomUUID();
+    await t.db.pool.query(`INSERT INTO github_versions
+      SELECT (jsonb_populate_record(NULL::github_versions,to_jsonb(v)||jsonb_build_object(
+        'id',$3::uuid,'commit_sha',repeat('b',40),'content_digest',repeat('b',64)))).*
+      FROM github_versions v WHERE owner_id=$1 AND document_id=$2 AND id=$4`,
+    [t.actor.userId, saved.documentId, clone, original.id]);
+    revisions.push(clone);
+  }
+  if (ambiguous) {
+    // Two registered captures can genuinely bind one retained Reader to distinct revisions.
+    const refreshed = await t.app.inject({ method: 'POST', url: `/api/v1/documents/${saved.documentId}/source-refresh`, headers: { ...t.headers, 'idempotency-key': randomUUID() }, payload: { translationIntent: 'none' } });
+    expect(refreshed.statusCode, refreshed.body).toBe(202);
+    const mappedJob = refreshed.json().jobId;
+    await t.db.pool.query('UPDATE web_jobs SET source_github_revision_id=$3 WHERE owner_id=$1 AND id=$2', [t.actor.userId, mappedJob, revisions[1]]);
+    const captureId = randomUUID();
+    await t.db.pool.query(`INSERT INTO web_captures
+      SELECT (jsonb_populate_record(NULL::web_captures,to_jsonb(c)||jsonb_build_object(
+        'id',$3::uuid,'capture_id',$4::uuid,'idempotency_key',$4::text,'staging_key',$5::uuid,
+        'fetch_job_id',$6::uuid,'manifest',jsonb_set(c.manifest,'{captureId}',to_jsonb($4::text))))).*
+      FROM web_captures c WHERE owner_id=$1 AND fetch_job_id=$2`,
+    [t.actor.userId, saved.jobId, randomUUID(), captureId, randomUUID(), mappedJob]);
+    const base = `/api/v1/documents/${saved.documentId}/source-details?readerVersionId=${summary.reader.versionId}`;
+    const many = await t.app.inject({ url: base, headers: t.headers });
+    expect(many.json()).toMatchObject({ current: null, warnings: expect.arrayContaining(['SOURCE_READER_REVISION_AMBIGUOUS']) });
+    for (const revision of revisions) expect((await t.app.inject({ url: `${base}&revisionId=${revision}`, headers: t.headers })).statusCode).toBe(200);
+  }
+  // Simulate registered backfill material with no capture/fetch/translation provenance.
+  await t.db.pool.query('UPDATE web_jobs SET source_github_revision_id=NULL WHERE owner_id=$1 AND document_id=$2', [t.actor.userId, saved.documentId]);
+  const path = `/api/v1/documents/${saved.documentId}/source-details?readerVersionId=${summary.reader.versionId}`;
+  const unresolved = await t.app.inject({ url: path, headers: t.headers });
+  expect(unresolved.statusCode, unresolved.body).toBe(200);
+  if (ambiguous) expect(unresolved.json()).toMatchObject({ current: null, warnings: expect.arrayContaining(['SOURCE_READER_REVISION_AMBIGUOUS']) });
+  else expect(unresolved.json().current.id).toBe(original.id);
+  for (const revision of revisions) {
+    const pair = await t.app.inject({ url: `${path}&revisionId=${revision}`, headers: t.headers });
+    expect(pair.statusCode, pair.body).toBe(ambiguous ? 404 : 200);
+  }
+  const created = await t.app.inject({ method: 'POST', url: '/api/v1/admin/users', headers: t.headers, payload: { username: 'foreign-fallback', password: 'correct password 123456' } });
+  expect(created.statusCode, created.body).toBe(201);
+  const foreign = await login(t.app, 'foreign-fallback', 'correct password 123456');
+  expect((await t.app.inject({ url: `${path}&revisionId=${original.id}`, headers: { cookie: foreign.cookie } })).statusCode).toBe(404);
+});
