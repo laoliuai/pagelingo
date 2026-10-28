@@ -26,7 +26,7 @@ export function extractPublicArticle(html: string, url: string, limits?: Capture
     const resources = new Map(safe.resources.map(resource => [resource.id, resource]));
     for (const node of elements(extracted)) {
       const resource = resources.get(attr(node, 'data-pl-resource') ?? '');
-      if (node.tagName === 'img' && resource) setAttr(node, 'src', resource.url);
+      if (node.tagName === 'img' && resource?.role === 'image') setAttr(node, 'src', resource.url);
     }
     const snapshot = sanitizeNodeSnapshot({ html: serialize(extracted), url, scope: safe.scope }, limits);
     return { ...snapshot, warnings: [...new Set([...safe.warnings, ...snapshot.warnings])] };

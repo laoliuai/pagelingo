@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
+import { cleanupRestartAcceptance } from './restart-cleanup.mjs';
 import { randomBytes, randomUUID, createHash } from 'node:crypto';
-import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, writeFile, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawn } from 'node:child_process';
@@ -291,15 +292,5 @@ if(openApiKey(storedSecret(row),fixture.owner,config.keyring)!==fixture.key) pro
   if (error instanceof assert.AssertionError) console.error(error.stack.split('\n').find(line => line.includes('check-site-restart.mjs:')) ?? 'No assertion location');
   process.exitCode ||= 1;
 } finally {
-  for (const [path, before] of archiveHashes) {
-    const after = createHash('sha256').update(await readFile(path)).digest('hex');
-    console.log(JSON.stringify({ archive: path, before, after, unchanged: before === after }));
-    if (before !== after) process.exitCode = 1;
-  }
-  if (started) {
-    try { await compose(['down', '--volumes', '--remove-orphans', '--rmi', 'local']); }
-    catch { console.error('Failed to clean isolated restart project: ' + project); process.exitCode ||= 1; }
-  }
-  if (ownedFixture) await rm(ownedFixture.root, { recursive: true, force: true });
-  await rm(directory, { recursive: true, force: true });
+  await cleanupRestartAcceptance({ archiveHashes, started, compose, project, ownedFixture, directory });
 }

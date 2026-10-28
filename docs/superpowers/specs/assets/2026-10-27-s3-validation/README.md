@@ -19,3 +19,15 @@ They are screenshots of working UI, not design mockups.
 scope/resource results, selected output hashes, and explicit unverified boundaries.
 Full raw traces/logs stay in ignored local acceptance directories. No complete
 third-party HTML, device token, runtime keyring, or original ZIP is included here.
+
+`web-run-retry.png` is additional final-fix evidence from the passing full
+`npm run check:site` run on 2026-10-28. The real built site/API/database and
+independent mock worker accepted the start request; Playwright then dropped only
+its response to simulate a lost acknowledgement. The screenshot shows the
+unchanged readable original, the error, “重试本次开始” for that same action and
+“开始新一轮翻译” for a new action. The test then verifies one job after retry and
+a distinct completed job after the next deliberate start. This screenshot is
+unmodified, uses an own-content synthetic article, and contains no credentials.
+Its original artifact is
+`apps/web/test-results/web-reader-lost-start-ackn-76e2d-ate-start-creates-a-new-run/web-run-retry.png`;
+the final verification entry in `acceptance-summary.json` records its SHA256.

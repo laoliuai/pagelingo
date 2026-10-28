@@ -29,6 +29,13 @@ export function canonicalManifestBytes(value: unknown): Uint8Array<ArrayBuffer> 
 export async function captureContentFingerprint(snapshot: SanitizedSnapshot, resources: readonly CaptureResource[], files: readonly CaptureFile[] = []): Promise<string> {
   const byId = new Map(files.map(file => [file.id, file]));
   const normalized = resources.map(resource => {
+    if (resource.url === null) {
+      check(resource.provenance.documentUrl === snapshot.sourceUrl, 'Inline stylesheet belongs to another captured source');
+      const identity = { id: resource.id, role: resource.role, url: null, provenance: resource.provenance, status: resource.status };
+      if (resource.status === 'missing') return { ...identity, reason: resource.reason };
+      const file = byId.get(resource.fileId); check(file, 'Fingerprint requires actual resource descriptor');
+      return { ...identity, sha256: file.sha256, bytes: file.bytes, mediaType: file.mediaType };
+    }
     if (resource.status === 'missing') return { id: resource.id, role: resource.role, url: normalizeCaptureResourceUrl(resource.url, snapshot.sourceUrl), status: resource.status, reason: resource.reason };
     const file = byId.get(resource.fileId); check(file, 'Fingerprint requires actual resource descriptor');
     const url = normalizeCaptureResourceUrl(resource.url, snapshot.sourceUrl);

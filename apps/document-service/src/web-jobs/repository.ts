@@ -9,11 +9,12 @@ export type JobLease = JobIdentity & (
 );
 export type WebJobInput = { id: string; ownerId: string; authVersion: number; documentId: string; inputSha256: string } & (
   { kind: 'fetch-link'; url: string } |
-  { kind: 'translate'; sourceVersionId: string; parseId: string; profileRevision: number; glossaryRevision: number; sourceLanguage: string | null; selectionBlockIds: string[] | null }
+  { kind: 'translate'; sourceVersionId: string; parseId: string; profileRevision: number; glossaryRevision: number; sourceLanguage: string | null; selectionBlockIds: string[] | null; requestId?: string }
 );
 export interface WebJobRow {
   id: string; owner_id: string; document_id: string; auth_version: number; kind: 'fetch-link' | 'translate';
   input_sha256: string; url: string | null; source_version_id: string | null; parse_id: string | null;
+  request_id: string | null;
   profile_revision: number | null; glossary_revision: number | null; source_language: string | null; selection_block_ids: string[] | null;
   status: WebJobStatus; epoch: string; lease_owner: string | null; lease_until: Date | null; slot_id: number | null; slot_epoch: string | null;
   publication_milestone: number; finalized_epoch: string | null;
@@ -34,9 +35,9 @@ export async function insertWebJob(client: PoolClient, input: WebJobInput): Prom
   if (t?.sourceLanguage !== null && t?.sourceLanguage !== undefined) sourceLanguageSchema.parse(t.sourceLanguage);
   if (t?.selectionBlockIds !== null && t?.selectionBlockIds !== undefined) webJobSelectionSchema.parse(t.selectionBlockIds);
   return (await client.query<WebJobRow>(`INSERT INTO web_jobs
-    (id,owner_id,document_id,auth_version,kind,input_sha256,url,source_version_id,parse_id,profile_revision,glossary_revision,source_language,selection_block_ids)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
-  [input.id,input.ownerId,input.documentId,input.authVersion,input.kind,input.inputSha256,input.kind === 'fetch-link' ? input.url : null,t?.sourceVersionId ?? null,t?.parseId ?? null,t?.profileRevision ?? null,t?.glossaryRevision ?? null,t?.sourceLanguage ?? null,t?.selectionBlockIds ?? null])).rows[0]!;
+    (id,owner_id,document_id,auth_version,kind,input_sha256,url,source_version_id,parse_id,profile_revision,glossary_revision,source_language,selection_block_ids,request_id)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
+  [input.id,input.ownerId,input.documentId,input.authVersion,input.kind,input.inputSha256,input.kind === 'fetch-link' ? input.url : null,t?.sourceVersionId ?? null,t?.parseId ?? null,t?.profileRevision ?? null,t?.glossaryRevision ?? null,t?.sourceLanguage ?? null,t?.selectionBlockIds ?? null,t?.requestId ?? null])).rows[0]!;
 }
 export async function findWebJob(client: PoolClient, ownerId: string, jobId: string): Promise<WebJobRow | undefined> {
   return (await client.query<WebJobRow>('SELECT * FROM web_jobs WHERE owner_id=$1 AND id=$2', [ownerId,jobId])).rows[0];
@@ -112,4 +113,7 @@ export async function deleteOwnerCache(client: PoolClient, ownerId: string, key:
 }
 export async function findWebJobByInput(client: PoolClient, ownerId: string, documentId: string, authVersion: number, inputSha256: string): Promise<WebJobRow | undefined> {
   return (await client.query<WebJobRow>('SELECT * FROM web_jobs WHERE owner_id=$1 AND document_id=$2 AND auth_version=$3 AND input_sha256=$4', [ownerId,documentId,authVersion,inputSha256])).rows[0];
+}
+export async function findWebJobByRequest(client: PoolClient, ownerId: string, documentId: string, authVersion: number, requestId: string): Promise<WebJobRow | undefined> {
+  return (await client.query<WebJobRow>('SELECT * FROM web_jobs WHERE owner_id=$1 AND document_id=$2 AND auth_version=$3 AND request_id=$4', [ownerId,documentId,authVersion,requestId])).rows[0];
 }

@@ -178,3 +178,42 @@ it('new captures inherit server preference while persisted historical intent and
   await old.build().resumeOutbox(binding,id);
   expect((await old.db.get(binding,id))?.linkRequest?.translationIntent).toBe('none');
 });
+
+it.each([false, true])('resumes a failed server capture with the same identity (expired staging: %s)', async expired => {
+  const f = fixture();
+  const input = draft();
+  const originalStatus = f.client.status;
+  const originalCommit = f.client.commit;
+  let failed = false;
+  let commits = 0;
+  let ingestionId: string | undefined;
+  f.client.status = async () => {
+    const result = await originalStatus();
+    return failed ? { ...result, status: 'failed', errorCode: expired ? 'CAPTURE_STAGING_EXPIRED' : 'CAPTURE_FAILED',
+      missingFileIds: expired ? ['html'] : [], receivedFileIds: expired ? [] : ['html'] } : result;
+  };
+  f.client.commit = async () => {
+    commits++;
+    const result = await originalStatus();
+    ingestionId ??= result.id;
+    expect(result.id).toBe(ingestionId);
+    if (commits === 1) { failed = true; throw new Error('transient publication failure'); }
+    failed = false;
+    try { return await originalCommit(); } catch { return originalStatus(); }
+  };
+  await f.build().enqueueCapture(binding, input);
+  await f.build().drainOutbox(binding, new AbortController().signal);
+  const attempt = await f.db.get(binding, input.captureId);
+  expect(attempt?.state).toBe('retry');
+  await f.build().resumeOutbox(binding);
+  const recovered = await f.db.get(binding, input.captureId);
+  expect(recovered?.state).toBe('completed');
+  expect(recovered?.ingestionId).toBe(ingestionId);
+  expect(recovered?.request).toEqual(attempt?.request);
+  expect(recovered?.result?.captureId).toBe(input.captureId);
+  expect(commits).toBe(2);
+  expect(f.counts().creates).toBe(1);
+  expect(f.counts().puts).toEqual(expired ? ['html', 'html'] : ['html']);
+  await f.build().resumeOutbox(binding);
+  expect(commits).toBe(2);
+});

@@ -222,7 +222,12 @@ try {
       assert.equal(manifest.scope.kind, sample.expected.scope);
       if (sample.kind === 'synthetic') {
         assert(manifest.resources.some(resource => resource.status === 'available'), sample.id + ' must retain actual image bytes');
-        for (const resource of sample.resources) assert(manifest.files.some(file => file.role === 'image' && file.sha256 === resource.sha256), sample.id + ' image hash');
+        for (const resource of sample.resources) assert(manifest.files.some(file => file.role === (resource.mediaType === 'text/css' ? 'css' : 'image') && file.sha256 === resource.sha256), sample.id + ' resource hash');
+      }
+      if (sample.expected.stylesheets) {
+        assert.deepEqual(manifest.files.filter(file => file.role === 'css').map(file => file.sha256).sort(), [...sample.expected.stylesheets].sort());
+        assert(manifest.resources.some(resource => resource.role === 'css' && resource.url === null && resource.status === 'available'));
+        report.checks.push('archived-inline/external-css/inert-preview');
       }
       evidence.scope = manifest.scope; evidence.resources = manifest.resources;
       const htmlResponse = await request(`${base}/web-snapshots/${descriptor.source.sourceVersionId}/files/${manifest.htmlFileId}`); assert.equal(htmlResponse.status, 200); const html = await htmlResponse.text();
@@ -230,7 +235,14 @@ try {
       for (const text of sample.expected.excludes ?? []) assert(!html.includes(text), sample.id + ' leaked excluded scope');
       for (const file of manifest.files) {
         const path = `${base}/web-snapshots/${descriptor.source.sourceVersionId}/files/${file.id}`;
-        const response = await request(path); assert.equal(response.status, 200); assert.equal(hash(Buffer.from(await response.arrayBuffer())), file.sha256);
+        const response = await request(path); assert.equal(response.status, 200);
+        const bytes = Buffer.from(await response.arrayBuffer()); assert.equal(hash(bytes), file.sha256);
+        if (file.role === 'css') {
+          assert.match(response.headers.get('content-disposition'), /attachment/);
+          assert.match(response.headers.get('content-type'), /application\/octet-stream/);
+          assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
+        }
+        if (file.role === 'preview' && sample.expected.inertStylesheetMarker) assert(!bytes.toString().includes(sample.expected.inertStylesheetMarker));
         assert.equal((await request(path, { actor: null })).status, 401); assert.equal((await request(path, { actor: other })).status, 404);
       }
       evidence.files = manifest.files.map(({ id, role, sha256, bytes }) => ({ id, role, sha256, bytes })); evidence.language = descriptor.index.language;

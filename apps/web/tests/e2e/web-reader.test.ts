@@ -144,3 +144,40 @@ test('cancel can precede partial publication; explicit refresh discovers it whil
     const newer = await (await start).json(); expect(newer.id).not.toBe(cancelled.id); expect(newer.profileRevision).toBe(2);
   } finally { await page.request.post('/__test/web-publication/release'); }
 });
+
+test('lost start acknowledgement retries one action and the next deliberate start creates a new run', async ({ page }, testInfo) => {
+  const { defaultProviderProfile } = await import('@pagelingo/document-contracts');
+  const { origin } = await import('./library-helpers');
+  await newReader(page, 'web-run-identity');
+  const value = await archive(page, '<article><p>The original article explains how the reader can save useful information and read the document without losing the source.</p></article>');
+  const session = await (await page.request.get('/api/v1/auth/session')).json();
+  const { revision, hasApiKey, ...settings } = defaultProviderProfile;
+  expect((await page.request.put('/api/v1/settings/provider', { headers: { Origin: origin, 'X-CSRF-Token': session.csrfToken }, data: { expectedRevision: 0, settings: { ...settings, baseUrl: 'https://mock.example/v1', model: 'test-model' }, key: { action: 'replace', value: 'test-only-key' } } })).status()).toBe(200);
+  const requests: Array<{ requestId?: string }> = [];
+  const jobs: string[] = [];
+  await page.route(`**/api/v1/documents/${value.documentId}/web-jobs`, async route => {
+    if (route.request().method() !== 'POST') return route.continue();
+    requests.push(route.request().postDataJSON());
+    const response = await route.fetch(); jobs.push((await response.json()).id);
+    if (requests.length === 1) return route.abort('connectionreset');
+    await route.fulfill({ response });
+  });
+  await page.goto(`/library/${value.documentId}`);
+  await page.getByText('翻译任务', { exact: true }).click();
+  await page.getByRole('button', { name: '开始新一轮翻译', exact: true }).click();
+  await expect(page.getByRole('alert')).toBeVisible();
+  expect(requests[0].requestId).toMatch(/^[a-f0-9-]{36}$/);
+  await page.screenshot({ path: testInfo.outputPath('web-run-retry.png'), fullPage: true });
+  await page.getByRole('button', { name: '重试本次开始', exact: true }).click();
+  await expect.poll(() => requests.length).toBe(2);
+  await expect.poll(() => jobs.length).toBe(2);
+  expect(requests[1]).toEqual(requests[0]); expect(jobs[1]).toBe(jobs[0]);
+  await expect(page.getByLabel('任务状态')).toContainText('已完成');
+  await page.getByRole('button', { name: '开始新一轮翻译', exact: true }).click();
+  await expect.poll(() => requests.length).toBe(3);
+  expect(requests[2].requestId).not.toBe(requests[0].requestId);
+  await expect.poll(() => jobs.length).toBe(3); expect(jobs[2]).not.toBe(jobs[0]);
+  await expect(page.getByLabel('任务状态')).toContainText('已完成');
+  const accepted = await (await page.request.get(`/api/v1/documents/${value.documentId}/web-jobs`)).json();
+  expect(accepted.items).toHaveLength(2);
+});

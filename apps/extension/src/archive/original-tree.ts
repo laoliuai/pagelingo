@@ -3,6 +3,8 @@ import { blogSource, type ArchiveSource } from './adapters/blog';
 import { xSource } from './adapters/x';
 import { zhihuSource } from './adapters/zhihu';
 import { wechatSource } from './adapters/wechat';
+import { collectOriginalStylesheets } from './stylesheets';
+import { normalizeCaptureUrl } from '@pagelingo/web-capture';
 
 export function selectArchiveSource(document: Document): ArchiveSource {
   const hostname = new URL(document.URL).hostname;
@@ -63,5 +65,6 @@ export function originalTree(document: Document, source: ArchiveSource): HTMLEle
 export function originalSourceSignature(document: Document, source: ArchiveSource, tree: HTMLElement): string {
   return JSON.stringify({ url: document.URL, language: document.documentElement.lang,
     canonical: document.querySelector<HTMLLinkElement>('link[rel="canonical"]')?.href ?? null,
-    title: source.title, author: source.author, publishedAt: source.publishedAt, warnings: source.warnings, html: tree.outerHTML });
+    title: source.title, author: source.author, publishedAt: source.publishedAt, warnings: source.warnings, html: tree.outerHTML,
+    stylesheets: collectOriginalStylesheets(document, normalizeCaptureUrl(document.URL)) });
 }

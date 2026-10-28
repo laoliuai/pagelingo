@@ -72,11 +72,6 @@ async function createBoundJob(
   input: CreateWebJobRequest,
   irSha256: string,
 ) {
-  const current = await findProviderProfile(client, ownerId);
-  if (!current?.key_id || !current.base_url || !current.model.trim())
-    throw new ServiceError(409, 'PROVIDER_NOT_CONFIGURED', 'Configure your provider before starting translation');
-  const glossaryRevision = await currentGlossaryRevision(client, ownerId);
-  if (current.revision !== input.profileRevision || glossaryRevision !== input.glossaryRevision) throw profileChanged();
   const identity = {
     kind: 'translate',
     sourceVersionId: input.sourceVersionId,
@@ -86,8 +81,22 @@ async function createBoundJob(
     glossaryRevision: input.glossaryRevision,
     sourceLanguage: input.sourceLanguage?.toLowerCase() ?? null,
     selectionBlockIds: input.selectionBlockIds ?? null,
+    ...(input.requestId ? { requestId: input.requestId } : {}),
   };
   const inputSha256 = createHash('sha256').update(canonicalManifestBytes(identity)).digest('hex');
+  if (input.requestId) {
+    const accepted = await repo.findWebJobByRequest(client, ownerId, documentId, authVersion, input.requestId);
+    if (accepted) {
+      if (accepted.input_sha256 !== inputSha256)
+        throw new ServiceError(409, 'IDEMPOTENCY_CONFLICT', 'This start action was already accepted with different input');
+      return accepted;
+    }
+  }
+  const current = await findProviderProfile(client, ownerId);
+  if (!current?.key_id || !current.base_url || !current.model.trim())
+    throw new ServiceError(409, 'PROVIDER_NOT_CONFIGURED', 'Configure your provider before starting translation');
+  const glossaryRevision = await currentGlossaryRevision(client, ownerId);
+  if (current.revision !== input.profileRevision || glossaryRevision !== input.glossaryRevision) throw profileChanged();
   const existing = await repo.findWebJobByInput(client, ownerId, documentId, authVersion, inputSha256);
   if (existing) return existing;
   if (glossaryRevision === 0) await ensureGlossaryRevision(client, ownerId);
@@ -117,6 +126,7 @@ async function createBoundJob(
     glossaryRevision: input.glossaryRevision,
     sourceLanguage: identity.sourceLanguage,
     selectionBlockIds: identity.selectionBlockIds,
+    requestId: input.requestId,
   });
   await readers.setRequestedWebJob(client, ownerId, documentId, job.id);
   return job;
@@ -192,6 +202,8 @@ export function createWebJobsService({ db, store }: { db: Database; store: Objec
       toWebTranslationDocument(ir, selected, input.sourceLanguage ?? ir.metadata.language.sourceLanguage ?? undefined);
       const canonical = {
         ...input,
+        sourceVersionId: loaded.source.source_version_id,
+        ...(input.requestId ? { requestId: input.requestId.toLowerCase() } : {}),
         sourceLanguage: input.sourceLanguage?.toLowerCase(),
         selectionBlockIds: selected.length === all.length ? undefined : selected,
       };

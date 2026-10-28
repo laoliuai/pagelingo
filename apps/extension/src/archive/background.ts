@@ -60,6 +60,7 @@ async function acquire(entry: ArchiveEntry, id: string): Promise<AcquiredResourc
   const current = await binding(); await assertResourceGrant(entry, current, id);
   const resource = entry.draft!.pendingResources.find(resource => resource.id === id)!;
   let result: AcquiredResource;
+  if (resource.url === null) throw new Error('blocked'); // Inline bytes come only from the persisted original draft.
   if (/^https?:/.test(resource.url)) result = await acquireNetworkResource(resource);
   else {
     const key = `${entry.grant!.grantId}/${id}`; const state: IncomingResource = { received: 0 }; incoming.set(key, state);
@@ -74,7 +75,7 @@ async function acquire(entry: ArchiveEntry, id: string): Promise<AcquiredResourc
 const outbox = createArchiveOutbox({ database: db, current: async () => (await readConnection())?.binding ?? null,
   client: createArchiveClient, acquire: (_draft, id, entry) => acquire(entry, id), schedule });
 async function permissionOrigins(entry: ArchiveEntry): Promise<string[]> {
-  const origins = [...new Set(entry.draft?.pendingResources.filter(resource => resource.url.startsWith('https:')).map(resource => hostPermission(resource.url)) ?? [])];
+  const origins = [...new Set(entry.draft?.pendingResources.flatMap(resource => resource.url?.startsWith('https:') && !('missingReason' in resource && resource.missingReason) ? [hostPermission(resource.url)] : []) ?? [])];
   const missing: string[] = []; for (const origin of origins) if (!await chrome.permissions.contains({ origins: [origin] })) missing.push(origin); return missing;
 }
 async function receiveDelivery(message: z.infer<typeof deliverySchema>, sender: chrome.runtime.MessageSender) {

@@ -1,4 +1,4 @@
-import { captureDraftSchema, createWebCaptureRequestSchema, defaultCaptureLimits, type CaptureDraft, type CaptureFile, type CaptureResource, type WebCaptureManifest } from '@pagelingo/document-contracts';
+import { captureDraftSchema, captureResourceSchema, createWebCaptureRequestSchema, defaultCaptureLimits, type CaptureDraft, type CaptureFile, type CaptureResource, type WebCaptureManifest } from '@pagelingo/document-contracts';
 import { sha256, inspectImageResource } from '@pagelingo/web-capture';
 import { finalizeCaptureTranslation } from './resource-manifest.js';
 import type { ArchiveEntry, ArchiveDatabase } from './database.js';
@@ -21,22 +21,34 @@ export async function prepareCapture(entry: ArchiveEntry, binding: SiteBinding, 
     if (entry.resources.some(resource => resource.id === pending.id)) continue;
     await assertCurrent(); stored = await db.files(binding, entry.id);
     const id = `resource-${draft.pendingResources.indexOf(pending)}`;
+    const identity = pending.url === null
+      ? { id: pending.id, role: pending.role, url: null, provenance: pending.provenance }
+      : { id: pending.id, role: pending.role, url: pending.url };
     let resource: CaptureResource;
     try {
+      if ('missingReason' in pending && pending.missingReason) throw new Error(pending.missingReason);
       let file = stored.find(file => file.descriptor.id === id);
       if (!file) {
-        const acquired = await acquire(draft, pending.id, entry); await assertCurrent();
+        const acquired = 'text' in pending
+          ? { bytes: new TextEncoder().encode(pending.text), mediaType: 'text/css' }
+          : await acquire(draft, pending.id, entry);
+        await assertCurrent();
         const descriptor = await describeFile(id, `resources/${id}`, pending.role, acquired.mediaType, acquired.bytes);
         if (descriptor.bytes > defaultCaptureLimits.maxResourceBytes || stored.length >= defaultCaptureLimits.maxFiles - 1 || stored.reduce((n, f) => n + f.descriptor.bytes, 0) + descriptor.bytes > defaultCaptureLimits.maxTotalBytes) throw new Error('too-large');
         if (pending.role === 'image') await inspectImageResource(acquired.bytes, descriptor);
+        else {
+          try {
+            if (acquired.mediaType !== 'text/css' || new TextDecoder('utf-8', { fatal: true }).decode(acquired.bytes).includes('\0')) throw new Error();
+          } catch { throw new Error('invalid'); }
+        }
         await assertCurrent(); await db.putFile(binding, entry.id, descriptor, acquired.bytes);
         file = { partition: entry.partition, captureId: entry.id, descriptor, bytes: acquired.bytes };
       }
-      resource = { ...pending, status: 'available', fileId: file.descriptor.id };
+      resource = captureResourceSchema.parse({ ...identity, status: 'available', fileId: file.descriptor.id });
     } catch (error) {
       await assertCurrent();
       const reason = error instanceof Error && ['blocked','too-large','timeout','invalid','unsupported','not-loaded'].includes(error.message) ? error.message as 'blocked' : 'unavailable';
-      resource = { ...pending, status: 'missing', reason };
+      resource = captureResourceSchema.parse({ ...identity, status: 'missing', reason });
       entry.warnings.push(`资源 ${pending.id} 缺失：${reason}`);
     }
     entry.resources.push(resource); await assertCurrent(); await db.put(binding, entry);

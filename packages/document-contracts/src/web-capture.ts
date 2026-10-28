@@ -56,13 +56,29 @@ export const captureFileSchema = z.strictObject({
   : value.role === 'css' ? value.mediaType === 'text/css' : value.mediaType === 'application/json', 'File media type does not match its role');
 export type CaptureFile = z.infer<typeof captureFileSchema>;
 const resourceIdentity = { id: webLocalIdSchema };
-const missingResource = { status: z.literal('missing'), reason: z.enum(['unavailable', 'unsupported', 'blocked', 'too-large', 'timeout', 'not-loaded', 'invalid']) };
+const missingResourceReason = z.enum(['unavailable', 'unsupported', 'blocked', 'too-large', 'timeout', 'not-loaded', 'invalid']);
+const missingResource = { status: z.literal('missing'), reason: missingResourceReason };
 const availableResource = { status: z.literal('available'), fileId: webLocalIdSchema };
+const inlineStylesheetIdentity = {
+  ...resourceIdentity, role: z.literal('css'), url: z.null(),
+  provenance: z.strictObject({
+    kind: z.literal('inline-style'),
+    documentUrl: captureUrlSchema.refine(value => {
+      try {
+        const url = new URL(value);
+        return url.href === value && ![...url.searchParams.keys()].some(key => /^(?:utm_.*|fbclid|gclid|msclkid)$/i.test(key));
+      } catch { return false; }
+    }, 'Inline stylesheet requires the normalized captured source URL'),
+    index: safeNonnegativeIntegerSchema,
+  }),
+};
 export const captureResourceSchema = z.union([
   z.strictObject({ ...resourceIdentity, url: captureResourceUrlSchema, role: z.literal('image'), ...availableResource }),
   z.strictObject({ ...resourceIdentity, url: captureResourceUrlSchema, role: z.literal('image'), ...missingResource }),
   z.strictObject({ ...resourceIdentity, url: captureUrlSchema, role: z.literal('css'), ...availableResource }),
   z.strictObject({ ...resourceIdentity, url: captureUrlSchema, role: z.literal('css'), ...missingResource }),
+  z.strictObject({ ...inlineStylesheetIdentity, ...availableResource }),
+  z.strictObject({ ...inlineStylesheetIdentity, ...missingResource }),
 ]);
 export type CaptureResource = z.infer<typeof captureResourceSchema>;
 export const snapshotPreviewSchema = z.strictObject({
@@ -136,6 +152,10 @@ export const webCaptureManifestSchema = withJsonDepthLimit(webCaptureManifestSha
   const origins = new Set<string>();
   for (const resource of value.resources) {
     try {
+      if (resource.url === null) {
+        if (resource.provenance.documentUrl !== value.source.url) fail('Inline stylesheet belongs to another captured source');
+        continue;
+      }
       if (resource.role === 'css' && !captureUrlSchema.safeParse(resource.url).success) fail('CSS requires HTTP/HTTPS');
       if (resource.url.startsWith('blob:') && new URL(resource.url).origin !== new URL(value.source.url).origin) fail('Blob resource belongs to another source origin');
       if (!resource.url.startsWith('data:')) origins.add(new URL(resource.url).origin);
@@ -170,9 +190,12 @@ export const webCaptureManifestSchema = withJsonDepthLimit(webCaptureManifestSha
 export type WebCaptureManifest = z.infer<typeof webCaptureManifestSchema>;
 
 /** Serializable collector output; adapters fetch pending resources and finalize file hashes. */
-export const pendingCaptureResourceSchema = z.discriminatedUnion('role', [
+export const pendingCaptureResourceSchema = z.union([
   z.strictObject({ id: webLocalIdSchema, url: captureResourceUrlSchema, role: z.literal('image') }),
-  z.strictObject({ id: webLocalIdSchema, url: captureUrlSchema, role: z.literal('css') }),
+  z.strictObject({ id: webLocalIdSchema, url: captureUrlSchema, role: z.literal('css'), missingReason: missingResourceReason.optional() }),
+  z.strictObject({ ...inlineStylesheetIdentity, text: z.string().max(defaultCaptureLimits.maxResourceBytes)
+    .refine(value => new TextEncoder().encode(value).byteLength <= defaultCaptureLimits.maxResourceBytes, 'Stylesheet exceeds UTF-8 byte budget') }),
+  z.strictObject({ ...inlineStylesheetIdentity, missingReason: missingResourceReason }),
 ]);
 export type PendingCaptureResource = z.infer<typeof pendingCaptureResourceSchema>;
 const snapshotHtmlSchema = z.string().max(defaultCaptureLimits.maxHtmlBytes).refine(value => new TextEncoder().encode(value).byteLength <= defaultCaptureLimits.maxHtmlBytes, 'HTML exceeds UTF-8 byte budget');
@@ -191,5 +214,6 @@ export const captureDraftSchema = z.strictObject({
   metadata: webCaptureManifestShapeSchema.shape.metadata, canonicalUrl: captureUrlSchema.nullable(),
   kind: z.enum(['article', 'x-post', 'answer']), pendingResources: z.array(pendingCaptureResourceSchema),
   existingTranslation: captureDraftTranslationCandidateSchema.nullable(),
-}).refine(value => new TextEncoder().encode(JSON.stringify(value)).byteLength <= defaultCaptureLimits.maxIrBytes, 'Capture draft exceeds JSON transport budget');
+}).refine(value => new TextEncoder().encode(JSON.stringify(value)).byteLength <= defaultCaptureLimits.maxIrBytes, 'Capture draft exceeds JSON transport budget')
+  .refine(value => [...value.snapshot.resources, ...value.pendingResources].every(resource => resource.url !== null || resource.provenance.documentUrl === value.snapshot.sourceUrl), 'Inline stylesheet belongs to another captured source');
 export type CaptureDraft = z.infer<typeof captureDraftSchema>;

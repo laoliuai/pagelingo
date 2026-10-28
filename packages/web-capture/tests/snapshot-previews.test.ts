@@ -34,7 +34,7 @@ it('charges shared images once per preview and splits resource closures at their
   const snapshot = sanitizeNodeSnapshot(snapshotInput('<p>A<img src="/one.png"><img src="/one.png"></p><p>B<img src="/two.png"></p>'));
   const draft = await manifestFor(snapshot);
   draft.files.push(...[1, 2].map(i => ({ id: `image${i}`, path: `images/${i}.png`, bytes: 600, sha256: 'a'.repeat(64), mediaType: 'image/png', role: 'image' as const })));
-  draft.resources = snapshot.resources.map((resource, i) => ({ id: resource.id, role: resource.role, url: resource.url, status: 'available', fileId: `image${i + 1}` }));
+  draft.resources = snapshot.resources.filter(resource => resource.role === 'image').map((resource, i) => ({ id: resource.id, role: resource.role, url: resource.url, status: 'available', fileId: `image${i + 1}` }));
   const built = await buildSnapshotPreviews(snapshot, draft, { ...defaultCaptureLimits, maxPreviewResourceBytes: 1000 });
   expect(built.index.previews.map(preview => preview.resourceBytes)).toEqual([600, 600]);
   expect(built.index.previews.map(preview => preview.resourceFileIds)).toEqual([['image1'], ['image2']]);

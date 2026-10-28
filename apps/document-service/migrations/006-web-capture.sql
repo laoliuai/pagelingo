@@ -88,7 +88,7 @@ CREATE TABLE web_jobs (
   kind text NOT NULL CHECK (kind IN ('fetch-link','translate')),
   input_sha256 text NOT NULL CHECK (input_sha256 ~ '^[a-f0-9]{64}$'), url text,
   source_version_id uuid, parse_id text, profile_revision integer, glossary_revision integer,
-  source_language text, selection_block_ids text[],
+  source_language text, selection_block_ids text[], request_id uuid,
   status text NOT NULL DEFAULT 'queued' CHECK (status IN ('queued','running','paused-config','partial','completed','failed','cancelled')),
   epoch bigint NOT NULL DEFAULT 0 CHECK (epoch BETWEEN 0 AND 9007199254740991),
   lease_owner text, lease_until timestamptz, slot_id integer, slot_epoch bigint,
@@ -100,11 +100,12 @@ CREATE TABLE web_jobs (
   UNIQUE (owner_id,id), UNIQUE (owner_id,document_id,id),
   UNIQUE (owner_id,document_id,source_version_id,parse_id,id),
   UNIQUE (owner_id,document_id,auth_version,input_sha256),
+  UNIQUE (owner_id,document_id,auth_version,request_id),
   FOREIGN KEY (owner_id,document_id) REFERENCES documents(owner_id,id),
   FOREIGN KEY (owner_id,document_id,source_version_id,parse_id) REFERENCES web_parse_runs(owner_id,document_id,source_version_id,id),
   FOREIGN KEY (owner_id,profile_revision) REFERENCES web_provider_revisions(owner_id,revision),
   FOREIGN KEY (owner_id,glossary_revision) REFERENCES glossary_revisions(owner_id,revision),
-  CHECK ((kind='fetch-link' AND url IS NOT NULL AND source_version_id IS NULL AND parse_id IS NULL AND profile_revision IS NULL AND glossary_revision IS NULL AND source_language IS NULL AND selection_block_ids IS NULL)
+  CHECK ((kind='fetch-link' AND request_id IS NULL AND url IS NOT NULL AND source_version_id IS NULL AND parse_id IS NULL AND profile_revision IS NULL AND glossary_revision IS NULL AND source_language IS NULL AND selection_block_ids IS NULL)
     OR (kind='translate' AND url IS NULL AND source_version_id IS NOT NULL AND parse_id IS NOT NULL AND profile_revision IS NOT NULL AND glossary_revision IS NOT NULL)),
   CHECK (source_language IS NULL OR (length(source_language) BETWEEN 2 AND 63 AND source_language ~ '^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$' AND lower(split_part(source_language,'-',1)) NOT IN ('und','mul','zxx'))),
   CHECK (selection_block_ids IS NULL OR (cardinality(selection_block_ids) BETWEEN 1 AND 20000 AND array_position(selection_block_ids,NULL) IS NULL)),
@@ -116,8 +117,8 @@ CREATE INDEX web_jobs_queue ON web_jobs(status,next_request_at,created_at);
 CREATE TRIGGER web_jobs_kind BEFORE INSERT ON web_jobs FOR EACH ROW EXECUTE FUNCTION assert_web_document();
 CREATE FUNCTION protect_web_job_input() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
-  IF (NEW.id,NEW.owner_id,NEW.document_id,NEW.auth_version,NEW.kind,NEW.input_sha256,NEW.url,NEW.source_version_id,NEW.parse_id,NEW.profile_revision,NEW.glossary_revision,NEW.source_language,NEW.selection_block_ids,NEW.created_at)
-    IS DISTINCT FROM (OLD.id,OLD.owner_id,OLD.document_id,OLD.auth_version,OLD.kind,OLD.input_sha256,OLD.url,OLD.source_version_id,OLD.parse_id,OLD.profile_revision,OLD.glossary_revision,OLD.source_language,OLD.selection_block_ids,OLD.created_at)
+  IF (NEW.id,NEW.owner_id,NEW.document_id,NEW.auth_version,NEW.kind,NEW.input_sha256,NEW.url,NEW.source_version_id,NEW.parse_id,NEW.profile_revision,NEW.glossary_revision,NEW.source_language,NEW.selection_block_ids,NEW.request_id,NEW.created_at)
+    IS DISTINCT FROM (OLD.id,OLD.owner_id,OLD.document_id,OLD.auth_version,OLD.kind,OLD.input_sha256,OLD.url,OLD.source_version_id,OLD.parse_id,OLD.profile_revision,OLD.glossary_revision,OLD.source_language,OLD.selection_block_ids,OLD.request_id,OLD.created_at)
   THEN RAISE EXCEPTION 'Immutable web job input'; END IF;
   RETURN NEW;
 END; $$;

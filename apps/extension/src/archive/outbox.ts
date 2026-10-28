@@ -76,7 +76,9 @@ export function createArchiveOutbox(deps: OutboxDependencies) {
           entry.ingestionId = result.id; await db.put(binding, entry);
           entry.cancelRequested ||= (await db.get(binding, entry.id))?.cancelRequested;
           if (entry.cancelRequested && result.status !== 'completed') result = await cancelCapture(result.id);
-          else if (!['completed', 'cancelled', 'failed'].includes(result.status)) {
+          else if (!['completed', 'cancelled'].includes(result.status)) {
+            // Failed validation/publication and expired staging retain this ingestion.
+            // Reconcile its current receipts against our durable original files.
             const files = await db.files(binding, entry.id);
             for (const id of result.missingFileIds) {
               await check();

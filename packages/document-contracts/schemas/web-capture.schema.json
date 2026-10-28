@@ -394,6 +394,133 @@
               "reason"
             ],
             "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              },
+              "role": {
+                "type": "string",
+                "const": "css"
+              },
+              "url": {
+                "type": "null"
+              },
+              "provenance": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "inline-style"
+                  },
+                  "documentUrl": {
+                    "type": "string",
+                    "maxLength": 8192,
+                    "pattern": "^https?:\\/\\/(?![^/?#]*@)[^/?#\\s\\x00-\\x1f\\x7f]+[^\\s\\x00-\\x1f\\x7f]*$"
+                  },
+                  "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "kind",
+                  "documentUrl",
+                  "index"
+                ],
+                "additionalProperties": false
+              },
+              "status": {
+                "type": "string",
+                "const": "available"
+              },
+              "fileId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              }
+            },
+            "required": [
+              "id",
+              "role",
+              "url",
+              "provenance",
+              "status",
+              "fileId"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              },
+              "role": {
+                "type": "string",
+                "const": "css"
+              },
+              "url": {
+                "type": "null"
+              },
+              "provenance": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "inline-style"
+                  },
+                  "documentUrl": {
+                    "type": "string",
+                    "maxLength": 8192,
+                    "pattern": "^https?:\\/\\/(?![^/?#]*@)[^/?#\\s\\x00-\\x1f\\x7f]+[^\\s\\x00-\\x1f\\x7f]*$"
+                  },
+                  "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "kind",
+                  "documentUrl",
+                  "index"
+                ],
+                "additionalProperties": false
+              },
+              "status": {
+                "type": "string",
+                "const": "missing"
+              },
+              "reason": {
+                "type": "string",
+                "enum": [
+                  "unavailable",
+                  "unsupported",
+                  "blocked",
+                  "too-large",
+                  "timeout",
+                  "not-loaded",
+                  "invalid"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "role",
+              "url",
+              "provenance",
+              "status",
+              "reason"
+            ],
+            "additionalProperties": false
           }
         ]
       }

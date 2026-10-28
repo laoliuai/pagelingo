@@ -102,7 +102,7 @@ export class PageController {
     this.capturedResources = undefined;
     const draft = await collectOriginalCapture(this.document, { captureId: grant.captureId, assertCurrent, translations: this.captureTranslations() });
     assertCurrent();
-    this.capturedResources = { grant, resources: new Map(draft.pendingResources.map(resource => [resource.id, resource])) };
+    this.capturedResources = { grant, resources: new Map(draft.pendingResources.map(resource => [resource.id, structuredClone(resource)])) };
     return draft;
   }
 
@@ -115,7 +115,7 @@ export class PageController {
     if (current.contentSessionId !== grant.contentSessionId || current.revision !== grant.revision || current.url !== grant.url) throw new Error('Capture source changed; stale resource grant');
     const resource = captured.resources.get(resourceId);
     if (!resource) throw new Error('Resource was not selected by this capture');
-    return { ...resource };
+    return structuredClone(resource);
   }
 
   private captureTranslations(): ExistingTranslationEvidence | undefined {

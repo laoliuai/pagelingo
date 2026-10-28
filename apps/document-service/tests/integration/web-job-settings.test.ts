@@ -510,3 +510,55 @@ it('job discovery distinguishes an empty owned Web document from another owner o
   expect((await t.request('/api/v1/documents/00000000-0000-4000-8000-000000000000/web-jobs')).statusCode).toBe(404);
   expect((await t.db.pool.query('SELECT id FROM web_jobs')).rowCount).toBe(0); expect(t.calls()).toBe(0);
 });
+
+it('explicit run identity replays accepted input, rejects changed input, and preserves configuration fences', async () => {
+  const t = await setup(); const saved = await t.save(); await t.profile();
+  const url = `/api/v1/documents/${saved.documentId}/web-jobs`;
+  const requestId = crypto.randomUUID();
+  const input = t.input(saved, { requestId, selectionBlockIds: [...saved.blocks].reverse(), sourceLanguage: 'EN' });
+  const first = await t.request(url, 'POST', input);
+  expect(first.statusCode, first.body).toBe(201);
+  const job = first.json();
+  expect((await t.request(url, 'POST', { ...input, selectionBlockIds: saved.blocks, sourceLanguage: 'en' })).json().id).toBe(job.id);
+  const conflict = await t.request(url, 'POST', { ...input, sourceLanguage: 'fr' });
+  expect(conflict.statusCode).toBe(409); expect(conflict.json().error.code).toBe('IDEMPOTENCY_CONFLICT');
+  await t.request(`/api/v1/web-jobs/${job.id}/cancel`, 'POST', {});
+  await t.profile(1, 'keep');
+  await t.request('/api/v1/settings/glossary', 'PUT', { expectedRevision: 0, entries: [{ source: 'reader', target: '读者', policy: 'translate', domain: 'all' }] });
+  const replay = await t.request(url, 'POST', input);
+  expect(replay.statusCode, replay.body).toBe(201);
+  expect(replay.json()).toMatchObject({ id: job.id, status: 'cancelled' });
+  expect((await t.request(url, 'POST', { ...input, requestId: crypto.randomUUID() })).json().error.code).toBe('PROFILE_CHANGED');
+  expect((await t.request(url, 'POST', { ...input, profileRevision: 2, glossaryRevision: 1 })).json().error.code).toBe('IDEMPOTENCY_CONFLICT');
+  const next = await t.request(url, 'POST', { ...input, requestId: crypto.randomUUID(), profileRevision: 2, glossaryRevision: 1 });
+  expect(next.statusCode).toBe(201); expect(next.json().id).not.toBe(job.id);
+  await expect(t.db.pool.query('UPDATE web_jobs SET request_id=$2 WHERE id=$1', [job.id, crypto.randomUUID()])).rejects.toThrow('Immutable web job input');
+  expect((await t.db.pool.query('SELECT request_id FROM web_jobs WHERE id=$1', [job.id])).rows[0].request_id).toBe(requestId);
+  expect(t.calls()).toBe(0);
+});
+
+it('two deliberate same-input runs publish distinct Readers and reuse valid owner cache', async () => {
+  const t = await setup(); const saved = await t.save(); await t.profile();
+  const url = `/api/v1/documents/${saved.documentId}/web-jobs`;
+  const requestId = crypto.randomUUID().toUpperCase();
+  const input = t.input(saved, { requestId, sourceVersionId: saved.sourceVersionId.toUpperCase() });
+  const first = await t.request(url, 'POST', input);
+  expect(first.statusCode, first.body).toBe(201);
+  const canonicalInput = { ...input, requestId: requestId.toLowerCase(), sourceVersionId: saved.sourceVersionId };
+  expect((await t.request(url, 'POST', canonicalInput)).json().id).toBe(first.json().id);
+  const { startWorker } = await import('../helpers/worker-process.js');
+  const { eventually } = await import('../helpers/web-jobs.js');
+  const worker = await startWorker(t); closes.unshift(worker.stop);
+  const getJob = async (id: string) => (await t.request(`/api/v1/web-jobs/${id}`)).json();
+  const completed = await eventually(() => getJob(first.json().id), job => job.status === 'completed');
+  expect((await t.request(url, 'POST', input)).json().id).toBe(completed.id);
+  const second = await t.request(url, 'POST', { ...input, requestId: crypto.randomUUID() });
+  expect(second.statusCode, second.body).toBe(201); expect(second.json().id).not.toBe(completed.id);
+  expect((await t.db.pool.query('SELECT requested_web_job_id FROM documents WHERE id=$1', [saved.documentId])).rows[0].requested_web_job_id).toBe(second.json().id);
+  const completedAgain = await eventually(() => getJob(second.json().id), job => job.status === 'completed');
+  expect(completedAgain.readerVersionId).not.toBe(completed.readerVersionId);
+  const checkpoint = (await t.db.pool.query('SELECT checkpoint FROM web_job_checkpoints WHERE job_id=$1', [completedAgain.id])).rows[0].checkpoint;
+  expect(checkpoint.metrics.cacheHits).toBeGreaterThan(0); expect(checkpoint.metrics.requests).toBe(0);
+  expect((await t.request(`/api/v1/documents/${saved.documentId}/web-reader`)).json().versionId).toBe(completedAgain.readerVersionId);
+  expect(worker.output()).toBe('');
+});

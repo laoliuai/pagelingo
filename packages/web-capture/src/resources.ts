@@ -72,5 +72,7 @@ export async function inspectImageResource(input: Uint8Array, descriptor: Captur
 }
 
 export function replayResourcesFromManifest(manifest: WebCaptureManifest): PendingCaptureResource[] {
-  return webCaptureManifestSchema.parse(manifest).resources.map(({ id, url, role }) => ({ id, url, role }));
+  // Retain existing external resource metadata. Inline CSS has no HTML
+  // placeholder or pending text to reconstruct; its evidence stays in the manifest.
+  return webCaptureManifestSchema.parse(manifest).resources.filter(resource => resource.url !== null).map(({ id, url, role }) => ({ id, url, role }));
 }

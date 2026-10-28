@@ -46,6 +46,7 @@ export async function sendLocalResource(grant: CaptureGrant, id: string, lookup:
   }
 }
 export async function acquireNetworkResource(resource: PendingCaptureResource): Promise<AcquiredResource> {
+  if (resource.url === null) throw new Error('blocked');
   const url = new URL(resource.url);
   if (url.protocol !== 'https:' || url.username || url.password) throw new Error('blocked');
   if (!await chrome.permissions.contains({ origins: [hostPermission(resource.url)] })) throw new Error('blocked');

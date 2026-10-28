@@ -10,7 +10,9 @@ export async function finalizeCaptureTranslation(draft: CaptureDraft, resources:
   const resolved = resources.map(resource => captureResourceSchema.parse(resource));
   const byId = new Map(resolved.map(resource => [resource.id, resource]));
   if (byId.size !== resolved.length || byId.size !== draft.pendingResources.length || draft.pendingResources.some(resource => {
-    const final = byId.get(resource.id); return !final || final.url !== resource.url || final.role !== resource.role;
+    const final = byId.get(resource.id);
+    return !final || final.url !== resource.url || final.role !== resource.role
+      || (resource.url === null && (final.url !== null || final.provenance.documentUrl !== resource.provenance.documentUrl || final.provenance.index !== resource.provenance.index));
   })) throw new Error('Resolved resources do not match captured membership');
   const descriptors = files.map(file => captureFileSchema.parse(file));
   const fingerprint = await captureContentFingerprint(draft.snapshot, resolved, descriptors);

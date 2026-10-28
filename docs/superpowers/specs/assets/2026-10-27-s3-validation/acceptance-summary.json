@@ -1576,5 +1576,538 @@
       },
       "verificationScope": "Actual delayed-schema RED→GREEN plus late app/context helpers, full18 Node lifecycle/CLI tests and native10 repeated after fix2. Original3.8s cleanup/5s wrapper bounds unchanged. Delayed schema report honestly retains initial1000ms wait timeout; subsequent ordered disposal passes. Earlier unrelated gates retain their original source chronology."
     }
-  ]
+  ],
+  "finalFix": {
+    "findings": [
+      "I1 failed-capture recovery",
+      "I2 original stylesheet producer / R30",
+      "I3 explicit-run request identity / R29",
+      "M1 restart cleanup after input read failure"
+    ],
+    "wholeReviewBase": "26ec8bc3d534e8861b4e91bde167cdfd819a0663",
+    "implementationBase": "8c177b3",
+    "checkedAt": "2026-10-28T01:39:40.347Z",
+    "sourceFreeze": {
+      "at": "2026-10-28T01:20:39.316Z",
+      "inventorySha256": "77b8fc3dd9f29d264dea692996f63930d6bcad8e01318c95d8ab8280dfe0e47f",
+      "filesCompared": 693,
+      "changedAfterFinalGates": []
+    },
+    "rootAttempts": [
+      {
+        "command": "env -u NO_COLOR npm run check",
+        "log": "final-check.log",
+        "exitCode": 1,
+        "phase": "typecheck",
+        "reason": "Two existing web-capture fixture mappers lost nullable CSS provenance; fixed fixture types.",
+        "logSha256": "2429a35e344d49fa481d4e634cebc7b0353f9b46116d8b4ccea3933964609994"
+      },
+      {
+        "command": "env -u NO_COLOR npm run check",
+        "log": "final-check-2.log",
+        "exitCode": 1,
+        "phase": "unit",
+        "reason": "External CSS metadata replay compatibility regression; restored external metadata, filtered image placeholders at server sanitizer boundary.",
+        "logSha256": "6308388db5ce848fd5793f030f5aaf17a1d969ff65dd1c5efae86448237ec248"
+      },
+      {
+        "command": "env -u NO_COLOR npm run check",
+        "log": "final-check-3.log",
+        "exitCode": 0,
+        "unitTests": 888,
+        "glossaryTests": 6,
+        "packageTests": 2,
+        "extensionBrowserTests": 63,
+        "logSha256": "77f531183630b8622872287a4eeb8d3214baa498b8d240bf5ba115c7e53f7aa4"
+      }
+    ],
+    "site": {
+      "command": "env -u NO_COLOR npm run check:site",
+      "log": "final-check-site.log",
+      "status": "passed",
+      "exitCode": 0,
+      "integrationTests": 255,
+      "integrationFiles": 21,
+      "integrationSeconds": 416.29,
+      "browserTests": 88,
+      "nodeTests": 19,
+      "logSha256": "67bf6eb08511ef543a2ef218504c17cf97b5104dc79989ce04e6b4ab866d66a3"
+    },
+    "native": {
+      "command": "npm run check:web-capture -- --samples .superpowers/sdd/2026-10-27-learning-site-s3/final-fix-evidence/samples.json --output .superpowers/sdd/2026-10-27-learning-site-s3/final-fix-evidence/native",
+      "status": "passed",
+      "declaredSamples": 11,
+      "exitCode": 0,
+      "startedAt": "2026-10-28T01:38:55.494Z",
+      "finishedAt": "2026-10-28T01:39:40.347Z",
+      "report": "native/report.json",
+      "reportSha256": "0afbb9cada3ee2ae7f7d753155e8bee014049917876b25519c5aad29b5458c8c",
+      "log": "final-native.log",
+      "allInputsUnchanged": true,
+      "cleanupPassed": 10,
+      "logSha256": "2a31ed94075292743827d4b05d9cc598437f6a1f7506ae8eccb8f454aede7abe",
+      "checks": [
+        "native-worker-stop/lost-ack",
+        "archived-inline/external-css/inert-preview",
+        "source-unavailable-reader/no-new-model-call",
+        "private-file-hashes/anonymous401/other-owner404",
+        "owned-api/db-connection/worker-restart-with-retained-store",
+        "device-revoke/same-owner-reconnect"
+      ],
+      "provider": "independent mock echo; no linguistic quality claim",
+      "sourceDelivery": "declared immutable HTML; page requests routed; production extension HTTPS acquisition omits credentials and may fetch resources from explicitly granted source origins; actual archived hashes recorded",
+      "liveAuthenticatedSources": "UNVERIFIED: X, Zhihu, WeChat",
+      "samples": [
+        {
+          "id": "blog-en",
+          "kind": "synthetic",
+          "url": "https://capture.example/article/en",
+          "collectedAt": "2026-10-28T00:00:00Z",
+          "checkedAt": "2026-10-28T01:38:58.210Z",
+          "status": "passed",
+          "saveStatus": "original-saved",
+          "scope": {
+            "kind": "article",
+            "rootNodeId": "s_1",
+            "completeWithinScope": true,
+            "warnings": []
+          },
+          "inputSha256Before": "9587a6de716c5cbf9d23b8165892aecea8768456fcc2040b4addf4359266146f",
+          "inputSha256After": "9587a6de716c5cbf9d23b8165892aecea8768456fcc2040b4addf4359266146f",
+          "resourceCounts": {
+            "image/available": 1
+          },
+          "css": [],
+          "cssFiles": [],
+          "captureId": "cdadc41c-508a-4389-baeb-39f5ec329c89",
+          "documentId": "2d3203ea-af20-44e7-9d5f-6ed8c43898d9",
+          "jobId": "85c2baf7-c258-41c9-b2a1-e45dec41f5e5",
+          "readerVersionId": "bff9f61c-44c0-40b7-bd34-d27008045d6a",
+          "unverified": [
+            "Live source DOM and authenticated sessions",
+            "Linguistic translation quality"
+          ]
+        },
+        {
+          "id": "blog-zh",
+          "kind": "synthetic",
+          "url": "https://capture.example/article/zh",
+          "collectedAt": "2026-10-28T00:00:00Z",
+          "checkedAt": "2026-10-28T01:39:01.445Z",
+          "status": "passed",
+          "saveStatus": "original-saved",
+          "scope": {
+            "kind": "article",
+            "rootNodeId": "s_1",
+            "completeWithinScope": true,
+            "warnings": []
+          },
+          "inputSha256Before": "4179d44adf0fcd6addb34fe3f9a8ca50e20765a9fa99246805a9ae0624239ae5",
+          "inputSha256After": "4179d44adf0fcd6addb34fe3f9a8ca50e20765a9fa99246805a9ae0624239ae5",
+          "resourceCounts": {
+            "image/available": 1
+          },
+          "css": [],
+          "cssFiles": [],
+          "captureId": "4a34f3fd-4f65-4918-88af-7b1dcbc467dd",
+          "documentId": "d24f3d05-e40b-407c-96be-6695faae6558",
+          "readerVersionId": "2cb624e8-4b34-4345-ba41-0d0e3acc3419",
+          "unverified": [
+            "Live source DOM and authenticated sessions",
+            "Linguistic translation quality"
+          ]
+        },
+        {
+          "id": "x-en",
+          "kind": "synthetic",
+          "url": "https://x.com/fixture/status/123",
+          "collectedAt": "2026-10-28T00:00:00Z",
+          "checkedAt": "2026-10-28T01:39:03.786Z",
+          "status": "passed",
+          "saveStatus": "original-saved",
+          "scope": {
+            "kind": "x-post",
+            "rootNodeId": "s_1",
+            "completeWithinScope": true,
+            "warnings": []
+          },
+          "inputSha256Before": "3b3f79229b4cbcfcc405fa55f833a9cf5c2e18f8a82fdefaa9f3d23e9fa3e6ad",
+          "inputSha256After": "3b3f79229b4cbcfcc405fa55f833a9cf5c2e18f8a82fdefaa9f3d23e9fa3e6ad",
+          "resourceCounts": {
+            "image/available": 1
+          },
+          "css": [],
+          "cssFiles": [],
+          "captureId": "72d46ea6-5079-4484-abcf-5f4ee082841b",
+          "documentId": "c1a1c38d-bb9a-46b0-8940-41e9e69f356e",
+          "jobId": "68135fc7-92a1-4d45-9d21-3a8f24ad30a9",
+          "readerVersionId": "4d3c90b2-881f-44c6-9452-c5271a07708a",
+          "unverified": [
+            "Live source DOM and authenticated sessions",
+            "Linguistic translation quality"
+          ]
+        },
+        {
+          "id": "x-zh",
+          "kind": "synthetic",
+          "url": "https://x.com/fixture/status/124",
+          "collectedAt": "2026-10-28T00:00:00Z",
+          "checkedAt": "2026-10-28T01:39:06.603Z",
+          "status": "passed",
+          "saveStatus": "original-saved",
+          "scope": {
+            "kind": "x-post",
+            "rootNodeId": "s_1",
+            "completeWithinScope": true,
+            "warnings": []
+          },
+          "inputSha256Before": "2cd3a854f0a0b5c9f099a3e70b8d8fe34a67596c9e1bbcc5f2afd640e4f00779",
+          "inputSha256After": "2cd3a854f0a0b5c9f099a3e70b8d8fe34a67596c9e1bbcc5f2afd640e4f00779",
+          "resourceCounts": {
+            "image/available": 1
+          },
+          "css": [],
+          "cssFiles": [],
+          "captureId": "f2340806-a7af-4721-9532-d22004677ccb",
+          "documentId": "02410280-0c8b-4473-93fb-b17d0dca08c4",
+          "readerVersionId": "2da679ae-9e07-4370-b7b4-2e9c0bf1a302",
+          "unverified": [
+            "Live source DOM and authenticated sessions",
+            "Linguistic translation quality"
+          ]
+        },
+        {
+          "id": "zhihu-en",
+          "kind": "synthetic",
+          "url": "https://www.zhihu.com/question/1/answer/22",
+          "collectedAt": "2026-10-28T00:00:00Z",
+          "checkedAt": "2026-10-28T01:39:08.912Z",
+          "status": "passed",
+          "saveStatus": "original-saved",
+          "scope": {
+            "kind": "answer",
+            "rootNodeId": "s_1",
+            "completeWithinScope": true,
+            "warnings": []
+          },
+          "inputSha256Before": "854cd5f58d07a7273dc1f9c313a920ddcae00e9319d5c9dcab2d789a476c1fe0",
+          "inputSha256After": "854cd5f58d07a7273dc1f9c313a920ddcae00e9319d5c9dcab2d789a476c1fe0",
+          "resourceCounts": {
+            "image/available": 1
+          },
+          "css": [],
+          "cssFiles": [],
+          "captureId": "6a6796ba-d912-4548-a26b-32b84b3d57ef",
+          "documentId": "bc5d8271-b345-41ba-b088-7a2402c44f6c",
+          "jobId": "3edf0b6b-bbd5-4c7f-85d3-7d7f836cca8e",
+          "readerVersionId": "e1f8f4d0-a173-4a11-8855-8ed3a6f937d4",
+          "unverified": [
+            "Live source DOM and authenticated sessions",
+            "Linguistic translation quality"
+          ]
+        },
+        {
+          "id": "zhihu-zh",
+          "kind": "synthetic",
+          "url": "https://www.zhihu.com/question/1/answer/23",
+          "collectedAt": "2026-10-28T00:00:00Z",
+          "checkedAt": "2026-10-28T01:39:12.016Z",
+          "status": "passed",
+          "saveStatus": "original-saved",
+          "scope": {
+            "kind": "answer",
+            "rootNodeId": "s_1",
+            "completeWithinScope": true,
+            "warnings": []
+          },
+          "inputSha256Before": "1d9ea106465b44d15a30e95e8fc388c328b073131bb227934b7febfec3d2d1e6",
+          "inputSha256After": "1d9ea106465b44d15a30e95e8fc388c328b073131bb227934b7febfec3d2d1e6",
+          "resourceCounts": {
+            "image/available": 1
+          },
+          "css": [],
+          "cssFiles": [],
+          "captureId": "82eea060-85e0-42da-9717-96b1c3d6db7f",
+          "documentId": "31140ee3-af69-4759-8fc9-6c60055883e3",
+          "readerVersionId": "f39ea632-5173-4e93-be18-f83625e40df2",
+          "unverified": [
+            "Live source DOM and authenticated sessions",
+            "Linguistic translation quality"
+          ]
+        },
+        {
+          "id": "wechat-en",
+          "kind": "synthetic",
+          "url": "https://mp.weixin.qq.com/s?__biz=fixture&mid=en&idx=1&sn=own",
+          "collectedAt": "2026-10-28T00:00:00Z",
+          "checkedAt": "2026-10-28T01:39:14.120Z",
+          "status": "passed",
+          "saveStatus": "original-saved",
+          "scope": {
+            "kind": "article",
+            "rootNodeId": "s_1",
+            "completeWithinScope": true,
+            "warnings": []
+          },
+          "inputSha256Before": "1b5577bf952609a643c850e7c8cb15e9d4a9018942500b204ad0ec4ae5b248c9",
+          "inputSha256After": "1b5577bf952609a643c850e7c8cb15e9d4a9018942500b204ad0ec4ae5b248c9",
+          "resourceCounts": {
+            "image/available": 1
+          },
+          "css": [],
+          "cssFiles": [],
+          "captureId": "08836937-c133-445c-b086-445902f842ac",
+          "documentId": "86f7b0b3-3261-4dfc-891e-59d1f6c67682",
+          "jobId": "0a7e1b81-281d-46af-ab2d-f38f5d9f383d",
+          "readerVersionId": "fa9bf063-7576-4760-864b-9c01694074bd",
+          "unverified": [
+            "Live source DOM and authenticated sessions",
+            "Linguistic translation quality"
+          ]
+        },
+        {
+          "id": "wechat-zh",
+          "kind": "synthetic",
+          "url": "https://mp.weixin.qq.com/s?__biz=fixture&mid=zh&idx=1&sn=own",
+          "collectedAt": "2026-10-28T00:00:00Z",
+          "checkedAt": "2026-10-28T01:39:16.757Z",
+          "status": "passed",
+          "saveStatus": "original-saved",
+          "scope": {
+            "kind": "article",
+            "rootNodeId": "s_1",
+            "completeWithinScope": true,
+            "warnings": []
+          },
+          "inputSha256Before": "d7c6dd3284c46bd44e75dc554804c649ccca8516d7e5317518d6e90c4b0b4df3",
+          "inputSha256After": "d7c6dd3284c46bd44e75dc554804c649ccca8516d7e5317518d6e90c4b0b4df3",
+          "resourceCounts": {
+            "image/available": 1
+          },
+          "css": [],
+          "cssFiles": [],
+          "captureId": "59061ef2-ac44-4e73-99ca-0d11a6b99199",
+          "documentId": "e0f2b664-d02b-4d04-b9a9-b59dc8c232ce",
+          "readerVersionId": "84dd82e1-d1cf-4a44-a01f-ab4beee493c9",
+          "unverified": [
+            "Live source DOM and authenticated sessions",
+            "Linguistic translation quality"
+          ]
+        },
+        {
+          "id": "public-blog-1",
+          "kind": "cached-public",
+          "url": "https://lilianweng.github.io/posts/2023-06-23-agent/",
+          "collectedAt": "2026-10-27T14:07:00.055Z",
+          "checkedAt": "2026-10-28T01:39:18.903Z",
+          "status": "passed",
+          "saveStatus": "partial-resources",
+          "scope": {
+            "kind": "article",
+            "rootNodeId": "s_1",
+            "completeWithinScope": false,
+            "warnings": [
+              "Unsupported source element: details",
+              "Unsupported source element: summary",
+              "Unsupported source element: resource",
+              "Removed unsupported math attribute: version",
+              "Removed unsupported math attribute: xml:space"
+            ]
+          },
+          "inputSha256Before": "03b6ed75b1dc0dedd200a077367d1f7737f0a18e08c104e7f653115e1f52b0ef",
+          "inputSha256After": "03b6ed75b1dc0dedd200a077367d1f7737f0a18e08c104e7f653115e1f52b0ef",
+          "resourceCounts": {
+            "image/missing": 13,
+            "css/missing": 1
+          },
+          "css": [
+            {
+              "id": "css-0",
+              "url": "https://lilianweng.github.io/assets/css/stylesheet.min.8e2f522e170c601ef0b359b6e27078d17e3020e1f4d928afdff4dae588c1e9e4.css",
+              "role": "css",
+              "status": "missing",
+              "reason": "unavailable"
+            }
+          ],
+          "cssFiles": [],
+          "captureId": "29cf4fd5-1efd-4403-b53b-c8a2f309fadb",
+          "documentId": "940cb47b-0f6f-4744-b446-86555f6e1be1",
+          "jobId": "799000e6-0ebe-4141-810c-f836956771e7",
+          "readerVersionId": "ed2558ff-8cad-4280-a071-9c2e8a4c7304",
+          "unverified": [
+            "Current live DOM: this is the unmodified anonymous HTTP input collected on 2026-10-27",
+            "External resources are unavailable in this controlled replay; missing states remain explicit, with no resource completeness claim",
+            "Authenticated source cases and linguistic translation quality"
+          ]
+        },
+        {
+          "id": "public-blog-2",
+          "kind": "cached-public",
+          "url": "https://lilianweng.github.io/posts/2018-02-19-rl-overview/",
+          "collectedAt": "2026-10-27T14:07:00.840Z",
+          "checkedAt": "2026-10-28T01:39:26.123Z",
+          "status": "passed",
+          "saveStatus": "partial-resources",
+          "scope": {
+            "kind": "article",
+            "rootNodeId": "s_1",
+            "completeWithinScope": false,
+            "warnings": [
+              "Unsupported source element: details",
+              "Unsupported source element: summary",
+              "Removed unsupported math attribute: version",
+              "Removed unsupported math attribute: xml:space"
+            ]
+          },
+          "inputSha256Before": "103c1caa52ebfb80ca4cc453322a85cadab0d2dfbba342520a6e52233417773e",
+          "inputSha256After": "103c1caa52ebfb80ca4cc453322a85cadab0d2dfbba342520a6e52233417773e",
+          "resourceCounts": {
+            "image/missing": 13,
+            "css/missing": 1
+          },
+          "css": [
+            {
+              "id": "css-0",
+              "url": "https://lilianweng.github.io/assets/css/stylesheet.min.8e2f522e170c601ef0b359b6e27078d17e3020e1f4d928afdff4dae588c1e9e4.css",
+              "role": "css",
+              "status": "missing",
+              "reason": "unavailable"
+            }
+          ],
+          "cssFiles": [],
+          "captureId": "8942a2d7-7f52-40a7-975a-75d668532098",
+          "documentId": "4c082668-84f7-4148-95bb-1758985003d9",
+          "jobId": "e3154b3f-7e7a-4046-bd2e-f1635c187fb8",
+          "readerVersionId": "ebed41b3-9925-4053-8ccf-237f38954352",
+          "unverified": [
+            "Current live DOM: this is the unmodified anonymous HTTP input collected on 2026-10-27",
+            "External resources are unavailable in this controlled replay; missing states remain explicit, with no resource completeness claim",
+            "Authenticated source cases and linguistic translation quality"
+          ]
+        },
+        {
+          "id": "css-en",
+          "kind": "synthetic",
+          "url": "https://capture.example/article/css",
+          "collectedAt": "2026-10-28T00:00:00Z",
+          "checkedAt": "2026-10-28T01:39:34.657Z",
+          "status": "passed",
+          "saveStatus": "original-saved",
+          "scope": {
+            "kind": "article",
+            "rootNodeId": "s_1",
+            "completeWithinScope": true,
+            "warnings": []
+          },
+          "inputSha256Before": "9ef5da9475ac8ae6194e5131320670e0461f3188cc139d9b81c438fae8b37458",
+          "inputSha256After": "9ef5da9475ac8ae6194e5131320670e0461f3188cc139d9b81c438fae8b37458",
+          "resourceCounts": {
+            "image/available": 1,
+            "css/available": 2
+          },
+          "css": [
+            {
+              "id": "css-0",
+              "url": "https://capture.example/assets/original.css",
+              "role": "css",
+              "status": "available",
+              "fileId": "resource-1"
+            },
+            {
+              "id": "css-1",
+              "role": "css",
+              "url": null,
+              "provenance": {
+                "kind": "inline-style",
+                "documentUrl": "https://capture.example/article/css",
+                "index": 1
+              },
+              "status": "available",
+              "fileId": "resource-2"
+            }
+          ],
+          "cssFiles": [
+            {
+              "id": "resource-1",
+              "role": "css",
+              "sha256": "c0929247ee8062cecbe12d193425b612a4f4520745c1585cea74232d529986af",
+              "bytes": 83
+            },
+            {
+              "id": "resource-2",
+              "role": "css",
+              "sha256": "9ed00059629d3a572dd87f33c401b459643ba0c21761977815e127df3cea4b2a",
+              "bytes": 120
+            }
+          ],
+          "captureId": "2d528d54-83b9-48a5-b28f-12ce6eaf00a2",
+          "documentId": "50526bf2-c9df-49cf-b57f-fe5f4ed62081",
+          "jobId": "37a335f2-2309-419e-ad00-7d49d18faaa9",
+          "readerVersionId": "048d9605-faf2-49ee-92c7-29f03068a3fd",
+          "unverified": [
+            "Live source DOM and authenticated sessions",
+            "Linguistic translation quality"
+          ]
+        }
+      ],
+      "cleanup": [
+        {
+          "name": "pending acquisitions",
+          "status": "passed"
+        },
+        {
+          "name": "trace",
+          "status": "passed"
+        },
+        {
+          "name": "worker",
+          "status": "passed"
+        },
+        {
+          "name": "app",
+          "status": "passed"
+        },
+        {
+          "name": "browser",
+          "status": "passed"
+        },
+        {
+          "name": "database pool",
+          "status": "passed"
+        },
+        {
+          "name": "owned schema",
+          "status": "passed"
+        },
+        {
+          "name": "late acquisitions",
+          "status": "passed"
+        },
+        {
+          "name": "admin pool",
+          "status": "passed"
+        },
+        {
+          "name": "private store/profile root",
+          "status": "passed"
+        }
+      ]
+    },
+    "screenshot": {
+      "path": "docs/superpowers/specs/assets/2026-10-27-s3-validation/web-run-retry.png",
+      "source": "apps/web/test-results/web-reader-lost-start-ackn-76e2d-ate-start-creates-a-new-run/web-run-retry.png",
+      "sha256": "6177a86ae3d97d8da288ab5ec802231322845fa08ff917182994369c66934cfc"
+    },
+    "historicalEvidence": "Prior Task13 Docker image/restart, S2 packages and audit retain their original source state before R29/R30; no final-source Docker rebuild, S2 package rerun or audit rerun in this wave.",
+    "minorDispositions": {
+      "M1": "Fixed; missing-input and failed-Compose regression continues all owned cleanup and preserves the original exit.",
+      "M2": "Deferred trusted-local sample preflight bounds and schema hardening.",
+      "M3": "Deferred pinned-tool warning maintenance; no version, timeout or isolation relaxation.",
+      "M4": "Touched run identity/lifecycle JSX formatted; broader existing readability debt deferred.",
+      "M5": "Deferred title/author/date enrichment from retained public source without another fetch.",
+      "M6": "Deferred terminal payload retention policy; recovery bytes preserved and local growth documented."
+    },
+    "evidenceDirectory": ".superpowers/sdd/2026-10-27-learning-site-s3/final-fix-evidence",
+    "verificationScope": "Fresh complete root/site/native gates after source refreeze; all inputs preserved, raw CSS archived as inert evidence, mock translation validates structure/lifecycle only. Final scoped review and integration remain with controller."
+  }
 }

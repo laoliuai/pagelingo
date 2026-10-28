@@ -5,7 +5,9 @@ export async function manifestFor(snapshot: SanitizedSnapshot): Promise<WebCaptu
     source: { url: snapshot.sourceUrl, canonicalUrl: null, kind: 'article', method: 'extension' },
     metadata: { title: 'Saved page', author: null, publishedAt: null, capturedAt: '2026-10-27T00:00:00Z' }, scope: snapshot.scope,
     htmlFileId: 'html', files: [{ id: 'html', path: 'snapshot.html', role: 'html', mediaType: 'text/html', bytes: new TextEncoder().encode(snapshot.html).length, sha256: await sha256(new TextEncoder().encode(snapshot.html)) }],
-    resources: snapshot.resources.map(resource => ({ id: resource.id, role: resource.role, url: resource.url, status: 'missing', reason: 'unavailable' })),
+    resources: snapshot.resources.map(resource => resource.url === null
+      ? { id: resource.id, role: resource.role, url: null, provenance: resource.provenance, status: 'missing', reason: 'unavailable' }
+      : { id: resource.id, role: resource.role, url: resource.url, status: 'missing', reason: 'unavailable' }),
     stylesheetFileIds: [], snapshots: { previews: [], nodeLocations: {} }, existingTranslation: null,
   };
 }

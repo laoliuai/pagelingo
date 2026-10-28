@@ -157,3 +157,19 @@ test('admits only canonical same-source-origin blob resources in a capture manif
     expect(contracts.webCaptureManifestSchema.safeParse({ ...manifest, resources }).success).toBe(accepted);
   }
 });
+
+test('inline CSS carries document provenance and bounded draft text but never a fabricated URL or manifest text', () => {
+  const provenance = { kind: 'inline-style', documentUrl: manifest.source.url, index: 0 };
+  const pending = { id: 'css-inline-0', role: 'css', url: null, provenance, text: 'p { color: red }' };
+  expect(contracts.pendingCaptureResourceSchema.safeParse(pending).success).toBe(true);
+  expect(contracts.pendingCaptureResourceSchema.safeParse({ ...pending, missingReason: 'too-large' }).success).toBe(false);
+  expect(contracts.pendingCaptureResourceSchema.safeParse({ ...pending, text: '汉'.repeat(6 * 1024 * 1024) }).success).toBe(false);
+  const css = { ...file, id: 'css-file', path: 'original.css', role: 'css', mediaType: 'text/css' };
+  const resource = { id: pending.id, role: 'css', url: null, provenance, status: 'available', fileId: css.id };
+  const value = { ...manifest, resources: [resource], files: [file, css], stylesheetFileIds: [css.id] };
+  expect(contracts.webCaptureManifestSchema.safeParse(value).success).toBe(true);
+  for (const patch of [
+    { text: pending.text }, { url: manifest.source.url }, { role: 'image' },
+    { provenance: { ...provenance, documentUrl: 'https://other.example/' } },
+  ]) expect(contracts.webCaptureManifestSchema.safeParse({ ...value, resources: [{ ...resource, ...patch }] }).success).toBe(false);
+});

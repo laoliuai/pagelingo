@@ -11,7 +11,12 @@ export const webJobStatusSchema = z.enum(['queued', 'running', 'paused-config', 
 export type WebJobStatus = z.infer<typeof webJobStatusSchema>;
 export const translationIntentSchema = z.enum(['none', 'auto', 'translate']);
 export type TranslationIntent = z.infer<typeof translationIntentSchema>;
-export const createWebJobRequestSchema = z.strictObject({ sourceVersionId: z.uuid(), parseId: parseIdSchema, profileRevision: safeNonnegativeIntegerSchema, glossaryRevision: safeNonnegativeIntegerSchema, sourceLanguage: sourceLanguageSchema.optional(), selectionBlockIds: webJobSelectionSchema.optional() });
+export const createWebJobRequestSchema = z.strictObject({
+  sourceVersionId: z.uuid(), parseId: parseIdSchema,
+  profileRevision: safeNonnegativeIntegerSchema, glossaryRevision: safeNonnegativeIntegerSchema,
+  sourceLanguage: sourceLanguageSchema.optional(), selectionBlockIds: webJobSelectionSchema.optional(),
+  requestId: z.uuid().optional(),
+});
 export type CreateWebJobRequest = z.infer<typeof createWebJobRequestSchema>;
 export const webJobSchema = z.strictObject({
   id: z.uuid(), documentId: z.uuid(), kind: z.enum(['fetch-link', 'translate']), status: webJobStatusSchema,

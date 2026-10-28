@@ -248,6 +248,48 @@
         "Live source DOM and authenticated sessions",
         "Linguistic translation quality"
       ]
+    },
+    {
+      "id": "css-en",
+      "kind": "synthetic",
+      "url": "https://capture.example/article/css",
+      "htmlFile": "css-en.html",
+      "sha256": "9ef5da9475ac8ae6194e5131320670e0461f3188cc139d9b81c438fae8b37458",
+      "capturedAt": "2026-10-28T00:00:00Z",
+      "expected": {
+        "scope": "article",
+        "contains": [
+          "The reader can save the original article and review the source after the website is unavailable. This software system preserves the document and the following examples explain how the application works.",
+          "const saved = 1;"
+        ],
+        "excludes": [
+          "EXCLUDED_"
+        ],
+        "language": "en",
+        "stylesheets": [
+          "c0929247ee8062cecbe12d193425b612a4f4520745c1585cea74232d529986af",
+          "9ed00059629d3a572dd87f33c401b459643ba0c21761977815e127df3cea4b2a"
+        ],
+        "inertStylesheetMarker": "--source-css-sentinel"
+      },
+      "resources": [
+        {
+          "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAYAAAC09K7GAAAAEUlEQVR4nGNgaGj4j4IJCgAAUTEX9QIGMYYAAAAASUVORK5CYII=",
+          "file": "pixel.png",
+          "sha256": "2c9a84434474af542a355370278c8a78dbbba983f74400608566ab9e9bed7bdd",
+          "mediaType": "image/png"
+        },
+        {
+          "url": "https://capture.example/assets/original.css",
+          "file": "original.css",
+          "sha256": "c0929247ee8062cecbe12d193425b612a4f4520745c1585cea74232d529986af",
+          "mediaType": "text/css"
+        }
+      ],
+      "unverified": [
+        "Live source DOM and authenticated sessions",
+        "Linguistic translation quality"
+      ]
     }
   ]
 }

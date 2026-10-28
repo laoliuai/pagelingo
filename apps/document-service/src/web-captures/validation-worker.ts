@@ -18,7 +18,7 @@ function prepareReader(ir: WebReaderIR, imported: WebImportedTranslation | null,
 async function prepare(input: ValidationInput): Promise<PreparedCapture> {
   const manifest = webCaptureManifestSchema.parse(input.manifest); const limits = input.limits;
   check(manifest.files.length <= limits.maxFiles && manifest.files.reduce((n, f) => n + f.bytes, 0) <= limits.maxTotalBytes);
-  check(new Set(manifest.resources.map(r => new URL(r.url).origin)).size <= limits.maxResourceOrigins);
+  check(new Set(manifest.resources.flatMap(resource => resource.url !== null && !resource.url.startsWith('data:') ? [new URL(resource.url).origin] : [])).size <= limits.maxResourceOrigins);
   const files = new Map<string, Uint8Array>();
   for (const descriptor of manifest.files) {
     check(descriptor.bytes <= (descriptor.role === 'html' ? limits.maxHtmlBytes : limits.maxResourceBytes));
@@ -41,7 +41,8 @@ async function prepare(input: ValidationInput): Promise<PreparedCapture> {
   }
   const snapshot = input.publicArticle
     ? extractPublicArticle(html, input.publicArticle.finalUrl, limits)
-    : sanitizeNodeSnapshot({ html, url: normalizeCaptureUrl(manifest.source.url), scope: manifest.scope }, limits, replayResourcesFromManifest(manifest));
+    : sanitizeNodeSnapshot({ html, url: normalizeCaptureUrl(manifest.source.url), scope: manifest.scope }, limits,
+      replayResourcesFromManifest(manifest).filter(resource => resource.role === 'image'));
   if (input.publicArticle) {
     check(!snapshot.warnings.includes('Readability could not identify an article'));
     // Redirects resolve relative resources; the saved source identity stays the requested URL.

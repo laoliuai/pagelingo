@@ -32,7 +32,17 @@ export async function loadPublication(jobId: string, ownerId: string, deps: Publ
   });
   const ir = webReaderIrSchema.parse(JSON.parse((await readWebAsset(deps.store, loaded.asset)).toString('utf8')));
   if (ir.parse.id !== loaded.job.parse_id || ir.source.manifestSha256 !== loaded.source.sha256 || loaded.asset.sha256 !== loaded.parse.ir_sha256) throw publicationConflict();
-  const identity = { kind: 'translate', sourceVersionId: loaded.job.source_version_id, parseId: loaded.job.parse_id, readerIrSha256: loaded.parse.ir_sha256, profileRevision: loaded.job.profile_revision, glossaryRevision: loaded.job.glossary_revision, sourceLanguage: loaded.job.source_language, selectionBlockIds: loaded.job.selection_block_ids };
+  const identity = {
+    kind: 'translate',
+    sourceVersionId: loaded.job.source_version_id,
+    parseId: loaded.job.parse_id,
+    readerIrSha256: loaded.parse.ir_sha256,
+    profileRevision: loaded.job.profile_revision,
+    glossaryRevision: loaded.job.glossary_revision,
+    sourceLanguage: loaded.job.source_language,
+    selectionBlockIds: loaded.job.selection_block_ids,
+    ...(loaded.job.request_id ? { requestId: loaded.job.request_id } : {}),
+  };
   if (createHash('sha256').update(canonicalManifestBytes(identity)).digest('hex') !== loaded.job.input_sha256) throw publicationConflict();
   const selection = loaded.job.selection_block_ids ?? ir.blocks.filter(b => b.type === 'text').map(b => b.id);
   const sourceLanguage = loaded.job.source_language ?? ir.metadata.language.sourceLanguage;

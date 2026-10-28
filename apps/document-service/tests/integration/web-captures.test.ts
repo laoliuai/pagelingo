@@ -216,3 +216,47 @@ it.each([false, true])('prunes multiple aggregate table-context imports while pr
   expect(artifact.blocks.map((b: { nodeId: string }) => b.nodeId)).toEqual(payload.blocks.slice(4).map((b: { nodeId: string }) => b.nodeId));
   expect((await t.db.pool.query('SELECT id FROM source_versions')).rows).toHaveLength(1); expect(t.modelCalls()).toBe(0);
 });
+
+it('publishes inline CSS as immutable private attachments while previews remain inert', async () => {
+  const { createHash } = await import('node:crypto');
+  const t = await setup(); const value = capture();
+  value.manifest.source.url = 'https://example.com/article#part';
+  const css = Buffer.from('p { color: red; background: url(https://never-fetch.example/css); }');
+  const descriptor = { id: 'inline-css', path: 'resources/inline.css', role: 'css' as const, mediaType: 'text/css', bytes: css.length, sha256: createHash('sha256').update(css).digest('hex') };
+  value.manifest.files.push(descriptor);
+  value.manifest.resources.push({ id: 'inline', role: 'css', url: null, provenance: { kind: 'inline-style', documentUrl: value.manifest.source.url, index: 0 }, status: 'available', fileId: descriptor.id });
+  value.manifest.stylesheetFileIds.push(descriptor.id);
+  const created = await t.create(value); expect(created.statusCode, created.body).toBe(201);
+  const id = created.json().id; await t.put(id, value.body);
+  expect((await t.app.inject({ method: 'PUT', url: `/api/v1/captures/${id}/files/${descriptor.id}`, headers: { ...t.headers, 'content-type': 'text/css' }, payload: css })).statusCode).toBe(200);
+  const saved = await t.commit(id); expect(saved.statusCode, saved.body).toBe(200);
+  const { documentId, sourceVersionId } = saved.json();
+  const base = `/api/v1/documents/${documentId}/web-snapshots/${sourceVersionId}`;
+  const archived = (await t.app.inject({ url: `${base}/manifest`, headers: t.headers })).json();
+  expect(archived.resources).toMatchObject([{ url: null, provenance: { documentUrl: value.manifest.source.url }, status: 'available' }]);
+  const file = await t.app.inject({ url: `${base}/files/${descriptor.id}`, headers: t.headers });
+  expect(file.statusCode).toBe(200); expect(file.rawPayload).toEqual(css);
+  expect(file.headers['content-disposition']).toContain('attachment');
+  expect(file.headers['content-type']).toContain('application/octet-stream');
+  expect(file.headers['x-content-type-options']).toBe('nosniff');
+  expect((await t.app.inject({ url: `${base}/files/${descriptor.id}` })).statusCode).toBe(401);
+  for (const preview of archived.snapshots.previews) {
+    const html = await t.app.inject({ url: `${base}/files/${preview.fileId}`, headers: t.headers });
+    expect(html.body).not.toMatch(/never-fetch|<style|<link/);
+  }
+  expect(t.modelCalls()).toBe(0);
+});
+it('preserves missing stylesheet evidence without charging CSS records to image placeholder replay', async () => {
+  const { sanitizeNodeSnapshot } = await import('@pagelingo/web-capture/node');
+  const t = await setup();
+  const snapshot = sanitizeNodeSnapshot({ html: '<p>Readable original<img src="https://example.com/one.png"><img src="https://example.com/two.png"></p>', url: 'https://example.com/article', scope: { kind: 'article', rootNodeId: 'root', completeWithinScope: true, warnings: [] } });
+  const value = capture(snapshot.html); value.manifest.source.url = snapshot.sourceUrl; value.manifest.scope = snapshot.scope;
+  value.manifest.resources = [
+    ...snapshot.resources.filter(resource => resource.role === 'image').map(resource => ({ ...resource, status: 'missing' as const, reason: 'blocked' as const })),
+    ...Array.from({ length: 255 }, (_, index) => ({ id: `css-${index}`, role: 'css' as const, url: `https://example.com/style-${index}.css`, status: 'missing' as const, reason: 'blocked' as const })),
+  ];
+  const created = await t.create(value); expect(created.statusCode, created.body).toBe(201);
+  await t.put(created.json().id, value.body);
+  const saved = await t.commit(created.json().id);
+  expect(saved.statusCode, saved.body).toBe(200); expect(saved.json().saveStatus).toBe('partial-resources');
+});
