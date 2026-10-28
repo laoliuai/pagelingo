@@ -77,4 +77,4 @@ npm run check:web-capture -- --samples tests/fixtures/web-s3/samples.json --outp
 - 任务审查 M1：restart harness 的 finally 中，若原 ZIP 变得不可读，hash 读取错误可能跳过后续 Compose 清理；记录为整分支审查待处理 Minor，本轮 I1 修正未改动该路径。
 - 任务审查 M2：本地 samples 声明/输入文件的前置大小、数量与字段约束仍可收紧；受信任声明已验证，本轮没有扩展为通用输入加固。
 
-执行期间的全部 R1–R28 及判断错误时的返工范围，见 [执行裁定记录](learning-site-s3-decisions.md)。任务级审查已完成；整分支最终审查与集成选择仍由控制方执行。
+执行期间的全部 R1–R30 及判断错误时的返工范围，见 [执行裁定记录](learning-site-s3-decisions.md)。任务级审查已完成；整分支最终审查与集成选择仍由控制方执行。

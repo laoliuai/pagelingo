@@ -1,6 +1,6 @@
 # S3 执行裁定记录
 
-对应已批准的 [S3 计划](superpowers/plans/2026-10-27-learning-site-s3.md)。本记录汇总执行期间的全部 R1–R29，保留原因及判断错误时的返工范围；原始裁定附于后文，避免仅存在临时会话记录中。
+对应已批准的 [S3 计划](superpowers/plans/2026-10-27-learning-site-s3.md)。本记录汇总执行期间的全部 R1–R30，保留原因及判断错误时的返工范围；原始裁定附于后文，避免仅存在临时会话记录中。
 
 这不是新增范围批准，也不代表真实登录态来源或译文语义质量已验收。最终能力与证据边界见 [验收记录](learning-site-s3-validation.md)。
 
@@ -35,6 +35,7 @@
 | R27 | 增加会话专用、有界的按文档任务发现接口。 | 刷新和跨设备后需要找到真实任务。 | 调整新增查询 API 与消费者。 |
 | R28 | 集成文件默认串行；保留隔离、原超时和显式多 worker 并发。 | 共享全库锁且领取允许为空，默认并行造成无效假设。 | 集成检查变慢，必要时改进夹具隔离。 |
 | R29 | 显式重译使用可重放 requestId；下一次主动操作使用新身份。 | 区分同一请求重放与同配置的新一轮，仍复用有效缓存。 | 调整可选请求字段、未发布006及仓库/界面。 |
+| R30 | 行内 CSS 使用空 URL 和文档 provenance，按原始字节归档且不执行。 | 行内样式没有真实外部资源 URL，仍需保存可用 CSS 证据。 | 调整局部 Web CSS 合同和采集消费者。 |
 
 R26 在容量边界复审后补充 UUID 游标与回绕；原有 1024 项退避上限保留。R28 的检查记录明确区分初次失败、测试框架调整、后续通过和实际已采集的源码/dist 清单；未补称不存在的早期 dist 清单。
 
@@ -157,3 +158,7 @@ Ruling: R28 — standardintegrationfileParallelismfalse/isolationretained +fixtu
 ### R29
 
 Ruling: R29 — optional UUID requestId on CreateWebJobRequest identifies ONE explicit manual start action, separate from source/cache semantics — same-settings retranslation must create newrun while replayofoneaction staysidempotent (design158/plan163) — costifwrong: narrowrequest/unreleased006/repository/publication/UIadjustment. Siteexplicitstart generatesnewrequestIdperdeliberateaction, retainsitandcanonicalpayloadacrossuncertain/failedACKretry; clearonlyafteracceptedresult, scope/inputchangeorexplicitnewaction. NewmanualrequestIDscreateindependentjobswithsameboundsource/parse/provider/glossary/lang/selection, validSDKcachemayreuse/no globalcachebypass. AbsentrequestIdkeepslegacy/automaticcanonicaldedupeandEXACToldidentityencoding(omitfieldratherthannull). Persistnullableimmutableweb_jobs.request_id, translate-only; uniqueowner/document/authVersion/requestId andinputhashbindrequestIdonlywhenpresent. Samekey+samecanonicalinputreturnsoriginaljobincludingterminal;samekeychangedinput409IDEMPOTENCY_CONFLICT,neverretargetoldjob. Replayedacceptedrequestisack/readnotresume,newworkrequirescurrentprofile/glossary; freshowner/auth/sessionalwaysenforced. ExistingWebJobDTOmayremainunchanged; worker/finalizerrecomputejob-envelopehashfromstoredrequest_id, actualIR/sourcehashandSDKcacheidentityunchanged. RetryexistingjobkeepsID/nonce/checkpoint/epochrules. Testsreplay/lostACK→onejob, deliberate2ndsameconfig→newjob/newrequestedpointer/newReaderwithcacheallowed, changedpayloadkeyconflict/configfences/crossowner/no passiveconfigbacklog/automaticdedupeunchanged.
+
+### R30
+
+Ruling: R30 — CSS-only inline resource variant url:null with provenance{kind:inline-style,documentUrl:HTTP(S),index:nonnegativeSafeInteger}; pending has boundedUTF8text OR missingReason, final hasactualfile/status/provenance andNOtext — inlineCSS has no honestHTTPresourceURL inoldcontract, approvedsnapshotrequiresavailableCSS — costifwrong: narrowWebCSScontracts/006ifneeded/sanitizer-fingerprint/extensionconsumeradjustment, notPDF/SDK/sourceURLchange. ExternalCSSkeepsHTTPurl andmaycarrypendingmissingReason; inlinevariantexclusivewithurlnull/provenance, imagesnevernullable. provenance.documentUrl equalsnormalizedcapturedsourceURL; collectionfromnon-pluginoriginaldocumentstyle/link nodes, source identity/styles checkedacrossasyncboundary. CaptureDraft/manifeststrictschemas+portableexportsupdatedBEFOREconsumers. Inlinebytespersistwithtrustedimmutableoriginaldraft, encodedtoactualCSSfilewithoutnetwork/hostgrant; no arbitraryURLfetch or clientcaller-byteoverride. Finalmanifestinlineprovenance bindsdoc+actualSHA/bytes/status insemanticfingerprint, no fabricatedURL/hash; source/navigationHTTP(S)andR17data/blobimage-onlypolicyunchanged. Existing16MiBresource/64MiBtotal/256files/16origins/8MiBHTML/16MiBdraftJSON/IPCceilingsapply; oversize/unavailable/unsupportedCSSexplicitmissingReason orboundedwarningwhenno representablelocator, never silentlycomplete. RawCSSarchiveattachment-only/nonexecuting; trustedpreviewneverexecutesrawCSS. Sameoriginalcaptureall3translationmodes, ownedpluginstylesexcluded; testexternal+inlinecollector→upload,denial/stale/unsupported/budget/inertness andsourcebinding. NullCSSmustnotreachgenericURL/origin/imagecodec paths.

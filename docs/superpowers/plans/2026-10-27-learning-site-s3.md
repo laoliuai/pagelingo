@@ -193,6 +193,8 @@ PDF 的 current_reader FK 保持；新增 current_web_reader FK 与 kind / 单�
 
 job 绑定 owner、authVersion、source / parse、非敏感 Provider revision 与 immutable glossary revision；不得拿浏览器 session 代替 worker 身份。每次网络调用前、检查点保存与发布时重新验证；运行中监视停用 / 换 Key 并 abort。配置变化进入 paused-config，用户明确用当前配置创建新 run，旧结果保留。原 glossary 修订供原 job 重放，新修订不触发旧资料重译。
 
+原文 CSS 的采集包含外部 stylesheet 与行内 style。外部 CSS 继续使用 HTTP(S) URL；行内 CSS 专用资源允许 `url:null`，必须携带 `{kind:"inline-style",documentUrl,index}` 来源，其中 documentUrl 等于本次规范化源 URL，index 为非负安全整数。草稿携带受 UTF-8 / JSON 预算约束的原始 text 或明确 missingReason；最终 manifest 不携带 text，只保留 provenance、实际文件摘要 / 字节及状态。行内字节与原文草稿一同持久化，不发起网络请求；CSS 仍只归档为不可执行附件，可信预览不直接执行原始 CSS。图片 URL、源导航、data/blob 规则及全部预算不放宽；不支持或超限的样式需明确记录，插件自身样式排除在原件之外。
+
 显式重译使用可选 UUID `CreateWebJobRequest.requestId` 区分操作身份：同一操作的丢失确认 / 重试保留 requestId 和输入，下一次主动开始使用新 requestId，可复用有效缓存。服务端在当前 owner/document/authVersion 下登记不可变 `web_jobs.request_id`，相同 requestId 与相同规范输入返回原 job（包括终态），相同 requestId 改变输入返回 409 IDEMPOTENCY_CONFLICT；已接受请求的重放不重启旧任务。新操作仍要求当前配置与授权。requestId 仅在存在时进入任务输入摘要，缺省保持原有自动及旧客户端去重和摘要编码；源内容指纹 / SDK 缓存键不因新操作改写。worker / 终结器按实际存储 request_id 验证任务身份，重试仍保留原 job 与检查点。
 
 新原文首次发布时，将服务端实际投影的 `WebLanguageDecision` 写入不可变 source metadata.language。自动调度在短事务中按实际事件 Reader 查询 source/parse/IR 摘要及语言，不读取对象存储或运行 SDK/renderer；去重/历史版本使用实际选中来源的元数据。旧版本缺少或语言元数据无效时保守跳过自动任务，手动创建可在事务外验证实际 IR；客户端不能覆盖服务端语言，配置保存不扫描历史资料。
