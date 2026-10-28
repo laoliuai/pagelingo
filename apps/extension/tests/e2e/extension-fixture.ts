@@ -7,9 +7,10 @@ import { fileURLToPath } from 'node:url';
 
 export const extensionDist = fileURLToPath(new URL('../../dist/', import.meta.url));
 
-export const test = base.extend<{ control: Page; extensionId: string; archiveDatabaseHarness: boolean }>({
+export const test = base.extend<{ control: Page; extensionId: string; archiveDatabaseHarness: boolean; sourceHandoffHosts: boolean }>({
   archiveDatabaseHarness: [false, { option: true }],
-  context: async ({ archiveDatabaseHarness }, use) => {
+  sourceHandoffHosts: [false, { option: true }],
+  context: async ({ archiveDatabaseHarness, sourceHandoffHosts }, use) => {
     const temporary = mkdtempSync(path.join(tmpdir(), 'pagelingo-e2e-'));
     const extension = path.join(temporary, 'extension');
     cpSync(extensionDist, extension, { recursive: true });
@@ -20,7 +21,7 @@ export const test = base.extend<{ control: Page; extensionId: string; archiveDat
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
     // Only the test copy receives access to localhost. Headless action clicks
     // cannot grant activeTab; production still requires an explicit user gesture.
-    manifest.host_permissions = ['http://127.0.0.1/*'];
+    manifest.host_permissions = ['http://127.0.0.1/*', ...(sourceHandoffHosts ? ['https://github.com/*', 'https://arxiv.org/*'] : [])];
     writeFileSync(manifestPath, JSON.stringify(manifest));
     let context: BrowserContext | undefined;
     try {

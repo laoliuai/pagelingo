@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useRef, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { isPdfReadableDocument, type DocumentSummary } from '@pagelingo/document-contracts';
@@ -11,51 +11,78 @@ import { BundleImportDialog } from './bundle-import-dialog';
 import { WebJobStatus } from '../web-reader/web-job-status';
 import { webSaveLabel, webProcessingLabel } from './import-status';
 import { OrganizationPanel } from './organization-panel';
+import { SourceDetails } from './source-details';
 import { PdfSource } from './pdf-source';
 const ReaderPage = lazy(() => import('../reader/reader-page').then(module => ({ default: module.ReaderPage })));
 const WebReaderPage = lazy(() => import('../web-reader/web-reader-page').then(module => ({ default: module.WebReaderPage })));
 export function DocumentPage() {
+  const { user, epoch } = useSession();
   const { id } = useParams();
-  const [search] = useSearchParams();
+  return <DocumentScope key={`${user?.id}:${epoch}:${id}`} />;
+}
+function DocumentScope() {
+  const { id } = useParams();
+  const [search, setSearch] = useSearchParams();
   const { user, epoch } = useSession();
   const query = useQuery({
     queryKey: [user!.id, 'document', id, epoch],
-    queryFn: ({ signal }) =>
-      apiRequest<DocumentSummary>(`/api/v1/documents/${encodeURIComponent(id!)}`, { signal }),
+    queryFn: ({ signal }) => apiRequest<DocumentSummary>(`/api/v1/documents/${encodeURIComponent(id!)}`, { signal }),
   });
-  return (
-    <section className="document-page">
-      <Link className="back-link" to="/library">
-        ← 返回资料库
-      </Link>
-      {query.isPending && <p role="status">正在加载资料…</p>}
-      <Feedback
-        message={
-          query.error
-            ? query.error instanceof ApiError && query.error.status === 404
-              ? '资料不存在或当前账号无权读取。'
-              : errorMessage(query.error)
-            : ''
-        }
-        error
-      />
-      {query.isError && <Button onClick={() => void query.refetch()}>重试加载</Button>}
-      {query.data && <OrganizationPanel key={`${id}:${epoch}`} documentId={query.data.id} />}
-      {query.data && !isPdfReadableDocument(query.data) && <><PageHeader title={query.data.title} description={`${webSaveLabel(query.data.saveStatus)} · ${webProcessingLabel(query.data.processingStatus)}`} action={<a href={query.data.url} target="_blank" rel="noopener noreferrer">打开原网站</a>} />{query.data.reader ? <Suspense fallback={<p>正在加载阅读器…</p>}><WebReaderPage key={query.data.id} document={query.data} versionId={search.get('versionId') ?? undefined} /></Suspense> : <><WebJobStatus documentId={query.data.id} /><Button onClick={() => void query.refetch()}>刷新归档状态</Button><p>尚无归档正文。可使用浏览器扩展保存当前网页。</p></>}</>}
-      {query.data && isPdfReadableDocument(query.data) && (
-        <>
-          <PageHeader
-            title={query.data.title}
-            description={query.data.reader ? 'PDF 原件 · 原文已保存 · 阅读包已导入' : 'PDF 原件 · 原文已保存 · 等待本地处理'}
-            action={<BundleImportDialog targetDocument={query.data} onImported={() => {}} />}
-          />
-          {query.data.reader ? <Suspense fallback={<p role="status">正在加载阅读器…</p>}><ReaderPage documentId={query.data.id} versionId={search.get('versionId') ?? query.data.reader.versionId} /></Suspense> : <PdfSource
-            key={query.data.id}
-            sourceUrl={`/api/v1/documents/${query.data.id}/source`}
-            title={query.data.title}
-          />}
-        </>
-      )}
-    </section>
-  );
+  // Refreshing the mutable document head must not replace the already-opened Reader.
+  const [pinnedReader, setPinnedReader] = useState<string>();
+  const [versionError, setVersionError] = useState('');
+  const selection = useRef(0);
+  async function selectPdfVersion(versionId?: string) {
+    const sequence = ++selection.current;
+    setVersionError('');
+    if (versionId) { setSearch({ versionId }); return; }
+    try {
+      const current = await query.refetch({ throwOnError: true });
+      if (sequence !== selection.current) return;
+      setPinnedReader(current.data?.reader?.versionId);
+      setSearch({});
+    } catch (error) {
+      if (sequence === selection.current) setVersionError(errorMessage(error));
+    }
+  }
+  if (query.data?.reader && !pinnedReader) setPinnedReader(query.data.reader.versionId);
+  const openedVersion = search.get('versionId') ?? pinnedReader;
+  const document = query.data;
+  return <section className="document-page">
+    <Link className="back-link" to="/library">← 返回资料库</Link>
+    {query.isPending && <p role="status">正在加载资料…</p>}
+    <Feedback message={query.error
+      ? query.error instanceof ApiError && query.error.status === 404
+        ? '资料不存在或当前账号无权读取。' : errorMessage(query.error)
+      : ''} error />
+    <Feedback message={versionError} error />
+    {query.isError && <Button onClick={() => void query.refetch()}>重试加载</Button>}
+    {document && <OrganizationPanel documentId={document.id}>
+      {document.kind !== 'pdf' && <SourceDetails document={document}
+        readerVersionId={openedVersion} historical={search.has('versionId')}
+        revisionId={search.get('sourceRevisionId') ?? undefined} />}
+    </OrganizationPanel>}
+    {document && !isPdfReadableDocument(document) && <>
+      <PageHeader title={document.title}
+        description={`${webSaveLabel(document.saveStatus)} · ${webProcessingLabel(document.processingStatus)}`}
+        action={<a href={document.url} target="_blank" rel="noopener noreferrer">打开原网站</a>} />
+      {document.reader ? <Suspense fallback={<p>正在加载阅读器…</p>}>
+        <WebReaderPage key={document.id} document={document} versionId={openedVersion} />
+      </Suspense> : <>
+        {document.kind !== 'repository' && document.kind !== 'paper' && <WebJobStatus documentId={document.id} />}
+        <Button onClick={() => void query.refetch()}>刷新归档状态</Button>
+        <p>{document.kind === 'repository' || document.kind === 'paper'
+          ? '打开“管理资料”查看固定来源、已保存材料与更新操作。'
+          : '尚无归档正文。可使用浏览器扩展保存当前网页。'}</p>
+      </>}
+    </>}
+    {document && isPdfReadableDocument(document) && <>
+      <PageHeader title={document.title}
+        description={openedVersion ? 'PDF 阅读版本 · 原件按所选阅读包固定' : 'PDF 原件 · 原文已保存 · 等待本地处理'}
+        action={document.kind === 'pdf' ? <BundleImportDialog targetDocument={document} onImported={() => {}} /> : undefined} />
+      {openedVersion ? <Suspense fallback={<p role="status">正在加载阅读器…</p>}>
+        <ReaderPage documentId={document.id} versionId={openedVersion} onVersionSelect={versionId => void selectPdfVersion(versionId)} />
+      </Suspense> : <PdfSource key={document.id} sourceUrl={`/api/v1/documents/${document.id}/source`} title={document.title} />}
+    </>}
+  </section>;
 }

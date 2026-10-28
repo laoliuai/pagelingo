@@ -11,7 +11,7 @@ export function DocumentRow({ document }: { document: DocumentSummary }) {
   const progress = useQuery({ queryKey: [user!.id, isPdfReadableDocument(document) ? 'reading-progress' : 'web-reading-progress', document.id, epoch],
     queryFn: async ({ signal }) => { const value = await apiRequest(`/api/v1/documents/${document.id}/${isPdfReadableDocument(document) ? 'progress' : 'web-progress'}`, { signal }); return value === null ? null : isPdfReadableDocument(document) ? readingProgressSchema.parse(value) : webReadingProgressSchema.parse(value); },
     enabled: !!document.reader, gcTime: 0 });
-  if (!isPdfReadableDocument(document)) return <article className="document-row"><div className="source-icon"><FileText size={20} /></div><div className="document-info"><h2><Link to={`/library/${document.id}`}>{document.title}</Link></h2><p className="muted">{document.url}</p><div className="document-meta"><span>{document.kind}</span><span>{webProcessingLabel(document.processingStatus)}</span><span>{document.reader ? translationLabel(document.reader.translationStatus) : '尚无归档正文'}</span></div></div><div className="document-status"><Badge>{webSaveLabel(document.saveStatus)}</Badge>{progress.data && <Link to={`/library/${document.id}?versionId=${progress.data.position.readerVersionId}`}>继续阅读</Link>}<time>{document.createdAt.slice(0, 10)}</time></div></article>;
+  if (!isPdfReadableDocument(document)) return <article className="document-row"><div className="source-icon"><FileText size={20} /></div><div className="document-info"><h2><Link to={`/library/${document.id}`}>{document.title}</Link></h2><p className="muted">{document.url}</p><div className="document-meta"><span>{document.kind === 'repository' ? '仓库' : document.kind === 'paper' ? '论文' : document.kind === 'x-post' ? 'X 主帖' : '文章'}</span><span>{webProcessingLabel(document.processingStatus)}</span><span>{document.reader ? translationLabel(document.reader.translationStatus) : '尚无归档正文'}</span></div></div><div className="document-status"><Badge>{webSaveLabel(document.saveStatus)}</Badge>{progress.data && <Link to={`/library/${document.id}?versionId=${progress.data.position.readerVersionId}`}>继续阅读</Link>}<time>{document.createdAt.slice(0, 10)}</time></div></article>;
   return (
     <article className="document-row">
       <div className="source-icon">
@@ -23,7 +23,7 @@ export function DocumentRow({ document }: { document: DocumentSummary }) {
         </h2>
         <p className="muted">{document.originalFilename}</p>
         <div className="document-meta">
-          <span>PDF</span>
+          <span>{document.kind === 'paper' ? '论文 · PDF' : 'PDF'}</span>
           <span>
             {new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 1 }).format(
               document.source.bytes / 1024,

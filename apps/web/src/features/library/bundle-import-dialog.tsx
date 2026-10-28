@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import type { BundleImport, DocumentSummary, SaveOrganization } from '@pagelingo/document-contracts';
+import type { ArxivSourceRevision, BundleImport, DocumentSummary, SaveOrganization } from '@pagelingo/document-contracts';
 import { useSession } from '../../app/session';
 import { Modal } from '../../shared/ui/dialog';
 import { Button } from '../../shared/ui/button';
@@ -13,24 +13,29 @@ import { useBundleImport } from './use-bundle-import';
 import { OrganizationChoices } from './organization-choices';
 interface BundleImportDialogProps {
   targetDocument?: DocumentSummary;
+  targetRevision?: ArxivSourceRevision;
   onImported: (result: BundleImport) => void;
+  disabled?: boolean;
+  onRetainedChange?: (retained: boolean) => void;
 }
 export function BundleImportDialog(props: BundleImportDialogProps) {
   const { user, epoch } = useSession();
   // A known target and retained File belong only to this owner/document context.
-  return <BundleImportScope key={`${user!.id}:${epoch}:${props.targetDocument?.id ?? 'library'}`} {...props} />;
+  return <BundleImportScope key={`${user!.id}:${epoch}:${props.targetDocument?.id ?? 'library'}:${props.targetRevision?.id ?? ''}`} {...props} />;
 }
-function BundleImportScope({ targetDocument, onImported }: BundleImportDialogProps) {
+function BundleImportScope({ targetDocument, targetRevision, onImported, disabled, onRetainedChange }: BundleImportDialogProps) {
   const [organization, setOrganization] = useState<SaveOrganization>({collectionId:null,tagIds:[]});
   const [open, setOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [fileChoice, setFileChoice] = useState(0);
-  const state = useBundleImport(open, targetDocument, onImported);
+  const state = useBundleImport(open, targetDocument, onImported, targetRevision);
   const active = activeImport(state.result);
   const oversized = !!file && !!state.limits.data && file.size > state.limits.data.maxArchiveBytes;
   const terminal = !!state.result && !active;
   const restoredUploadable = state.restored && (active || state.result?.status === 'failed');
   const priorTarget = restoredUploadable && !!targetDocument;
+  const retained = !state.restored && (state.busy || state.admissionUnknown || active);
+  useEffect(() => { onRetainedChange?.(retained); }, [retained, onRetainedChange]);
   useEffect(() => {
     if (!state.restored) return;
     // A previous selection must never be silently bound to an unknown past target.
@@ -45,8 +50,15 @@ function BundleImportScope({ targetDocument, onImported }: BundleImportDialogPro
   return (
     <Modal title="导入阅读包" open={open} onOpenChange={setOpen}
       description={restoredUploadable ? '正在查看当前账号此前的导入任务。任务目标以创建时为准。' : targetDocument ? '为此 PDF 导入本地生成的完整阅读包。原件保持不变，仅当前账号可见。' : '导入本地生成的完整阅读包 ZIP。原件和阅读内容仅当前账号可见。'}
-      trigger={<Button>导入阅读包</Button>}>
-      <form onSubmit={event => { event.preventDefault(); if (file && !oversized && !priorTarget) void state.submit(file, organization.collectionId || organization.tagIds.length ? organization : undefined); }}>
+      trigger={<Button disabled={disabled}>导入阅读包</Button>}>
+      <form onSubmit={event => {
+        event.preventDefault();
+        if (file && !oversized && !priorTarget) {
+          onRetainedChange?.(true);
+          void state.submit(file, organization.collectionId || organization.tagIds.length ? organization : undefined);
+        }
+      }}>
+        {targetRevision && !priorTarget && <p>导入目标：arXiv {targetRevision.baseId}v{targetRevision.version}。阅读包必须来自此版本的 PDF。</p>}
         <Field label="阅读包 ZIP">
           <Input key={fileChoice} type="file" accept=".zip,application/zip" disabled={state.busy || state.admissionUnknown || priorTarget || (active && state.result?.status !== 'created')}
             onChange={event => { if (state.selectFile()) setFile(event.target.files?.[0] ?? null); }} />
@@ -76,7 +88,7 @@ function BundleImportScope({ targetDocument, onImported }: BundleImportDialogPro
       </form>
       {state.recent.data && state.recent.data.length > 0 && !active && !state.busy && <div className="recent-imports">
         <h3>最近导入</h3>
-        {state.recent.data.slice(0, 5).map(item => <Button key={item.id} onClick={() => state.restore(item)}>{item.createdAt.slice(0, 16).replace('T', ' ')} · {recentLabel(item)}</Button>)}
+        {state.recent.data.slice(0, 5).map(item => <Button key={item.id} disabled={state.admissionUnknown} onClick={() => state.restore(item)}>{item.createdAt.slice(0, 16).replace('T', ' ')} · {recentLabel(item)}</Button>)}
       </div>}
       {state.recent.isError && <Feedback message="最近导入暂不可用。请检查网络后重新打开，避免重复导入。" error />}
     </Modal>

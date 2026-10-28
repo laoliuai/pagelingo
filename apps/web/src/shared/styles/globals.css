@@ -755,3 +755,11 @@ textarea { width:100%; resize:vertical; border:1px solid var(--border); padding:
   .document-page:has(> .management-panel:not([open])) > .back-link { min-height: 44px; margin-bottom: 0; display: inline-flex; align-items: center; }
   .document-page:has(> .management-panel:not([open])) > .page-header { clear: both; }
 }
+
+.source-details { border-top: 1px solid var(--border); overflow-wrap: anywhere; }
+.source-details h3, .source-details h4 { margin: 12px 0; }
+.source-details code { font-size: 12px; overflow-wrap: anywhere; }
+.source-details p { margin: 8px 0; }
+.source-materials > a, .source-materials > button { margin: 8px 12px 8px 0; }
+.source-refresh, .source-versions { margin-top: 16px; }
+.source-versions select { max-width: 100%; }

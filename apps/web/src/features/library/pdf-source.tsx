@@ -6,9 +6,10 @@ import { compatibleGeometry, SourceHighlight, type PdfGeometry } from '../reader
 import type { InteractionOrigin } from '../reader/window-state';
 import { useSession } from '../../app/session';
 import { Button } from '../../shared/ui/button';
+import { isPdfSourceUrl } from './pdf-source-url';
 import { Feedback } from '../../shared/ui/toast';
 
-/** Only public document IDs may select an authenticated, same-origin source. */
+/** Only registered same-origin document or asset routes may select a source. */
 export interface PdfSourceProps {
   sourceUrl: string; title: string; pageIndex?: number;
   onPageChange?: (pageIndex: number, origin: InteractionOrigin) => void;
@@ -45,10 +46,7 @@ export function PdfSource({ sourceUrl, title, pageIndex: controlledPage, onPageC
     renderedFrame?.pageIndex === pageIndex &&
     renderedFrame?.scale === scale;
   const canvas = useRef<HTMLCanvasElement>(null);
-  const safe =
-    /^\/api\/v1\/documents\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/source$/i.test(
-      sourceUrl,
-    );
+  const safe = isPdfSourceUrl(sourceUrl);
   useEffect(() => {
     setDocument(null);
     setPageIndex(0);

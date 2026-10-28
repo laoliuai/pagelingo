@@ -218,3 +218,16 @@ test('full-coverage imported warnings remain complete inert and bounded after ke
   await page.getByLabel('正文分片').fill('3'); await page.getByRole('button', { name: '跳转正文' }).click();
   await expect(page.locator('.reader-content')).toContainText('公式无法在显示预算内排版，已保留原始 LaTeX。');
 });
+
+test('explicit current choice advances a pinned old window only after the user selects it', async ({ page }) => {
+  await newReader(page, 'explicit-current');
+  const first = await ingest(page, await readerBundle(false, false, '固定旧版 '));
+  await page.goto(`/library/${first.documentId}`);
+  await expect(page.locator('.reader-content')).toContainText('固定旧版');
+  const second = await ingest(page, await readerBundle(false, false, '明确新版 '));
+  expect(second.documentId).toBe(first.documentId);
+  await expect(page.locator('.reader-content')).toContainText('固定旧版');
+  await page.getByLabel('阅读版本', { exact: true }).selectOption('');
+  await expect(page.locator('.reader-content')).toContainText('明确新版');
+  await expect(page.getByLabel('阅读版本', { exact: true })).toHaveValue(second.readerVersionId);
+});

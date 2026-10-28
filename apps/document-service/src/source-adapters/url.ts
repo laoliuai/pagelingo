@@ -12,7 +12,7 @@ export function classifySourceUrl(value: string): SourceReference | null {
     return { provider: 'github', owner, repo, url: `https://github.com/${owner}/${repo}` };
   }
   if (!['arxiv.org', 'www.arxiv.org', 'export.arxiv.org'].includes(url.hostname)) return null;
-  const match = /^\/(abs|pdf)\/((?:\d{2}(?:0[1-9]|1[0-2])\.\d{4,5}|[a-z][a-z.-]*\/\d{2}(?:0[1-9]|1[0-2])\d{3}))(?:v([1-9]\d*))?(\.pdf)?\/?$/.exec(url.pathname);
+  const match = /^\/(abs|pdf|html)\/((?:\d{2}(?:0[1-9]|1[0-2])\.\d{4,5}|[a-z][a-z.-]*\/\d{2}(?:0[1-9]|1[0-2])\d{3}))(?:v([1-9]\d*))?(\.pdf)?\/?$/.exec(url.pathname);
   if (!match || (match[4] && match[1] !== 'pdf')) return null;
   const version = match[3] ? Number(match[3]) : null;
   if (version !== null && !Number.isSafeInteger(version)) return null;

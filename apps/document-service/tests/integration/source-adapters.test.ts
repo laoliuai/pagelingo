@@ -292,3 +292,23 @@ it.each([false, true])('canonicalizes uppercase trash and restore IDs with alias
   if (aliasId) expect.soft(await readState(aliasId)).toMatchObject({ lifecycle_epoch: '3', source_trash_parent_id: null, trashed: false });
   if (conflictId) expect.soft(await readState(conflictId)).toMatchObject({ lifecycle_epoch: '1', source_trash_parent_id: null, trashed: false, title: 'Retain this title' });
 });
+
+it('verifies repository Reader provenance through the owned capture and fetch result on pure GET', async () => {
+  const t = await setup();
+  const { runSourceFetchJob } = await import('../../src/source-adapters/service.js');
+  const { fixtureTransport, githubFixture } = await import('../helpers/github-fixture.js');
+  const saved = await t.save('https://github.com/Org/Repo');
+  const lease = (await t.lease(saved.jobId))!;
+  await runSourceFetchJob(lease, { db: t.db, config: t.config, store: t.store, signal: new AbortController().signal, sourceTransport: fixtureTransport(githubFixture()) });
+  const summary = (await t.app.inject({ url: `/api/v1/documents/${saved.documentId}`, headers: t.headers })).json();
+  const current = (await t.app.inject({ url: `/api/v1/documents/${saved.documentId}/source-details`, headers: t.headers })).json().current;
+  const count = (await t.db.pool.query('SELECT count(*)::int AS n FROM web_jobs')).rows[0].n;
+  for (const suffix of [`readerVersionId=${summary.reader.versionId}`, `readerVersionId=${summary.reader.versionId}&revisionId=${current.id}`]) {
+    const response = await t.app.inject({ url: `/api/v1/documents/${saved.documentId}/source-details?${suffix}`, headers: t.headers });
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json().current.id).toBe(current.id);
+  }
+  expect((await t.app.inject({ url: `/api/v1/documents/${saved.documentId}/source-details?readerVersionId=${randomUUID()}`, headers: t.headers })).statusCode).toBe(404);
+  expect((await t.app.inject({ url: `/api/v1/documents/${saved.documentId}/source-details?readerVersionId=${summary.reader.versionId}&revisionId=${randomUUID()}`, headers: t.headers })).statusCode).toBe(404);
+  expect((await t.db.pool.query('SELECT count(*)::int AS n FROM web_jobs')).rows[0].n).toBe(count);
+});

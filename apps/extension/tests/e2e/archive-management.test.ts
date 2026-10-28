@@ -7,7 +7,7 @@ import { test } from './extension-fixture';
 
 // The gateway injects transport faults; all authorization, admission, publication and
 // organization reads are handled by the real service and disposable PostgreSQL schema.
-test('native classification choices survive offline and lost ACK after owned taxonomy deletion', async ({ control, context, page, extensionId, request }) => {
+test('native classification choices survive offline and lost ACK after owned taxonomy deletion', async ({ control, context, page, extensionId, request }, testInfo) => {
   test.skip(!process.env.PAGELINGO_TEST_DATABASE_URL, 'Requires an explicitly owned temporary PostgreSQL run');
   test.setTimeout(90000);
   const child=spawn(process.execPath,['tests/start-service.mjs'],{cwd:resolve('../web'),env:{...process.env},stdio:['ignore','pipe','pipe']});
@@ -41,7 +41,7 @@ test('native classification choices survive offline and lost ACK after owned tax
     const popup=await context.newPage();await popup.goto(`chrome-extension://${extensionId}/src/popup/index.html`);await page.bringToFront();await popup.reload();
     await popup.getByText('保存到集合与标签',{exact:true}).click();
     await popup.getByLabel('所属集合').selectOption({label:'插件研究'});await popup.getByLabel('插件方法',{exact:true}).check();
-    await popup.screenshot({path:'../../.superpowers/sdd/2026-10-28-learning-site-s4/task-6-evidence/extension-classification.png'});
+    await popup.screenshot({path:testInfo.outputPath('extension-classification.png')});
     await popup.getByRole('button',{name:'保存当前页面原文',exact:true}).click();
     await expect.poll(async()=>requests.length,{timeout:15000}).toBeGreaterThanOrEqual(1);
     const status=()=>control.evaluate(async()=>chrome.runtime.sendMessage({type:'archive:status'}));

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { BundleImport, BundleLimits, DocumentSummary, ReaderDescriptor, SaveOrganization, CreateBundleImportRequest } from '@pagelingo/document-contracts';
+import type { ArxivSourceRevision, BundleImport, BundleLimits, DocumentSummary, ReaderDescriptor, SaveOrganization, CreateBundleImportRequest } from '@pagelingo/document-contracts';
 import { useSession } from '../../app/session';
 import { ApiError, apiRequest, uploadBundleContent } from '../../shared/api-client';
 import { activeImport } from './import-status';
@@ -8,6 +8,7 @@ import { activeImport } from './import-status';
 export function importError(error: unknown): string {
   const code = error instanceof ApiError ? error.code : typeof error === 'string' ? error : '';
   switch (code) {
+    case 'SOURCE_VERSION_MISMATCH':
     case 'SOURCE_MISMATCH': return '阅读包与此 PDF 原件不匹配。请选择由同一原件生成的包。';
     case 'BUNDLE_TOO_LARGE': return '阅读包超出服务器大小限制。请缩小阅读包后重新导出。';
     case 'BUNDLE_MISSING_RESOURCE': return '阅读包缺少资源。请重新导出完整 ZIP。';
@@ -32,7 +33,7 @@ const rejectedAdmission = (error: unknown) => error instanceof ApiError && (
   (error.status === 409 && error.code === 'BUNDLE_IMPORT_BUSY')
 );
 
-export function useBundleImport(open: boolean, targetDocument: DocumentSummary | undefined, onImported: (result: BundleImport) => void) {
+export function useBundleImport(open: boolean, targetDocument: DocumentSummary | undefined, onImported: (result: BundleImport) => void, targetRevision?: ArxivSourceRevision) {
   const { user } = useSession();
   const client = useQueryClient();
   const [result, setResult] = useState<BundleImport | null>(null);
@@ -71,7 +72,8 @@ export function useBundleImport(open: boolean, targetDocument: DocumentSummary |
   }, [client, user!.id]);
   useEffect(() => {
     const active = recent.data?.find(activeImport);
-    if (active && !result) accept(active);
+    // A recent row cannot identify our unacknowledged create. Replay its original key first.
+    if (active && !result && admittedRequest.current === null) accept(active);
   }, [recent.data, result, accept]);
   useEffect(() => {
     if (!activeImport(result)) return;
@@ -127,7 +129,13 @@ export function useBundleImport(open: boolean, targetDocument: DocumentSummary |
       if (current) current = await apiRequest<BundleImport>(`/api/v1/bundle-imports/${current.id}`, { signal });
       if (!current) {
         key.current ||= crypto.randomUUID();
-        admittedRequest.current ??= targetDocument ? {targetDocumentId:targetDocument.id} : (organization ? {organization:structuredClone(organization)} : {});
+        admittedRequest.current ??= targetDocument ? {
+          targetDocumentId: targetDocument.id,
+          ...(targetRevision?.sourceVersionId ? {
+            targetSourceVersionId: targetRevision.sourceVersionId,
+            targetPaperVersion: targetRevision.version,
+          } : {}),
+        } : (organization ? { organization: structuredClone(organization) } : {});
         setClassificationLocked(true);
         try {
           current = await apiRequest<BundleImport>('/api/v1/bundle-imports', {
@@ -192,5 +200,8 @@ export function useBundleImport(open: boolean, targetDocument: DocumentSummary |
     } finally { cancelling.current = false; }
   }
   return { result, busy, classificationLocked, admissionUnknown: classificationLocked && result === null, error: result?.status === 'failed' ? importError(result.errorCode) : error,
-    limits, recent, descriptor, submit, cancel, selectFile, restore: accept, restored: !!result && !createdHere.current.has(result.id) };
+    limits, recent, descriptor, submit, cancel, selectFile, restore: (next: BundleImport) => {
+      if (locked.current || (admittedRequest.current !== null && resultRef.current === null)) return;
+      accept(next);
+    }, restored: !!result && !createdHere.current.has(result.id) };
 }

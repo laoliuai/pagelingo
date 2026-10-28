@@ -61,3 +61,14 @@ it('concurrent identical fallback deliveries consume one issued grant and create
   expect(entries[0]?.id).toBe(deliveries.find(reply => reply.ok)?.value?.id);
   expect(JSON.parse(vi.mocked(fetch).mock.calls[0]![1]!.body as string).translationIntent).toBe('auto');
 });
+it('a stale popup binding cannot save a source link into a newly connected owner', async () => {
+  const { response } = environment();
+  const first = await storeConnection('https://library.example', response);
+  await storeConnection('https://library.example', { ...response, owner: { ...response.owner, id: crypto.randomUUID() } });
+  Object.assign(chrome, { tabs: { get: async () => ({ id: 3, url: 'https://github.com/Org/Repo' }) } });
+  const { handleArchiveRequest } = await import('../../src/archive/background');
+  const result = await new Promise<any>(resolve => {
+    handleArchiveRequest({ type: 'archive:capture', tabId: 3, expectedBinding: first.binding }, { id: 'extension', url: 'chrome-extension://extension/src/popup/index.html' }, resolve, async () => {});
+  });
+  expect(result).toMatchObject({ ok: false, error: '站点连接已变化。' });
+});

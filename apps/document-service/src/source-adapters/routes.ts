@@ -14,8 +14,8 @@ export function registerSourceAdapterRoutes(app: FastifyInstance, store: ObjectS
   const service = createSourceAdaptersService(app.authContext);
   const documentId = (params: unknown) => { const value = z.strictObject({ id: z.uuid() }).safeParse(params); if (!value.success) throw new ServiceError(400,'INVALID_REQUEST','Invalid document id'); return value.data.id; };
   app.get('/api/v1/documents/:id/source-details', async request => {
-    const query=z.strictObject({revisionId:z.uuid().optional()}).safeParse(request.query); if (!query.success) throw new ServiceError(400,'INVALID_REQUEST','Invalid source query');
-    return service.details(await requireSession(request),documentId(request.params),query.data.revisionId);
+    const query=z.strictObject({revisionId:z.uuid().optional(),readerVersionId:z.uuid().optional()}).safeParse(request.query); if (!query.success) throw new ServiceError(400,'INVALID_REQUEST','Invalid source query');
+    return service.details(await requireSession(request),documentId(request.params),query.data.revisionId,query.data.readerVersionId);
   });
   app.get('/api/v1/documents/:id/source-versions', async request => {
     const query=z.strictObject({limit:z.coerce.number().int().min(1).max(50).optional(),cursor:z.uuid().optional()}).safeParse(request.query); if (!query.success) throw new ServiceError(400,'INVALID_REQUEST','Invalid versions query');

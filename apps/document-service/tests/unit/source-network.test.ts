@@ -86,3 +86,8 @@ it.each(['http://private.example','https://127.0.0.1/','ftp://public.example/','
   const socket=wire(`HTTP/1.1 302 Found\r\nLocation: ${location}\r\nContent-Length: 0\r\n\r\n`);let connections=0;
   await expect(createSourceTransport({lookup,connector:async()=>{connections++;return socket.stream;}}).readSmall('https://api.github.com/a',{accept:'application/json',maxBytes:100,signal:signal()})).rejects.toThrow();expect(connections).toBe(1);expect(socket.stream.destroyed).toBe(true);
 });
+
+it('recognizes arxiv HTML as the fixed paper identity', () => {
+  expect(classifySourceUrl('https://arxiv.org/html/2401.12345v2')).toEqual({ provider: 'arxiv', baseId: '2401.12345', version: 2, url: 'https://arxiv.org/abs/2401.12345v2' });
+  for (const url of ['https://arxiv.org/html/2401.12345v2.pdf', 'https://arxiv.org/html/2401.12345v2/extra', 'https://arxiv.org/html/2401.12345v2?x=1']) expect(classifySourceUrl(url)).toBeNull();
+});

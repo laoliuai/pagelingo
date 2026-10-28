@@ -3,6 +3,7 @@ import { ScanLine } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { renderWebChunk } from '@pagelingo/document-renderer';
 import type { WebSourceRef, WebReaderChunk, WebReaderDescriptor } from '@pagelingo/document-contracts';
+import { LinkDialog } from '../library/link-dialog';
 import { Button } from '../../shared/ui/button';
 import { type ContentPosition, type ContentTarget, type InteractionOrigin } from '../reader/window-state';
 import { WebReaderWindow } from './web-reader-window';
@@ -23,12 +24,27 @@ const TrustedChunk = memo(function TrustedChunk({ chunk, descriptor, mode, selec
     const asset = descriptor.assetMap[id]; if (!asset || !/^[a-f0-9-]{36}$/.test(asset)) throw new Error('Missing owned Reader asset');
     return `/api/v1/documents/${descriptor.documentId}/web-reader/versions/${descriptor.versionId}/assets/${asset}`;
   } }), [chunk, descriptor, mode]);
-  const root = useRef<HTMLDivElement>(null); const [blocks, setBlocks] = useState<HTMLElement[]>([]);
-  useLayoutEffect(() => { setBlocks([...root.current!.querySelectorAll<HTMLElement>('[data-block-id]')]); }, [rendered]);
+  const root = useRef<HTMLDivElement>(null);
+  const [blocks, setBlocks] = useState<HTMLElement[]>([]);
+  const [links, setLinks] = useState<{ url: string; title: string }[]>([]);
+  useLayoutEffect(() => {
+    setBlocks([...root.current!.querySelectorAll<HTMLElement>('[data-block-id]')]);
+    const selected = new Map<string, string>();
+    for (const anchor of root.current!.querySelectorAll<HTMLAnchorElement>('a[href]')) {
+      if (/^https?:$/.test(anchor.protocol) && !selected.has(anchor.href)) selected.set(anchor.href, anchor.textContent?.trim().slice(0, 200) || anchor.href);
+      if (selected.size === 50) break;
+    }
+    setLinks([...selected].map(([url, title]) => ({ url, title })));
+  }, [rendered]);
   return <div data-reader-chunk={chunk.id}>
     <div ref={root} onErrorCapture={event => { if (event.target instanceof HTMLImageElement) { event.target.hidden = true; const warning = document.createElement('p'); warning.setAttribute('role', 'status'); warning.textContent = '归档图片无法解码或已缺失：' + event.target.alt; event.target.after(warning); } }} dangerouslySetInnerHTML={{ __html: rendered }} />
     {blocks.map(block => createPortal(<>{onSelection && chunk.blocks.find(entry => entry.source.id === block.dataset.blockId)?.source.type === 'text' && <label className="block-select"><input aria-label="选择翻译段落" type="checkbox" checked={selection?.has(block.dataset.blockId!) ?? false} onChange={event => onSelection(block.dataset.blockId!, event.target.checked)} />翻译此段</label>}<button className="block-locate" data-locate-block={block.dataset.blockId} aria-label="定位快照" title="定位归档快照"><ScanLine size={15} aria-hidden="true" /></button></>, block, block.dataset.blockId))}
 
+    {links.length > 0 && <details className="reader-discovered-links">
+      <summary>收藏本段外链</summary>
+      <p>仅保存你选择的链接，并记录由此资料发现。每组最多列出 50 个链接。</p>
+      {links.map(link => <p key={link.url}><LinkDialog discoveredFromDocumentId={descriptor.documentId} initialUrl={link.url} initialTitle={link.title} triggerLabel={`收藏外链：${link.title}`} /></p>)}
+    </details>}
   </div>;
 });
 export function WebReaderContent({ descriptor, mode, onLocate, onPositionChange, target, selection, onSelection, large = false, visible = true }: ReaderContentProps) {

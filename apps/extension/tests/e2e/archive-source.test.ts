@@ -65,3 +65,51 @@ test('capture does not invoke source custom-element constructors', async ({ cont
   expect(response.ok).toBe(true);
   expect(await page.evaluate(() => (window as typeof window & { captureConstructors: number }).captureConstructors)).toBe(before);
 });
+
+test.describe('source adapter handoff', () => {
+  test.use({ sourceHandoffHosts: true });
+  test('collects repo and paper links through the actual extension', async ({ control, context, page, request, extensionId }, info) => {
+    test.skip(!process.env.PAGELINGO_TEST_DATABASE_URL, 'Requires owned temporary PostgreSQL');
+    test.setTimeout(90000);
+    const { spawn } = await import('node:child_process');
+    const { once } = await import('node:events');
+    const { resolve } = await import('node:path');
+    const child = spawn(process.execPath, ['tests/start-service.mjs'], { cwd: resolve('../web'), env: { ...process.env }, stdio: ['ignore', 'pipe', 'pipe'] });
+    let output = ''; child.stdout.on('data', b => output += b); child.stderr.on('data', b => output += b);
+    const base = 'http://127.0.0.1:4338';
+    try {
+      await expect.poll(async () => { try { return (await request.get(`${base}/health/ready`)).status(); } catch { return 0; } }, { timeout: 20000, message: output }).toBe(200);
+      const auth = await request.post(`${base}/api/v1/auth/login`, { headers: { Origin: base }, data: { username: 'admin', password: 'test-admin-password' } });
+      const session = await auth.json();
+      const code = await (await request.post(`${base}/api/v1/devices/pairing-codes`, { headers: { Origin: base, 'X-CSRF-Token': session.csrfToken }, data: {} })).json();
+      const paired = await control.evaluate(async value => chrome.runtime.sendMessage({ type: 'archive:pair', ...value }), { origin: base, code: code.code });
+      expect(paired.ok).toBe(true);
+      await context.route('https://github.com/**', route => route.fulfill({ contentType: 'text/html', body: '<article><h1>Repository page</h1><p>Browser content must not become repository source.</p></article>' }));
+      await context.route('https://arxiv.org/**', route => route.fulfill({ contentType: 'text/html', body: '<article><h1>Paper page</h1><p>Browser content must not become paper source.</p></article>' }));
+      const popup = await context.newPage();
+      for (const [url, button] of [
+        ['https://github.com/Org/Repo', '保存仓库固定 README'],
+        ['https://arxiv.org/html/2401.12345v1', '保存论文固定版本'],
+        ['https://github.com/Org/Repo/blob/Main/docs/guide.md', '保存当前页面原文'],
+      ]) {
+        await page.goto(url);
+        await popup.goto(`chrome-extension://${extensionId}/src/popup/index.html`);
+        await page.bringToFront();
+        await popup.reload();
+        await expect(popup.getByRole('button', { name: button, exact: true })).toBeEnabled();
+        await popup.getByRole('button', { name: button, exact: true }).click();
+      }
+      await popup.screenshot({ path: info.outputPath('native-source-handoff.png'), fullPage: true });
+      const status = () => control.evaluate(async () => chrome.runtime.sendMessage({ type: 'archive:status' }));
+      await expect.poll(async () => (await status()).value.items.filter((i: { state: string }) => i.state === 'completed').length, { timeout: 15000 }).toBe(3);
+      const library = await (await request.get(`${base}/api/v1/library`)).json();
+      expect(library.items.map((i: { document: { kind: string } }) => i.document.kind).sort()).toEqual(['article', 'paper', 'repository']);
+      for (const item of library.items.filter((item: { document: { kind: string } }) => item.document.kind !== 'article')) {
+        await expect.poll(async () => (await (await request.get(`${base}/api/v1/documents/${item.document.id}/source-details`)).json()).status, { timeout: 20000 }).toMatch(/source-saved|partial-resources/);
+      }
+      expect((await (await request.get(`${base}/__test/metrics`)).json()).modelCalls).toBe(0);
+    } finally {
+      if (child.exitCode === null && child.signalCode === null) { const ended = once(child, 'exit'); child.kill('SIGTERM'); await ended; }
+    }
+  });
+});

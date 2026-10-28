@@ -1,3 +1,4 @@
+import { sourceLinkKind } from './source-link';
 import { normalizeCaptureUrl } from '@pagelingo/web-capture';
 import { z } from 'zod';
 import { captureDraftSchema, captureUrlSchema, defaultCaptureLimits, saveOrganizationSchema, type SaveOrganization } from '@pagelingo/document-contracts';
@@ -116,8 +117,22 @@ async function receiveFrame(raw: unknown, sender: chrome.runtime.MessageSender) 
 }
 async function startCapture(tabId: number, ensureContent: (tabId: number) => Promise<void>, organization?: SaveOrganization, expectedBinding?: SiteBinding) {
   const current = await binding();
-  if (organization && (!expectedBinding || !sameBinding(current,expectedBinding))) throw new Error('站点连接已变化。'); await ensureContent(tabId);
+  if ((organization && !expectedBinding) || (expectedBinding && !sameBinding(current, expectedBinding))) throw new Error('站点连接已变化。');
   const tab = await chrome.tabs.get(tabId);
+  if (tab.url && sourceLinkKind(tab.url)) {
+    await assertBinding(current);
+    const confirmed = await chrome.tabs.get(tabId);
+    if (confirmed.url !== tab.url) throw new Error('页面地址已变化。');
+    const id = await outbox.enqueueLink(current, {
+      url: normalizeCaptureUrl(tab.url),
+      translationIntent: 'auto',
+      ...(organization ? { organization } : {}),
+    }, []);
+    await assertBinding(current);
+    void wakeArchive();
+    return { id, generation: current.generation };
+  }
+  await ensureContent(tabId);
   const [frame] = await chrome.scripting.executeScript({ target: { tabId, frameIds: [0] }, func: () => null });
   if (!frame?.documentId) throw new Error('无法确认页面身份。');
   const response = await chrome.tabs.sendMessage(tabId, { type: 'capture:identity' }, { documentId: frame.documentId, frameId: 0 });

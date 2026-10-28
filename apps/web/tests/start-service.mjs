@@ -83,6 +83,15 @@ try {
   });
   app.get('/__test/web-publication', async () => ({ held: publicationHeld }));
   app.get('/__test/metrics', async () => ({ modelCalls }));
+  app.post('/__test/source-fixture', async request => {
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => { worker.off('message', listener); reject(new Error('Worker fixture timeout')); }, 5000);
+      const listener = message => { if (message.type === 'source-fixture-ack') { clearTimeout(timer); worker.off('message', listener); resolve(); } };
+      worker.on('message', listener);
+      worker.send({ type: 'source-fixture', ...request.body });
+    });
+    return { configured: true };
+  });
   // Fault injection operates on this runner's disposable real object store only.
   app.post('/__test/missing-source/:id', async (request, reply) => {
     const { rows } = await db.pool.query(
@@ -98,7 +107,7 @@ try {
   });
   await app.listen({ host: '127.0.0.1', port: 4338 });
   worker = spawn(process.execPath, ['--import', 'tsx', resolve('../document-service/tests/helpers/mock-worker-process.ts'), schema], {
-    env: { PATH: process.env.PATH, TEST_WORKER_GITHUB_FIXTURES: '1', TEST_WORKER_PUBLICATION_CONTROL: '1', TEST_WORKER_LINK_FIXTURES: '1', PAGELINGO_SITE_MODE: 'test', PAGELINGO_SITE_ORIGIN: 'http://127.0.0.1:4338', PAGELINGO_DATA_DIR: dataDir, DATABASE_URL: url,
+    env: { PATH: process.env.PATH, TEST_WORKER_GITHUB_FIXTURES: '1', TEST_WORKER_SOURCE_FIXTURES: '1', TEST_WORKER_PUBLICATION_CONTROL: '1', TEST_WORKER_LINK_FIXTURES: '1', PAGELINGO_SITE_MODE: 'test', PAGELINGO_SITE_ORIGIN: 'http://127.0.0.1:4338', PAGELINGO_DATA_DIR: dataDir, DATABASE_URL: url,
       PAGELINGO_MASTER_KEY_ID: 'test', PAGELINGO_MASTER_KEYS_JSON: JSON.stringify({ test: testKey.toString('base64') }) },
     stdio: ['ignore', 'inherit', 'inherit', 'ipc'],
   });

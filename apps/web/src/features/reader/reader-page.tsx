@@ -19,18 +19,19 @@ import { VersionSelect } from './version-select';
 import './reader.css';
 export interface ReaderPageProps {
   documentId: string; versionId?: string;
+  onVersionSelect?: (versionId?: string) => void;
   onPositionChange?: (position: ReadingPosition, origin: InteractionOrigin) => void;
   /** Task 11 can supply a controlled restore without inventing user interaction. */
   restorePosition?: ReadingPosition;
 }
-export function ReaderPage({ documentId, versionId, onPositionChange, restorePosition }: ReaderPageProps) {
+export function ReaderPage({ documentId, versionId, onPositionChange, restorePosition, onVersionSelect }: ReaderPageProps) {
   const { user, epoch } = useSession();
   const query = useQuery({ queryKey: [user!.id, 'reader', documentId, versionId, epoch],
     queryFn: async ({ signal }) => readerDescriptorSchema.parse(await apiRequest(`/api/v1/documents/${documentId}/reader${versionId ? `?versionId=${versionId}` : ''}`, { signal })), staleTime: Infinity, gcTime: 0 });
   if (!query.data) return <><Feedback message={query.error ? errorMessage(query.error) : ''} error />{query.error ? <Button onClick={() => void query.refetch()}>重试阅读器</Button> : <p role="status">正在加载阅读器…</p>}</>;
-  return <ReaderSession key={`${user!.id}/${epoch}/${query.data.versionId}`} descriptor={query.data} onPositionChange={onPositionChange} restorePosition={restorePosition} />;
+  return <ReaderSession key={`${user!.id}/${epoch}/${query.data.versionId}`} descriptor={query.data} onPositionChange={onPositionChange} restorePosition={restorePosition} onVersionSelect={onVersionSelect} />;
 }
-function ReaderSession({ descriptor, onPositionChange, restorePosition }: { descriptor: ReaderDescriptor } & Pick<ReaderPageProps, 'onPositionChange' | 'restorePosition'>) {
+function ReaderSession({ descriptor, onPositionChange, restorePosition, onVersionSelect }: { descriptor: ReaderDescriptor } & Pick<ReaderPageProps, 'onPositionChange' | 'restorePosition' | 'onVersionSelect'>) {
   const [, setSearch] = useSearchParams();
   const progress = useReadingProgress({ documentId: descriptor.documentId, descriptor });
   const [initialRestore] = useState(() => {
@@ -61,7 +62,7 @@ function ReaderSession({ descriptor, onPositionChange, restorePosition }: { desc
         <label>正文语言 <select aria-label="正文语言" value={mode} onChange={event => { const next = event.target.value as ContentMode; setMode(next); emit('user', { contentMode: next }); }}><option value="translation">译文</option><option value="source">结构化原文</option></select></label>
       </div>
       <details className="reader-settings" open={window.innerWidth >= 768 || undefined}><summary>阅读版本与字号</summary><div className="reader-controls">
-        <VersionSelect descriptor={descriptor} onSelect={id => setSearch(id ? { versionId: id } : {})} />
+        <VersionSelect descriptor={descriptor} onSelect={onVersionSelect ?? (id => setSearch(id ? { versionId: id } : {}))} />
         <label>字号 <select aria-label="正文字号" value={large ? 'large' : 'normal'} onChange={event => setLarge(event.target.value === 'large')}><option value="normal">标准 18</option><option value="large">大字 20</option></select></label>
       </div></details>
       {descriptor.restoreHint && <p role="status">版本已更新，已定位到原页。旧版本的阅读位置仍保留，可通过阅读版本回看。</p>}
@@ -72,7 +73,7 @@ function ReaderSession({ descriptor, onPositionChange, restorePosition }: { desc
       <ReaderToc index={descriptor.index} onSelect={id => { if (view === 'source') setView('content'); setTarget({ blockId: id, blockOffset: 0, sequence: Date.now(), origin: 'user' }); }} />
       {!!references.length && <SourceLocator references={references} onClose={() => setReferences([])} onSelect={reference => { setPageIndex(reference.pageIndex); setHighlight(reference); setView(window.innerWidth < 768 ? 'source' : 'split'); setReferences([]); emit('user', { pdfPageIndex: reference.pageIndex, view: window.innerWidth < 768 ? 'source' : 'split' }); }} />}
     </div>
-    <ReaderLayout view={view} source={<PdfSource sourceUrl={`/api/v1/documents/${descriptor.documentId}/source`} title="PDF" onInteraction={origin => emit(origin)} pageIndex={pageIndex} onPageChange={(next, origin) => { setPageIndex(next); setHighlight(undefined); emit(origin, { pdfPageIndex: next }); }} highlight={highlight} pageMetadata={descriptor.pages[pageIndex]} pageCount={descriptor.pages.length} />}
+    <ReaderLayout view={view} source={<PdfSource sourceUrl={`/api/v1/assets/${descriptor.source.assetId}/content`} title="PDF" onInteraction={origin => emit(origin)} pageIndex={pageIndex} onPageChange={(next, origin) => { setPageIndex(next); setHighlight(undefined); emit(origin, { pdfPageIndex: next }); }} highlight={highlight} pageMetadata={descriptor.pages[pageIndex]} pageCount={descriptor.pages.length} />}
       content={<ReaderContent descriptor={descriptor} mode={mode} large={large} visible={view !== 'source'} target={target} onLocate={setReferences} onPositionChange={(position, origin) => { setContentPosition(position); emit(origin, position); }} />} />
   </section>;
 }

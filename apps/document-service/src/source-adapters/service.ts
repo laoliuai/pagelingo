@@ -1,3 +1,4 @@
+import { readerSourceRevision } from './reader-revision.js';
 import { sourceRevision } from './repository.js';
 import { createHash, randomUUID } from 'node:crypto';
 import type { PoolClient } from 'pg';
@@ -68,7 +69,7 @@ export function createSourceAdaptersService({ db }: { db: Database }) {
         return {items,nextCursor:rows.length>limit ? rows[limit-1]!.id : null};
       });
     },
-    async details(actor: Actor, id: string, revisionId?: string): Promise<SourceDetails> {
+    async details(actor: Actor, id: string, revisionId?: string, readerVersionId?: string): Promise<SourceDetails> {
       return db.transaction(async client => {
         await assertActorCurrent(client, actor); await assertDocumentActive(client, actor.userId, id);
         const d = (await client.query('SELECT * FROM documents WHERE owner_id=$1 AND id=$2', [actor.userId,id])).rows[0];
@@ -80,7 +81,12 @@ export function createSourceAdaptersService({ db }: { db: Database }) {
           status: (job?.status === 'failed' ? 'fetch-failed' : 'link-only') as SourceDetails['status'], errorCode: job?.error_code ?? null, warnings: job?.warnings ?? [],
           latestAttempt: job ? { jobId: job.id, status: job.status, requestedRef: job.reference?.requestedRef ?? (job.reference?.version ? `${job.reference.baseId}v${job.reference.version}` : null), resolvedRevision: null, errorCode: job.error_code } : null };
         if (ref && d.kind === (ref.provider === 'github' ? 'repository' : 'paper')) {
-          const selected = revisionId ?? (ref.provider==='github' ? d.current_github_revision_id : d.current_arxiv_revision_id);
+          const binding = readerVersionId ? await readerSourceRevision(client, actor.userId, d.id, ref.provider, readerVersionId, revisionId) : null;
+          const selected = binding ? binding.revisionId : revisionId ?? (ref.provider==='github' ? d.current_github_revision_id : d.current_arxiv_revision_id);
+          if (binding?.warning) {
+            base.warnings = [...base.warnings, binding.warning];
+            base.status = 'source-saved'; // An owned Reader was verified even when its revision is unresolved.
+          }
           const current = selected ? await sourceRevision(client,actor.userId,d.id,ref.provider,selected) : null;
           if (revisionId && !current) throw new ServiceError(404,'NOT_FOUND','Source revision not found');
           if (current) {
@@ -91,7 +97,7 @@ export function createSourceAdaptersService({ db }: { db: Database }) {
           if (base.latestAttempt) base.latestAttempt.resolvedRevision=ref.provider==='github' ? job.source_github_revision_id : job.source_arxiv_revision_id;
           return { ...base, kind: ref.provider, current } as SourceDetails;
         }
-        if (revisionId) throw new ServiceError(404,'NOT_FOUND','Source revision not found');
+        if (revisionId || readerVersionId) throw new ServiceError(404,'NOT_FOUND','Source revision not found');
         if (d.current_source_version_id) { base.status='source-saved'; base.errorCode=null; }
         return { ...base, kind: 'link' };
       });

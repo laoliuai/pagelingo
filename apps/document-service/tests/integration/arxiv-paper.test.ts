@@ -216,3 +216,40 @@ it('rejects an unrepresentable paper version at admission without a database err
   const response = await admit(t, { targetDocumentId: saved.documentId, targetPaperVersion: Number.MAX_SAFE_INTEGER });
   expect(response.statusCode, response.body).toBe(409);
 });
+
+it('resolves Reader metadata only from owned registered paper bindings, including ambiguous same-byte versions', async () => {
+  const t = await setup();
+  const fixture = await bundleFixture(t.config.dataDir);
+  const saved = await t.save();
+  await t.collect(saved.jobId, { pdf: fixture.files.get('source.pdf')! });
+  const first = (await t.details(saved.documentId)).current;
+  const imported = await importPaper(t, fixture.bytes, { targetDocumentId: saved.documentId, targetPaperVersion: 1 });
+  const get = (reader: string, revision?: string) => t.app.inject({
+    url: `/api/v1/documents/${saved.documentId}/source-details?readerVersionId=${reader}${revision ? `&revisionId=${revision}` : ''}`, headers: t.headers,
+  });
+  const unique = await get(imported.readerVersionId);
+  expect(unique.statusCode, unique.body).toBe(200);
+  expect(unique.json().current.id).toBe(first.id);
+  const next = await t.refresh(saved.documentId, '2401.12345v2');
+  await t.collect(next, { version: 2, pdf: fixture.files.get('source.pdf')! });
+  const second = (await t.details(saved.documentId)).current;
+  expect(second.sourceVersionId).toBe(first.sourceVersionId);
+  const ambiguous = await get(imported.readerVersionId);
+  expect(ambiguous.statusCode, ambiguous.body).toBe(200);
+  expect(ambiguous.json()).toMatchObject({ status: 'source-saved', current: null, warnings: expect.arrayContaining(['SOURCE_READER_REVISION_AMBIGUOUS']) });
+  for (const revision of [first, second]) {
+    const exact = await get(imported.readerVersionId, revision.id);
+    expect(exact.statusCode, exact.body).toBe(200);
+    expect(exact.json().current.id).toBe(revision.id);
+  }
+  const thirdJob = await t.refresh(saved.documentId, '2401.12345v3');
+  await t.collect(thirdJob, { version: 3 });
+  const third = (await t.details(saved.documentId)).current;
+  expect((await get(imported.readerVersionId, third.id)).statusCode).toBe(404);
+  expect((await get(randomUUID(), first.id)).statusCode).toBe(404);
+  const other = await t.save('https://arxiv.org/abs/2401.54321');
+  expect((await t.app.inject({ url: `/api/v1/documents/${other.documentId}/source-details?readerVersionId=${imported.readerVersionId}`, headers: t.headers })).statusCode).toBe(404);
+  await t.app.inject({ method: 'POST', url: '/api/v1/admin/users', headers: t.headers, payload: { username: 'other-reader', password: 'correct password 123456' } });
+  const foreign = await login(t.app, 'other-reader', 'correct password 123456');
+  expect((await t.app.inject({ url: `/api/v1/documents/${saved.documentId}/source-details?readerVersionId=${imported.readerVersionId}`, headers: { cookie: foreign.cookie } })).statusCode).toBe(404);
+});

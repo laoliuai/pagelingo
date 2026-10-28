@@ -39,7 +39,7 @@ const store={...baseStore,async putImmutable(...args:Parameters<typeof baseStore
   return stored;
 }};
 const arxiv = arxivTransport({ feed: atom('2401.12345', Number(process.env.TEST_WORKER_ARXIV_LATEST ?? 1)) });
-const sourceTransport = process.env.TEST_WORKER_ARXIV_FIXTURES === '1' ? { ...arxiv,
+const configuredSourceTransport = process.env.TEST_WORKER_ARXIV_FIXTURES === '1' ? { ...arxiv,
   readSmall(...args: Parameters<typeof arxiv.readSmall>) { process.send?.({ type: 'source-request', pid: process.pid, url: args[0] }); return arxiv.readSmall(...args); },
   async downloadPdf<T>(...args: Parameters<typeof arxiv.downloadPdf<T>>) {
     process.send?.({ type: 'source-request', pid: process.pid, url: args[0] });
@@ -48,6 +48,23 @@ const sourceTransport = process.env.TEST_WORKER_ARXIV_FIXTURES === '1' ? { ...ar
     return result;
   },
 } : fixtureTransport(process.env.TEST_WORKER_GITHUB_FIXTURES === '1' ? githubFixture() : {});
+let sourceVersion = 1;
+let sourcePdf: Uint8Array | undefined;
+if (process.env.TEST_WORKER_SOURCE_FIXTURES === '1') process.on('message', (message: { type?: string; version?: number; pdf?: string }) => {
+  if (message.type !== 'source-fixture') return;
+  sourceVersion = message.version ?? 1;
+  sourcePdf = message.pdf ? Buffer.from(message.pdf, 'base64') : undefined;
+  process.send?.({ type: 'source-fixture-ack' });
+});
+const fixtures = githubFixture();
+for (const alias of ['Renamed', 'Edited']) fixtures[`https://api.github.com/repos/${alias}/Repo`] = fixtures['https://api.github.com/repos/Org/Repo']!;
+const github = fixtureTransport(fixtures);
+const paper = () => arxivTransport({ version: sourceVersion, pdf: sourcePdf });
+const sourceTransport = process.env.TEST_WORKER_SOURCE_FIXTURES === '1' ? {
+  readSmall: (url: string, input: Parameters<typeof github.readSmall>[1]) => url.startsWith('https://export.arxiv.org/') ? paper().readSmall(url, input) : github.readSmall(url, input),
+  downloadPdf<T>(...args: Parameters<typeof arxiv.downloadPdf<T>>) { return paper().downloadPdf<T>(...args); },
+  downloadResource: github.downloadResource,
+} : configuredSourceTransport;
 try {
   await runWorker({ db, config, store, signal: controller.signal, provider,
     sourceTransport,
