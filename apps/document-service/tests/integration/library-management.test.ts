@@ -140,7 +140,11 @@ it('upgrades 001–006 without changing existing owner, source, Reader or readin
   const before = await snapshot(); const { migrateDatabase } = await import('../../src/db/migrate.js'); await migrateDatabase(db); expect(await snapshot()).toEqual(before);
   expect((await db.pool.query('SELECT revision,reading_status FROM document_organization')).rows).toEqual([{ revision: '0', reading_status: 'unread' }]);
   expect((await db.pool.query('SELECT title_origin,lifecycle_epoch,origin FROM documents')).rows).toEqual([{ title_origin: 'legacy', lifecycle_epoch: '1', origin: 'upload' }]);
-  await migrateDatabase(db); expect((await db.pool.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n).toBe(7);
+  await migrateDatabase(db);
+  // This compatibility case requires the released baseline plus management 007;
+  // later source/export migrations must not invalidate its preservation proof.
+  const expectedMigrations = [...names.map(name => name.slice(0, -4)), '007-library-management'];
+  expect((await db.pool.query("SELECT id FROM schema_migrations WHERE id ~ '^00[1-7]-' ORDER BY id")).rows.map(row => row.id)).toEqual(expectedMigrations);
 });
 
 it('binds backfill to the selected source when a new capture wins during object reads', async () => {

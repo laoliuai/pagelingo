@@ -236,6 +236,10 @@ it('upgrades a populated S1 schema without changing original references and migr
       expect((await test.db.pool.query('SELECT asset_id FROM source_versions WHERE id=$1', [source])).rows[0].asset_id).toBe(asset);
     } else await migrateDatabase(test.db);
     await verifyDatabaseSchema(test.db); await migrateDatabase(test.db);
-    expect((await test.db.pool.query('SELECT count(*)::int AS total FROM schema_migrations')).rows[0].total).toBe(7);
+    // Assert the S1 -> PDF Reader boundary; verifyDatabaseSchema above still
+    // requires every current migration and its exact checksum.
+    expect((await test.db.pool.query("SELECT id FROM schema_migrations WHERE id ~ '^00[1-5]-' ORDER BY id")).rows.map(row => row.id)).toEqual([
+      '001-accounts', '002-providers', '003-documents', '004-user-management', '005-reader-bundles',
+    ]);
   }
 });

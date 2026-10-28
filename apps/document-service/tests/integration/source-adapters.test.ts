@@ -1,6 +1,6 @@
 import { join, basename } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
-import { afterEach, expect, it } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
 import { bootstrapAdmin } from '../../src/cli/bootstrap-admin.js';
 import { createServiceTestApp } from '../helpers/app.js';
 import { login } from '../helpers/session.js';
@@ -42,12 +42,17 @@ it('does not retarget a pre-existing article when the same URL now identifies a 
   const saved = await t.save('https://github.com/Org/Repo'); expect(saved.documentId).not.toBe(oldId);
   expect((await t.db.pool.query('SELECT kind,title FROM documents WHERE id=$1', [oldId])).rows[0]).toEqual({ kind: 'article', title: 'Retained article' });
 });
-it('unimplemented arXiv dispatch explicitly fails unsupported without publishing', async () => {
+it('refuses arXiv test dispatch without an explicit source transport', async () => {
   const t = await setup(); const saved = await t.save('https://arxiv.org/abs/2401.12345v1'); const lease = await t.lease(saved.jobId); expect(lease).not.toBeNull();
   const { runFetchJob } = await import('../../src/web-captures/fetch-runner.js');
-  await runFetchJob(lease!, { db: t.db, config: t.config, store: t.store, signal: new AbortController().signal });
-  expect((await t.db.pool.query('SELECT status,error_code FROM web_jobs WHERE id=$1', [saved.jobId])).rows[0]).toEqual({ status: 'failed', error_code: 'UNSUPPORTED_SOURCE' });
-  expect((await t.db.pool.query('SELECT id FROM source_versions')).rowCount).toBe(0);
+  const network = await import('../../src/source-adapters/network.js');
+  const production = vi.spyOn(network, 'createSourceTransport').mockImplementation(() => { throw new Error('Unexpected production source transport'); });
+  try {
+    await expect(runFetchJob(lease!, { db: t.db, config: t.config, store: t.store, signal: new AbortController().signal })).rejects.toThrow('Test source jobs require explicit source transport');
+    expect(production).not.toHaveBeenCalled();
+    expect((await t.db.pool.query('SELECT status,error_code FROM web_jobs WHERE id=$1', [saved.jobId])).rows[0]).toEqual({ status: 'running', error_code: null });
+    for (const table of ['source_versions', 'source_acquisitions', 'arxiv_versions', 'reader_versions']) expect((await t.db.pool.query(`SELECT 1 FROM ${table}`)).rowCount).toBe(0);
+  } finally { production.mockRestore(); }
 });
 it('keeps one canonical identity without retargeting old jobs and preserves edited conflicts', async () => {
   const t = await setup(); const canonical = await t.save('https://github.com/Old/Name'); const duplicate = await t.save('https://github.com/New/Name'); const edited = await t.save('https://github.com/Third/Name', { title: 'My notes' });
