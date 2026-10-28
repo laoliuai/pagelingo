@@ -42,11 +42,13 @@ async function removeObject(deps: MaintenanceDependencies, task: PurgeRow, token
     return true;
   });
 }
-/** A single call deletes at most 500 business rows and 100 registered files across all tasks.
+/** A single call mutates/deletes at most 500 business rows and removes at most 100 registered files.
  * Due time + UUID provides persistent fairness; claims are restartable after 30 seconds. */
 export async function runDocumentMaintenance(deps: MaintenanceDependencies, { limit=100 }: { limit?: number } = {}): Promise<MaintenanceResult> {
   if (!Number.isInteger(limit) || limit<1 || limit>100) throw new Error('Maintenance limit must be between 1 and 100');
   const { db,signal } = deps; const result: MaintenanceResult = { scheduled:0,claimed:0,rowsDeleted:0,capturesScanned:0,objectsDeleted:0,completed:0,failed:0 };
+  // Scheduling clears document pointers too; charge it before offering cleanup its allowance.
+  let rowsMutated = 0;
   const expired = await db.transaction(async client => {
     await client.query('SELECT singleton FROM document_maintenance_cursor WHERE singleton FOR UPDATE');
     const rows = (await client.query<{ owner_id: string; id: string; due: string }>(`SELECT d.owner_id,d.id,d.purge_after::text AS due FROM documents d CROSS JOIN document_maintenance_cursor c
@@ -62,10 +64,11 @@ export async function runDocumentMaintenance(deps: MaintenanceDependencies, { li
     const scheduled = await db.transaction(async client => {
       if (!(await client.query('SELECT id FROM users WHERE id=$1 FOR UPDATE SKIP LOCKED',[row.owner_id])).rowCount) return false;
       await lockDocument(client,row.owner_id,row.id);
-      if (!(await client.query('SELECT 1 FROM documents WHERE owner_id=$1 AND id=$2 AND deleted_at IS NOT NULL AND purge_after<=clock_timestamp()',[row.owner_id,row.id])).rowCount) return false;
+      if (!(await client.query(`SELECT 1 FROM documents WHERE owner_id=$1 AND id=$2 AND deleted_at IS NOT NULL AND purge_after<=clock_timestamp()
+        AND NOT EXISTS(SELECT 1 FROM document_purges WHERE owner_id=$1 AND document_id=$2)`,[row.owner_id,row.id])).rowCount) return false;
       await schedulePurge(client,row.owner_id,row.id); return true;
     });
-    if (scheduled) result.scheduled++;
+    if (scheduled) { result.scheduled++; rowsMutated++; }
   }
   const candidates = await db.transaction(async client => {
     await client.query('SELECT singleton FROM document_maintenance_cursor WHERE singleton FOR UPDATE');
@@ -78,7 +81,7 @@ export async function runDocumentMaintenance(deps: MaintenanceDependencies, { li
   });
   let filesAttempted = 0;
   for (const candidate of candidates) {
-    if (signal.aborted || (result.rowsDeleted>=PURGE_ROW_LIMIT && filesAttempted>=PURGE_OBJECT_LIMIT)) break;
+    if (signal.aborted || (rowsMutated>=PURGE_ROW_LIMIT && filesAttempted>=PURGE_OBJECT_LIMIT)) break;
     const token = randomUUID();
     const task = await db.transaction(async client => {
       if (!(await client.query('SELECT id FROM users WHERE id=$1 FOR UPDATE SKIP LOCKED',[candidate.owner_id])).rowCount) return undefined;
@@ -94,12 +97,12 @@ export async function runDocumentMaintenance(deps: MaintenanceDependencies, { li
         const scan = await scanUntargetedCaptures(client,task,limit-result.capturesScanned);
         result.capturesScanned+=scan.scanned;
         if(!scan.done) return 0;
-        let count = await deleteContentBatch(client,task,PURGE_ROW_LIMIT-result.rowsDeleted);
+        let count = await deleteContentBatch(client,task,PURGE_ROW_LIMIT-rowsMutated);
         const phase = (await client.query('SELECT cursor FROM document_purges WHERE id=$1',[task.id])).rows[0].cursor;
-        if (Number(phase)>=purgePlan.length) count += await deleteCacheBatch(client,task,PURGE_ROW_LIMIT-result.rowsDeleted-count);
+        if (Number(phase)>=purgePlan.length) count += await deleteCacheBatch(client,task,PURGE_ROW_LIMIT-rowsMutated-count);
         return count;
       });
-      result.rowsDeleted+=used;
+      result.rowsDeleted+=used; rowsMutated+=used;
       const objects = (await db.pool.query<{ storage_kind: string; object_key: string }>('SELECT storage_kind,object_key FROM object_deletion_queue WHERE owner_id=$1 AND task_id=$2 ORDER BY storage_kind,object_key LIMIT $3',[task.owner_id,task.id,PURGE_OBJECT_LIMIT-filesAttempted])).rows;
       for (const object of objects) {
         if (signal.aborted) break;

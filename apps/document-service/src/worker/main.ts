@@ -25,9 +25,14 @@ export async function runWorker(deps: WebJobDependencies, workerId = randomUUID(
       if (!maintenance && Date.now()>=nextMaintenance) {
         nextMaintenance=Date.now()+5000;
         maintenance=(async () => {
-          await runDocumentMaintenance({ ...deps,dataDir:deps.config.dataDir },{ limit:100 });
-          await runMetadataBackfill(deps,{ limit:20 });
-        })().catch(()=>{}).finally(()=>{ maintenance=undefined; });
+          try { await runDocumentMaintenance({ ...deps,dataDir:deps.config.dataDir },{ limit:100 }); }
+          catch { console.error('Document worker document maintenance failed; retrying on the next scheduled run.'); }
+          // A cleanup scan/claim failure must not suppress independent metadata upkeep.
+          if (!deps.signal.aborted) {
+            try { await runMetadataBackfill(deps,{ limit:20 }); }
+            catch { console.error('Document worker metadata backfill failed; retrying on the next scheduled run.'); }
+          }
+        })().finally(()=>{ maintenance=undefined; });
       }
       await reconcileWebJobs(deps.db);
       const terminal = await finalizers.next((after,cooling) => readFinalizerCandidates(deps.db,after,cooling));

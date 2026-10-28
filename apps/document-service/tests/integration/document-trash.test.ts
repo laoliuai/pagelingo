@@ -306,3 +306,25 @@ it('ignores missing unreferenced assets from unfinished work while verifying ret
   const restored=await t.app.inject({ method:'POST',url:`${f.base}/restore`,headers:headers(t.alice),payload:{ expectedEpoch:2 } }); expect(restored.statusCode,restored.body).toBe(200);
   expect((await t.app.inject({ url:`${f.base}/reader`,headers:headers(t.alice) })).statusCode).toBe(200);
 });
+it('charges automatic expiry and cleanup to one independently counted business mutation budget', async () => {
+  const t = await jobFixture(); cleanup.push(t.close);
+  await t.db.pool.query(`INSERT INTO documents(owner_id,kind,title,original_filename,deleted_at,purge_after)
+    SELECT $1,'pdf','expired','a.pdf',clock_timestamp()-interval '31 days',clock_timestamp()-interval '1 day' FROM generate_series(1,100)`, [t.actor.userId]);
+  await t.db.pool.query(`INSERT INTO web_owner_cache(owner_id,cache_key,entry)
+    SELECT $1,'legacy-budget-'||n,'{}'::jsonb FROM generate_series(1,650) n`, [t.actor.userId]);
+  // Count committed row events independently of maintenance's reported counters.
+  // These are the only business tables populated by this fixture; infrastructure is excluded.
+  await t.db.pool.query(`CREATE TABLE test_business_mutations(table_name text NOT NULL,operation text NOT NULL);
+    CREATE FUNCTION count_test_business_mutation() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+      INSERT INTO test_business_mutations VALUES(TG_TABLE_NAME,TG_OP); RETURN NULL;
+    END $$;
+    CREATE TRIGGER count_document_mutation AFTER UPDATE OR DELETE ON documents FOR EACH ROW EXECUTE FUNCTION count_test_business_mutation();
+    CREATE TRIGGER count_cache_mutation AFTER UPDATE OR DELETE ON web_owner_cache FOR EACH ROW EXECUTE FUNCTION count_test_business_mutation();`);
+  const result = await maintenance(t);
+  const mutations = (await t.db.pool.query('SELECT table_name,operation,count(*)::int AS count FROM test_business_mutations GROUP BY table_name,operation')).rows;
+  expect(result.scheduled).toBe(100);
+  expect(mutations.find(row => row.table_name === 'documents' && row.operation === 'UPDATE')?.count).toBe(100);
+  expect(mutations.filter(row => row.operation === 'DELETE').reduce((n,row) => n+row.count,0)).toBeGreaterThan(0);
+  expect(mutations.reduce((n,row) => n+row.count,0)).toBe(500);
+  expect((await t.db.pool.query("SELECT 1 FROM document_purges WHERE status='queued'")).rowCount).toBeGreaterThan(0);
+});
