@@ -87,7 +87,7 @@
 
 - `SourceDetails` 以kind=`link|github|arxiv`判别，公共字段为documentId、url、`resolution:self|alias|conflict`、canonicalDocumentId（可空）、fetchJobId（可空）、状态 `link-only|metadata-saved|source-saved|partial-resources|fetch-failed`、errorCode（可空）、warnings和latestAttempt。link无current；github/arxiv的current为下述对应修订或null。`GET /documents/:id/source-details` 纯读。
 - `SourceAssetInfo={assetId,sha256,bytes,mediaType,filename}`，不含object key/owner。`GithubSourceRevision={kind:'github',id,sourceVersionId:UUID|null,repository:{id:string,owner,name,description:string|null,url},commitSha:string|null,readme:{path,blobSha,raw:SourceAssetInfo,renderedHtml:SourceAssetInfo|null}|null,capturedAt}`；`ArxivSourceRevision={kind:'arxiv',id,baseId,version,title,authors:string[],summary,publishedAt,updatedAt,capturedAt,sourceVersionId:UUID|null,pdf:SourceAssetInfo|null}`。无可读投影时可保留raw附件，须明确预览不可用，不造空Reader。
-- 当前详情绑定选中的来源/Reader，最新请求另列 `latestAttempt:{jobId,status,requestedRef,resolvedRevision,errorCode}|null`，不能把失败的新版本元信息拼到仍可读的旧原件上。`GET /documents/:id/source-versions` 默认20/max50、UUID游标，返回独立来源修订id；`source-details?revisionId=UUID` 查看该修订。同字节论文的修订id不同，即便sourceVersion相同；游标边界在SQL按原行比较。
+- 当前详情绑定选中的来源/Reader，最新请求另列 `latestAttempt:{jobId,status,requestedRef,resolvedRevision,errorCode}|null`，不能把失败的新版本元信息拼到仍可读的旧原件上。`GET /documents/:id/source-versions` 默认20/max50、UUID游标，返回独立来源修订id；`source-details?revisionId=UUID` 查看该修订；可附 `readerVersionId=UUID`，先校验Reader属于本人及该资料，再解析其真实来源。两个参数同时提供时须验证配对；paper只使用显式论文绑定，GitHub使用实际capture/fetch/translation关联，只有唯一候选时允许source-only回退。歧义返回current=null及有界警告，不能靠显式revision绕过歧义回退；真实多候选映射可由用户显式选择。未登记配对、其他资料或他人Reader返回404。该GET始终纯读。同字节论文的修订id不同，即便sourceVersion相同；游标边界在SQL按原行比较。
 - source-versions响应为 `{items:(GithubSourceRevision|ArxivSourceRevision)[],nextCursor:UUID|null}`。`GET /documents/:id/source-assets/:assetId` 只下载已登记且已验证的本资料来源材料，强制attachment/nosniff/no-store；PDF inline/Range仍使用原件路由，不把此入口变成任意asset/object-key代理。
 - GitHub身份为稳定数字repository id；每次保存记录 owner/name、原URL、canonical repo URL、采集时间、完整40位commit SHA、README path/blob SHA、实际raw/HTML SHA256。arXiv身份为base id；`arxiv_versions`分别保存每个固定version的题目/作者/摘要/时间、实际PDF SHA/bytes与sourceVersion。不同字节用不同源；同一论文内字节完全相同可共享既有不可变PDF源，以 `paper_reader_bindings` 保留各版本与Reader的验证关联，不能只靠sourceVersion猜论文版本。
 - `github_versions`是不可变修订，允许元信息已存但README/源为空；相同实际metadata/raw/HTML/config摘要可复用修订。`arxiv_versions`在首次确认元信息时固定版本/元信息，可将尚为空的PDF绑定填入一次；一旦绑定，后续同版本不同PDF必须报SOURCE_VERSION_CONFLICT，不能覆盖。当前原件/Reader只在材料验证后切换；元信息先到的状态通过latestAttempt独立展示。
@@ -194,41 +194,41 @@
 
 **Files:** 新建 `apps/document-service/migrations/008-source-adapters.sql`、`apps/document-service/src/source-adapters/{types,url,identity,repository,network,rate-limit,service,routes,receipts}.ts`；修改links分类、worker lease、job DB约束及purge依赖图；测试 `apps/document-service/tests/integration/source-adapters.test.ts`、`apps/document-service/tests/unit/source-network.test.ts`。
 **Interfaces:** `classifySourceUrl(url):SourceReference|null` 在url.ts解析两类源；`createSourceAdaptersService({db})` 的 `details(actor,id):Promise<SourceDetails>` / `refresh(actor,id,input,key):Promise<DocumentLinkResult>`；`SourceTransport`。008新增 `document_source_identities,document_source_aliases,source_requests,source_acquisitions,external_request_limits,github_versions,arxiv_versions,paper_reader_bindings`。acquisition每份材料都对应实际registered asset/SHA，不使用假的会话身份；provider runner/dispatcher入口在任务8/9接入，不能导入尚不存在的模块。
-- [ ] **Step 1:** 写 `classifies repository roots and versioned arxiv identities`、`keeps one canonical identity without retargeting old jobs`、`retains first acquired bytes across worker restart`、`serializes arxiv requests across processes`：两worker/重定向改host/privateIP/超时/超限/403与429，断言网络零Cookie/Auth、GitHub固定版本header存在、arXiv实际并发≤1且完成后间隔≥3秒；有用户编辑的身份冲突不丢资料。
-- [ ] **Step 2:** 运行 `npm run test --workspace @pagelingo/document-service -- tests/unit/source-network.test.ts` 及 `node scripts/with-test-postgres.mjs -- npm run test:integration --workspace @pagelingo/document-service -- tests/integration/source-adapters.test.ts`。复用pinned-wire/worker-process，保留真实DB节流/网络能力缺失的RED，不用fetch mock冒称DNS验证。
-- [ ] **Step 3:** 实现来源请求幂等账本、alias规则与immutable acquisitions，输入来自当前租约；来源账本按owner/document/authVersion/key唯一。不同逻辑kind即使URL相同也不换绑，已有article快照保留。获取与派生在事务外，登记/选择版本/依赖复检在短事务内。008替换web_jobs文档kind校验函数：fetch允许paper/repository，translate只允许实际Web来源；不解除FK/immutable约束。尚未接入runner的来源明确未支持，不用空实现返回成功。
-- [ ] **Step 4:** 新网络cap只给api.github.com注入固定 `X-GitHub-Api-Version:2026-03-10`，不把请求头白名单泛化为透传。PDF流结束/中止后关闭agent；arXiv session锁先关闭HTTP再更新3秒冷却/释放连接，不占SQL事务睡眠。运行新测试、`tests/unit/capture-fetch.test.ts`、`tests/integration/web-jobs.test.ts` 与service types。
-- [ ] **Step 5:** 自检并提交 `feat: add durable source identities and bounded acquisition`。
+- [x] **Step 1:** 写 `classifies repository roots and versioned arxiv identities`、`keeps one canonical identity without retargeting old jobs`、`retains first acquired bytes across worker restart`、`serializes arxiv requests across processes`：两worker/重定向改host/privateIP/超时/超限/403与429，断言网络零Cookie/Auth、GitHub固定版本header存在、arXiv实际并发≤1且完成后间隔≥3秒；有用户编辑的身份冲突不丢资料。
+- [x] **Step 2:** 运行 `npm run test --workspace @pagelingo/document-service -- tests/unit/source-network.test.ts` 及 `node scripts/with-test-postgres.mjs -- npm run test:integration --workspace @pagelingo/document-service -- tests/integration/source-adapters.test.ts`。复用pinned-wire/worker-process，保留真实DB节流/网络能力缺失的RED，不用fetch mock冒称DNS验证。
+- [x] **Step 3:** 实现来源请求幂等账本、alias规则与immutable acquisitions，输入来自当前租约；来源账本按owner/document/authVersion/key唯一。不同逻辑kind即使URL相同也不换绑，已有article快照保留。获取与派生在事务外，登记/选择版本/依赖复检在短事务内。008替换web_jobs文档kind校验函数：fetch允许paper/repository，translate只允许实际Web来源；不解除FK/immutable约束。尚未接入runner的来源明确未支持，不用空实现返回成功。
+- [x] **Step 4:** 新网络cap只给api.github.com注入固定 `X-GitHub-Api-Version:2026-03-10`，不把请求头白名单泛化为透传。PDF流结束/中止后关闭agent；arXiv session锁先关闭HTTP再更新3秒冷却/释放连接，不占SQL事务睡眠。运行新测试、`tests/unit/capture-fetch.test.ts`、`tests/integration/web-jobs.test.ts` 与service types。
+- [x] **Step 5:** 自检并提交 `feat: add durable source identities and bounded acquisition`。
 
 ### Task 8: GitHub repo 与固定 README 阅读流程
 
 **Files:** 新建 `apps/document-service/src/source-adapters/{github,github-publication,capture-resources,dispatch}.ts`；修改 `packages/web-capture/src/node.ts`、source/web publication及library投影；测试 `apps/document-service/tests/integration/github-repository.test.ts`、`packages/web-capture/tests/source-metadata.test.ts`。
 **Interfaces:** `runGithubFetchJob(lease:JobLease,deps:SourceFetchDependencies):Promise<void>` 与 `runSourceFetchJob` dispatcher在此接入；其内部acquisition/prepared类型定义在source-adapters模块中。repo source与Reader继续使用真实Web IR/SDK；可信内部来源证明单独绑定repository ID/commit/path，不放宽公共capture接口的URL/kind校验。
-- [ ] **Step 1:** 写 `pins metadata raw README and rendered HTML to one commit`、`keeps metadata when README is absent or resources fail`、`preserves explicit titles when fetch completes late`、`reuses a known repo across rename without merging edited records`：分支中途移动、raw blob SHA不符、README404/过大、私有repo/限流、恶意HTML/SVG、实际图片、旧Reader打开期间新commit；断言不可变版本/真实hash、缺失原因及未改current opened版本。
-- [ ] **Step 2:** 运行 `npm run test --workspace @pagelingo/web-capture -- tests/source-metadata.test.ts` 及 `node scripts/with-test-postgres.mjs -- npm run test:integration --workspace @pagelingo/document-service -- tests/integration/github-repository.test.ts`，确认repo仍links-only的RED。
-- [ ] **Step 3:** 匿名GET仓库元信息→解析目标ref到完整commit→以该commit取得README metadata/raw/HTML；校验raw的Git blob SHA1和独立实际SHA256。上游JSON只提取已知字段并允许其他上游字段，不把完整响应merge进业务DTO；验证repo ID/commit/path，unsafe整数ID不舍入。raw上限1MiB、HTML8MiB，保存响应再清洗。图片沿受控网络/真实图片检查及原16/64MiB等预算；不可取的资源显式missing，源raw/HTML不执行。
-- [ ] **Step 4:** 发布到当前repo自身已绑定的Web源/Reader，合法偏好才调用既有publication scheduler。无README只显示元信息，不造空Reader。普通博客M5从同一次Readability结果提取有界title/author/date，保留用户title，不再fetch。更新旧S3的GitHub仅链接阶段断言，同时保留未支持GitLab的链接回退测试；运行目标DB、`apps/web/tests/e2e/web-reader.test.ts` 相关来源用例、Web capture/render/SDK保护及types/build。
-- [ ] **Step 5:** 自检并提交 `feat: archive versioned GitHub repository readmes`。
+- [x] **Step 1:** 写 `pins metadata raw README and rendered HTML to one commit`、`keeps metadata when README is absent or resources fail`、`preserves explicit titles when fetch completes late`、`reuses a known repo across rename without merging edited records`：分支中途移动、raw blob SHA不符、README404/过大、私有repo/限流、恶意HTML/SVG、实际图片、旧Reader打开期间新commit；断言不可变版本/真实hash、缺失原因及未改current opened版本。
+- [x] **Step 2:** 运行 `npm run test --workspace @pagelingo/web-capture -- tests/source-metadata.test.ts` 及 `node scripts/with-test-postgres.mjs -- npm run test:integration --workspace @pagelingo/document-service -- tests/integration/github-repository.test.ts`，确认repo仍links-only的RED。
+- [x] **Step 3:** 匿名GET仓库元信息→解析目标ref到完整commit→以该commit取得README metadata/raw/HTML；校验raw的Git blob SHA1和独立实际SHA256。上游JSON只提取已知字段并允许其他上游字段，不把完整响应merge进业务DTO；验证repo ID/commit/path，unsafe整数ID不舍入。raw上限1MiB、HTML8MiB，保存响应再清洗。图片沿受控网络/真实图片检查及原16/64MiB等预算；不可取的资源显式missing，源raw/HTML不执行。
+- [x] **Step 4:** 发布到当前repo自身已绑定的Web源/Reader，合法偏好才调用既有publication scheduler。无README只显示元信息，不造空Reader。普通博客M5从同一次Readability结果提取有界title/author/date，保留用户title，不再fetch。更新旧S3的GitHub仅链接阶段断言，同时保留未支持GitLab的链接回退测试；运行目标DB、`apps/web/tests/e2e/web-reader.test.ts` 相关来源用例、Web capture/render/SDK保护及types/build。
+- [x] **Step 5:** 自检并提交 `feat: archive versioned GitHub repository readmes`。
 
 ### Task 9: arXiv 固定版本 PDF 与明确目标导入
 
 **Files:** 新建 `apps/document-service/src/source-adapters/{arxiv,arxiv-atom,arxiv-publication}.ts`、`apps/document-service/src/documents/pdf-validation.ts`；修改documents/repository/service/source-response、readers、bundle-imports、共享paper summary投影与008约束；测试 `apps/document-service/tests/integration/arxiv-paper.test.ts`、`apps/document-service/tests/unit/arxiv-atom.test.ts`。
 **Interfaces:** 复用Task7的source URL parser，再以真实Atom确认ID/版本，不维护第二套URL规则；`runArxivFetchJob(lease:JobLease,deps:SourceFetchDependencies):Promise<void>` 接入dispatcher，产出固定version与实际PDF asset。source metadata选中版本，PDF Reader仍使用原有IR/bundle合同。
-- [ ] **Step 1:** 写 `resolves latest once then resumes the fixed version`、`keeps v1 translation separate from a changed v2 PDF`、`records separate paper versions for identical PDF bytes`、`imports a bundle into the explicitly selected paper source`：现代/旧ID、同字节两版保留各版本绑定/可复用原件、不同字节新source等待本地处理；伪PDF/Atom错误entry/DTD/超深XML、下载中断、坏hash/跨owner/包已在另一条目。断言旧Reader源不变、不同原件的新summary为awaiting-local-processing、0服务器推理/模型请求。
-- [ ] **Step 2:** 运行 `npm run test --workspace @pagelingo/document-service -- tests/unit/arxiv-atom.test.ts` 及 `node scripts/with-test-postgres.mjs -- npm run test:integration --workspace @pagelingo/document-service -- tests/integration/arxiv-paper.test.ts`，确认paper不能登记PDF/导入的RED。
-- [ ] **Step 3:** SAX解析≤1MiB Atom，拒绝DOCTYPE/实体声明，深度32/节点5000/作者1000/摘要20,000字符；验证唯一entry与请求ID/版本，再构造匹配的HTTPS PDF地址。提取现有PDF流校验供上传/下载共用，不复制宽松验证器。保存feed与流式PDF后发布固定source；恢复复用材料，不把无版本请求再次解析成更新版本；IR不能覆盖论文来源元信息。
-- [ ] **Step 4:** 原kind保持paper；放开008中对应source/parse/Reader能力且保留PDF强FK，验证targetSourceVersionId及targetPaperVersion的配对。只复用本论文内字节确实相同的源/Reader并记录版本关联；不同current source不保留旧Reader，导入历史版本不提升当前指针。历史source资产按登记身份读取。运行目标DB及现有PDF documents/reader/bundle/progress回归，验证旧v1包/请求hash不变。
-- [ ] **Step 5:** 自检并提交 `feat: collect fixed arxiv papers and bind local reader imports`。
+- [x] **Step 1:** 写 `resolves latest once then resumes the fixed version`、`keeps v1 translation separate from a changed v2 PDF`、`records separate paper versions for identical PDF bytes`、`imports a bundle into the explicitly selected paper source`：现代/旧ID、同字节两版保留各版本绑定/可复用原件、不同字节新source等待本地处理；伪PDF/Atom错误entry/DTD/超深XML、下载中断、坏hash/跨owner/包已在另一条目。断言旧Reader源不变、不同原件的新summary为awaiting-local-processing、0服务器推理/模型请求。
+- [x] **Step 2:** 运行 `npm run test --workspace @pagelingo/document-service -- tests/unit/arxiv-atom.test.ts` 及 `node scripts/with-test-postgres.mjs -- npm run test:integration --workspace @pagelingo/document-service -- tests/integration/arxiv-paper.test.ts`，确认paper不能登记PDF/导入的RED。
+- [x] **Step 3:** SAX解析≤1MiB Atom，拒绝DOCTYPE/实体声明，深度32/节点5000/作者1000/摘要20,000字符；验证唯一entry与请求ID/版本，再构造匹配的HTTPS PDF地址。提取现有PDF流校验供上传/下载共用，不复制宽松验证器。保存feed与流式PDF后发布固定source；恢复复用材料，不把无版本请求再次解析成更新版本；IR不能覆盖论文来源元信息。
+- [x] **Step 4:** 原kind保持paper；放开008中对应source/parse/Reader能力且保留PDF强FK，验证targetSourceVersionId及targetPaperVersion的配对。只复用本论文内字节确实相同的源/Reader并记录版本关联；不同current source不保留旧Reader，导入历史版本不提升当前指针。历史source资产按登记身份读取。运行目标DB及现有PDF documents/reader/bundle/progress回归，验证旧v1包/请求hash不变。
+- [x] **Step 5:** 自检并提交 `feat: collect fixed arxiv papers and bind local reader imports`。
 
 ### Task 10: 来源详情、插件入口与明确关联收藏
 
 **Files:** 新建 `apps/web/src/features/library/{source-details,source-refresh,source-versions}.tsx`；修改document-page/row、PDF/Web分派、link-dialog及extension来源选择与capture面板；测试 `apps/web/tests/e2e/source-adapters.test.ts` 和extension来源原生用例。
 **Interfaces:** 只消费SourceDetails/实际阅读能力。已知GH repo根路径与arXiv abs/pdf/html由插件交给站点适配器；GH非根文档可另存article。来源卡展示固定commit/版本、真实材料、警告与更新操作，不在GET自动取新版本。
-- [ ] **Step 1:** 写 `collects repo and paper links through the actual extension`、`reads fixed sources after origin disappears`、`links an explicitly selected discovered document`：真实API/独立mock worker、旧窗口固定版本、alias明确导航/冲突保留编辑、选择来源外链时添加owned关系；新旧账号晚到响应不能串状态，错误版本包明确拒绝。
-- [ ] **Step 2:** 运行 `node scripts/with-test-postgres.mjs -- npm run test:e2e --workspace @pagelingo/web -- tests/e2e/source-adapters.test.ts` 及 `npm run test:e2e --workspace @pagelingo/extension -- tests/e2e/archive-source.test.ts`，确认入口/展示缺失的RED。
-- [ ] **Step 3:** 接入repo/paper来源视图、版本/导入/原件入口和稳定请求UUID；并发重复的alias只导航到本人canonical，冲突不自动丢编辑。已存在资料给出已有条目，更新需要显式操作；X/文章外链由用户点选保存/关联，不自动抓全站。资料组织与被动阅读保持独立。
-- [ ] **Step 4:** 运行目标site、library、web-reader、PDF reader/progress、extension archive回归；检查375px/桌面明暗截图和键盘操作，不能用mock截图替代真实UI。公开来源手工样本记录URL/时间/hash，拿不到的真实来源如实未验证。
-- [ ] **Step 5:** 自检并提交 `feat: browse versioned sources and related collections`。
+- [x] **Step 1:** 写 `collects repo and paper links through the actual extension`、`reads fixed sources after origin disappears`、`links an explicitly selected discovered document`：真实API/独立mock worker、旧窗口固定版本、alias明确导航/冲突保留编辑、选择来源外链时添加owned关系；新旧账号晚到响应不能串状态，错误版本包明确拒绝。
+- [x] **Step 2:** 运行 `node scripts/with-test-postgres.mjs -- npm run test:e2e --workspace @pagelingo/web -- tests/e2e/source-adapters.test.ts` 及 `npm run test:e2e --workspace @pagelingo/extension -- tests/e2e/archive-source.test.ts`，确认入口/展示缺失的RED。
+- [x] **Step 3:** 接入repo/paper来源视图、版本/导入/原件入口和稳定请求UUID；并发重复的alias只导航到本人canonical，冲突不自动丢编辑。已存在资料给出已有条目，更新需要显式操作；X/文章外链由用户点选保存/关联，不自动抓全站。资料组织与被动阅读保持独立。
+- [x] **Step 4:** 运行目标site、library、web-reader、PDF reader/progress、extension archive回归；检查375px/桌面明暗截图和键盘操作，不能用mock截图替代真实UI。公开来源手工样本记录URL/时间/hash，拿不到的真实来源如实未验证。
+- [x] **Step 5:** 自检并提交 `feat: browse versioned sources and related collections`。
 
 ### Task 11: 可信 Web 离线 Reader 与静态资源目录
 
@@ -282,7 +282,7 @@
 
 ### 当前执行进度（2026-10-29）
 
-任务0–6已完成并通过独立任务审查与必要的修正复核，交付段A资料组织/生命周期完成。当前已具备分类、搜索、备注、阅读状态、资料关联、回收站与插件分类收藏；任务7–14继续按原顺序推进来源适配和下载导出。
+任务0–10已完成并通过独立任务审查与必要的修正复核，交付段A资料组织/生命周期和B来源适配完成。当前支持GitHub固定README、arXiv固定版本原件、历史来源与Reader配对、论文目标导入及明确关联收藏；交付段C任务11–14继续推进离线Reader、完整下载导出与整体回归。
 
 | 任务 | 结果与提交 |
 | --- | --- |
@@ -293,10 +293,18 @@
 | 4 | 材料校验恢复、真实永久清理、退休收据、缓存引用和有界维护；`572c783`、`70eb81a`。 |
 | 5 | 完整采集消息预算、分页轻量记录、已确认载荷整理及本地清理失败恢复；`0af612d`、`2ec2900`。 |
 | 6 | 管理/筛选/关系/回收站界面、插件分类、完整导入提示与请求重试边界；`78282cd`、`d7f1dac`。 |
+| 7 | 稳定来源身份、不可变采集账本、受控出站与跨进程限流；`68c4120`、`506b6ce`。 |
+| 8 | GitHub固定提交README、实际资源与Web Reader、同次提取博客元信息；`7d0b17a`。日期非法日历值的Minor修正仍须在任务14完成。 |
+| 9 | arXiv固定版本元信息/PDF、同字节论文版本绑定、明确目标导入和历史原件；`f63f527`、`619dcb2`。 |
+| 10 | 来源/历史界面、插件已知来源入口、发现链接与论文导入重试状态、来源配对验证；`75ed0a4`、`2268119`。 |
 
 任务4保留309项服务端完整集成快照；最终恢复引用修订通过42项相关回归，预算与维护错误修正通过23项回收站回归、139项单元测试及类型检查/构建。任务5的最终修正通过91项归档单元测试、14项原生浏览器测试及类型检查/构建，验证真实IndexedDB失败回滚与确认后仅本地重试；不冒称物理磁盘耗尽验收。
 
 任务6的冻结根检查通过939项单元测试和70项插件浏览器测试。其初次广泛站点/服务检查分别为65/68与316/317，失败记录保留；旧接口测试、确认后载荷测试和窄屏布局已由独立专项修正关闭。最终导入边界修正通过42项API测试、16项浏览器测试及类型检查/构建，移动阅读/管理对齐另有5项专项通过和真实明暗截图。上述结果属于各自提交快照，不合并重复计数；S4最终冻结后的根检查与站点全量验收仍由任务14完成。
+
+任务7–10分别保留来源身份/限流、GitHub投影、arXiv跨进程恢复和实际浏览器验证。任务8冻结检查为498项通过；任务9的169项单元测试通过，171项集成初次为168通过、3项旧断言失败，随后3项相关用例及1项强化传输用例修正通过，不记为全量171项重跑。任务10核心API41项、来源单元31项、插件归档单元41项和原生浏览器16项通过；初次站点检查为38/52，PDF原件路由与导入重试修正后42项相关浏览器检查通过。最终专项修正另有4项API、16项浏览器及构建/类型检查通过，保留原失败记录，不累加重叠计数。
+
+任务10使用匿名受控传输实际取得公开GitHub固定提交材料与arXiv固定版本元信息/PDF，记录URL、时间与hash；这只证明材料获取，完整真实来源到界面的验收仍在任务14。一次旧测试硬编码输出覆盖了任务6的一张历史正向截图，原图无法恢复；已保留所见字节、provenance erratum及修正后的独立输出证据，不将新截图冒充原图。M5非法日历日期修正、最终全量检查和输出警告核对仍待任务14。
 
 四份原始S2大样本ZIP在当前环境缺失；新增旧包兼容验证使用仓库固定S2/S3合成包，真实大样本验证沿用既有验收记录，不记作本轮重跑。逐任务失败、修正和验证原始证据保留在本工作区的ignored执行目录。
 
