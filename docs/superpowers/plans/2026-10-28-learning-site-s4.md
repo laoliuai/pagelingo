@@ -174,21 +174,21 @@
 
 **Files:** 新建 `apps/extension/src/archive/{delivery-budget,outbox-payloads}.ts`、`apps/extension/tests/unit/{archive-delivery-budget,archive-payloads}.test.ts`；修改collector/page-controller、archive/database/outbox、popup/capture-panel及原归档tests；更新extension-site-capture说明。
 **Interfaces:** `fitCaptureDelivery(grant:CaptureGrant,draft:CaptureDraft):CaptureDraft` 在保存可信资源选择映射/发送前，以完整 `{type,grant,payload}` 的实际UTF-8 JSON计费；`compactCompletedEntry(binding,id)` 在同一IDB事务保留收据、删除payload。数据库升级使用逐行cursor，失败升级保留原库。
-- [ ] **Step 1:** 将S3 N1的自有有效PNG/6030字符URL/两份CSS边界写成永久回归，断言 `expect(deliveryBytes).toBeLessThanOrEqual(16*1024*1024)`；另测JSON转义、无可裁CSS的明确链接回退、三模式同原文与过期grant。写旧v1库升级、quota中止、已确认完成/ACK丢失/取消未知/换账号/重启用例，断言只有确认完成payload清掉，其他真实字节可继续提交且UUID不变，升级失败原库不损坏。
-- [ ] **Step 2:** 运行 `npm run test --workspace @pagelingo/extension -- tests/unit/archive-delivery-budget.test.ts tests/unit/archive-payloads.test.ts`，以及 `npm run test:e2e --workspace @pagelingo/extension -- tests/e2e/archive-upload.test.ts`，确认原边界或未清理载荷的RED；保留截图/context。
-- [ ] **Step 3:** 实现完整封装预算，CSS降级带警告且重建同一最终草稿的资源授权；仍超限则诚实回退。IDB把header与draft/request/files分仓，状态列表按partition游标最多50条，不加载全部payload。只在原有授权/ACK围栏通过后compact completed；pending/retry/取消未知保留，取消条目仅用户明确移除本地记录时清理。
-- [ ] **Step 4:** 运行extension所有归档unit和 `archive-source.test.ts`、`archive-upload.test.ts`；验证丢ACK、原生worker终止与账号隔离仍通过。类型检查/build通过，后台16MiB拒绝仍存在，未增加通用资源fetch权限。
-- [ ] **Step 5:** 自检并提交 `fix: bound capture envelopes and compact confirmed outbox payloads`。
+- [x] **Step 1:** 将S3 N1的自有有效PNG/6030字符URL/两份CSS边界写成永久回归，断言 `expect(deliveryBytes).toBeLessThanOrEqual(16*1024*1024)`；另测JSON转义、无可裁CSS的明确链接回退、三模式同原文与过期grant。写旧v1库升级、quota中止、已确认完成/ACK丢失/取消未知/换账号/重启用例，断言只有确认完成payload清掉，其他真实字节可继续提交且UUID不变，升级失败原库不损坏。
+- [x] **Step 2:** 运行 `npm run test --workspace @pagelingo/extension -- tests/unit/archive-delivery-budget.test.ts tests/unit/archive-payloads.test.ts`，以及 `npm run test:e2e --workspace @pagelingo/extension -- tests/e2e/archive-upload.test.ts`，确认原边界或未清理载荷的RED；保留截图/context。
+- [x] **Step 3:** 实现完整封装预算，CSS降级带警告且重建同一最终草稿的资源授权；仍超限则诚实回退。IDB把header与draft/request/files分仓，状态列表按partition游标最多50条，不加载全部payload。只在原有授权/ACK围栏通过后compact completed；pending/retry/取消未知保留，取消条目仅用户明确移除本地记录时清理。
+- [x] **Step 4:** 运行extension所有归档unit和 `archive-source.test.ts`、`archive-upload.test.ts`；验证丢ACK、原生worker终止与账号隔离仍通过。类型检查/build通过，后台16MiB拒绝仍存在，未增加通用资源fetch权限。
+- [x] **Step 5:** 自检并提交 `fix: bound capture envelopes and compact confirmed outbox payloads`。
 
 ### Task 6: 资料管理界面与收藏分类入口
 
 **Files:** 新建 `apps/web/src/features/library/{organization-panel,taxonomy-controls,library-filters,relations-panel,trash-page}.tsx` 与相邻hooks；修改library/detail/router及extension capture面板/站点请求；测试 `apps/web/tests/e2e/library-management.test.ts`、`document-trash.test.ts` 和extension归档测试。
 **Interfaces:** 使用2.1 DTO。新增 `GET /api/v1/capture-options?kind=collections|tags&q&cursor&limit`，默认50/max100，仅返回本人id/name，使用已有 `preferences:read`（会话也可读）；这是本计划明确增加的收藏选项读取用途，不开放文档/备注/内容。新创建资料的organization提示进入原请求幂等身份，省略时保持旧编码。
-- [ ] **Step 1:** 写 `organizes documents across devices and preserves filters`、`does not apply late metadata to another account`、`restores and permanently removes only the selected item`：真实API两浏览器、CAS冲突、键盘/明暗/375px、删除关系不删目标。插件测试选分类→断网/丢ACK重试同请求、分类中途删除后原件仍保存并明确警告。
-- [ ] **Step 2:** 运行 `node scripts/with-test-postgres.mjs -- npm run test:e2e --workspace @pagelingo/web -- tests/e2e/library-management.test.ts tests/e2e/document-trash.test.ts` 和Task5归档unit，确认管理行为缺失的RED。
-- [ ] **Step 3:** 在现有布局增加组织信息、组合筛选、阅读状态、关系和回收站；仅永久删除/丢弃未确认本地载荷要求明确用户操作。保存提示只初始化新资料，重复收藏不覆盖已有分类；accepted之后分类被删除，保存原件并返回有界警告。旧设备/旧请求不被追加未声明字段，所有选项、payload和晚到响应随owner/auth epoch清除。
-- [ ] **Step 4:** 运行目标文件及旧library/account-isolation/reader-progress/web-progress回归；确认被动阅读0PUT、管理操作不改变Reader/译文。保存真实桌面/手机明暗截图，检查可读性和焦点，不写CSS镜像测试。
-- [ ] **Step 5:** 自检并提交 `feat: manage collections tags reading state and trash`。
+- [x] **Step 1:** 写 `organizes documents across devices and preserves filters`、`does not apply late metadata to another account`、`restores and permanently removes only the selected item`：真实API两浏览器、CAS冲突、键盘/明暗/375px、删除关系不删目标。插件测试选分类→断网/丢ACK重试同请求、分类中途删除后原件仍保存并明确警告。
+- [x] **Step 2:** 运行 `node scripts/with-test-postgres.mjs -- npm run test:e2e --workspace @pagelingo/web -- tests/e2e/library-management.test.ts tests/e2e/document-trash.test.ts` 和Task5归档unit，确认管理行为缺失的RED。
+- [x] **Step 3:** 在现有布局增加组织信息、组合筛选、阅读状态、关系和回收站；仅永久删除/丢弃未确认本地载荷要求明确用户操作。保存提示只初始化新资料，重复收藏不覆盖已有分类；accepted之后分类被删除，保存原件并返回有界警告。旧设备/旧请求不被追加未声明字段，所有选项、payload和晚到响应随owner/auth epoch清除。
+- [x] **Step 4:** 运行目标文件及旧library/account-isolation/reader-progress/web-progress回归；确认被动阅读0PUT、管理操作不改变Reader/译文。保存真实桌面/手机明暗截图，检查可读性和焦点，不写CSS镜像测试。
+- [x] **Step 5:** 自检并提交 `feat: manage collections tags reading state and trash`。
 
 ### Task 7: 来源身份、实际材料账本与受控网络
 
@@ -282,7 +282,7 @@
 
 ### 当前执行进度（2026-10-29）
 
-任务0–4已完成并通过独立任务审查与必要的修正复核；任务5–14继续按原顺序推进。当前交付范围是兼容基线、管理合同、资料管理API、删除围栏和真实恢复/清理后台，管理界面属于任务6。
+任务0–6已完成并通过独立任务审查与必要的修正复核，交付段A资料组织/生命周期完成。当前已具备分类、搜索、备注、阅读状态、资料关联、回收站与插件分类收藏；任务7–14继续按原顺序推进来源适配和下载导出。
 
 | 任务 | 结果与提交 |
 | --- | --- |
@@ -291,8 +291,12 @@
 | 2 | 集合、标签、关系、组合搜索、源绑定投影与公平补齐；`33bd2e4`、`33a71f9`。 |
 | 3 | 读取、上传、任务、缓存与发布生命周期围栏；`55db4c2`。 |
 | 4 | 材料校验恢复、真实永久清理、退休收据、缓存引用和有界维护；`572c783`、`70eb81a`。 |
+| 5 | 完整采集消息预算、分页轻量记录、已确认载荷整理及本地清理失败恢复；`0af612d`、`2ec2900`。 |
+| 6 | 管理/筛选/关系/回收站界面、插件分类、完整导入提示与请求重试边界；`78282cd`、`d7f1dac`。 |
 
-已保留309项服务端完整集成快照；最终恢复引用修订通过42项相关回归，预算与维护错误修正通过23项回收站回归、139项单元测试及类型检查/构建。各结果对应其记录的提交快照，S4最终冻结后的根检查与站点全量验收仍由任务14完成。
+任务4保留309项服务端完整集成快照；最终恢复引用修订通过42项相关回归，预算与维护错误修正通过23项回收站回归、139项单元测试及类型检查/构建。任务5的最终修正通过91项归档单元测试、14项原生浏览器测试及类型检查/构建，验证真实IndexedDB失败回滚与确认后仅本地重试；不冒称物理磁盘耗尽验收。
+
+任务6的冻结根检查通过939项单元测试和70项插件浏览器测试。其初次广泛站点/服务检查分别为65/68与316/317，失败记录保留；旧接口测试、确认后载荷测试和窄屏布局已由独立专项修正关闭。最终导入边界修正通过42项API测试、16项浏览器测试及类型检查/构建，移动阅读/管理对齐另有5项专项通过和真实明暗截图。上述结果属于各自提交快照，不合并重复计数；S4最终冻结后的根检查与站点全量验收仍由任务14完成。
 
 四份原始S2大样本ZIP在当前环境缺失；新增旧包兼容验证使用仓库固定S2/S3合成包，真实大样本验证沿用既有验收记录，不记作本轮重跑。逐任务失败、修正和验证原始证据保留在本工作区的ignored执行目录。
 
