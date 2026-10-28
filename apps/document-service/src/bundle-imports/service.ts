@@ -23,6 +23,7 @@ import { maintainLease } from './lease.js';
 let processing = false;
 const active = new Map<string, AbortController>();
 const idSchema = z.uuid();
+const hasSaveHints = (value: CreateBundleImportRequest) => value.organization !== undefined || value.discoveredFromDocumentId !== undefined;
 const abortedError = () => new ServiceError(409, 'BUNDLE_ABORTED', 'Bundle import was cancelled');
 function validId(id: string) { if (!idSchema.safeParse(id).success) throw new ServiceError(404, 'NOT_FOUND', 'Bundle import not found'); }
 function safeError(error: unknown): ServiceError {
@@ -45,13 +46,20 @@ export function createBundleImportsService({ db, store, config }: { db: Database
         await assertOperationNotRetired(client, actor.userId, 'bundle-import', idempotencyKey);
         const existing = (await client.query<ImportRow>('SELECT * FROM bundle_imports WHERE owner_id=$1 AND idempotency_key=$2 FOR UPDATE', [actor.userId, idempotencyKey])).rows[0];
         if (existing) {
-          const replay = existing.admitted_request ? { ...parsed.data, ...replaySaveHints(parsed.data,existing.admitted_request) } : parsed.data;
+          const recorded = existing.admitted_request;
+          const replay = recorded ? { ...parsed.data, ...replaySaveHints(parsed.data,recorded) } : parsed.data;
+          // Only hint-bearing admissions use authorized target identity. Legacy
+          // omitted-hint hashes retain their exact original spelling and bytes.
+          if (recorded && hasSaveHints(recorded) && replay.targetDocumentId && recorded.targetDocumentId &&
+              replay.targetDocumentId.toLowerCase() === recorded.targetDocumentId.toLowerCase()) {
+            replay.targetDocumentId = recorded.targetDocumentId;
+          }
           if (existing.request_hash !== hash(replay)) throw conflict('IDEMPOTENCY_CONFLICT'); return importView(existing);
         }
         const hints = await assertSaveHintsOwned(client, actor.userId, parsed.data);
-        const admitted = { ...parsed.data, ...hints };
+        const target = parsed.data.targetDocumentId ? await findDocument(client, actor.userId, parsed.data.targetDocumentId) : undefined;
+        const admitted = { ...parsed.data, ...hints, ...(hasSaveHints(parsed.data) && target ? { targetDocumentId: target.id } : {}) };
         const requestHash = hash(admitted);
-        if (parsed.data.targetDocumentId) await findDocument(client, actor.userId, parsed.data.targetDocumentId);
         if ((await client.query("SELECT id FROM bundle_imports WHERE owner_id=$1 AND status IN ('created','receiving','validating')", [actor.userId])).rowCount) throw conflict('BUNDLE_IMPORT_BUSY');
         return importView((await client.query<ImportRow>(`INSERT INTO bundle_imports (owner_id,idempotency_key,request_hash,target_document_id,admitted_request)
           VALUES ($1,$2,$3,$4,$5) RETURNING *`, [actor.userId, idempotencyKey, requestHash, parsed.data.targetDocumentId ?? null, JSON.stringify(admitted)])).rows[0]!);

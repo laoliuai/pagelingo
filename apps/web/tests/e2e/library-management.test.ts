@@ -99,8 +99,86 @@ test('keeps reading space and keyboard focus with management collapsed on narrow
   for(const theme of ['light','dark']){await page.evaluate(value=>document.documentElement.dataset.theme=value,theme);await page.screenshot({path:`../../.superpowers/sdd/2026-10-28-learning-site-s4/task-6-evidence/reader-collapsed-375-${theme}.png`,fullPage:true});}expect(writes).toEqual([]);expect((await(await page.request.get('/__test/metrics')).json()).modelCalls).toBe(0);
 });
 
-test('keeps unconfirmed import classification immutable when the create acknowledgement is lost',async({page})=>{
-  const {readingBundle,selectBundle}=await import('./bundle-helpers');await newReader(page,'classification-ack');const session=await(await page.request.get('/api/v1/auth/session')).json();const headers={Origin:origin,'X-CSRF-Token':session.csrfToken};const collection=await(await page.request.post('/api/v1/collections',{headers,data:{name:'不可变分类'}})).json();await selectBundle(page,await readingBundle('chinese'));await page.getByRole('dialog').getByRole('combobox',{name:'所属集合',exact:true}).selectOption(collection.id);
-  const bodies:unknown[]=[];const keys:string[]=[];let lost=false;await page.route('**/api/v1/bundle-imports',async route=>{if(route.request().method()!=='POST')return lost&&bodies.length===1?route.abort('failed'):route.continue();bodies.push(route.request().postDataJSON());keys.push(route.request().headers()['idempotency-key']);const response=await route.fetch();if(!lost){lost=true;await route.abort('failed');}else await route.fulfill({response});});
-  await page.getByRole('button',{name:'开始导入',exact:true}).click();await expect(page.getByRole('alert').filter({hasText:'尚未确认'})).toBeVisible();await expect(page.getByRole('dialog').getByRole('combobox',{name:'所属集合',exact:true})).toBeDisabled();await page.getByRole('button',{name:'重试导入',exact:true}).click();await expect(page.getByText('阅读包导入完成',{exact:true})).toBeVisible();expect(bodies).toHaveLength(2);expect(bodies[1]).toEqual(bodies[0]);expect(keys[1]).toBe(keys[0]);
+test('keeps unconfirmed import classification immutable when the create acknowledgement is lost', async ({ page }) => {
+  const { readingBundle, selectBundle } = await import('./bundle-helpers');
+  await newReader(page, 'classification-ack');
+  const session = await (await page.request.get('/api/v1/auth/session')).json();
+  const headers = { Origin: origin, 'X-CSRF-Token': session.csrfToken };
+  const collection = await (await page.request.post('/api/v1/collections', { headers, data: { name: '不可变分类' } })).json();
+  const original = { ...await readingBundle('chinese'), name: 'original-reading.zip' };
+  const replacement = { ...await readingBundle('pending', false, 'different-source'), name: 'replacement-reading.zip' };
+  await selectBundle(page, original);
+  await page.getByRole('dialog').getByRole('combobox', { name: '所属集合', exact: true }).selectOption(collection.id);
+  const bodies: unknown[] = []; const keys: string[] = []; const uploads: Buffer[] = []; let lost = false;
+  await page.route('**/api/v1/bundle-imports', async route => {
+    if (route.request().method() !== 'POST') return lost && bodies.length === 1 ? route.abort('failed') : route.continue();
+    bodies.push(route.request().postDataJSON()); keys.push(route.request().headers()['idempotency-key']);
+    const response = await route.fetch();
+    if (!lost) { lost = true; await route.abort('failed'); } else await route.fulfill({ response });
+  });
+  await page.route('**/api/v1/bundle-imports/*/content', async route => {
+    uploads.push(route.request().postDataBuffer()!); await route.continue();
+  });
+  await page.getByRole('button', { name: '开始导入', exact: true }).click();
+  await expect(page.getByRole('alert').filter({ hasText: '尚未确认' })).toBeVisible();
+  const choice = page.getByRole('dialog').getByRole('combobox', { name: '所属集合', exact: true });
+  const picker = page.getByLabel('阅读包 ZIP');
+  await expect(choice).toBeDisabled();
+  await expect(picker).toBeDisabled();
+  // Playwright can dispatch a late change even to a disabled picker. It must not
+  // replace the File already bound to this unresolved admission.
+  await picker.setInputFiles(replacement);
+  await expect(page.getByText('已选择：original-reading.zip', { exact: true })).toBeVisible();
+  await expect(page.getByText('已选择：replacement-reading.zip', { exact: true })).toHaveCount(0);
+  await expect(choice).toBeDisabled(); await expect(choice).toHaveValue(collection.id);
+  await page.getByRole('button', { name: '重试导入', exact: true }).click();
+  await expect(page.getByText('阅读包导入完成', { exact: true })).toBeVisible();
+  expect(bodies).toHaveLength(2); expect(bodies[1]).toEqual(bodies[0]); expect(keys[1]).toBe(keys[0]);
+  expect(uploads).toEqual([original.buffer]);
+  const imports = await (await page.request.get('/api/v1/bundle-imports')).json();
+  expect(imports).toHaveLength(1); expect(imports[0].status).toBe('completed');
+  await expect(picker).toBeEnabled();
+  await picker.setInputFiles(replacement);
+  await expect(page.getByText('已选择：replacement-reading.zip', { exact: true })).toBeVisible();
+  await expect(choice).toBeEnabled();
+  await page.getByRole('button', { name: '开始导入', exact: true }).click();
+  await expect(page.getByText('阅读包导入完成', { exact: true })).toBeVisible();
+  expect(bodies).toHaveLength(3); expect(keys[2]).not.toBe(keys[0]);
+  expect(uploads).toEqual([original.buffer, replacement.buffer]);
+});
+
+test('allows correcting a definitely rejected admission without retaining its classification lock', async ({ page }) => {
+  const { readingBundle, selectBundle } = await import('./bundle-helpers');
+  await newReader(page, 'classification-rejected');
+  const session = await (await page.request.get('/api/v1/auth/session')).json();
+  const headers = { Origin: origin, 'X-CSRF-Token': session.csrfToken };
+  const gone = await (await page.request.post('/api/v1/collections', { headers, data: { name: '提交前删除' } })).json();
+  const valid = await (await page.request.post('/api/v1/collections', { headers, data: { name: '修正后的分类' } })).json();
+  const original = { ...await readingBundle('chinese'), name: 'rejected-original.zip' };
+  const replacement = { ...await readingBundle('pending', false, 'corrected-source'), name: 'corrected-reading.zip' };
+  await selectBundle(page, original);
+  const choice = page.getByRole('dialog').getByRole('combobox', { name: '所属集合', exact: true });
+  await choice.selectOption(gone.id);
+  expect((await page.request.delete(`/api/v1/collections/${gone.id}`, { headers })).status()).toBe(204);
+  const bodies: unknown[] = []; const keys: string[] = []; const uploads: Buffer[] = [];
+  page.on('request', request => {
+    if (request.method() === 'POST' && request.url().endsWith('/api/v1/bundle-imports')) { bodies.push(request.postDataJSON()); keys.push(request.headers()['idempotency-key']); }
+  });
+  await page.route('**/api/v1/bundle-imports/*/content', async route => { uploads.push(route.request().postDataBuffer()!); await route.continue(); });
+  const rejected = page.waitForResponse(response => response.url().endsWith('/api/v1/bundle-imports') && response.request().method() === 'POST');
+  await page.getByRole('button', { name: '开始导入', exact: true }).click();
+  expect((await rejected).status()).toBe(404);
+  await expect(page.getByRole('button', { name: '重试导入', exact: true })).toBeEnabled();
+  const picker = page.getByLabel('阅读包 ZIP');
+  await expect(picker).toBeEnabled(); await expect(choice).toBeEnabled();
+  await expect(page.getByText('已选择：rejected-original.zip', { exact: true })).toBeVisible();
+  expect(await (await page.request.get('/api/v1/bundle-imports')).json()).toEqual([]);
+  await picker.setInputFiles(replacement); await choice.selectOption(valid.id);
+  await expect(page.getByText('已选择：corrected-reading.zip', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: '开始导入', exact: true }).click();
+  await expect(page.getByText('阅读包导入完成', { exact: true })).toBeVisible();
+  expect(bodies).toHaveLength(2); expect(keys[1]).not.toBe(keys[0]);
+  expect(bodies[0]).toMatchObject({ organization: { collectionId: gone.id } }); expect(bodies[1]).toMatchObject({ organization: { collectionId: valid.id } });
+  expect(uploads).toEqual([replacement.buffer]);
+  const imports = await (await page.request.get('/api/v1/bundle-imports')).json(); expect(imports).toHaveLength(1); expect(imports[0].status).toBe('completed');
 });

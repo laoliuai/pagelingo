@@ -24,6 +24,14 @@ export function importError(error: unknown): string {
   }
 }
 const aborted = (error: unknown) => error instanceof DOMException && error.name === 'AbortError';
+// These create-route responses prove this key did not admit a row. Other errors
+// (including transport/5xx/conflict/retirement) cannot release its pinned input.
+const rejectedAdmission = (error: unknown) => error instanceof ApiError && (
+  (error.status === 400 && error.code === 'INVALID_REQUEST') ||
+  (error.status === 404 && error.code === 'NOT_FOUND') ||
+  (error.status === 409 && error.code === 'BUNDLE_IMPORT_BUSY')
+);
+
 export function useBundleImport(open: boolean, targetDocument: DocumentSummary | undefined, onImported: (result: BundleImport) => void) {
   const { user } = useSession();
   const client = useQueryClient();
@@ -95,13 +103,16 @@ export function useBundleImport(open: boolean, targetDocument: DocumentSummary |
     enabled: result?.status === 'completed' && !!result.documentId && !!result.readerVersionId,
     queryFn: ({ signal }) => apiRequest<ReaderDescriptor>(`/api/v1/documents/${result!.documentId}/reader?versionId=${result!.readerVersionId}`, { signal }),
   });
-  function selectFile() {
-    if (busy) return;
-    if (activeImport(result)) { setError(''); return; }
+  function selectFile(): boolean {
+    // A missing create ACK is not permission to abandon the admitted input.
+    // Check the refs too: a queued file-change event may precede the disabled UI.
+    if (busy || locked.current || (admittedRequest.current !== null && resultRef.current === null)) return false;
+    if (activeImport(resultRef.current)) { setError(''); return true; }
     key.current = ''; admittedRequest.current=null; setClassificationLocked(false);
     resultRef.current = null;
     setResult(null);
     setError('');
+    return true;
   }
   async function submit(file: File, organization?: SaveOrganization) {
     if (locked.current || !limits.data || file.size > limits.data.maxArchiveBytes) return;
@@ -109,6 +120,7 @@ export function useBundleImport(open: boolean, targetDocument: DocumentSummary |
     if (targetDocument && result && !createdHere.current.has(result.id)) return;
     locked.current = true; setBusy(true); setError('');
     const signal = lifetime.current.signal;
+    let admissionWasRejected = false;
     try {
       let current = result;
       // A retry always reconciles server state before sending more bytes.
@@ -117,10 +129,18 @@ export function useBundleImport(open: boolean, targetDocument: DocumentSummary |
         key.current ||= crypto.randomUUID();
         admittedRequest.current ??= targetDocument ? {targetDocumentId:targetDocument.id} : (organization ? {organization:structuredClone(organization)} : {});
         setClassificationLocked(true);
-        current = await apiRequest<BundleImport>('/api/v1/bundle-imports', {
-          method: 'POST', body: admittedRequest.current,
-          idempotencyKey: key.current, signal,
-        });
+        try {
+          current = await apiRequest<BundleImport>('/api/v1/bundle-imports', {
+            method: 'POST', body: admittedRequest.current,
+            idempotencyKey: key.current, signal,
+          });
+        } catch (error) {
+          if (rejectedAdmission(error)) {
+            admissionWasRejected = true;
+            key.current = ''; admittedRequest.current = null; setClassificationLocked(false);
+          }
+          throw error;
+        }
         createdHere.current.add(current.id);
       }
       accept(current);
@@ -141,7 +161,7 @@ export function useBundleImport(open: boolean, targetDocument: DocumentSummary |
       }
     } catch (error) {
       if (!aborted(error)) {
-        setError(importError(error));
+        setError(admissionWasRejected ? '服务器未接受本次导入。请核对分类和目标资料后重试，或重新选择阅读包。' : importError(error));
         void recent.refetch();
       }
     } finally {
@@ -171,6 +191,6 @@ export function useBundleImport(open: boolean, targetDocument: DocumentSummary |
       setError('取消尚未确认，请检查网络后重试取消。');
     } finally { cancelling.current = false; }
   }
-  return { result, busy, classificationLocked, error: result?.status === 'failed' ? importError(result.errorCode) : error,
+  return { result, busy, classificationLocked, admissionUnknown: classificationLocked && result === null, error: result?.status === 'failed' ? importError(result.errorCode) : error,
     limits, recent, descriptor, submit, cancel, selectFile, restore: accept, restored: !!result && !createdHere.current.has(result.id) };
 }

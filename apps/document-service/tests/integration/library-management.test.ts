@@ -378,3 +378,57 @@ it('reads only existing owned purge receipts and reports actual completion after
   const {createLocalObjectStore}=await import('../../src/storage/local-object-store.js');const {runDocumentMaintenance}=await import('../../src/document-lifecycle/maintenance.js');const deps={db:t.db,store:createLocalObjectStore(t.config.dataDir),dataDir:t.config.dataDir,signal:new AbortController().signal};
   for(let n=0;n<8;n++)await runDocumentMaintenance(deps,{limit:100});expect((await t.db.pool.query('SELECT id FROM documents WHERE id=$1',[id])).rows).toHaveLength(0);expect((await t.request('GET',`/api/v1/trash/${id}/receipt`)).json()).toEqual({...receipt.json(),status:'completed'});
 });
+
+it('canonicalizes owned targets only for hint-bearing bundle admissions and preserves legacy target spelling', async () => {
+  const t = await setup();
+  const target = await t.pdf();
+  const collection = await t.taxonomy('collections', 'Target identity');
+  const tag = await t.taxonomy('tags', 'Target identity');
+  const { createDocumentsService } = await import('../../src/documents/service.js');
+  const { createLocalObjectStore } = await import('../../src/storage/local-object-store.js');
+  const sessionHash = (await t.db.pool.query('SELECT token_hash FROM sessions WHERE user_id=$1', [t.alice.user.id])).rows[0].token_hash as string;
+  const other = await createDocumentsService({ db: t.db, store: createLocalObjectStore(t.config.dataDir) }).savePdf({ userId: t.alice.user.id, role: t.alice.user.role, authVersion: 1, sessionHash }, { idempotencyKey: randomUUID(), originalFilename: 'other.pdf', body: (async function* () { yield Buffer.from(buildPdfFixture(7)); })() });
+  const create = (body: object, key: string, session = t.alice) => t.app.inject({ method: 'POST', url: '/api/v1/bundle-imports', headers: { ...t.headers(session), 'idempotency-key': key }, payload: body });
+  const key = 'Hinted-Target-Key';
+  const input = { organization: { collectionId: collection, tagIds: [tag] }, targetDocumentId: target.id.toUpperCase() };
+  const first = await create(input, key); expect(first.statusCode, first.body).toBe(201);
+  const equivalent = await create({ ...input, targetDocumentId: target.id }, key);
+  expect(equivalent.statusCode, equivalent.body).toBe(201); expect(equivalent.json()).toEqual(first.json());
+  expect((await t.db.pool.query('SELECT admitted_request FROM bundle_imports WHERE id=$1', [first.json().id])).rows[0].admitted_request).toEqual({ ...input, targetDocumentId: target.id });
+  const changedTarget = await create({ ...input, targetDocumentId: other.id }, key);
+  expect(changedTarget.statusCode, changedTarget.body).toBe(409); expect(changedTarget.json().error.code).toBe('IDEMPOTENCY_CONFLICT');
+  const foreign = await create({ organization: { collectionId: null, tagIds: [] }, targetDocumentId: target.id }, 'Foreign-Target-Key', t.bob);
+  expect(foreign.statusCode, foreign.body).toBe(404);
+  await t.request('DELETE', `/api/v1/collections/${collection}`); await t.request('DELETE', `/api/v1/tags/${tag}`);
+  expect((await create({ ...input, targetDocumentId: target.id }, key)).json()).toEqual(first.json());
+  expect((await t.request('POST', `/api/v1/documents/${target.id}/trash`, { expectedEpoch: 1 })).statusCode).toBe(200);
+  const retiredTarget = await create(input, key);
+  expect(retiredTarget.statusCode, retiredTarget.body).toBe(201); expect(retiredTarget.json()).toMatchObject({ id: first.json().id, status: 'cancelled' });
+
+  const discovered = await t.save('https://x.com/target-identity/status/discovered');
+  const discoveryInput = { discoveredFromDocumentId: discovered.toUpperCase(), targetDocumentId: other.id.toUpperCase() };
+  const discovery = await create(discoveryInput, 'Discovery-Target-Key'); expect(discovery.statusCode, discovery.body).toBe(201);
+  const discoveryReplay = await create({ discoveredFromDocumentId: discovered, targetDocumentId: other.id }, 'Discovery-Target-Key');
+  expect(discoveryReplay.statusCode, discoveryReplay.body).toBe(201); expect(discoveryReplay.json()).toEqual(discovery.json());
+  expect((await t.request('POST', `/api/v1/bundle-imports/${discovery.json().id}/cancel`, {})).statusCode).toBe(200);
+
+  const legacyKey = 'Legacy-Target-Key'; const legacy = { targetDocumentId: other.id.toUpperCase() };
+  const old = await create(legacy, legacyKey); expect(old.statusCode, old.body).toBe(201);
+  const row = (await t.db.pool.query('SELECT request_hash,admitted_request,idempotency_key FROM bundle_imports WHERE id=$1', [old.json().id])).rows[0];
+  expect(row.request_hash).toBe(createHash('sha256').update(`{"targetDocumentId":"${other.id.toUpperCase()}"}`).digest('hex'));
+  expect(row.admitted_request).toEqual(legacy); expect(row.idempotency_key).toBe(legacyKey);
+  const changedSpelling = await create({ targetDocumentId: other.id }, legacyKey);
+  expect(changedSpelling.statusCode, changedSpelling.body).toBe(409); expect(changedSpelling.json().error.code).toBe('IDEMPOTENCY_CONFLICT');
+  const oldKey = 'Legacy-Null-Body-Key';
+  const oldHash = createHash('sha256').update(`{"targetDocumentId":"${other.id.toUpperCase()}"}`).digest('hex');
+  // Accepted pre-hints rows have no admitted_request body; retain their encoding too.
+  const oldRow = (await t.db.pool.query(`INSERT INTO bundle_imports(owner_id,idempotency_key,request_hash,target_document_id,status)
+    VALUES($1,$2,$3,$4,'cancelled') RETURNING id`, [t.alice.user.id, oldKey, oldHash, other.id])).rows[0];
+  expect((await t.request('POST', `/api/v1/documents/${other.id}/trash`, { expectedEpoch: 1 })).statusCode).toBe(200);
+  const legacyReplay = await create(legacy, legacyKey);
+  expect(legacyReplay.statusCode, legacyReplay.body).toBe(201); expect(legacyReplay.json()).toMatchObject({ id: old.json().id, status: 'cancelled' });
+  expect((await t.db.pool.query('SELECT request_hash FROM bundle_imports WHERE id=$1', [old.json().id])).rows[0].request_hash).toBe(row.request_hash);
+  const oldReplay = await create(legacy, oldKey); expect(oldReplay.statusCode, oldReplay.body).toBe(201); expect(oldReplay.json()).toMatchObject({ id: oldRow.id, status: 'cancelled' });
+  expect((await create({ targetDocumentId: other.id }, oldKey)).statusCode).toBe(409);
+
+});

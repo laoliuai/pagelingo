@@ -38,7 +38,7 @@ function BundleImportScope({ targetDocument, onImported }: BundleImportDialogPro
     setFileChoice(value => value + 1);
   }, [state.result?.id, state.restored]);
   function startCurrentImport() {
-    state.selectFile();
+    if (!state.selectFile()) return;
     setFile(null);
     setFileChoice(value => value + 1);
   }
@@ -48,8 +48,8 @@ function BundleImportScope({ targetDocument, onImported }: BundleImportDialogPro
       trigger={<Button>导入阅读包</Button>}>
       <form onSubmit={event => { event.preventDefault(); if (file && !oversized && !priorTarget) void state.submit(file, organization.collectionId || organization.tagIds.length ? organization : undefined); }}>
         <Field label="阅读包 ZIP">
-          <Input key={fileChoice} type="file" accept=".zip,application/zip" disabled={state.busy || priorTarget || (active && state.result?.status !== 'created')}
-            onChange={event => { state.selectFile(); setFile(event.target.files?.[0] ?? null); }} />
+          <Input key={fileChoice} type="file" accept=".zip,application/zip" disabled={state.busy || state.admissionUnknown || priorTarget || (active && state.result?.status !== 'created')}
+            onChange={event => { if (state.selectFile()) setFile(event.target.files?.[0] ?? null); }} />
         </Field>
         {!targetDocument && !state.result && <fieldset disabled={state.busy || state.classificationLocked}><OrganizationChoices value={organization} onChange={setOrganization} />{state.classificationLocked && <p className="muted">本次分类随导入请求保留，重试使用相同选择。</p>}</fieldset>}
         {file && <p className="muted">已选择：{file.name}</p>}
