@@ -15,3 +15,7 @@ export { buildWebReader, buildWebImportedReader } from './web-chunking.js';
 export type { WebReaderBuild, WebImportedReaderBuild } from './web-chunking.js';
 export { renderWebChunk } from './web-html.js';
 export type { WebRenderOptions } from './web-html.js';
+
+export { createWebStaticFilePlan, resolveTrustedWebCatalog } from './web-static.js';
+export type { WebStaticPlanInput, WebStaticFilePlan, WebOfflineAsset, WebOfflinePreview, WebOfflinePreviewImage, TrustedWebRendererCatalog } from './web-static.js';
+export { webRendererVersion, webRendererSha256, trustedWebStaticAssets } from './web-static-catalog.js';

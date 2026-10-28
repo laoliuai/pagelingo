@@ -32,7 +32,7 @@ async function sourceFiles(base, prefix = '') {
   for (const entry of await readdir(join(base, prefix), { withFileTypes: true })) {
     const name = prefix + entry.name;
     if (entry.isDirectory()) files.push(...await sourceFiles(base, name + '/'));
-    else if (name.endsWith('.ts') && name !== 'static-catalog.ts') files.push(name);
+    else if (name.endsWith('.ts') && !['static-catalog.ts', 'web-static-catalog.ts'].includes(name)) files.push(name);
   }
   return files.sort();
 }

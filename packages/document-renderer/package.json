@@ -18,15 +18,17 @@
     "./package.json": "./package.json"
   },
   "scripts": {
-    "build": "node scripts/generate-static-catalog.mjs && tsc -p tsconfig.json",
+    "build": "node scripts/generate-static-catalog.mjs && node scripts/generate-web-static-catalog.mjs && tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.test.json",
     "test": "vitest run"
   },
   "dependencies": {
     "@pagelingo/document-contracts": "0.4.0",
     "@pagelingo/translation-core": "0.4.0",
+    "@pagelingo/web-capture": "0.1.0",
+    "fast-sha256": "1.3.0",
     "katex": "0.19.1",
-    "@pagelingo/web-capture": "0.1.0"
+    "parse5": "8.0.1"
   },
   "devDependencies": {
     "@types/node": "26.6.4",
