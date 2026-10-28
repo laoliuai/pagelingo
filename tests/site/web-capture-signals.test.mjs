@@ -93,3 +93,55 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     }
   });
 }
+
+test('SIGTERM during delayed schema acquisition cannot leave a late owned schema', { skip: !databaseUrl, timeout: 30_000 }, async () => {
+  const evidenceParent = process.env.PAGELINGO_CAPTURE_SIGNAL_EVIDENCE_DIR;
+  if (evidenceParent) await mkdir(evidenceParent, { recursive: true });
+  const evidence = await mkdtemp(join(evidenceParent || tmpdir(), 'capture-delayed-schema-'));
+  const temporary = await mkdtemp(join(tmpdir(), 'pgl-delayed-acquisition-'));
+  const output = join(evidence, 'output');
+  const databaseName = `pgl_late_${randomUUID().replaceAll('-', '')}`;
+  const admin = new pg.Pool({ connectionString: databaseUrl });
+  const isolatedUrl = new URL(databaseUrl); isolatedUrl.pathname = '/' + databaseName;
+  let pool, child, done, log = '';
+  try {
+    // Fault injection belongs only to this new disposable database, not the
+    // caller's database or another concurrently running acceptance harness.
+    await admin.query(`CREATE DATABASE "${databaseName}"`);
+    pool = new pg.Pool({ connectionString: isolatedUrl.href });
+    await pool.query('CREATE SCHEMA sentinel');
+    await pool.query(`CREATE FUNCTION public.delay_owned_schema() RETURNS event_trigger LANGUAGE plpgsql AS $$
+      BEGIN IF current_query() ~ '^CREATE SCHEMA "pgl_accept_' THEN PERFORM pg_sleep(1.15); END IF; END $$`);
+    await pool.query("CREATE EVENT TRIGGER delay_owned_schema ON ddl_command_start WHEN TAG IN ('CREATE SCHEMA') EXECUTE FUNCTION public.delay_owned_schema()");
+    child = spawn(process.execPath, ['scripts/check-web-capture.mjs', '--samples', 'tests/fixtures/web-s3/samples.json', '--output', output], {
+      env: { PATH: process.env.PATH, HOME: process.env.HOME, TMPDIR: temporary, PAGELINGO_TEST_DATABASE_URL: isolatedUrl.href },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    done = new Promise((resolveExit, reject) => { child.once('error', reject); child.once('exit', (code, signal) => resolveExit({ code, signal })); });
+    child.stdout.on('data', chunk => { log += chunk; }); child.stderr.on('data', chunk => { log += chunk; });
+    const acquisition = await eventually(async () => (await pool.query("SELECT query FROM pg_stat_activity WHERE datname=$1 AND wait_event='PgSleep'", [databaseName])).rows.find(row => /^CREATE SCHEMA "pgl_accept_/.test(row.query)), Boolean, 'owned CREATE SCHEMA delayed inside PostgreSQL');
+    const schema = acquisition.query.match(/^CREATE SCHEMA "(pgl_accept_[a-f0-9]{32})"/)?.[1]; assert(schema);
+    const ownedRoot = join(temporary, (await readdir(temporary)).find(name => name.startsWith('pgl-web-acceptance-')));
+    const start = Date.now(); child.kill('SIGTERM');
+    const result = await done;
+    const observed = {
+      result, elapsedMs: Date.now() - start, schema,
+      ownedSchemaExists: (await pool.query('SELECT 1 FROM pg_namespace WHERE nspname=$1', [schema])).rowCount > 0,
+      sentinelSchemaExists: (await pool.query("SELECT 1 FROM pg_namespace WHERE nspname='sentinel'")).rowCount > 0,
+      rootExists: await exists(ownedRoot), report: JSON.parse(await readFile(join(output, 'report.json'), 'utf8')),
+    };
+    await writeFile(join(evidence, 'observed.json'), JSON.stringify(observed, null, 2));
+    assert.equal(result.code, 143); assert.equal(result.signal, null);
+    assert.equal(observed.ownedSchemaExists, false, 'late CREATE must not survive the only DROP attempt');
+    assert.equal(observed.sentinelSchemaExists, true); assert.equal(observed.rootExists, false);
+    assert.equal(observed.report.status, 'interrupted'); assert.equal(observed.report.signal, 'SIGTERM');
+    assert(observed.elapsedMs < 5000, 'runner completes within unchanged wrapper escalation');
+  } finally {
+    await writeFile(join(evidence, 'cli.log'), log);
+    if (child?.exitCode === null && child?.signalCode === null) { child.kill('SIGTERM'); await done; }
+    await pool?.end();
+    await admin.query(`DROP DATABASE IF EXISTS "${databaseName}" WITH (FORCE)`); await admin.end();
+    await rm(temporary, { recursive: true, force: true });
+    console.log(`Delayed-acquisition evidence: ${resolve(evidence)}`);
+  }
+});

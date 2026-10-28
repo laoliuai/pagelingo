@@ -16,6 +16,7 @@ import { migrateDatabase } from '../../apps/document-service/dist/db/migrate.js'
 import { bootstrapAdmin } from '../../apps/document-service/dist/cli/bootstrap-admin.js';
 import { createApp } from '../../apps/document-service/dist/app.js';
 import { createOwnedCleanup } from './owned-cleanup.mjs';
+import { createAcquisitionScope } from './owned-acquisition.mjs';
 const [samplePath, output] = process.argv.slice(2);
 let declaration;
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -34,19 +35,22 @@ const save = () => writeFileSync(join(output, 'report.json'), JSON.stringify(rep
 const config = { mode: 'test', host: '127.0.0.1', port: 0, publicOrigin: 'http://127.0.0.1', databaseUrl, dataDir: undefined, webDir: resolve('apps/web/dist'), maxPdfBytes: 1024 * 1024, bundleLimits: { ...defaultBundleLimits }, captureLimits: { ...defaultCaptureLimits }, keyring: { activeKeyId: 'test', keys: { test: runtimeKey } } };
 
 const cancellation = new AbortController();
-const pendingAcquisitions = new Set();
-let interrupted;
-async function acquire(operation) {
-  cancellation.signal.throwIfAborted();
-  const pending = operation();
-  pendingAcquisitions.add(pending);
-  try { await pending; cancellation.signal.throwIfAborted(); }
-  finally { pendingAcquisitions.delete(pending); }
+const acquisitions = createAcquisitionScope(cancellation.signal);
+const { acquire } = acquisitions;
+let interrupted, cleanupStartedAt, schemaCreation, schemaDrop;
+function dropSchema() {
+  return schemaDrop ??= (async () => {
+    // CREATE and DROP must never race on different pool connections. Cancellation
+    // rolls CREATE back; even its failure/rollback must settle before this DROP.
+    await schemaCreation?.catch(() => {});
+    if (admin) await admin.pool.query({ text: `DROP SCHEMA IF EXISTS "${schema}" CASCADE`, query_timeout: 500 });
+  })();
 }
-// Worst-case stage budgets total 3.8s, below with-test-postgres' 5s escalation.
+// Keep the original 3.8s budget: late acquisition drain uses only remaining
+// time before 3.5s; the final pools/files stage reserves the remaining 300ms.
 // Trace errors are recorded independently so they cannot skip browser closure.
 const release = createOwnedCleanup([
-  [{ name: 'pending acquisitions', timeoutMs: 1000, run: () => Promise.allSettled([...pendingAcquisitions]) }],
+  [{ name: 'pending acquisitions', timeoutMs: 1000, run: () => acquisitions.settle() }],
   [
     { name: 'trace', timeoutMs: 400, run: () => context?.tracing.stop({ path: join(output, 'trace.zip') }) },
     { name: 'worker', timeoutMs: 900, run: () => stopWorker() },
@@ -54,8 +58,10 @@ const release = createOwnedCleanup([
   ],
   [{ name: 'browser', timeoutMs: 700, run: () => context?.close() }],
   [{ name: 'database pool', timeoutMs: 300, run: () => db?.close() }],
-  [{ name: 'owned schema', timeoutMs: 600, run: async () => {
-    if (admin) await admin.pool.query({ text: `DROP SCHEMA IF EXISTS "${schema}" CASCADE`, query_timeout: 500 });
+  [{ name: 'owned schema', timeoutMs: 600, run: dropSchema }],
+  [{ name: 'late acquisitions', timeoutMs: () => Math.max(1, 3500 - (Date.now() - cleanupStartedAt)), run: async () => {
+    await acquisitions.settle();
+    await schemaDrop;
   } }],
   [
     { name: 'admin pool', timeoutMs: 300, run: () => admin?.close() },
@@ -65,6 +71,7 @@ const release = createOwnedCleanup([
 let cleanupCompletion;
 function cleanup() {
   return cleanupCompletion ??= (async () => {
+    cleanupStartedAt = Date.now();
     report.cleanup = await release();
     if (report.cleanup.some(step => step.status === 'failed')) {
       if (!interrupted) { report.status = 'failed'; process.exitCode = 1; }
@@ -123,7 +130,7 @@ function startWorker() {
   worker.on('message', value => { if (value.type === 'request') modelRequests.push(value); });
 }
 async function launchApp(port = 0) {
-  await acquire(async () => { app = await createApp({ db, config, outboundFetch: async () => { throw new Error('Acceptance must not contact providers'); } }); });
+  app = await acquire(() => createApp({ db, config, outboundFetch: async () => { throw new Error('Acceptance must not contact providers'); } }), value => value.close());
   // Lose an acknowledgement AFTER the actual transaction and object publication.
   app.addHook('onSend', async (req, reply, payload) => {
     if (!lostAck && req.method === 'POST' && req.url.endsWith('/commit') && reply.statusCode === 200) {
@@ -131,7 +138,8 @@ async function launchApp(port = 0) {
     }
     return payload;
   });
-  await acquire(async () => { origin = await app.listen({ host: '127.0.0.1', port }); }); config.publicOrigin = origin;
+  const launchingApp = app;
+  origin = await acquire(() => launchingApp.listen({ host: '127.0.0.1', port }), () => launchingApp.close()); config.publicOrigin = origin;
 }
 try {
   declaration = JSON.parse(await readFile(samplePath, 'utf8'));
@@ -139,18 +147,24 @@ try {
   root = mkdtempSync(join(tmpdir(), 'pgl-web-acceptance-')); config.dataDir = join(root, 'objects');
   admin = openDatabase(databaseUrl);
   await save();
-  await acquire(() => admin.pool.query(`CREATE SCHEMA "${schema}"`));
+  await acquire(() => {
+    schemaCreation = admin.transaction(async client => {
+      await client.query(`CREATE SCHEMA "${schema}"`);
+      cancellation.signal.throwIfAborted();
+    });
+    return schemaCreation;
+  }, dropSchema);
   db = openDatabase(databaseUrl, schema);
   await acquire(() => migrateDatabase(db));
   await bootstrapAdmin(db, { username: 'acceptance', password });
   await launchApp(); owner = await login('acceptance');
   await json('/api/v1/admin/users', { method: 'POST', body: { username: 'otherowner', password } }, 201);
   other = await login('otherowner'); startWorker();
-  const extension = join(root, 'extension'); await acquire(() => cp('apps/extension/dist', extension, { recursive: true }));
+  const extension = join(root, 'extension'); await acquire(() => cp('apps/extension/dist', extension, { recursive: true }), () => rm(root, { recursive: true, force: true }));
   const manifestPath = join(extension, 'manifest.json'); const extensionManifest = JSON.parse(await readFile(manifestPath, 'utf8'));
   extensionManifest.host_permissions = ['http://127.0.0.1/*', ...new Set(declaration.samples.map(sample => new URL(sample.url).origin + '/*'))];
-  await acquire(() => writeFile(manifestPath, JSON.stringify(extensionManifest)));
-  await acquire(async () => { context = await chromium.launchPersistentContext(join(root, 'profile'), { handleSIGINT: false, handleSIGTERM: false, handleSIGHUP: false, channel: 'chromium', headless: true, viewport: { width: 1280, height: 900 }, args: [`--disable-extensions-except=${extension}`, `--load-extension=${extension}`] }); });
+  await acquire(() => writeFile(manifestPath, JSON.stringify(extensionManifest)), () => rm(root, { recursive: true, force: true }));
+  context = await acquire(() => chromium.launchPersistentContext(join(root, 'profile'), { handleSIGINT: false, handleSIGTERM: false, handleSIGHUP: false, channel: 'chromium', headless: true, viewport: { width: 1280, height: 900 }, args: [`--disable-extensions-except=${extension}`, `--load-extension=${extension}`] }), value => value.close());
   await context.tracing.start({ screenshots: true, snapshots: true });
   const nativeWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker');
   const extensionId = new URL(nativeWorker.url()).host;

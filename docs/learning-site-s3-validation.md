@@ -43,6 +43,8 @@ npm run check:web-capture -- --samples tests/fixtures/web-s3/samples.json --outp
 
 任务审查 I1 发现 native CLI 中断时可能绕过清理。修正后重新冻结 CLI/测试 harness，再顺序运行完整 Node 生命周期/CLI 组（**14/14**，含实际 SIGINT/SIGTERM 和清理失败回归）及明确声明的 native 检查（**10/10**）。实际信号通过 CLI → wrapper 传递，在自有 worker、Chromium、私有 store/profile 和 schema 已建立后触发；退出 130/143，245/197 ms 完成关闭，所有清理步骤通过，保留中断报告与 trace，独立进程、schema、文件哨兵均存活。运行时/shared/static 与 728 个 dist 文件未变；没有把旧 root/DB/站点浏览器门禁重新标记为修正后重跑。失败探针及各轮结果独立保留，`acceptance-summary.json.reviewFixes` 记录此次源码 hash 和结果。
 
+后续 I1 审查发现，首次等待超时后才完成的资源获取仍可能逃过一次性清理。第二轮修正将 schema 创建置于事务内，在提交前检查取消，DROP 明确等待创建/回滚完成；迟到的 app、监听器、Chromium context 和文件操作结果先执行自身释放，再离开跟踪集合。最后的 drain 只使用原 3.8 秒预算剩余时间，不增加 wrapper 的 5 秒界限。新增实际 PostgreSQL 延迟 CREATE 回归先复现了 schema 遗留，修正后退出143、1184 ms 内 schema/root 均不存在、哨兵保留；报告仍明确记录最初 1000 ms 等待超时，后续 DROP/drain 通过。迟到 app/context helper 用实际 HTTP server/Chromium context，在首次等待超时及普通资源查找结束后才返回资源，验证释放确实完成。第二轮冻结后 Node **18/18**、native **10/10**；原有获取完成后的 SIGINT/SIGTERM 也再次通过（130/143，209/260 ms）。这些补充证据不替代或重标历史全套门禁。
+
 ## 本次结果与证据
 
 2026-10-28（Asia/Shanghai）完成以下检查；命令退出码均按各自实际 run 记录。

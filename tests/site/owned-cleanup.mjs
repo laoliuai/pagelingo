@@ -10,7 +10,7 @@ export function createOwnedCleanup(stages) {
         try {
           await Promise.race([
             Promise.resolve().then(run),
-            new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(`${name} cleanup deadline exceeded`)), timeoutMs); }),
+            new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(`${name} cleanup deadline exceeded`)), typeof timeoutMs === 'function' ? timeoutMs() : timeoutMs); }),
           ]);
           return { name, status: 'passed' };
         } catch (error) { return { name, status: 'failed', error: error.message }; }
