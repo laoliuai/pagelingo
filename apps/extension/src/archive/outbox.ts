@@ -24,6 +24,18 @@ export function createArchiveOutbox(deps: OutboxDependencies) {
     await db.put(binding, { id, partition: partition(binding), kind: 'link', state: 'pending', linkRequest: request, resources: [], attempts: 0, nextAttemptAt: 0, createdAt: now(), warnings });
     await deps.schedule?.(now() + 2000); return id;
   }
+  async function compactLocally(binding: SiteBinding, proof: SiteBinding, id: string, signal: AbortSignal) {
+    signal.throwIfAborted(); await assertCurrent(binding);
+    try { await db.compactCompletedEntry(proof, id); }
+    catch {
+      if (signal.aborted || !sameBinding(await deps.current(), binding)) return;
+      // The server ACK is already durable. Cleanup failure must not change its
+      // state/proof or trigger another HTTP request. Retry once on a later wake.
+      try { await deps.schedule?.(now() + 30_000); }
+      catch { /* Retained durable proof remains recoverable on startup/manual retry. */ }
+    }
+    signal.throwIfAborted(); await assertCurrent(binding);
+  }
   async function process(binding: SiteBinding, entry: ArchiveEntry, signal: AbortSignal) {
     const check = async () => { signal.throwIfAborted(); await assertCurrent(binding); };
     const client = deps.client(binding, signal);
@@ -103,9 +115,9 @@ export function createArchiveOutbox(deps: OutboxDependencies) {
         }
       }
       await check(); entry.error = undefined;
-      if (entry.state === 'completed') entry.completedBinding = binding;
-      await db.put(binding, entry);
-      await check(); if (entry.state === 'completed') { await db.compactCompletedEntry(binding, entry.id); await check(); }
+      const persisted = entry.state === 'completed' ? { ...entry, completedBinding: binding } : entry;
+      await db.put(binding, persisted);
+      entry = persisted;
     } catch (error) {
       if (!sameBinding(await deps.current(), binding) || signal.aborted) return;
       entry.attempts++; entry.error = error instanceof Error ? error.message : '上传失败。';
@@ -113,7 +125,9 @@ export function createArchiveOutbox(deps: OutboxDependencies) {
       entry.nextAttemptAt = now() + Math.min(300000, 2000 * 2 ** (entry.attempts - 1));
       entry.cancelRequested ||= (await db.get(binding, entry.id))?.cancelRequested;
       await db.put(binding, entry); if (entry.state === 'retry') await deps.schedule?.(entry.nextAttemptAt);
+      return;
     }
+    if (entry.state === 'completed') await compactLocally(binding, binding, entry.id, signal);
   }
   async function* headers(binding: SiteBinding) {
     let before: ArchivePageCursor | undefined;
@@ -129,7 +143,7 @@ export function createArchiveOutbox(deps: OutboxDependencies) {
     for await (const header of headers(binding)) {
       if (signal.aborted || !sameBinding(await deps.current(), binding)) return;
       if (header.state === 'completed' && header.compactedAt === undefined && header.completedBinding && partition(header.completedBinding) === partition(binding)) {
-        await db.compactCompletedEntry(header.completedBinding!, header.id); await assertCurrent(binding);
+        await compactLocally(binding, header.completedBinding, header.id, signal);
       } else if (['pending','retry'].includes(header.state) && header.nextAttemptAt <= now()) {
         const entry = await db.get(binding, header.id); if (entry) await process(binding, entry, signal);
       } else if (['pending','retry'].includes(header.state)) {

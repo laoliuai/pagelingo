@@ -11,11 +11,11 @@ test.use({ archiveDatabaseHarness: true });
 // A local fault-injection HTTP peer, not a replacement for the service integration suite.
 function faultSite() {
   const siteId = randomUUID(); const owners = { A: randomUUID(), B: randomUUID() }; const records = new Map<string, { request: any; result: WebCaptureResult; owner: string }>();
-  let hold = true; let lostAck = true; let documents = 0; let bUploadedA = false; let revoked = false; const filePuts: string[] = []; const links = new Map<string, unknown>();
+  let hold = true; let lostAck = true; let documents = 0; let bUploadedA = false; let revoked = false; const filePuts: string[] = []; const calls: string[] = []; const links = new Map<string, unknown>();
   const server = createServer(async (req, res) => {
     const chunks: Buffer[] = []; for await (const chunk of req) chunks.push(Buffer.from(chunk)); const bytes = Buffer.concat(chunks);
     const send = (status: number, value: unknown) => { res.writeHead(status, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(value)); };
-    const path = req.url!;
+    const path = req.url!; calls.push(`${req.method} ${path}`);
     try {
       if (path === '/api/v1/devices/exchange') { const body = JSON.parse(bytes.toString()); const owner = body.code === 'B' ? 'B' : 'A'; send(201, { token: owner, device: { id: randomUUID(), name: 'Browser', createdAt: new Date().toISOString(), expiresAt: '2027-01-01T00:00:00Z', revokedAt: null }, owner: { id: owners[owner], username: owner }, siteId }); return; }
       const owner = req.headers.authorization?.replace('Bearer ', '');
@@ -46,7 +46,7 @@ function faultSite() {
       send(200, item.result);
     } catch (error) { send(400, { error: String(error) }); }
   });
-  return { server, release: () => { hold = false; }, revoke: () => { revoked = true; }, count: () => documents, bUploadedA: () => bUploadedA, puts: filePuts, records, links };
+  return { server, release: () => { hold = false; }, revoke: () => { revoked = true; }, count: () => documents, bUploadedA: () => bUploadedA, puts: filePuts, records, links, calls };
 }
 async function listen(server: Server) { await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve)); return `http://127.0.0.1:${(server.address() as { port: number }).port}`; }
 async function rpc(page: Page, input: unknown): Promise<any> { return page.evaluate(value => chrome.runtime.sendMessage(value), input); }
@@ -237,5 +237,40 @@ test('native long-URL PNG/two-CSS capture passes real IPC and persists the downg
     }, saved.value.id);
     expect(stored.bytes).toBeLessThanOrEqual(16 * 1024 * 1024); expect(stored.html).toContain('Own boundary original source'); expect(stored.css).toHaveLength(2); expect(stored.css.some((r: any) => r.missing === 'too-large')).toBe(true);
     await control.screenshot({ path: fileURLToPath(new URL('../../../../.superpowers/sdd/2026-10-28-learning-site-s4/task-5-evidence/native-boundary.png', import.meta.url)) });
+  } finally { await new Promise<void>(resolve => site.server.close(() => resolve())); }
+});
+
+
+for (const kind of ['link', 'capture'] as const) test(`native ${kind} ACK stays completed after worker compaction failure and recovers offline without another HTTP request`, async ({ control, context, page }) => {
+  const site = faultSite(); const origin = await listen(site.server); site.release();
+  try {
+    await pair(control, origin); await page.goto('http://127.0.0.1:4317/archive-source.html');
+    if (kind === 'link') await page.evaluate(() => { document.body.innerHTML = '<article>Own first candidate.</article><article>Own second candidate.</article>'; });
+    const worker = context.serviceWorkers()[0];
+    await worker.evaluate(() => {
+      const originalDelete = IDBObjectStore.prototype.delete;
+      IDBObjectStore.prototype.delete = function(...args) {
+        if (this.name === 'payloads') {
+          IDBObjectStore.prototype.delete = originalDelete;
+          (globalThis as typeof globalThis & { task5CleanupFaults?: number }).task5CleanupFaults = 1;
+          throw new DOMException('Owned worker compaction quota failure', 'QuotaExceededError');
+        }
+        return originalDelete.apply(this, args);
+      };
+    });
+    const saved = await capture(control, page); expect(saved.ok, JSON.stringify(saved)).toBe(true);
+    await expect.poll(() => worker.evaluate(() => (globalThis as typeof globalThis & { task5CleanupFaults?: number }).task5CleanupFaults ?? 0)).toBe(1);
+    const inspect = () => control.evaluate(async id => {
+      const { ArchiveDatabase } = await import(chrome.runtime.getURL('archive-database-harness.js'));
+      const connection = (await chrome.storage.local.get('archiveSiteConnection')).archiveSiteConnection as { binding: unknown };
+      const db = new ArchiveDatabase(); const entry = await db.get(connection.binding, id); const files = await db.files(connection.binding, id);
+      return { state: entry.state, proof: JSON.stringify({ binding: entry.completedBinding, result: entry.result, linkResult: entry.linkResult }), payloadRetained: !!(entry.draft || entry.linkRequest), files: files.map((file: any) => ({ id: file.descriptor.id, sha256: file.descriptor.sha256, bytes: Array.from(file.bytes) })), error: entry.error ?? null, compacted: entry.compactedAt !== undefined };
+    }, saved.value.id);
+    const retained = await inspect(); expect(retained.state).toBe('completed'); expect(retained.payloadRetained).toBe(true); expect(retained.compacted).toBe(false); expect(retained.error).toBeNull();
+    if (kind === 'capture') expect(retained.files.length).toBeGreaterThan(0);
+    const requests = [...site.calls]; site.revoke(); await rpc(control, { type: 'archive:retry', id: saved.value.id });
+    await expect.poll(async () => (await inspect()).compacted).toBe(true);
+    const recovered = await inspect(); expect(recovered.state).toBe('completed'); expect(recovered.proof).toBe(retained.proof); expect(recovered.payloadRetained).toBe(false); expect(recovered.files).toEqual([]); expect(site.calls).toEqual(requests);
+    expect(kind === 'link' ? site.links.size : site.count()).toBe(1);
   } finally { await new Promise<void>(resolve => site.server.close(() => resolve())); }
 });

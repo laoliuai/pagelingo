@@ -307,3 +307,45 @@ it('reschedules a future retry beyond fifty completed headers after restart', as
   const scheduled: number[] = []; const restart = createArchiveOutbox({ database: f.db, current: async () => binding, client: () => f.client, acquire: async () => { throw Error('Unexpected acquisition'); }, now: () => 10, schedule: async when => { scheduled.push(when); } });
   await restart.drainOutbox(binding, new AbortController().signal); expect(scheduled).toContain(1000); expect(f.counts().creates).toBe(0);
 });
+
+it.each(['link', 'capture'] as const)('keeps a durable %s ACK completed when compaction fails, then recovers locally while the server is unavailable', async kind => {
+  const f = fixture(); let now = 10; const scheduled: number[] = []; let linkCalls = 0;
+  f.client.link = async () => { linkCalls++; return { documentId: crypto.randomUUID(), jobId: null }; };
+  const commit = f.client.commit; f.client.commit = async () => { try { return await commit(); } catch { return f.client.status(); } };
+  const compact = f.db.compactCompletedEntry.bind(f.db); let fail = true;
+  vi.spyOn(f.db, 'compactCompletedEntry').mockImplementation(async (...args) => { if (fail) throw new DOMException('Owned cleanup quota failure', 'QuotaExceededError'); return compact(...args); });
+  const outbox = createArchiveOutbox({ database: f.db, current: async () => binding, client: () => f.client, acquire: async () => { throw Error('Unexpected acquisition'); }, now: () => now, schedule: async when => { scheduled.push(when); } });
+  const input = draft();
+  const id = kind === 'link' ? await outbox.enqueueLink(binding, { url: 'https://source.example/cleanup', translationIntent: 'none' }, []) : await outbox.enqueueCapture(binding, input);
+  if (kind === 'link') await f.db.putFile(binding, id, { id: 'own', path: 'own.bin', role: 'image', mediaType: 'image/png', bytes: 3, sha256: 'a'.repeat(64) }, new Uint8Array([3,2,1]));
+  await outbox.drainOutbox(binding, new AbortController().signal);
+  const saved = (await f.db.get(binding, id))!; const retained = (await f.db.files(binding, id)).map(file => Array.from(file.bytes));
+  expect(saved.state).toBe('completed'); expect(saved.completedBinding).toEqual(binding); expect(saved.error).toBeUndefined(); expect(saved.attempts).toBe(0); expect(saved.compactedAt).toBeUndefined(); expect(retained).toEqual(kind === 'link' ? [[3,2,1]] : [Array.from(new TextEncoder().encode(input.snapshot.html))]);
+  expect(kind === 'link' ? saved.linkRequest : saved.draft).toBeDefined(); const proof = JSON.stringify({ binding: saved.completedBinding, result: saved.result, linkResult: saved.linkResult });
+  expect(scheduled.at(-1)).toBeGreaterThan(now); expect(scheduled.at(-1)).toBeLessThanOrEqual(now + 300000);
+  const calls = { ...f.counts(), linkCalls }; let unexpectedCalls = 0;
+  f.client.link = f.client.create = f.client.status = f.client.commit = async () => { unexpectedCalls++; throw new Error('Server now unavailable'); };
+  fail = false; now += 300000; await outbox.resumeOutbox(binding, id);
+  const receipt = (await f.db.get(binding, id))!; expect(receipt.state).toBe('completed'); expect(JSON.stringify({ binding: receipt.completedBinding, result: receipt.result, linkResult: receipt.linkResult })).toBe(proof);
+  expect(receipt.compactedAt).toBeDefined(); expect(await f.db.files(binding, id)).toEqual([]); expect(receipt.draft).toBeUndefined(); expect(receipt.linkRequest).toBeUndefined(); expect(unexpectedCalls).toBe(0); expect({ ...f.counts(), linkCalls }).toEqual(calls);
+});
+
+it.each([false, true])('a completed cleanup failure does not starve later pending entries and schedules one bounded local retry per pass (alarm failure: %s)', async alarmFailure => {
+  const f = fixture(); let now = 10; let cleanupPhase = false; const scheduled: number[] = []; const sent: string[] = [];
+  const outbox = createArchiveOutbox({ database: f.db, current: async () => binding, client: () => f.client, acquire: async () => { throw Error('Unexpected acquisition'); }, now: () => now, schedule: async when => { scheduled.push(when); if (cleanupPhase && alarmFailure) throw new Error('Local alarm unavailable'); } });
+  const completedId = await outbox.enqueueLink(binding, { url: 'https://source.example/confirmed', translationIntent: 'none' }, []);
+  const completed = (await f.db.get(binding, completedId))!; completed.state = 'completed'; completed.linkResult = { documentId: crypto.randomUUID(), jobId: null }; completed.completedBinding = binding; completed.createdAt = 100; await f.db.put(binding, completed);
+  now = 20; const pendingId = await outbox.enqueueLink(binding, { url: 'https://source.example/pending', translationIntent: 'none' }, []);
+  const compact = f.db.compactCompletedEntry.bind(f.db); vi.spyOn(f.db, 'compactCompletedEntry').mockImplementation(async (b, id) => { if (id === completedId) throw new DOMException('Owned cleanup failure', 'QuotaExceededError'); return compact(b, id); });
+  f.client.link = async (_request, id) => { sent.push(id); return { documentId: crypto.randomUUID(), jobId: null }; }; scheduled.length = 0; cleanupPhase = true;
+  await outbox.drainOutbox(binding, new AbortController().signal);
+  expect(sent).toEqual([pendingId]); expect((await f.db.get(binding, completedId))?.state).toBe('completed'); expect((await f.db.get(binding, pendingId))?.state).toBe('completed'); expect(scheduled).toHaveLength(1); expect(scheduled[0]).toBeGreaterThan(now); expect(scheduled[0]).toBeLessThanOrEqual(now + 300000);
+  now += 300000; await outbox.drainOutbox(binding, new AbortController().signal); expect(sent).toEqual([pendingId]); expect(scheduled).toHaveLength(2); expect(scheduled[1]).toBeGreaterThan(now); expect(scheduled[1]).toBeLessThanOrEqual(now + 300000);
+});
+
+it('does not treat a failed ACK-persistence write as durable completion', async () => {
+  const f = fixture(); const outbox = f.build(); const id = await outbox.enqueueLink(binding, { url: 'https://source.example/ack-write', translationIntent: 'none' }, []);
+  const put = f.db.put.bind(f.db); vi.spyOn(f.db, 'put').mockImplementation(async (b, entry) => { if (entry.state === 'completed') throw new DOMException('ACK persistence failed', 'QuotaExceededError'); return put(b, entry); });
+  const compact = vi.spyOn(f.db, 'compactCompletedEntry'); await outbox.drainOutbox(binding, new AbortController().signal);
+  const saved = (await f.db.get(binding, id))!; expect(saved.state).toBe('retry'); expect(saved.linkRequest).toBeDefined(); expect(saved.compactedAt).toBeUndefined(); expect(saved.completedBinding).toBeUndefined(); expect(compact).not.toHaveBeenCalled();
+});
