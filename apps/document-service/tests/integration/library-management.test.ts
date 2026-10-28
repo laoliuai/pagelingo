@@ -165,7 +165,10 @@ it('binds backfill to the selected source when a new capture wins during object 
   let newer: Awaited<ReturnType<typeof saveCapture>> | undefined;
   const racingStore = { ...store, async *read(key: string) {
     // Any transaction spanning object I/O would prevent this NOWAIT owner lock.
-    await t.db.transaction(async c => { await c.query('SELECT id FROM users WHERE id=$1 FOR UPDATE NOWAIT', [t.alice.user.id]); });
+    await t.db.transaction(async c => {
+      await c.query('SELECT id FROM users WHERE id=$1 FOR UPDATE NOWAIT', [t.alice.user.id]);
+      await c.query('SELECT singleton FROM document_metadata_backfill_cursor WHERE singleton FOR UPDATE NOWAIT');
+    });
     newer = await saveCapture('新源', 'Fresh author', '2026-10-28T00:00:00.000Z');
     yield* store.read(key);
   } };
@@ -289,4 +292,30 @@ it('hashes new save hints by authorized UUID identity and preserves accepted rep
   expect((await t.request('DELETE',`/api/v1/tags/${captureTag}`)).statusCode).toBe(204);
   expect((await saveCapture(true)).json()).toEqual(accepted.json());
   expect((await t.db.pool.query('SELECT count(*)::int AS n FROM web_captures')).rows[0].n).toBe(1);
+});
+
+it('advances backfill past a persistent oldest failure across worker processes and retries after wraparound', async () => {
+  const t = await setup();
+  const { capture } = await import('../helpers/web-capture.js');
+  const { metadataBackfillProcess } = await import('../helpers/metadata-backfill-process.js');
+  const value = capture(); value.manifest.metadata.author = 'Recovered author';
+  const created = await t.app.inject({ method:'POST',url:'/api/v1/captures',headers:{...t.headers(),'idempotency-key':value.manifest.captureId},payload:{manifest:value.manifest,translationIntent:'none'} });
+  expect(created.statusCode,created.body).toBe(201);
+  expect((await t.app.inject({method:'PUT',url:`/api/v1/captures/${created.json().id}/files/html`,headers:{...t.headers(),'content-type':'text/html'},payload:value.body})).statusCode).toBe(200);
+  const committed = await t.request('POST',`/api/v1/captures/${created.json().id}/commit`,{}); expect(committed.statusCode,committed.body).toBe(200);
+  const oldest = committed.json().documentId as string;
+  const later = await t.save('https://x.com/u/status/later-valid');
+  await t.db.pool.query(`UPDATE documents SET created_at=CASE WHEN id=$1 THEN '2026-10-28T00:00:00.123456Z'::timestamptz
+    ELSE '2026-10-28T00:00:00.123457Z'::timestamptz END WHERE id IN($1,$2)`,[oldest,later]);
+  const key = (await t.db.pool.query(`SELECT a.object_key FROM web_parse_runs p JOIN assets a
+    ON(a.owner_id,a.document_id,a.id)=(p.owner_id,p.document_id,p.ir_asset_id) WHERE p.document_id=$1`,[oldest])).rows[0].object_key as string;
+  const schema = (await t.db.pool.query('SELECT current_schema() AS name')).rows[0].name as string;
+  await t.db.pool.query('DELETE FROM document_search_metadata');
+  expect(await metadataBackfillProcess(schema,t.config.dataDir,key)).toEqual({selected:1,projected:0,skipped:0,failed:1});
+  expect(await metadataBackfillProcess(schema,t.config.dataDir,key)).toEqual({selected:1,projected:1,skipped:0,failed:0});
+  expect((await t.db.pool.query('SELECT document_id FROM document_search_metadata')).rows).toEqual([{document_id:later}]);
+  // The failed source remains eligible after the durable cursor wraps, rather than being abandoned.
+  expect(await metadataBackfillProcess(schema,t.config.dataDir,key)).toEqual({selected:1,projected:0,skipped:0,failed:1});
+  expect(await metadataBackfillProcess(schema,t.config.dataDir)).toEqual({selected:1,projected:1,skipped:0,failed:0});
+  expect((await t.request('GET','/api/v1/library?q=Recovered%20author')).json().items.map((item:{document:{id:string}})=>item.document.id)).toEqual([oldest]);
 });

@@ -78,10 +78,22 @@ export async function projectSelectedMetadata(client: PoolClient, ownerId: strin
 /** Explicit bounded maintenance; object reads are outside transactions and never call a model. */
 export async function runMetadataBackfill({ db, store, signal }: { db: Database; store: ObjectStore; signal: AbortSignal }, { limit = 20 }: { limit?: number } = {}) {
   if (!Number.isInteger(limit) || limit < 1 || limit > 100) throw new Error('Metadata backfill limit must be between 1 and 100');
-  const rows = (await db.pool.query<SelectedSourceRow>(`SELECT ${selectedColumns} ${selectedFrom}
-    LEFT JOIN document_search_metadata m ON(m.owner_id,m.document_id)=(d.owner_id,d.id)
-    WHERE d.deleted_at IS NULL AND (m.document_id IS NULL OR m.source_version_id IS DISTINCT FROM d.current_source_version_id
-      OR m.parse_id IS DISTINCT FROM COALESCE(r.parse_id,w.parse_id)) ORDER BY d.created_at,d.id LIMIT $1`, [limit])).rows;
+  const rows = await db.transaction(async client => {
+    // Serialize only bounded selection/advancement. Failed or interrupted rows remain eligible
+    // on wraparound, while independent workers continue beyond the last selected batch.
+    await client.query('SELECT singleton FROM document_metadata_backfill_cursor WHERE singleton FOR UPDATE');
+    const selected = (await client.query<SelectedSourceRow & { cursor_created_at: string }>(`SELECT ${selectedColumns},d.created_at::text AS cursor_created_at ${selectedFrom}
+      LEFT JOIN document_search_metadata m ON(m.owner_id,m.document_id)=(d.owner_id,d.id)
+      CROSS JOIN document_metadata_backfill_cursor b
+      WHERE b.singleton AND d.deleted_at IS NULL AND (m.document_id IS NULL OR m.source_version_id IS DISTINCT FROM d.current_source_version_id
+        OR m.parse_id IS DISTINCT FROM COALESCE(r.parse_id,w.parse_id))
+      ORDER BY CASE WHEN b.last_document_id IS NULL OR (d.created_at,d.id)>(b.last_created_at,b.last_document_id) THEN 0 ELSE 1 END,
+        d.created_at,d.id LIMIT $1`, [limit])).rows;
+    const last = selected.at(-1);
+    // Keep database timestamp precision; a JS Date would truncate microseconds at this boundary.
+    if (last) await client.query('UPDATE document_metadata_backfill_cursor SET last_created_at=$1::timestamptz,last_document_id=$2 WHERE singleton', [last.cursor_created_at,last.id]);
+    return selected;
+  });
   let projected = 0, skipped = 0, failed = 0;
   for (const row of rows) {
     if (signal.aborted) break;

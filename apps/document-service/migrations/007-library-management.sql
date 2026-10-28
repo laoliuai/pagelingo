@@ -59,6 +59,14 @@ CREATE TABLE document_search_metadata (
   CHECK((source_version_id IS NULL AND source_sha256 IS NULL AND parse_id IS NULL AND ir_sha256 IS NULL) OR (source_version_id IS NOT NULL AND source_sha256 IS NOT NULL)),
   CHECK((parse_id IS NULL)=(ir_sha256 IS NULL))
 );
+-- Global non-content scan position. No document FK: an anchor remains usable after purge.
+CREATE TABLE document_metadata_backfill_cursor (
+  singleton boolean PRIMARY KEY DEFAULT true CHECK(singleton),
+  last_created_at timestamptz, last_document_id uuid,
+  CHECK((last_created_at IS NULL AND last_document_id IS NULL)
+    OR (last_created_at IS NOT NULL AND last_document_id IS NOT NULL))
+);
+INSERT INTO document_metadata_backfill_cursor DEFAULT VALUES;
 -- Epoch input columns are initialized from the authoritative document, never from a client.
 ALTER TABLE web_jobs ADD COLUMN document_epoch bigint NOT NULL DEFAULT 1 CHECK(document_epoch BETWEEN 1 AND 9007199254740991);
 ALTER TABLE bundle_imports ADD COLUMN document_epoch bigint CHECK(document_epoch BETWEEN 1 AND 9007199254740991);
