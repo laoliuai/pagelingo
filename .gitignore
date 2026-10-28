@@ -27,5 +27,6 @@ __pycache__/
 /benchmarks/pdf/smoke-observations.json
 
 .superpowers/
+/.worktrees/
 /releases/
 /temp/
