@@ -124,51 +124,51 @@
 
 **Files:** 新建 `packages/document-renderer/compat/s3-0.2.0/`、`src/compat/s3-0.2.0/catalog.ts`、`packages/document-bundle/tests/fixtures/s3-final/`；修改renderer的 `src/catalog-registry.ts`、`src/static.ts`、`scripts/generate-static-catalog.mjs`、`packages/document-bundle/src/static-assets.ts`、`tests/bundle-validation.test.ts`、`apps/document-service/Dockerfile`、相关package.json/lockfile。
 **Interfaces:** 保留当前renderer0.2.0 SHA `f856f4104ebcf8a90528faeb2f5bafc01dc3745468b6f53253ad0e420bcb8a73` 的实际目录与许可；保留现有s2-0.1.0。后续当前renderer新版本独立登记，不能以相同版本/新hash顶掉已发布目录。
-- [ ] **Step 1:** 在改源码前用现有自有synthetic PDF/IR生成一次S3固定包并记录字节hash，同时留存当时catalog/runtime/许可证；新增测试 `retains S2 and S3 packages after current renderer evolves`，断言旧包校验成功、源/分片/资源相同、未知catalog仍拒绝。
-- [ ] **Step 2:** 将当前renderer版本切到尚未发布的0.3.0并同步workspace精确引用，暂不登记S3 compat；运行 `npm run build:renderer` 及 `npm run test --workspace @pagelingo/document-bundle -- tests/bundle-validation.test.ts`，确认旧0.2包因缺少兼容目录失败，保留RED。
-- [ ] **Step 3:** 用Step1留存的实际目录/许可证登记S3 compat，不从改过的源码反算旧hash。原始5份S2 ZIP只读，不改旧schemas/P0；自有fixture使用明确测试目录，不能强制加入运行日志/个人材料。
-- [ ] **Step 4:** 运行上述测试及现有 `check-s2-compat.mjs` 的固定/原始包声明用法；实际输入前后SHA一致，S3固定包在登记后通过。
-- [ ] **Step 5:** 自检并提交 `chore: preserve S3 reader bundle compatibility`。
+- [x] **Step 1:** 在改源码前用现有自有synthetic PDF/IR生成一次S3固定包并记录字节hash，同时留存当时catalog/runtime/许可证；新增测试 `retains S2 and S3 packages after current renderer evolves`，断言旧包校验成功、源/分片/资源相同、未知catalog仍拒绝。
+- [x] **Step 2:** 将当前renderer版本切到尚未发布的0.3.0并同步workspace精确引用，暂不登记S3 compat；运行 `npm run build:renderer` 及 `npm run test --workspace @pagelingo/document-bundle -- tests/bundle-validation.test.ts`，确认旧0.2包因缺少兼容目录失败，保留RED。
+- [x] **Step 3:** 用Step1留存的实际目录/许可证登记S3 compat，不从改过的源码反算旧hash。原始5份S2 ZIP只读，不改旧schemas/P0；自有fixture使用明确测试目录，不能强制加入运行日志/个人材料。
+- [x] **Step 4:** 运行上述测试及现有 `check-s2-compat.mjs` 的固定/原始包声明用法；实际输入前后SHA一致，S3固定包在登记后通过。
+- [x] **Step 5:** 自检并提交 `chore: preserve S3 reader bundle compatibility`。
 
 ### Task 1: 严格管理、来源与查询合同
 
 **Files:** 新建 `packages/document-contracts/src/{library-management,source-details}.ts` 和 `tests/{library-management,source-details}.test.ts`；修改同包 `src/{documents,web-api,index}.ts`、`scripts/generate-reader-schemas.mjs`、schemas、workspace package.json/lockfile，以及现有Web端summary通用分派处。
 **Interfaces:** 实现2.1/2.3的DTO与 `documentKindSchema`、`documentOrganizationSchema`、`patchDocumentOrganizationSchema`、`libraryQuerySchema`、`libraryPageSchema`、`sourceDetailsSchema`、`sourceRefreshRequestSchema`、`paperPdfDocumentSummarySchema`、`isPdfReadableDocument`。保存请求的可选 `organization:{collectionId,tagIds}` 与 `discoveredFromDocumentId` 省略时保留原编码。
-- [ ] **Step 1:** 新增测试 `keeps old summaries while distinguishing paper PDF and repository Web`、`rejects invalid organization and pagination`：断言旧PDF/Web不变、paper link/PDF正确分派、reader与source一致、未知字段/ownerId/重复或33个tag/越界revision拒绝，JSON Schema与runtime一致。
-- [ ] **Step 2:** 运行 `npm run test --workspace @pagelingo/document-contracts -- tests/library-management.test.ts tests/source-details.test.ts`，确认因缺少新合同失败。
-- [ ] **Step 3:** 实现严格schema、类型与portable输出，contracts进入0.4.0并同步workspace精确引用；同时把已有通用summary消费者改用共享能力guard，不能留到任务10才修编译。不改PDF Reader/bundle v1，不把管理信息加入历史IR。SourceRefresh ref长度1–200，论文version为正safe integer，未知source URL保持普通链接语义。
-- [ ] **Step 4:** 运行contracts全部测试及根 `npm run typecheck`，旧source/进度/包fixtures通过，新变体非法混用被拒绝；后续尚未启用来源时当前代码仍可构建。
-- [ ] **Step 5:** 自检并提交 `feat: define library management and source contracts`。
+- [x] **Step 1:** 新增测试 `keeps old summaries while distinguishing paper PDF and repository Web`、`rejects invalid organization and pagination`：断言旧PDF/Web不变、paper link/PDF正确分派、reader与source一致、未知字段/ownerId/重复或33个tag/越界revision拒绝，JSON Schema与runtime一致。
+- [x] **Step 2:** 运行 `npm run test --workspace @pagelingo/document-contracts -- tests/library-management.test.ts tests/source-details.test.ts`，确认因缺少新合同失败。
+- [x] **Step 3:** 实现严格schema、类型与portable输出，contracts进入0.4.0并同步workspace精确引用；同时把已有通用summary消费者改用共享能力guard，不能留到任务10才修编译。不改PDF Reader/bundle v1，不把管理信息加入历史IR。SourceRefresh ref长度1–200，论文version为正safe integer，未知source URL保持普通链接语义。
+- [x] **Step 4:** 运行contracts全部测试及根 `npm run typecheck`，旧source/进度/包fixtures通过，新变体非法混用被拒绝；后续尚未启用来源时当前代码仍可构建。
+- [x] **Step 5:** 自检并提交 `feat: define library management and source contracts`。
 
 ### Task 2: 组织信息、分类、关系与个人搜索 API
 
 **Files:** 新建 `apps/document-service/migrations/007-library-management.sql`、`apps/document-service/src/document-management/{repository,service,routes,query,names,relations,metadata-projection}.ts`；修改documents/library与创建入口、app注册；测试 `apps/document-service/tests/integration/library-management.test.ts`。
 **Interfaces:** `createDocumentManagementService({db})`、`registerDocumentManagementRoutes(app)` 实现2.1；创建资料调用 `insertInitialOrganization(client,ownerId,documentId,hints?)`。query全在DB执行，读取不写行/不读ObjectStore。007同时声明2.2所需生命周期字段/表，后续任务接入口。
-- [ ] **Step 1:** 写 `isolates organization and combines filters without duplicate rows`、`protects concurrent metadata edits and user titles`、`only relates two owned active documents`：两用户+管理员、PDF/Web/链接混合；`total===items去重后的匹配数`、跨owner引用404、`%_\\` literal匹配、tag AND、中文名称/重名、过期revision409、GET零模型/零写入。旧超长合法标题可读取/只改备注，来源更新不覆盖user标题，backfill晚到不索引错误源。
-- [ ] **Step 2:** 运行 `node scripts/with-test-postgres.mjs -- npm run test:integration --workspace @pagelingo/document-service -- tests/integration/library-management.test.ts`，确认新路由/表尚不存在而失败。
-- [ ] **Step 3:** 实现007、CAS、分页查询和关系；名字唯一key由共同纯函数生成。删除分类解除关系而不删除资料。实现源绑定的search metadata投影/有界旧材料补齐，来源更新竞态只提交仍选中的源。显式title编辑标user；异步来源只改善fallback标题。新组织提示只初始化新条目，重复收藏不覆盖旧组织信息。
-- [ ] **Step 4:** 运行上述DB文件、documents旧文件及service typecheck；验证001–006升级后旧owner/源/Reader/进度不变。
-- [ ] **Step 5:** 自检并提交 `feat: organize and search the private library`。
+- [x] **Step 1:** 写 `isolates organization and combines filters without duplicate rows`、`protects concurrent metadata edits and user titles`、`only relates two owned active documents`：两用户+管理员、PDF/Web/链接混合；`total===items去重后的匹配数`、跨owner引用404、`%_\\` literal匹配、tag AND、中文名称/重名、过期revision409、GET零模型/零写入。旧超长合法标题可读取/只改备注，来源更新不覆盖user标题，backfill晚到不索引错误源。
+- [x] **Step 2:** 运行 `node scripts/with-test-postgres.mjs -- npm run test:integration --workspace @pagelingo/document-service -- tests/integration/library-management.test.ts`，确认新路由/表尚不存在而失败。
+- [x] **Step 3:** 实现007、CAS、分页查询和关系；名字唯一key由共同纯函数生成。删除分类解除关系而不删除资料。实现源绑定的search metadata投影/有界旧材料补齐，来源更新竞态只提交仍选中的源。显式title编辑标user；异步来源只改善fallback标题。新组织提示只初始化新条目，重复收藏不覆盖旧组织信息。
+- [x] **Step 4:** 运行上述DB文件、documents旧文件及service typecheck；验证001–006升级后旧owner/源/Reader/进度不变。
+- [x] **Step 5:** 自检并提交 `feat: organize and search the private library`。
 
 ### Task 3: 删除状态、读取边界与异步发布围栏
 
 **Files:** 新建 `apps/document-service/src/document-lifecycle/{guards,trash,retired-identities}.ts`；修改该服务documents/{library,repository,service}、readers/{repository,service,progress}、web-readers/{repository,service}、bundle-imports/{repository,service,publication}、web-captures/{repository,service,publication,fetch-runner}、web-jobs/{repository,service,lease,profile,cache,publication,state-store,finalize}及worker/finalizer-schedule；测试 `apps/document-service/tests/integration/document-lifecycle.test.ts`。
 **Interfaces:** 实现 `assertDocumentActive`、`trashDocument(actor,id,expectedEpoch)`；JobLease及入站操作携带不可变document epoch。普通历史版本读取只要求文档active，不能用创建时旧epoch阻止恢复后读取保留材料；旧操作继续写入则必须精确epoch。
-- [ ] **Step 1:** 写 `revokes all read and publication paths when trashed`、`rejects delete-restore ABA publication`、`fences an untargeted upload across retirement`：覆盖PDF/Web、GET/HEAD/Range/原始文件/版本/chunk/进度/导出；`expect(response.statusCode).toBe(404)`，独立worker已在途→删除→恢复后 `expect(currentVersion).toBe(before)`、`expect(newPublishedRows).toBe(0)`，跨owner仍404。
-- [ ] **Step 2:** 运行 `node scripts/with-test-postgres.mjs -- npm run test:integration --workspace @pagelingo/document-service -- tests/integration/document-lifecycle.test.ts`，确认删除无效或迟到提交的RED；保留原始日志，不放宽超时。
-- [ ] **Step 3:** 接入统一active检查和007 epoch约束；soft delete在owner/document锁内递增epoch、取消任务/导入/有目标采集、撤销slot及requested指针。大对象读取后和最终提交前复检；source获取、缓存、付费调用的500ms主动中止也包括删除。终态旧epoch任务不再进入finalizer重试循环。
-- [ ] **Step 4:** 用临时DB运行 `document-lifecycle.test.ts`、既有 `web-job-settings.test.ts`、`web-jobs.test.ts`、`web-job-restart.test.ts`、`bundle-imports.test.ts`、`web-captures.test.ts`、`reader-routes.test.ts`、`web-reader-routes.test.ts` 及service typecheck，检查slot/profile/checkpoint/partial publication围栏仍有效。
-- [ ] **Step 5:** 自检并提交 `feat: fence deleted documents across readers and workers`。
+- [x] **Step 1:** 写 `revokes all read and publication paths when trashed`、`rejects delete-restore ABA publication`、`fences an untargeted upload across retirement`：覆盖PDF/Web、GET/HEAD/Range/原始文件/版本/chunk/进度/导出；`expect(response.statusCode).toBe(404)`，独立worker已在途→删除→恢复后 `expect(currentVersion).toBe(before)`、`expect(newPublishedRows).toBe(0)`，跨owner仍404。
+- [x] **Step 2:** 运行 `node scripts/with-test-postgres.mjs -- npm run test:integration --workspace @pagelingo/document-service -- tests/integration/document-lifecycle.test.ts`，确认删除无效或迟到提交的RED；保留原始日志，不放宽超时。
+- [x] **Step 3:** 接入统一active检查和007 epoch约束；soft delete在owner/document锁内递增epoch、取消任务/导入/有目标采集、撤销slot及requested指针。大对象读取后和最终提交前复检；source获取、缓存、付费调用的500ms主动中止也包括删除。终态旧epoch任务不再进入finalizer重试循环。
+- [x] **Step 4:** 用临时DB运行 `document-lifecycle.test.ts`、既有 `web-job-settings.test.ts`、`web-jobs.test.ts`、`web-job-restart.test.ts`、`bundle-imports.test.ts`、`web-captures.test.ts`、`reader-routes.test.ts`、`web-reader-routes.test.ts` 及service typecheck，检查slot/profile/checkpoint/partial publication围栏仍有效。
+- [x] **Step 5:** 自检并提交 `feat: fence deleted documents across readers and workers`。
 
 ### Task 4: 回收站恢复、到期永久清理与最小收据
 
 **Files:** 新建 `apps/document-service/src/document-lifecycle/{repository,routes,restore,purge-plan,maintenance}.ts`、`apps/document-service/src/cli/cleanup-documents.ts`；修改worker/main、cleanup-staging、cache适配；测试 `apps/document-service/tests/integration/document-trash.test.ts`、`apps/document-service/tests/unit/document-purge-plan.test.ts`。
 **Interfaces:** `restoreDocument(actor,id,expectedEpoch)`；`requestDocumentPurge(actor,id)` 返回清理id；`runDocumentMaintenance`按2.2工作。007的 `document_purges,object_deletion_queue,retired_operations,retired_document_identities,web_cache_document_refs` 均为owner边界内数据。
-- [ ] **Step 1:** 写 `restores retained versions without restarting jobs`、`keeps missing originals in trash`、`purges owned content but retires old operation keys`、`continues cleanup after one object fails`：实际文件缺失/坏hash→409仍在回收站；30天前/后临界、删除期间恢复竞争、已打开导出流、三类入站重放；断言另一owner/同owner其他资料及sentinel字节不变、无模型调用、旧key410、新入站新key可新建不同ID。
-- [ ] **Step 2:** 运行 `npm run test --workspace @pagelingo/document-service -- tests/unit/document-purge-plan.test.ts` 及 `node scripts/with-test-postgres.mjs -- npm run test:integration --workspace @pagelingo/document-service -- tests/integration/document-trash.test.ts`，确认缺少恢复校验/真实清理的RED；只用本次创建的ObjectStore/schema。
-- [ ] **Step 3:** 对仍被引用的真实材料在事务外核对hash/bytes，再以epoch CAS恢复；缺少分类只解除失效组织引用，不冒充缺少原件。永久清理先提交可恢复的清理账本与retirement摘要，再按FK依赖删除最多500行/100对象；请求幂等键只留摘要。所有新增表必须纳入purge图；阻止其他资料关系级联删除；worker同样调度Task2有界metadata backfill。
-- [ ] **Step 4:** 运行新测试、documents/bundle/web捕获回归。真实注入一次文件删除失败后重启worker，检查剩余对象最终清理、最小收据可重复查询、旧终态结果不可重新发布。保留锁序与对象发布锁，旧不可变UPDATE触发器不被关闭。
-- [ ] **Step 5:** 自检并提交 `feat: restore and purge documents from the private trash`。
+- [x] **Step 1:** 写 `restores retained versions without restarting jobs`、`keeps missing originals in trash`、`purges owned content but retires old operation keys`、`continues cleanup after one object fails`：实际文件缺失/坏hash→409仍在回收站；30天前/后临界、删除期间恢复竞争、已打开导出流、三类入站重放；断言另一owner/同owner其他资料及sentinel字节不变、无模型调用、旧key410、新入站新key可新建不同ID。
+- [x] **Step 2:** 运行 `npm run test --workspace @pagelingo/document-service -- tests/unit/document-purge-plan.test.ts` 及 `node scripts/with-test-postgres.mjs -- npm run test:integration --workspace @pagelingo/document-service -- tests/integration/document-trash.test.ts`，确认缺少恢复校验/真实清理的RED；只用本次创建的ObjectStore/schema。
+- [x] **Step 3:** 对仍被引用的真实材料在事务外核对hash/bytes，再以epoch CAS恢复；缺少分类只解除失效组织引用，不冒充缺少原件。永久清理先提交可恢复的清理账本与retirement摘要，再按FK依赖删除最多500行/100对象；请求幂等键只留摘要。所有新增表必须纳入purge图；阻止其他资料关系级联删除；worker同样调度Task2有界metadata backfill。
+- [x] **Step 4:** 运行新测试、documents/bundle/web捕获回归。真实注入一次文件删除失败后重启worker，检查剩余对象最终清理、最小收据可重复查询、旧终态结果不可重新发布。保留锁序与对象发布锁，旧不可变UPDATE触发器不被关闭。
+- [x] **Step 5:** 自检并提交 `feat: restore and purge documents from the private trash`。
 
 ### Task 5: 完整消息预算和已确认 outbox 载荷整理
 
@@ -274,11 +274,27 @@
 
 需求映射：A02→1–4/6–10/13–14；A06的明确外链收藏→2/6/10；A10导入与重复身份→0/7–9/12/14；A11→7–10；A12删除/取消/迟到结果→3–4/7/13–14；A13组织/阅读状态/回收站→2/4/6/10；A14→0/11–14；A16→各任务目标检查与14。S5保留公网部署、空环境备份恢复、全来源真实会话和真实模型质量整体验收。
 
-实施前使用新隔离工作区，从此计划所在提交创建；不得复用或删除已交付S3的宿主管理worktree。执行方法沿用此前SDD，每项先测试失败、实现、覆盖验证、提交与任务审查；本计划还未批准执行，当前仅规划文档变更。
+实施前使用新隔离工作区，从此计划所在提交创建；不得复用或删除已交付S3的宿主管理worktree。计划已由用户确认，执行方法沿用此前SDD，每项先测试失败、实现、覆盖验证、提交与任务审查；当前在 `feat/learning-site-s4` 独立分支持续实施。
 
 计划审阅重点是：固定来源与论文目标版本、30天回收与真实永久清理、插件分类权限用途、明确Web离线包暂不提供ZIP重导入入口、旧缓存清理对后续命中的影响。实现方选择已列在第1–2节，未把它们冒称为用户最初指示。
 
-2026-10-28 计划自检：已逐项核对上述需求映射、十五项任务顺序、共有类型/路由/版本标识、五类Review Focus及当前仓库入口。自检修正了PDF下载真实路由、同字节论文的版本关联、旧长标题读取、生成catalog相互指纹、README descriptor的base64预算，以及新类型提前影响旧消费者的编译依赖。本记录是计划自检，不是S4实现或测试通过记录；以上实施步骤仍全部未勾选。
+2026-10-28 计划自检：已逐项核对上述需求映射、十五项任务顺序、共有类型/路由/版本标识、五类Review Focus及当前仓库入口。自检修正了PDF下载真实路由、同字节论文的版本关联、旧长标题读取、生成catalog相互指纹、README descriptor的base64预算，以及新类型提前影响旧消费者的编译依赖。本段保留编制时的计划自检记录；实施进度与验证范围见下方执行记录及任务复选框。
+
+### 当前执行进度（2026-10-29）
+
+任务0–4已完成并通过独立任务审查与必要的修正复核；任务5–14继续按原顺序推进。当前交付范围是兼容基线、管理合同、资料管理API、删除围栏和真实恢复/清理后台，管理界面属于任务6。
+
+| 任务 | 结果与提交 |
+| --- | --- |
+| 0 | S3运行时/合成包冻结、旧包可信验证；`80daef8`。已有静态分派、资产验证和Docker compat COPY经检查可直接复用，记录为无需代码改动的例外。 |
+| 1 | 严格管理/来源合同、论文PDF能力分派；`53956e8`。 |
+| 2 | 集合、标签、关系、组合搜索、源绑定投影与公平补齐；`33bd2e4`、`33a71f9`。 |
+| 3 | 读取、上传、任务、缓存与发布生命周期围栏；`55db4c2`。 |
+| 4 | 材料校验恢复、真实永久清理、退休收据、缓存引用和有界维护；`572c783`、`70eb81a`。 |
+
+已保留309项服务端完整集成快照；最终恢复引用修订通过42项相关回归，预算与维护错误修正通过23项回收站回归、139项单元测试及类型检查/构建。各结果对应其记录的提交快照，S4最终冻结后的根检查与站点全量验收仍由任务14完成。
+
+四份原始S2大样本ZIP在当前环境缺失；新增旧包兼容验证使用仓库固定S2/S3合成包，真实大样本验证沿用既有验收记录，不记作本轮重跑。逐任务失败、修正和验证原始证据保留在本工作区的ignored执行目录。
 
 ## 6. 外部接口依据
 
