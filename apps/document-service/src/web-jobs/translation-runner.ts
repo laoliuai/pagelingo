@@ -1,3 +1,4 @@
+import type { SourceTransport } from '../source-adapters/types.js';
 import { CheckpointConflictError, TranslationEngine, OpenAICompatibleProvider, type TranslationProvider } from '@pagelingo/translation-core';
 import type { RuntimeConfig } from '../config.js';
 import type { Database } from '../db/database.js';
@@ -14,11 +15,12 @@ import { loadPublication, publishCheckpoint } from './publication.js';
 export interface WebJobDependencies {
   db: Database; store: ObjectStore; config: RuntimeConfig; signal: AbortSignal;
   /** Test entry only; production always uses the pinned HTTPS transport. */
-  provider?: TranslationProvider; captureFetch?: typeof fetch;
+  provider?: TranslationProvider; captureFetch?: typeof fetch; sourceTransport?: SourceTransport;
 }
 export async function runWebJob(lease: JobLease, deps: WebJobDependencies): Promise<void> {
-  if ((deps.provider || deps.captureFetch) && deps.config.mode !== 'test') throw new Error('Test provider injection requires test mode');
-  if (deps.config.mode === 'test' && (lease.kind === 'translate' ? !deps.provider : !deps.captureFetch)) throw new Error('Test jobs require explicit mocks');
+  if ((deps.provider || deps.captureFetch || deps.sourceTransport) && deps.config.mode !== 'test') throw new Error('Test provider injection requires test mode');
+  const sourceJob=lease.kind==='fetch-link' && !!(await deps.db.pool.query('SELECT 1 FROM source_requests WHERE owner_id=$1 AND job_id=$2',[lease.ownerId,lease.jobId])).rowCount;
+  if (deps.config.mode === 'test' && (lease.kind === 'translate' ? !deps.provider : sourceJob ? !deps.sourceTransport : !deps.captureFetch)) throw new Error('Test jobs require explicit mocks');
   const controller = new AbortController();
   const signal = AbortSignal.any([deps.signal,controller.signal]);
   let checking: Promise<void> | undefined;

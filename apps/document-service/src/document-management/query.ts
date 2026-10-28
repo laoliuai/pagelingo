@@ -8,7 +8,7 @@ import { literalPattern } from './names.js';
 export async function queryLibrary(client: PoolClient, ownerId: string, query: LibraryQuery) {
   if (query.collectionId && query.collectionId !== 'none') await assertTaxonomyOwned(client, ownerId, 'collections', [query.collectionId]);
   await assertTaxonomyOwned(client, ownerId, 'tags', query.tagIds ?? []);
-  const values: unknown[] = [ownerId]; const predicates = ['d.owner_id=$1', 'd.deleted_at IS NULL'];
+  const values: unknown[] = [ownerId]; const predicates = ['d.owner_id=$1', 'd.deleted_at IS NULL', "NOT EXISTS(SELECT 1 FROM document_source_aliases a WHERE a.owner_id=d.owner_id AND a.document_id=d.id AND a.resolution='alias')"];
   const parameter = (value: unknown) => { values.push(value); return `$${values.length}`; };
   if (query.kind) predicates.push(`d.kind=${parameter(query.kind)}`);
   if (query.origin) predicates.push(`d.origin=${parameter(query.origin)}`);

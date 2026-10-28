@@ -1,3 +1,4 @@
+import { registerSourceAdapterRoutes } from './source-adapters/routes.js';
 import { registerDocumentLifecycleRoutes } from './document-lifecycle/routes.js';
 import { registerGlossaryRoutes } from './glossary/routes.js';
 import { registerWebJobsRoutes } from './web-jobs/routes.js';
@@ -58,6 +59,7 @@ export async function createApp({ db, config, outboundFetch }: AppOptions): Prom
   registerWebJobsRoutes(app, store);
   registerWebCapturesRoutes(app, store, createCaptureJobScheduler());
   registerDocumentLinksRoutes(app);
+  registerSourceAdapterRoutes(app, store);
   registerWebReadersRoutes(app, store);
   app.get('/health/live', async () => ({ status: 'ok' }));
   app.get('/health/ready', async (request, reply) => {

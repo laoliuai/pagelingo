@@ -1,3 +1,4 @@
+import { sourceRequestDigest } from '../source-adapters/receipts.js';
 import { normalizeCaptureUrl } from '@pagelingo/web-capture';
 import type { PoolClient } from 'pg';
 import { operationKeyDigest, type OperationKind } from './retired-identities.js';
@@ -12,6 +13,9 @@ const byDocument = 'document_id=$2';
  * with purgePlan when adding source adapters/exports; orphan asset rows are not originals. */
 export const retainedAssetReferences: readonly { table: string; columns: readonly string[] }[] = [
   { table: 'source_versions', columns: ['asset_id'] },
+  { table: 'source_acquisitions', columns: ['asset_id'] },
+  { table: 'github_versions', columns: ['raw_asset_id','html_asset_id'] },
+  { table: 'arxiv_versions', columns: ['pdf_asset_id'] },
   { table: 'parse_runs', columns: ['ir_asset_id'] },
   { table: 'translation_runs', columns: ['translation_asset_id'] },
   { table: 'reader_versions', columns: ['archive_asset_id', 'index_asset_id'] },
@@ -30,6 +34,13 @@ interface PurgeStep { table: string; predicate: string }
  * Mutable job result pointers are detached first, breaking the job/Reader cycle.
  * Global users, configuration, taxonomy, slots and backfill cursor are never deleted. */
 export const purgePlan: readonly PurgeStep[] = [
+  { table:'paper_reader_bindings',predicate:byDocument },
+  { table:'github_versions',predicate:byDocument },
+  { table:'arxiv_versions',predicate:byDocument },
+  { table:'source_acquisitions',predicate:byDocument },
+  { table:'source_requests',predicate:byDocument },
+  { table:'document_source_aliases',predicate:"(document_id=$2 OR (canonical_document_id=$2 AND resolution='conflict'))" },
+  { table:'document_source_identities',predicate:byDocument },
   { table:'web_fetch_acquisitions',predicate:byDocument },
   { table:'web_capture_files',predicate:`capture_id IN (SELECT id FROM web_captures WHERE owner_id=$1 AND ${webCapturePredicate})` },
   { table:'web_captures',predicate:webCapturePredicate },
@@ -65,6 +76,7 @@ export const purgePlan: readonly PurgeStep[] = [
 ];
 // Cleanup needs identities and registered keys only, never manifest/checkpoint/Reader payloads.
 const retirementColumns: Readonly<Record<string, readonly string[]>> = {
+  source_requests: ['idempotency_key','auth_version'],
   ingestions: ['idempotency_key'],
   bundle_imports: ['id', 'idempotency_key', 'staging_key'],
   web_captures: ['id', 'capture_id'],
@@ -87,6 +99,9 @@ async function retire(client: PoolClient, task: PurgeRow, table: string, row: Co
 }
 async function beforeDelete(client: PoolClient, task: PurgeRow, table: string, row: ContentRow) {
   const key = String(row.idempotency_key);
+  if (table==='source_requests') await client.query(`INSERT INTO retired_operations(owner_id,operation_kind,key_digest,document_id,accepted_at,retired_at)
+    SELECT $1,'source-request',$3,$2,r.created_at,t.purged_at FROM source_requests r JOIN document_tombstones t ON(t.owner_id,t.document_id)=($1,$2)
+    WHERE r.owner_id=$1 AND r.ctid=$4::tid ON CONFLICT DO NOTHING`, [task.owner_id,task.document_id,sourceRequestDigest(task.document_id,Number(row.auth_version),key),row.row_tid]);
   if (table==='ingestions') await retire(client,task,table,row,'pdf-upload',key);
   if (table==='bundle_imports') {
     await retire(client,task,table,row,'bundle-import',key); await retire(client,task,table,row,'bundle-import-id',String(row.id));
@@ -128,8 +143,8 @@ export async function scanUntargetedCaptures(client: PoolClient, task: PurgeRow,
 /** All statements execute under owner/document/task locks; the caller owns a shared run budget. */
 export async function deleteContentBatch(client: PoolClient, task: PurgeRow, budget: number): Promise<number> {
   let used = 0;
-  const detached = await client.query(`UPDATE web_jobs SET reader_version_id=NULL WHERE ctid IN
-    (SELECT ctid FROM web_jobs WHERE owner_id=$1 AND document_id=$2 AND reader_version_id IS NOT NULL LIMIT $3)`,[task.owner_id,task.document_id,budget]);
+  const detached = await client.query(`UPDATE web_jobs SET reader_version_id=NULL,source_github_revision_id=NULL,source_arxiv_revision_id=NULL WHERE ctid IN
+    (SELECT ctid FROM web_jobs WHERE owner_id=$1 AND document_id=$2 AND (reader_version_id IS NOT NULL OR source_github_revision_id IS NOT NULL OR source_arxiv_revision_id IS NOT NULL) LIMIT $3)`,[task.owner_id,task.document_id,budget]);
   used += detached.rowCount ?? 0;
   let phase = Number(task.cursor ?? 0);
   for (; phase<purgePlan.length && used<budget; phase++) {

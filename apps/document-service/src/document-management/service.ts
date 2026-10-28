@@ -1,10 +1,11 @@
+import { assertDocumentWritable } from '../document-lifecycle/guards.js';
 import { z } from 'zod';
 import type { PoolClient } from 'pg';
 import { libraryQuerySchema, patchDocumentOrganizationSchema, type PatchDocumentOrganization } from '@pagelingo/document-contracts';
 import { assertActorCurrent, type Actor } from '../auth/guards.js';
 import type { Database } from '../db/database.js';
 import { ServiceError } from '../errors.js';
-import { assertDocumentActive, assertTaxonomyOwned, notFound, organization, replaceTags } from './repository.js';
+import { assertTaxonomyOwned, notFound, organization, replaceTags } from './repository.js';
 import { literalPattern, nameKey, taxonomyNameSchema } from './names.js';
 import { queryLibrary } from './query.js';
 import { addRelation, listRelations, relationInputSchema, removeRelation, type RelationInput } from './relations.js';
@@ -35,7 +36,7 @@ export function createDocumentManagementService({ db }: { db: Database }) {
       if (!parsed.success) throw invalid();
       const value = parsed.data;
       return transaction(actor, async client => {
-        await assertDocumentActive(client, actor.userId, id);
+        await assertDocumentWritable(client, actor.userId, id);
         await client.query('SELECT id FROM documents WHERE owner_id=$1 AND id=$2 FOR UPDATE', [actor.userId, id]);
         if (value.collectionId) await assertTaxonomyOwned(client, actor.userId, 'collections', [value.collectionId]);
         if (value.tagIds) await assertTaxonomyOwned(client, actor.userId, 'tags', value.tagIds);

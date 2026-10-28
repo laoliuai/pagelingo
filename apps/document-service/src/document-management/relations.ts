@@ -1,3 +1,4 @@
+import { assertDocumentWritable } from '../document-lifecycle/guards.js';
 import type { PoolClient } from 'pg';
 import { z } from 'zod';
 import { ServiceError } from '../errors.js';
@@ -8,11 +9,11 @@ export const relationSchema = z.strictObject({ id: z.uuid(), fromDocumentId: z.u
 export const relationPageSchema = z.strictObject({ items: z.array(relationSchema).max(50), nextCursor: z.uuid().nullable() });
 export async function addRelation(client: PoolClient, ownerId: string, input: RelationInput): Promise<void> {
   const parsed = relationInputSchema.safeParse(input); if (!parsed.success) throw new ServiceError(400, 'INVALID_REQUEST', 'Invalid relation');
-  for (const id of [input.fromDocumentId,input.toDocumentId].sort()) await assertDocumentActive(client, ownerId, id);
+  for (const id of [input.fromDocumentId,input.toDocumentId].sort()) await assertDocumentWritable(client, ownerId, id);
   await client.query('INSERT INTO document_relations(owner_id,from_document_id,to_document_id,kind) VALUES($1,$2,$3,$4) ON CONFLICT(owner_id,from_document_id,to_document_id,kind) DO NOTHING', [ownerId,input.fromDocumentId,input.toDocumentId,input.kind]);
 }
 export async function removeRelation(client: PoolClient, ownerId: string, input: RelationInput): Promise<void> {
-  for (const id of [input.fromDocumentId,input.toDocumentId].sort()) await assertDocumentActive(client, ownerId, id);
+  for (const id of [input.fromDocumentId,input.toDocumentId].sort()) await assertDocumentWritable(client, ownerId, id);
   await client.query('DELETE FROM document_relations WHERE owner_id=$1 AND from_document_id=$2 AND to_document_id=$3 AND kind=$4', [ownerId,input.fromDocumentId,input.toDocumentId,input.kind]);
 }
 export async function listRelations(client: PoolClient, ownerId: string, documentId: string, query: {cursor?:string;limit:number}) {

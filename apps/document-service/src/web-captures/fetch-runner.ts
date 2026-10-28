@@ -1,3 +1,5 @@
+import type { SourceTransport } from '../source-adapters/types.js';
+import { runSourceFetchJob } from '../source-adapters/service.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { unlink } from 'node:fs/promises';
 import type { WebCaptureManifest, CreateDocumentLinkRequest } from '@pagelingo/document-contracts';
@@ -21,6 +23,7 @@ export interface FetchRunnerDependencies {
   db: Database; store: ObjectStore; config: RuntimeConfig; signal: AbortSignal;
   /** Test-only replacement; production uses the pinned public transport. */
   captureFetch?: typeof fetch;
+  sourceTransport?: SourceTransport;
   /** Task 9/11 may wire durable scheduling; called once under publication locks. */
   onPublication?: CapturePublicationHook;
 }
@@ -28,6 +31,8 @@ export interface FetchRunnerDependencies {
 export async function runFetchJob(lease: JobLease, dependencies: FetchRunnerDependencies): Promise<void> {
   if (lease.kind !== 'fetch-link') throw new Error('Fetch runner requires a fetch-link lease');
   const { db, store, config, signal, onPublication } = dependencies;
+  const sourceJob = await db.pool.query('SELECT 1 FROM source_requests WHERE owner_id=$1 AND job_id=$2', [lease.ownerId, lease.jobId]);
+  if (sourceJob.rowCount) return runSourceFetchJob(lease, dependencies);
   if (dependencies.captureFetch && config.mode !== 'test') throw new Error('Capture fetch injection requires test mode');
   const captureFetch = dependencies.captureFetch ?? createCaptureFetch({ timeoutMs: config.captureLimits.requestTimeoutMs, maxResponseBytes: config.captureLimits.maxHtmlBytes });
   const check = async () => { signal.throwIfAborted(); await db.transaction(c => assertJobLeaseCurrent(c, lease)); signal.throwIfAborted(); };

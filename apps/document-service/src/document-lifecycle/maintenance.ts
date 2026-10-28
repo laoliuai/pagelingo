@@ -6,7 +6,7 @@ import type { ObjectStore } from '../storage/object-store.js';
 import { isObjectKey } from '../storage/local-object-store.js';
 import { lockObjectPublication } from '../documents/repository.js';
 import { lockDocument } from './guards.js';
-import { schedulePurge, type PurgeRow } from './repository.js';
+import { schedulePurge, scheduleAliasPurges, type PurgeRow } from './repository.js';
 import { deleteContentBatch, deleteCacheBatch, scanUntargetedCaptures, PURGE_OBJECT_LIMIT, PURGE_ROW_LIMIT, purgeBackoffMs, purgePlan } from './purge-plan.js';
 import type { PoolClient } from 'pg';
 export interface MaintenanceDependencies { db: Database; store: ObjectStore; dataDir: string; signal: AbortSignal }
@@ -94,10 +94,13 @@ export async function runDocumentMaintenance(deps: MaintenanceDependencies, { li
     try {
       const used = await db.transaction(async client => {
         if (!await lockTask(client,task,token)) return 0;
+        const scheduled=await scheduleAliasPurges(client,task.owner_id,task.document_id,PURGE_ROW_LIMIT-rowsMutated);
+        if ((await client.query(`SELECT 1 FROM document_source_aliases WHERE owner_id=$1 AND canonical_document_id=$2 AND resolution='alias'
+          UNION ALL SELECT 1 FROM document_purges WHERE owner_id=$1 AND group_document_id=$2 AND status<>'completed'`,[task.owner_id,task.document_id])).rowCount) return scheduled;
         const scan = await scanUntargetedCaptures(client,task,limit-result.capturesScanned);
         result.capturesScanned+=scan.scanned;
-        if(!scan.done) return 0;
-        let count = await deleteContentBatch(client,task,PURGE_ROW_LIMIT-rowsMutated);
+        if(!scan.done) return scheduled;
+        let count = scheduled + await deleteContentBatch(client,task,PURGE_ROW_LIMIT-rowsMutated-scheduled);
         const phase = (await client.query('SELECT cursor FROM document_purges WHERE id=$1',[task.id])).rows[0].cursor;
         if (Number(phase)>=purgePlan.length) count += await deleteCacheBatch(client,task,PURGE_ROW_LIMIT-rowsMutated-count);
         return count;

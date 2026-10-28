@@ -14,8 +14,8 @@ import { FinalizerSchedule, readFinalizerCandidates } from './finalizer-schedule
 
 /** One independent process can fill both durable slots; the database owns concurrency. */
 export async function runWorker(deps: WebJobDependencies, workerId = randomUUID()): Promise<void> {
-  if ((deps.provider || deps.captureFetch) && deps.config.mode !== 'test') throw new Error('Test provider injection requires test mode');
-  if (deps.config.mode === 'test' && (!deps.provider || !deps.captureFetch)) throw new Error('Test workers require explicit mocks');
+  if ((deps.provider || deps.captureFetch || deps.sourceTransport) && deps.config.mode !== 'test') throw new Error('Test provider injection requires test mode');
+  if (deps.config.mode === 'test' && (!deps.provider || (!deps.captureFetch && !deps.sourceTransport))) throw new Error('Test workers require explicit mocks');
   await verifyDatabaseSchema(deps.db);
   const active = new Set<Promise<void>>();
   const finalizers = new FinalizerSchedule();

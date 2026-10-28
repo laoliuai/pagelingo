@@ -28,7 +28,7 @@ export const tlsConnector: Connector = ({ address, family, hostname, port, signa
 export const defaultLookup: Lookup = async hostname => (await dnsLookup(hostname, { all: true, verbatim: true })) as ResolvedAddress[];
 
 export function abortable<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
-  if (signal.aborted) return Promise.reject(signal.reason);
+  if (signal.aborted) { void promise.catch(() => {}); return Promise.reject(signal.reason); }
   return new Promise((resolve, reject) => {
     const abort = () => reject(signal.reason);
     signal.addEventListener('abort', abort, { once: true });

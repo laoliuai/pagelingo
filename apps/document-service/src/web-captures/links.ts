@@ -1,3 +1,5 @@
+import { classifySourceUrl } from '../source-adapters/url.js';
+import { admitSourceRequest } from '../source-adapters/service.js';
 import { assertOperationNotRetired } from '../document-lifecycle/retired-identities.js';
 import { assertDocumentActive, lockDocument } from '../document-lifecycle/guards.js';
 import { createHash, randomUUID } from 'node:crypto';
@@ -18,7 +20,7 @@ export function classifyDocumentLink(url: string, requested?: CreateDocumentLink
   const loginRoute = parsed.pathname.split('/').some(segment => /^(?:login|signin|sign-in|sign_in|auth|oauth|oauth2)$/i.test(segment));
   const isHost = (name: string) => host === name || host.endsWith(`.${name}`);
   const kind = isHost('x.com') || isHost('twitter.com') ? 'x-post' : isHost('github.com') || isHost('gitlab.com') ? 'repository' : isHost('arxiv.org') ? 'paper' : requested ?? 'article';
-  const reason = kind !== 'article' ? 'UNSUPPORTED_SOURCE' : isHost('zhihu.com') || isHost('weixin.qq.com') || loginRoute ? 'BROWSER_CAPTURE_REQUIRED' : null;
+  const reason = classifySourceUrl(url) ? null : kind !== 'article' ? 'UNSUPPORTED_SOURCE' : isHost('zhihu.com') || isHost('weixin.qq.com') || loginRoute ? 'BROWSER_CAPTURE_REQUIRED' : null;
   return { kind, reason };
 }
 export function createDocumentLinksService({ db }: { db: Database }) {
@@ -42,7 +44,7 @@ export function createDocumentLinksService({ db }: { db: Database }) {
         const classification = classifyDocumentLink(value.url, value.kind);
         const authorized = { ...value,...await assertSaveHintsOwned(client, ownerId, value) };
         const requestHash = createHash('sha256').update(canonicalManifestBytes(authorized)).digest('hex');
-        let document = (await client.query<{ id: string; kind: string }>("SELECT id,kind FROM documents WHERE owner_id=$1 AND source_url=$2 AND kind<>'pdf' ORDER BY created_at,id LIMIT 1", [ownerId, value.url])).rows[0];
+        let document = (await client.query<{ id: string; kind: string }>("SELECT id,kind FROM documents WHERE owner_id=$1 AND source_url=$2 AND kind=$3 ORDER BY created_at,id LIMIT 1", [ownerId, value.url, classification.kind])).rows[0];
         if (!document) {
           document = { id: randomUUID(), kind: classification.kind };
           await insertWebDocument(client, { id: document.id, ownerId, kind: classification.kind, url: value.url, title: value.title ?? value.url.slice(0, 2000), titleOrigin: value.title === undefined ? 'url' : 'user', hints: authorized });
@@ -50,6 +52,8 @@ export function createDocumentLinksService({ db }: { db: Database }) {
         await lockDocument(client, ownerId, document.id);
         await assertDocumentActive(client, ownerId, document.id);
         let jobId: string | null = null;
+        const source = classifySourceUrl(value.url);
+        if (source) jobId = (await admitSourceRequest(client, ownerId, authVersion, document.id, source, { translationIntent: value.translationIntent === 'none' ? 'none' : 'auto' }, key)).jobId;
         if (!classification.reason && document.kind === 'article') {
           const inputSha256 = createHash('sha256').update(canonicalManifestBytes({ kind: 'fetch-link', url: value.url, translationIntent: value.translationIntent })).digest('hex');
           const job = await findWebJobByInput(client, ownerId, document.id, authVersion, inputSha256)

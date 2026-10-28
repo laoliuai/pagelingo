@@ -23,8 +23,8 @@ export async function libraryDocument(client: PoolClient, ownerId: string, id: s
 }
 export async function libraryList(client: PoolClient, ownerId: string, query: { q?: string; page: number; pageSize: number }) {
   const pattern = `%${(query.q ?? '').replace(/[\\%_]/g, value => `\\${value}`)}%`;
-  const total = (await client.query<{ total: number }>("SELECT count(*)::int AS total FROM documents WHERE owner_id=$1 AND deleted_at IS NULL AND title ILIKE $2 ESCAPE '\\'", [ownerId, pattern])).rows[0]!.total;
-  const rows = (await client.query<{ id: string }>("SELECT id FROM documents WHERE owner_id=$1 AND deleted_at IS NULL AND title ILIKE $2 ESCAPE '\\' ORDER BY created_at DESC,id DESC LIMIT $3 OFFSET $4", [ownerId, pattern, query.pageSize, (query.page - 1) * query.pageSize])).rows;
+  const total = (await client.query<{ total: number }>("SELECT count(*)::int AS total FROM documents WHERE owner_id=$1 AND deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM document_source_aliases a WHERE a.owner_id=documents.owner_id AND a.document_id=documents.id AND a.resolution='alias') AND title ILIKE $2 ESCAPE '\\'", [ownerId, pattern])).rows[0]!.total;
+  const rows = (await client.query<{ id: string }>("SELECT id FROM documents WHERE owner_id=$1 AND deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM document_source_aliases a WHERE a.owner_id=documents.owner_id AND a.document_id=documents.id AND a.resolution='alias') AND title ILIKE $2 ESCAPE '\\' ORDER BY created_at DESC,id DESC LIMIT $3 OFFSET $4", [ownerId, pattern, query.pageSize, (query.page - 1) * query.pageSize])).rows;
   const items: DocumentSummary[] = []; for (const row of rows) items.push(await libraryDocument(client, ownerId, row.id));
   return { items, total, page: query.page, pageSize: query.pageSize };
 }

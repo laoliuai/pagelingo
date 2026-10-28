@@ -14,5 +14,18 @@ export async function assertDocumentActive(client: PoolClient, ownerId: string, 
 }
 /** Call after acquiring the owner lock and before slot/job/object locks. */
 export async function lockDocument(client: PoolClient, ownerId: string, documentId: string): Promise<void> {
-  await client.query('SELECT id FROM documents WHERE owner_id=$1 AND id=$2 FOR UPDATE', [ownerId, documentId]);
+  await lockDocuments(client,ownerId,[documentId]);
+}
+/** Hidden minimum aliases cannot acquire edits/material through another ingress route. */
+export async function assertDocumentWritable(client: PoolClient, ownerId: string, documentId: string): Promise<void> {
+  await assertDocumentActive(client,ownerId,documentId);
+  if ((await client.query("SELECT 1 FROM document_source_aliases WHERE owner_id=$1 AND document_id=$2 AND resolution='alias'",[ownerId,documentId])).rowCount) throw new ServiceError(409,'SOURCE_IDENTITY_CONFLICT','Use the canonical document for edits');
+}
+
+/** Locks the complete union once, including siblings when entering through a minimum alias. */
+export async function lockDocuments(client: PoolClient, ownerId: string, documentIds: string[]): Promise<void> {
+  await client.query(`WITH roots AS (SELECT unnest($2::uuid[]) AS id UNION SELECT canonical_document_id FROM document_source_aliases
+    WHERE owner_id=$1 AND document_id=ANY($2::uuid[]) AND resolution='alias')
+    SELECT id FROM documents WHERE owner_id=$1 AND (id IN(SELECT id FROM roots) OR id IN
+    (SELECT document_id FROM document_source_aliases WHERE owner_id=$1 AND canonical_document_id IN(SELECT id FROM roots) AND resolution='alias')) ORDER BY id FOR UPDATE`,[ownerId,documentIds]);
 }
