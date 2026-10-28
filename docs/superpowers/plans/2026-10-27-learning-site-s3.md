@@ -160,7 +160,7 @@ type WebReadingProgress = { position: WebReadingPosition; revision: number; upda
 | `GET .../web-reader/versions/:versionId/chunks/:chunkId`、`.../assets/:assetId` | session，仅已发布注册资源；返回 no-store，普通阅读不出站 |
 | `GET .../web-snapshots/:sourceVersionId/manifest`、`.../files/:fileId` | session；只读归档数据，HTML / CSS 原件 attachment + octet-stream + nosniff，不在主站执行 |
 | `GET / PUT .../web-progress` | `WebReadingPosition` + 文档级 CAS；409 不自动覆盖 |
-| `POST .../web-jobs`、`GET /api/v1/web-jobs/:id`、`POST .../:id/cancel`、`POST .../:id/retry` | session；显式翻译 / 重译 / 重试；同输入重投幂等，配置变化不能无声采用新 Key |
+| `POST .../web-jobs`、`GET /api/v1/web-jobs/:id`、`POST .../:id/cancel`、`POST .../:id/retry` | session；显式翻译 / 重译 / 重试；同一操作重投幂等，显式新一轮使用新的 requestId；配置变化不能无声采用新 Key |
 | `GET / PUT /api/v1/settings/save-preferences` | GET 接受 session 或有 preferences:read 的 device，只返回非敏感偏好；PUT 仅 session，expectedRevision + autoTranslate，初始 false，不扫描并启动历史任务 |
 | `GET / PUT /api/v1/settings/glossary` | session；expectedRevision + SDK glossary entries；保存不可变修订 |
 
@@ -192,6 +192,8 @@ PDF 的 current_reader FK 保持；新增 current_web_reader FK 与 kind / 单�
 短事务锁序为 user → device（如有）→ capture/job → document → 现有 `(204716,2)` 发布清理锁。校验、网络、DOM、SDK / renderer 重活不占事务。对象写入后、提交引用前再查身份 / epoch / 所有依赖；孤立对象至少 24 小时后清理，不能删历史可读引用。
 
 job 绑定 owner、authVersion、source / parse、非敏感 Provider revision 与 immutable glossary revision；不得拿浏览器 session 代替 worker 身份。每次网络调用前、检查点保存与发布时重新验证；运行中监视停用 / 换 Key 并 abort。配置变化进入 paused-config，用户明确用当前配置创建新 run，旧结果保留。原 glossary 修订供原 job 重放，新修订不触发旧资料重译。
+
+显式重译使用可选 UUID `CreateWebJobRequest.requestId` 区分操作身份：同一操作的丢失确认 / 重试保留 requestId 和输入，下一次主动开始使用新 requestId，可复用有效缓存。服务端在当前 owner/document/authVersion 下登记不可变 `web_jobs.request_id`，相同 requestId 与相同规范输入返回原 job（包括终态），相同 requestId 改变输入返回 409 IDEMPOTENCY_CONFLICT；已接受请求的重放不重启旧任务。新操作仍要求当前配置与授权。requestId 仅在存在时进入任务输入摘要，缺省保持原有自动及旧客户端去重和摘要编码；源内容指纹 / SDK 缓存键不因新操作改写。worker / 终结器按实际存储 request_id 验证任务身份，重试仍保留原 job 与检查点。
 
 新原文首次发布时，将服务端实际投影的 `WebLanguageDecision` 写入不可变 source metadata.language。自动调度在短事务中按实际事件 Reader 查询 source/parse/IR 摘要及语言，不读取对象存储或运行 SDK/renderer；去重/历史版本使用实际选中来源的元数据。旧版本缺少或语言元数据无效时保守跳过自动任务，手动创建可在事务外验证实际 IR；客户端不能覆盖服务端语言，配置保存不扫描历史资料。
 

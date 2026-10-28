@@ -1,6 +1,6 @@
 # S3 执行裁定记录
 
-对应已批准的 [S3 计划](superpowers/plans/2026-10-27-learning-site-s3.md)。本记录汇总执行期间的全部 R1–R28，保留原因及判断错误时的返工范围；原始裁定附于后文，避免仅存在临时会话记录中。
+对应已批准的 [S3 计划](superpowers/plans/2026-10-27-learning-site-s3.md)。本记录汇总执行期间的全部 R1–R29，保留原因及判断错误时的返工范围；原始裁定附于后文，避免仅存在临时会话记录中。
 
 这不是新增范围批准，也不代表真实登录态来源或译文语义质量已验收。最终能力与证据边界见 [验收记录](learning-site-s3-validation.md)。
 
@@ -34,6 +34,7 @@
 | R26 | 终结失败有界退避，并用稳定 UUID 游标与回绕保证公平遍历。 | 避免损坏任务紧循环或容量饱和饿死后续任务。 | 调整 worker 内部调度助手。 |
 | R27 | 增加会话专用、有界的按文档任务发现接口。 | 刷新和跨设备后需要找到真实任务。 | 调整新增查询 API 与消费者。 |
 | R28 | 集成文件默认串行；保留隔离、原超时和显式多 worker 并发。 | 共享全库锁且领取允许为空，默认并行造成无效假设。 | 集成检查变慢，必要时改进夹具隔离。 |
+| R29 | 显式重译使用可重放 requestId；下一次主动操作使用新身份。 | 区分同一请求重放与同配置的新一轮，仍复用有效缓存。 | 调整可选请求字段、未发布006及仓库/界面。 |
 
 R26 在容量边界复审后补充 UUID 游标与回绕；原有 1024 项退避上限保留。R28 的检查记录明确区分初次失败、测试框架调整、后续通过和实际已采集的源码/dist 清单；未补称不存在的早期 dist 清单。
 
@@ -152,3 +153,7 @@ Ruling: R27 — additive session-only GET/api/v1/documents/:id/web-jobs discover
 ### R28
 
 Ruling: R28 — standardintegrationfileParallelismfalse/isolationretained +fixtureboundednullableclaimpoll — faileddefaultparallelDB238/251with9timeouts/4nullTypeErrors; unchangedserialpub+bundle33/33in98.66s plusactualglobalPGadvisorylocksandnullableSKIPLOCKEDcontractsupportharnesscorrection — costifwrong: slowerintegrationdefault/revisitfixtureisolation, no productionbehaviorchange. Keepallassertiontimeouts/productionlease+concurrency/monitorsunchanged; explicitindependentworker/concurrenttestsremain. PreservefailedfullDB+unhandledrawand33caseprobeasprobeNOTfullgreen. Newcompletechecksite mandatory; ci/checkprecedeonly2testharnesschanges, runtime/shared/staticunchangedandservice typesPASS; inventorymustshowexact2harnessdeltas/no runtimechange, honestcommandchronology ratherthanunnecessaryfullrootrepeat.
+
+### R29
+
+Ruling: R29 — optional UUID requestId on CreateWebJobRequest identifies ONE explicit manual start action, separate from source/cache semantics — same-settings retranslation must create newrun while replayofoneaction staysidempotent (design158/plan163) — costifwrong: narrowrequest/unreleased006/repository/publication/UIadjustment. Siteexplicitstart generatesnewrequestIdperdeliberateaction, retainsitandcanonicalpayloadacrossuncertain/failedACKretry; clearonlyafteracceptedresult, scope/inputchangeorexplicitnewaction. NewmanualrequestIDscreateindependentjobswithsameboundsource/parse/provider/glossary/lang/selection, validSDKcachemayreuse/no globalcachebypass. AbsentrequestIdkeepslegacy/automaticcanonicaldedupeandEXACToldidentityencoding(omitfieldratherthannull). Persistnullableimmutableweb_jobs.request_id, translate-only; uniqueowner/document/authVersion/requestId andinputhashbindrequestIdonlywhenpresent. Samekey+samecanonicalinputreturnsoriginaljobincludingterminal;samekeychangedinput409IDEMPOTENCY_CONFLICT,neverretargetoldjob. Replayedacceptedrequestisack/readnotresume,newworkrequirescurrentprofile/glossary; freshowner/auth/sessionalwaysenforced. ExistingWebJobDTOmayremainunchanged; worker/finalizerrecomputejob-envelopehashfromstoredrequest_id, actualIR/sourcehashandSDKcacheidentityunchanged. RetryexistingjobkeepsID/nonce/checkpoint/epochrules. Testsreplay/lostACK→onejob, deliberate2ndsameconfig→newjob/newrequestedpointer/newReaderwithcacheallowed, changedpayloadkeyconflict/configfences/crossowner/no passiveconfigbacklog/automaticdedupeunchanged.
