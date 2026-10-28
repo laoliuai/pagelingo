@@ -106,7 +106,7 @@
 - `POST /documents/:id/web-exports` 输入 `{readerVersionId}`，UUID Idempotency-Key；`GET /documents/:id/web-exports/:exportId` 返回状态；`GET .../:exportId/file` 为私有附件。GET不创建任务。
 - `WebExport = {id,packageId,documentId,readerVersionId,status:'queued'|'running'|'completed'|'failed'|'cancelled'|'expired',bytes:number|null,sha256:string|null,expiresAt:string|null,errorCode:string|null}`。packageId与展示标题在接受一次导出操作时固定；新导出可产生新包，不把同Reader的可变资料标题混入同一包身份。
 - 新增现有队列kind `export-web`，不可变输入固定source/parse/Reader/catalog/epoch；profile/glossary/requestId为空，唯一请求账本在web_exports。沿用全局2/owner1 slot，不解密Key、不进入翻译finalizer、不改current Reader。文件有效24小时，过期同key只返回旧收据，新生成需新key。
-- `createWebStaticFilePlan(input:WebStaticPlanInput):WebStaticFilePlan`，input为 `{ir:WebReaderIR,translation:WebTranslation|null,index:WebReaderIndex,chunks:readonly WebReaderChunk[],capture:WebCaptureManifest,assets:readonly WebOfflineAsset[]}`；`WebOfflineAsset={id,path,mediaType,bytes,sha256}` 的path是已验证包内路径，不伪装成安装包TrustedAsset。返回WebStaticFilePlan复用StaticFilePlan形状：rendererVersion/rendererSha256、仅运行时/字体的trustedAssets、惰性generatedFiles。`validateWebBundle(input:BundleFileSource,options:BundleOptions):Promise<ValidatedWebBundle>`、`writeWebBundle(input:BundleFileSource,destination:string,options:BundleOptions):Promise<BundleIdentity>` 复用安全路径/ZIP流式机制，独立验证Web合同。
+- `createWebStaticFilePlan(input:WebStaticPlanInput):WebStaticFilePlan`，input为 `{ir:WebReaderIR,translation:WebTranslation|null,index:WebReaderIndex,chunks:readonly WebReaderChunk[],capture:WebCaptureManifest,assets:readonly WebOfflineAsset[],previews?:readonly WebOfflinePreview[],previewImages?:readonly WebOfflinePreviewImage[]}`；`WebOfflinePreview={fileId:string,html:string}` 为严格UTF-8解码的实际归档预览；`WebOfflinePreviewImage={fileId:string,data:Uint8Array}` 为实际登记raster图片。生成器重验role/bytes/hash及既有预算，opaque file sandbox预览使用派生data:image和可信内联样式；缺少输入明确不可用，不以IR冒充快照，不放宽浏览器安全设置。`WebOfflineAsset={id,path,mediaType,bytes,sha256}` 的path是已验证包内路径，不伪装成安装包TrustedAsset。返回WebStaticFilePlan复用StaticFilePlan形状：rendererVersion/rendererSha256、仅运行时/字体的trustedAssets、惰性generatedFiles。`validateWebBundle(input:BundleFileSource,options:BundleOptions):Promise<ValidatedWebBundle>`、`writeWebBundle(input:BundleFileSource,destination:string,options:BundleOptions):Promise<BundleIdentity>` 复用安全路径/ZIP流式机制，独立验证Web合同。
 - Web包保留原capture manifest/文件、IR、真实可空译文、可信完整离线Reader和来源/缺失说明。新manifest固定 `pagelingo-web-document-bundle/1`，带packageId、source/IR/translation/runtime实际hash及完整files；不伪造PDF字段或模型记录。原始HTML/CSS惰性保存。
 - `WebDocumentBundleManifest = {schemaVersion,packageId,createdAt,title,source:{manifestPath:'source/manifest.json',manifestSha256,snapshotSha256,contentFingerprint},parse:{id,readerIrSha256},translation:{path:'translation.json',sha256,status,generationKind}|null,renderer:{version,codeSha256},files:BundleFile[]}`。固定入口 `render/index.html`、IR `source-ir.json`，原件放source/下并保留原capture内部相对路径；Reader数据/预览/资源只引用已登记包内路径。title是本次导出的资料头快照，不重写原IR标题。
 - 沿用defaultBundleLimits：ZIP256MiB、展开1GiB、manifest2MiB、IR/译文各32MiB、provenance单件128MiB、其他单件64MiB及readerContractCeilings。配置只读复用，不提高旧预算；每个流重新计数/hash、原子不覆盖输出。
@@ -234,11 +234,11 @@
 
 **Files:** 新建 `packages/document-renderer/src/{web-static,web-static-catalog}.ts`、`packages/document-renderer/static/{web-offline-runtime.js,web-reader.css}`、`packages/document-renderer/scripts/generate-web-static-catalog.mjs`；修改renderer exports/package scripts及两类catalog源文件选择；测试 `packages/document-renderer/tests/web-static.test.ts`、`apps/web/tests/e2e/web-offline.test.ts`。
 **Interfaces:** 实现2.4的 `WebStaticPlanInput/WebStaticFilePlan`、`createWebStaticFilePlan`、`resolveTrustedWebCatalog(version,codeSha256):TrustedWebRendererCatalog`（未知则拒绝）；catalog的generateFiles接收WebStaticPlanInput，不复用PDF ReaderBuild签名。返回确定性generated files和所需可信assets；保留0.1/0.2历史目录。
-- [ ] **Step 1:** 写 `opens all Web reading modes from file without the origin`、`keeps long documents within three mounted chunks`、`never executes archived HTML CSS or payload scripts`：20k预算内块、表格context、公式、代码、原型名image IDs、source-only/partial译文、源节点快照和原生图片解码失败提示。Chrome直接file://打开并阻断所有HTTP，断言资源/所有分片可用或有真实缺失原因，0出站、0源脚本执行、最多3分片/1预览。
-- [ ] **Step 2:** 运行 `npm run test --workspace @pagelingo/document-renderer -- tests/web-static.test.ts` 和Step4的单文件离线browser命令，确认Web离线计划缺失或file://数据不可读的RED。
-- [ ] **Step 3:** 使用共享 `renderWebChunk`/绑定保护预生成三种模式的可信分片HTML，按已有模式用classic runtime/data脚本加载，避免file:// fetch/ESM的CORS依赖，不加关闭安全检查的Chrome参数。派生JS数据与入口严格转义脚本边界；快照用白名单资源重写的单个scriptless sandbox预览。PDF/Web两个catalog都排除会包含自身hash的生成输出模块，避免递归指纹。
-- [ ] **Step 4:** 运行renderer单元、`node scripts/with-test-postgres.mjs -- npm run test:e2e --workspace @pagelingo/web -- tests/e2e/web-offline.test.ts`、PDF static及Task0旧包回归；替换runtime/data.js/路径/未知catalog会失败。连续两次无源码变化build的catalog完全相同；保存mobile/light/dark真实截图。不可用原始资源仍显示缺失，不冒称来源完整。
-- [ ] **Step 5:** 自检并提交 `feat: build trusted offline Web readers`。
+- [x] **Step 1:** 写 `opens all Web reading modes from file without the origin`、`keeps long documents within three mounted chunks`、`never executes archived HTML CSS or payload scripts`：20k预算内块、表格context、公式、代码、原型名image IDs、source-only/partial译文、源节点快照和原生图片解码失败提示。Chrome直接file://打开并阻断所有HTTP，断言资源/所有分片可用或有真实缺失原因，0出站、0源脚本执行、最多3分片/1预览。
+- [x] **Step 2:** 运行 `npm run test --workspace @pagelingo/document-renderer -- tests/web-static.test.ts` 和Step4的单文件离线browser命令，确认Web离线计划缺失或file://数据不可读的RED。
+- [x] **Step 3:** 使用共享 `renderWebChunk`/绑定保护预生成三种模式的可信分片HTML，按已有模式用classic runtime/data脚本加载，避免file:// fetch/ESM的CORS依赖，不加关闭安全检查的Chrome参数。派生JS数据与入口严格转义脚本边界；快照用白名单资源重写的单个scriptless sandbox预览。PDF/Web两个catalog都排除会包含自身hash的生成输出模块，避免递归指纹。
+- [x] **Step 4:** 运行renderer单元、`node scripts/with-test-postgres.mjs -- npm run test:e2e --workspace @pagelingo/web -- tests/e2e/web-offline.test.ts`、PDF static及Task0旧包回归；替换runtime/data.js/路径/未知catalog会失败。连续两次无源码变化build的catalog完全相同；保存mobile/light/dark真实截图。不可用原始资源仍显示缺失，不冒称来源完整。
+- [x] **Step 5:** 自检并提交 `feat: build trusted offline Web readers`。
 
 ### Task 12: Web 包合同、完整闭包校验与流式 ZIP
 
@@ -282,7 +282,7 @@
 
 ### 当前执行进度（2026-10-29）
 
-任务0–10已完成并通过独立任务审查与必要的修正复核，交付段A资料组织/生命周期和B来源适配完成。当前支持GitHub固定README、arXiv固定版本原件、历史来源与Reader配对、论文目标导入及明确关联收藏；交付段C任务11–14继续推进离线Reader、完整下载导出与整体回归。
+任务0–11已完成并通过独立任务审查与必要的修正复核，交付段A资料组织/生命周期和B来源适配完成，C的离线Reader已完成。当前支持GitHub固定README、arXiv固定版本原件、历史来源与Reader配对、论文目标导入及明确关联收藏；任务12–14继续推进完整阅读包、私有下载导出与整体回归。
 
 | 任务 | 结果与提交 |
 | --- | --- |
@@ -297,6 +297,7 @@
 | 8 | GitHub固定提交README、实际资源与Web Reader、同次提取博客元信息；`7d0b17a`。日期非法日历值的Minor修正仍须在任务14完成。 |
 | 9 | arXiv固定版本元信息/PDF、同字节论文版本绑定、明确目标导入和历史原件；`f63f527`、`619dcb2`。 |
 | 10 | 来源/历史界面、插件已知来源入口、发现链接与论文导入重试状态、来源配对验证；`75ed0a4`、`2268119`。 |
+| 11 | 独立可信Web目录、三模式本地阅读、真实无脚本快照、资源失败提示与有界长文；`0119517`。 |
 
 任务4保留309项服务端完整集成快照；最终恢复引用修订通过42项相关回归，预算与维护错误修正通过23项回收站回归、139项单元测试及类型检查/构建。任务5的最终修正通过91项归档单元测试、14项原生浏览器测试及类型检查/构建，验证真实IndexedDB失败回滚与确认后仅本地重试；不冒称物理磁盘耗尽验收。
 
@@ -305,6 +306,8 @@
 任务7–10分别保留来源身份/限流、GitHub投影、arXiv跨进程恢复和实际浏览器验证。任务8冻结检查为498项通过；任务9的169项单元测试通过，171项集成初次为168通过、3项旧断言失败，随后3项相关用例及1项强化传输用例修正通过，不记为全量171项重跑。任务10核心API41项、来源单元31项、插件归档单元41项和原生浏览器16项通过；初次站点检查为38/52，PDF原件路由与导入重试修正后42项相关浏览器检查通过。最终专项修正另有4项API、16项浏览器及构建/类型检查通过，保留原失败记录，不累加重叠计数。
 
 任务10使用匿名受控传输实际取得公开GitHub固定提交材料与arXiv固定版本元信息/PDF，记录URL、时间与hash；这只证明材料获取，完整真实来源到界面的验收仍在任务14。一次旧测试硬编码输出覆盖了任务6的一张历史正向截图，原图无法恢复；已保留所见字节、provenance erratum及修正后的独立输出证据，不将新截图冒充原图。M5非法日历日期修正、最终全量检查和输出警告核对仍待任务14。
+
+任务11通过92项Renderer测试、5项普通file://浏览器测试、PDF静态检查及两个固定旧包验证；初次类型检查中的负向测试类型写法已修正，最终类型检查及1项单元/1项浏览器专项通过。生产/运行时字节在测试修订前后相同，两次无源码变化构建的PDF/Web目录逐字节一致。系统深色首次主题切换与浏览器诊断分类两项Minor须在任务14冻结前修正。完整ZIP闭包与替换文件拒绝由任务12实现，不把未验证脚本的自我检查当作完整性保证。
 
 四份原始S2大样本ZIP在当前环境缺失；新增旧包兼容验证使用仓库固定S2/S3合成包，真实大样本验证沿用既有验收记录，不记作本轮重跑。逐任务失败、修正和验证原始证据保留在本工作区的ignored执行目录。
 
