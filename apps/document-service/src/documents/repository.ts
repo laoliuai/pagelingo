@@ -1,3 +1,4 @@
+import { assertDocumentActive } from '../document-lifecycle/guards.js';
 import { randomUUID } from 'node:crypto';
 import type { PoolClient } from 'pg';
 import type { PdfDocumentSummary } from '@pagelingo/document-contracts';
@@ -31,6 +32,7 @@ export function summary(row: DocumentRow): PdfDocumentSummary {
 export async function findDocument(client: PoolClient, owner: string, id: string, byAsset = false): Promise<DocumentRow> {
   const row = (await client.query<DocumentRow>(`${documentSelect} WHERE d.kind = 'pdf' AND d.deleted_at IS NULL AND d.owner_id = $1 AND ${byAsset ? 'a.id' : 'd.id'} = $2`, [owner, id])).rows[0];
   if (!row) throw new ServiceError(404, 'NOT_FOUND', 'Document not found');
+  await assertDocumentActive(client, owner, row.id);
   return row;
 }
 export async function findSamePdf(client: PoolClient, owner: string, sha256: string): Promise<DocumentRow | undefined> {

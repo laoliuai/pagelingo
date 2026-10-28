@@ -1,3 +1,4 @@
+import { assertDocumentActive } from '../document-lifecycle/guards.js';
 import type { PoolClient } from 'pg';
 import { webReaderIndexSchema, webReaderChunkSchema, webReaderIrSchema, webCaptureManifestSchema, webReaderDescriptorSchema, webReaderVersionListSchema, webReadingProgressUpdateSchema, type WebReadingProgressUpdate, type WebReadingProgress } from '@pagelingo/document-contracts';
 import { assertActorCurrent, type Actor } from '../auth/guards.js';
@@ -8,7 +9,7 @@ import * as repo from './repository.js';
 import { readWebAsset, webNotFound } from './assets.js';
 export function createWebReadersService({ db, store }: { db: Database; store: ObjectStore }) {
   async function owned<T>(actor: Actor, documentId: string, fn: (client: PoolClient) => Promise<T>): Promise<T> {
-    return db.transaction(async client => { await assertActorCurrent(client, actor); if (!await repo.findWebDocument(client, actor.userId, documentId)) throw webNotFound(); return fn(client); });
+    return db.transaction(async client => { await assertActorCurrent(client, actor); await assertDocumentActive(client, actor.userId, documentId); if (!await repo.findWebDocument(client, actor.userId, documentId)) throw webNotFound(); return fn(client); });
   }
   async function asset(client: PoolClient, ownerId: string, documentId: string, id: string): Promise<repo.WebAssetRow> {
     const row = (await client.query<repo.WebAssetRow>('SELECT id,object_key,sha256,bytes,media_type FROM assets WHERE owner_id=$1 AND document_id=$2 AND id=$3', [ownerId, documentId, id])).rows[0]; if (!row) throw webNotFound(); return row;
@@ -21,7 +22,7 @@ export function createWebReadersService({ db, store }: { db: Database; store: Ob
       const progress = await repo.readWebProgress(client, actor.userId, documentId, version.id);
       const state = (await client.query<{ revision: number; position: WebReadingProgress['position'] }>(`SELECT s.revision,p.position FROM web_reading_state s LEFT JOIN web_reading_positions p ON (p.owner_id,p.document_id,p.reader_version_id)=(s.owner_id,s.document_id,s.reader_version_id) WHERE s.owner_id=$1 AND s.document_id=$2`, [actor.userId, documentId])).rows[0];
       const assets = (await client.query<{ local_id: string; asset_id: string }>('SELECT local_id,asset_id FROM web_reader_assets WHERE owner_id=$1 AND document_id=$2 AND reader_version_id=$3', [actor.userId, documentId, version.id])).rows;
-      return { version, source, indexAsset, progress, state, assets };
+      return { version, source, indexAsset, progress, state, assets, epoch: (await assertDocumentActive(client, actor.userId, documentId)).epoch };
     });
     const index = webReaderIndexSchema.parse(JSON.parse((await readWebAsset(store, metadata.indexAsset)).toString('utf8')));
     const manifest = webCaptureManifestSchema.parse(JSON.parse((await readWebAsset(store, { id: metadata.source.asset_id, object_key: metadata.source.object_key, sha256: metadata.source.sha256, bytes: metadata.source.bytes, media_type: 'application/json' })).toString('utf8')));
@@ -97,6 +98,7 @@ export function createWebReadersService({ db, store }: { db: Database; store: Ob
       const current = await data(actor, documentId, position.readerVersionId);
       if (position.sourceVersionId !== current.version.source_version_id || position.parseId !== current.version.parse_id || (position.blockId !== null && !Object.hasOwn(current.index.blockLocations, position.blockId))) throw new ServiceError(400, 'INVALID_REQUEST', 'Invalid Web reading position');
       return owned(actor, documentId, async client => {
+        await assertDocumentActive(client, actor.userId, documentId, current.epoch);
         const saved = await repo.saveWebProgress(client, actor.userId, documentId, expectedRevision, position);
         if (!saved) throw new ServiceError(409, 'PROGRESS_CONFLICT', 'Reading progress changed'); return saved;
       });

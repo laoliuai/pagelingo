@@ -1,3 +1,4 @@
+import { registerDocumentLifecycleRoutes } from './document-lifecycle/routes.js';
 import { registerGlossaryRoutes } from './glossary/routes.js';
 import { registerWebJobsRoutes } from './web-jobs/routes.js';
 import { createCaptureJobScheduler } from './web-jobs/service.js';
@@ -50,6 +51,7 @@ export async function createApp({ db, config, outboundFetch }: AppOptions): Prom
   const store = createLocalObjectStore(config.dataDir);
   registerDocumentsRoutes(app, store);
   registerDocumentManagementRoutes(app);
+  registerDocumentLifecycleRoutes(app);
   registerBundleImportsRoutes(app, store);
   registerReadersRoutes(app, store);
   registerGlossaryRoutes(app);

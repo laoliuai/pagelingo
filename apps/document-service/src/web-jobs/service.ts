@@ -1,3 +1,5 @@
+import { assertOperationNotRetired } from '../document-lifecycle/retired-identities.js';
+import { assertDocumentActive, lockDocument } from '../document-lifecycle/guards.js';
 import { createHash, randomUUID } from 'node:crypto';
 import type { PoolClient } from 'pg';
 import {
@@ -59,6 +61,7 @@ async function dependencies(
   sourceId: string,
   parseId: string,
 ) {
+  await assertDocumentActive(client, ownerId, documentId);
   const source = await readers.findWebSource(client, ownerId, documentId, sourceId);
   const parse = await readers.findWebParse(client, ownerId, documentId, sourceId, parseId);
   if (!source || !parse) throw webNotFound();
@@ -158,6 +161,8 @@ export function createWebJobsService({ db, store }: { db: Database; store: Objec
   async function currentJob(c: PoolClient, actor: Actor, id: string) {
     let row = await repo.findWebJob(c, actor.userId, id);
     if (!row) throw webNotFound();
+    await lockDocument(c, actor.userId, row.document_id);
+    await assertDocumentActive(c, actor.userId, row.document_id);
     if (row.kind === 'translate' && ['queued', 'running'].includes(row.status)) {
       const current = await findProviderProfile(c, actor.userId);
       if (row.auth_version !== actor.authVersion || current?.revision !== row.profile_revision || !current.key_id)
@@ -171,6 +176,7 @@ export function createWebJobsService({ db, store }: { db: Database; store: Objec
       if (!parsed.success) throw new ServiceError(400, 'INVALID_REQUEST', 'Invalid translation request');
       const input = parsed.data;
       const loaded = await owned(actor, async (c) => {
+        if (input.requestId) await assertOperationNotRetired(c, actor.userId, 'web-job-request', input.requestId, { documentId, authVersion: actor.authVersion });
         const d = await dependencies(c, actor.userId, documentId, input.sourceVersionId, input.parseId);
         const asset = (
           await c.query<readers.WebAssetRow>(
@@ -179,7 +185,7 @@ export function createWebJobsService({ db, store }: { db: Database; store: Objec
           )
         ).rows[0];
         if (!asset || Number(asset.bytes) > defaultCaptureLimits.maxIrBytes) throw webNotFound();
-        return { ...d, asset };
+        return { ...d, asset, epoch: (await assertDocumentActive(c, actor.userId, documentId)).epoch };
       });
       const ir = webReaderIrSchema.parse(JSON.parse((await readWebAsset(store, loaded.asset)).toString('utf8')));
       if (
@@ -208,6 +214,8 @@ export function createWebJobsService({ db, store }: { db: Database; store: Objec
         selectionBlockIds: selected.length === all.length ? undefined : selected,
       };
       return owned(actor, async (c) => {
+        await lockDocument(c, actor.userId, documentId);
+        await assertDocumentActive(c, actor.userId, documentId, loaded.epoch);
         const actual = await dependencies(c, actor.userId, documentId, input.sourceVersionId, input.parseId);
         if (actual.parse.ir_sha256 !== loaded.parse.ir_sha256 || actual.source.sha256 !== loaded.source.sha256)
           throw webNotFound();
@@ -222,6 +230,7 @@ export function createWebJobsService({ db, store }: { db: Database; store: Objec
     },
     async cancel(actor: Actor, id: string) {
       return owned(actor, async (c) => {
+        await assertOperationNotRetired(c, actor.userId, 'web-job', id);
         const row = await currentJob(c, actor, id);
         return publicWebJob(
           ['completed', 'cancelled', 'failed'].includes(row.status) ? row : await stopJob(c, row, 'cancelled'),
@@ -233,7 +242,9 @@ export function createWebJobsService({ db, store }: { db: Database; store: Objec
       if (!parsed.success) throw new ServiceError(400, 'INVALID_REQUEST', 'Invalid retry');
       // Commit fencing even when returning PROFILE_CHANGED; errors outside the transaction preserve it.
       const result = await owned(actor, async (c) => {
+        await assertOperationNotRetired(c, actor.userId, 'web-job', id);
         const row = await currentJob(c, actor, id);
+        await assertDocumentActive(c, actor.userId, row.document_id, Number(row.document_epoch));
         const profile = await findProviderProfile(c, actor.userId);
         if (
           row.auth_version !== actor.authVersion ||

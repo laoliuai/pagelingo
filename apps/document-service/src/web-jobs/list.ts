@@ -1,3 +1,4 @@
+import { assertDocumentActive } from '../document-lifecycle/guards.js';
 import type { PoolClient } from 'pg';
 import { webJobListSchema, type WebJobListQuery } from '@pagelingo/document-contracts';
 import { ServiceError } from '../errors.js';
@@ -6,6 +7,7 @@ import type { WebJobRow } from './repository.js';
 import { publicWebJob } from './service.js';
 /** Pure discovery: timestamps stay in PostgreSQL so keysets retain microseconds. */
 export async function listWebJobs(client: PoolClient, ownerId: string, documentId: string, query: WebJobListQuery) {
+  await assertDocumentActive(client, ownerId, documentId);
   const document = (await client.query('SELECT kind FROM documents WHERE owner_id=$1 AND id=$2', [ownerId, documentId])).rows[0];
   if (!document || document.kind === 'pdf') throw new ServiceError(404, 'NOT_FOUND', 'Web document not found');
   if (query.sourceVersionId && !(await findWebSource(client, ownerId, documentId, query.sourceVersionId))) throw new ServiceError(404, 'NOT_FOUND', 'Source not found');

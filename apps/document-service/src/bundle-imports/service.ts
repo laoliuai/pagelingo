@@ -1,3 +1,5 @@
+import { lockDocument } from '../document-lifecycle/guards.js';
+import { assertOperationNotRetired } from '../document-lifecycle/retired-identities.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { unlink } from 'node:fs/promises';
@@ -8,7 +10,7 @@ import { assertActorCurrent, type Actor } from '../auth/guards.js';
 import type { Database } from '../db/database.js';
 import type { RuntimeConfig } from '../config.js';
 import type { ObjectStore } from '../storage/object-store.js';
-import { findDocument } from '../documents/repository.js';
+import { findDocument, findSamePdf } from '../documents/repository.js';
 import { ServiceError } from '../errors.js';
 import { conflict, expireImports, importView, lockImport, type ImportRow } from './repository.js';
 import { aborted, abortable, receiveArchive } from './staging.js';
@@ -39,9 +41,10 @@ export function createBundleImportsService({ db, store, config }: { db: Database
       const requestHash = createHash('sha256').update(JSON.stringify(parsed.data)).digest('hex');
       return db.transaction(async client => {
         await assertActorCurrent(client, actor); await expireImports(client, actor.userId);
-        if (parsed.data.targetDocumentId) await findDocument(client, actor.userId, parsed.data.targetDocumentId);
+        await assertOperationNotRetired(client, actor.userId, 'bundle-import', idempotencyKey);
         const existing = (await client.query<ImportRow>('SELECT * FROM bundle_imports WHERE owner_id=$1 AND idempotency_key=$2 FOR UPDATE', [actor.userId, idempotencyKey])).rows[0];
         if (existing) { if (existing.request_hash !== requestHash) throw conflict('IDEMPOTENCY_CONFLICT'); return importView(existing); }
+        if (parsed.data.targetDocumentId) await findDocument(client, actor.userId, parsed.data.targetDocumentId);
         if ((await client.query("SELECT id FROM bundle_imports WHERE owner_id=$1 AND status IN ('created','receiving','validating')", [actor.userId])).rowCount) throw conflict('BUNDLE_IMPORT_BUSY');
         return importView((await client.query<ImportRow>(`INSERT INTO bundle_imports (owner_id,idempotency_key,request_hash,target_document_id)
           VALUES ($1,$2,$3,$4) RETURNING *`, [actor.userId, idempotencyKey, requestHash, parsed.data.targetDocumentId ?? null])).rows[0]!);
@@ -114,6 +117,8 @@ export function createBundleImportsService({ db, store, config }: { db: Database
         aborted(controller.signal);
         return await db.transaction(async client => {
           await assertActorCurrent(client, actor); await expireImports(client, actor.userId);
+          const document = row!.target_document_id ? await findDocument(client, actor.userId, row!.target_document_id) : await findSamePdf(client, actor.userId, bundle.manifest.source.sha256);
+          if (document) await lockDocument(client, actor.userId, document.id);
           const current = await lockImport(client, actor.userId, id, row!.epoch); aborted(controller.signal);
           const result = await publishBundle(client, store, current, bundle, assets);
           aborted(controller.signal); return result;

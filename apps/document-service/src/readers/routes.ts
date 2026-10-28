@@ -32,11 +32,11 @@ export function registerReadersRoutes(app: FastifyInstance, store: ObjectStore):
     });
     scope.get('/api/v1/documents/:id/readers/:versionId/assets/:assetId', async (request, reply) => {
       emptyQuery(request); const p = parse(version.extend({ assetId: z.uuid() }), request.params);
-      return sendReaderAsset(request, reply, store, await service.image(actor(request), p.id, p.versionId, p.assetId));
+      return sendReaderAsset(request, reply, store, await service.image(actor(request), p.id, p.versionId, p.assetId), false, () => service.versions(actor(request), p.id, { page: 1, pageSize: 1 }));
     });
     scope.get('/api/v1/documents/:id/readers/:versionId/bundle', async (request, reply) => {
       emptyQuery(request); const p = parse(version, request.params);
-      return sendReaderAsset(request, reply, store, await service.archive(actor(request), p.id, p.versionId), true);
+      return sendReaderAsset(request, reply, store, await service.archive(actor(request), p.id, p.versionId), true, () => service.versions(actor(request), p.id, { page: 1, pageSize: 1 }));
     });
     scope.get('/api/v1/documents/:id/progress', async request => { emptyQuery(request); return service.progress(actor(request), doc(request)); });
     scope.put('/api/v1/documents/:id/progress', async request => {

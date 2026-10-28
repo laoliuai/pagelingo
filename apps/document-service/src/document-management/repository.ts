@@ -1,19 +1,11 @@
 import type { PoolClient } from 'pg';
-import { documentOrganizationSchema, type DocumentKind, type SaveOrganization, type DocumentOrganization } from '@pagelingo/document-contracts';
+import { documentOrganizationSchema, type SaveOrganization, type DocumentOrganization } from '@pagelingo/document-contracts';
 import { ServiceError } from '../errors.js';
 import { addRelation } from './relations.js';
 
 export const notFound = () => new ServiceError(404, 'NOT_FOUND', 'Document or taxonomy item not found');
-/** Owner lock is taken by the caller before this helper; read callers need no row lock. */
-export async function assertDocumentActive(client: PoolClient, ownerId: string, documentId: string, expectedEpoch?: number): Promise<{epoch:number;kind:DocumentKind}> {
-  const row = (await client.query<{lifecycle_epoch:string;kind:DocumentKind}>('SELECT lifecycle_epoch,kind FROM documents WHERE owner_id=$1 AND id=$2 AND deleted_at IS NULL', [ownerId,documentId])).rows[0];
-  if (!row) {
-    if ((await client.query('SELECT 1 FROM document_tombstones WHERE owner_id=$1 AND document_id=$2', [ownerId,documentId])).rowCount) throw new ServiceError(410, 'DOCUMENT_PURGED', 'Document was purged');
-    throw notFound();
-  }
-  if (expectedEpoch !== undefined && Number(row.lifecycle_epoch) !== expectedEpoch) throw new ServiceError(409, 'DOCUMENT_EPOCH_CONFLICT', 'Document lifecycle changed');
-  return { epoch: Number(row.lifecycle_epoch), kind: row.kind };
-}
+export { assertDocumentActive } from '../document-lifecycle/guards.js';
+import { assertDocumentActive } from '../document-lifecycle/guards.js';
 export async function assertTaxonomyOwned(client: PoolClient, ownerId: string, type: 'collections'|'tags', ids: string[]): Promise<string[]> {
   if (!ids.length) return [];
   const rows = (await client.query<{ id: string }>(`SELECT id FROM ${type} WHERE owner_id=$1 AND id=ANY($2::uuid[])`, [ownerId,ids])).rows;

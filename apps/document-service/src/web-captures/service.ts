@@ -1,3 +1,5 @@
+import { assertDocumentActive, lockDocument } from '../document-lifecycle/guards.js';
+import { assertIdentityNotRetired, assertOperationNotRetired } from '../document-lifecycle/retired-identities.js';
 import { randomUUID, createHash } from 'node:crypto';
 import { assertSaveHintsOwned, replaySaveHints } from '../document-management/repository.js';
 import { createReadStream } from 'node:fs';
@@ -31,6 +33,9 @@ export function createWebCapturesService({ db, store, config, onPublication }: {
   async function locked(client: PoolClient, p: CapturePrincipal, id: string): Promise<WebCaptureRow> {
     if (!z.uuid().safeParse(id).success) throw missing();
     await assertCapturePrincipalCurrent(client, p);
+    await assertOperationNotRetired(client, owner(p), 'web-capture-id', id);
+    const target = await findWebCapture(client, owner(p), id);
+    if (target?.target_document_id) await lockDocument(client, owner(p), target.target_document_id);
     const row = (await client.query<WebCaptureRow>('SELECT * FROM web_captures WHERE owner_id=$1 AND id=$2 FOR UPDATE', [owner(p), id])).rows[0];
     if (!row || row.fetch_job_id) throw missing();
     if (row.auth_version !== authVersion(p)) throw conflict('CAPTURE_AUTH_CHANGED');
@@ -47,12 +52,13 @@ export function createWebCapturesService({ db, store, config, onPublication }: {
   return {
     async create(p: CapturePrincipal, input: CreateWebCaptureRequest, key: string) {
       const parsed = createWebCaptureRequestSchema.safeParse(input);
-      if (!parsed.success || key !== parsed.data.manifest.captureId || parsed.data.manifest.files.some(f => f.id.startsWith('uploaded:'))) throw new ServiceError(400, 'INVALID_REQUEST', 'Invalid capture request');
+      if (!parsed.success || typeof key !== 'string' || key.toLowerCase() !== parsed.data.manifest.captureId.toLowerCase() || parsed.data.manifest.files.some(f => f.id.startsWith('uploaded:'))) throw new ServiceError(400, 'INVALID_REQUEST', 'Invalid capture request');
       const value = parsed.data; const limits = config.captureLimits;
       if (value.manifest.files.length > limits.maxFiles || value.manifest.files.reduce((n, f) => n + f.bytes, 0) > limits.maxTotalBytes || value.manifest.files.some(f => f.bytes > (f.role === 'html' ? limits.maxHtmlBytes : limits.maxResourceBytes))) throw new ServiceError(413, 'CAPTURE_TOO_LARGE', 'Capture exceeds configured limits');
       return db.transaction(async client => {
         await assertCapturePrincipalCurrent(client, p);
-        const existing = await findWebCaptureByKey(client, owner(p), key);
+        await assertOperationNotRetired(client, owner(p), 'web-capture', key);
+        const existing = await findWebCaptureByKey(client, owner(p), key.toLowerCase());
         if (existing) {
           const replayHash = createHash('sha256').update(canonicalManifestBytes({ ...value,...replaySaveHints(value,existing.save_hints) })).digest('hex');
           if (existing.request_hash !== replayHash) throw conflict('IDEMPOTENCY_CONFLICT');
@@ -80,6 +86,8 @@ export function createWebCapturesService({ db, store, config, onPublication }: {
         const file = (await listCaptureFiles(client, owner(p), id)).find(f => f.id === fileId); if (!file) throw missing();
         if (file.descriptor.mediaType !== mediaType.split(';')[0].trim().toLowerCase()) throw new ServiceError(415, 'UNSUPPORTED_MEDIA_TYPE', 'File media type differs from manifest');
         if (row.status === 'completed') return { row, file, done: true };
+        if (row.target_document_id) await assertDocumentActive(client, owner(p), row.target_document_id, Number(row.document_epoch));
+        else await assertIdentityNotRetired(client, owner(p), 'url', normalizeCaptureUrl(row.manifest.source.url), { table: 'web_captures', key: row.id });
         if (!['created', 'receiving', 'failed'].includes(row.status)) throw conflict();
         if (file.received_at) return { row, file, done: true };
         if (file.upload_until && file.upload_until.getTime() > Date.now()) throw conflict('CAPTURE_FILE_BUSY');
@@ -89,6 +97,16 @@ export function createWebCapturesService({ db, store, config, onPublication }: {
       });
       const controller = new AbortController(); const abort = () => controller.abort(signal?.reason); signal?.addEventListener('abort', abort, { once: true }); if (signal?.aborted) abort();
       const timer = setTimeout(() => controller.abort(new ServiceError(408, 'CAPTURE_UPLOAD_TIMEOUT', 'Capture upload timed out')), config.captureLimits.requestTimeoutMs);
+      let monitoring: Promise<void> | undefined;
+      const monitor = setInterval(() => {
+        if (monitoring || claim.done || controller.signal.aborted) return;
+        monitoring = db.transaction(async client => {
+          const current = await locked(client, p, id);
+          if (current.epoch !== claim.row.epoch || !['created','receiving'].includes(current.status)) throw conflict('CAPTURE_SUPERSEDED');
+          if (current.target_document_id) await assertDocumentActive(client, owner(p), current.target_document_id, Number(current.document_epoch));
+          else await assertIdentityNotRetired(client, owner(p), 'url', normalizeCaptureUrl(current.manifest.source.url), { table: 'web_captures', key: current.id });
+        }).catch(error => controller.abort(error)).finally(() => { monitoring = undefined; });
+      }, 500);
       let retained = false;
       try {
         await receiveCaptureFile(config.dataDir, token, body, claim.file.descriptor, controller.signal);
@@ -96,13 +114,15 @@ export function createWebCapturesService({ db, store, config, onPublication }: {
         await db.transaction(async client => {
           const row = await locked(client, p, id); controller.signal.throwIfAborted();
           if (row.epoch !== claim.row.epoch || !['created', 'receiving'].includes(row.status)) throw conflict('CAPTURE_SUPERSEDED');
+          if (row.target_document_id) await assertDocumentActive(client, owner(p), row.target_document_id, Number(row.document_epoch));
+          else await assertIdentityNotRetired(client, owner(p), 'url', normalizeCaptureUrl(row.manifest.source.url), { table: 'web_captures', key: row.id });
           const result = await client.query(`UPDATE web_capture_files SET staging_key=$4,received_sha256=$5,received_bytes=$6,received_at=clock_timestamp(),upload_token=NULL,upload_until=NULL
             WHERE owner_id=$1 AND capture_id=$2 AND id=$3 AND upload_token=$4 AND upload_until>clock_timestamp()`, [owner(p), id, fileId, token, claim.file.descriptor.sha256, claim.file.descriptor.bytes]);
           if (result.rowCount !== 1) throw conflict('CAPTURE_SUPERSEDED');
           await client.query('UPDATE web_captures SET updated_at=clock_timestamp() WHERE owner_id=$1 AND id=$2', [owner(p), id]);
         }); retained = true; return await status(p, id);
       } finally {
-        clearTimeout(timer); signal?.removeEventListener('abort', abort);
+        clearTimeout(timer); clearInterval(monitor); await monitoring; signal?.removeEventListener('abort', abort);
         if (!retained) { await unlink(stagingPath(config.dataDir, token)).catch(() => {}); await db.pool.query('UPDATE web_capture_files SET upload_token=NULL,upload_until=NULL WHERE owner_id=$1 AND capture_id=$2 AND id=$3 AND upload_token=$4', [owner(p), id, fileId, token]); }
       }
     },
@@ -119,6 +139,8 @@ export function createWebCapturesService({ db, store, config, onPublication }: {
         const row = await locked(client, p, id);
         if (row.status === 'completed') return { row, done: true, files: [] };
         if (row.status === 'cancelled') throw conflict('CAPTURE_CANCELLED');
+        if (row.target_document_id) await assertDocumentActive(client, owner(p), row.target_document_id, Number(row.document_epoch));
+        else await assertIdentityNotRetired(client, owner(p), 'url', normalizeCaptureUrl(row.manifest.source.url), { table: 'web_captures', key: row.id });
         if (row.status === 'validating' && row.updated_at.getTime() > Date.now() - 120_000) throw conflict();
         const files = await listCaptureFiles(client, owner(p), id); if (files.some(f => !f.received_at || !f.staging_key)) throw conflict('CAPTURE_FILES_MISSING');
         const updated = (await client.query<WebCaptureRow>("UPDATE web_captures SET status='validating',epoch=epoch+1,error_code=NULL,updated_at=clock_timestamp() WHERE owner_id=$1 AND id=$2 RETURNING *", [owner(p), id])).rows[0]!;
@@ -130,6 +152,8 @@ export function createWebCapturesService({ db, store, config, onPublication }: {
       const monitor = setInterval(() => { void db.transaction(async client => {
         const current = await locked(client, p, id);
         if (current.epoch !== claim.row.epoch || current.status !== 'validating') throw conflict('CAPTURE_SUPERSEDED');
+        if (current.target_document_id) await assertDocumentActive(client, owner(p), current.target_document_id, Number(current.document_epoch));
+        else await assertIdentityNotRetired(client, owner(p), 'url', normalizeCaptureUrl(current.manifest.source.url), { table: 'web_captures', key: current.id });
       }).catch(error => controller.abort(error)); }, 500);
       try {
         let prepared = await validateCaptureInWorker({ manifest: claim.row.manifest, files: claim.files.map(f => ({ id: f.id, path: stagingPath(config.dataDir, f.staging_key!) })), limits: config.captureLimits }, controller.signal);
@@ -168,6 +192,9 @@ export function createWebCapturesService({ db, store, config, onPublication }: {
         await stage('index', 'application/json', Buffer.from(JSON.stringify(prepared.build.index)));
         for (const chunk of prepared.build.chunks) await stage('chunk', 'application/json', Buffer.from(JSON.stringify(chunk)), chunk.id);
         return await db.transaction(async client => {
+          await assertCapturePrincipalCurrent(client, p);
+          const target = claim.row.target_document_id ?? (await client.query<{ id: string }>('SELECT id FROM documents WHERE owner_id=$1 AND source_url=$2 ORDER BY created_at,id LIMIT 1', [owner(p),prepared.manifest.source.url])).rows[0]?.id;
+          if (target) await lockDocument(client, owner(p), target);
           const current = await locked(client, p, id); controller.signal.throwIfAborted();
           if (current.epoch !== claim.row.epoch || current.status !== 'validating') throw conflict('CAPTURE_SUPERSEDED');
           await publishCapture(client, store, current, prepared, assets);

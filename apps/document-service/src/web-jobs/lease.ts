@@ -1,3 +1,4 @@
+import { lockDocument } from '../document-lifecycle/guards.js';
 import type { Database } from '../db/database.js';
 import { assertJobLeaseCurrent, releaseWebJobSlot, startWebJobLease, type JobLease, type WebJobRow } from './repository.js';
 
@@ -39,18 +40,20 @@ export async function reconcileWebJobs(db: Database): Promise<void> {
     const user = (await client.query<{ active: boolean; auth_version: number }>('SELECT active,auth_version FROM users WHERE id=$1 FOR UPDATE SKIP LOCKED', [ownerId])).rows[0];
     if (!user) return;
     const jobs = (await client.query<WebJobRow>("SELECT * FROM web_jobs WHERE owner_id=$1 AND status IN ('queued','running') ORDER BY created_at,id", [ownerId])).rows;
+    for (const documentId of [...new Set(jobs.map(job => job.document_id))].sort()) await lockDocument(client, ownerId, documentId);
     for (const job of jobs) {
+      const invalidDocument = !(await client.query('SELECT 1 FROM documents WHERE owner_id=$1 AND id=$2 AND deleted_at IS NULL AND lifecycle_epoch=$3', [ownerId,job.document_id,job.document_epoch])).rowCount;
       const invalidOwner = !user.active || user.auth_version !== job.auth_version;
       const invalidProfile = job.kind === 'translate' && !(await client.query('SELECT 1 FROM provider_profiles WHERE owner_id=$1 AND revision=$2 AND key_id IS NOT NULL', [ownerId, job.profile_revision])).rowCount;
       const expired = job.status === 'running' && (await client.query('SELECT 1 WHERE $1::timestamptz<=clock_timestamp()', [job.lease_until])).rowCount;
-      if (!invalidOwner && !invalidProfile && !expired) continue;
+      if (!invalidDocument && !invalidOwner && !invalidProfile && !expired) continue;
       if (job.slot_id !== null) await client.query('SELECT id FROM web_worker_slots WHERE id=$1 FOR UPDATE', [job.slot_id]);
       await client.query('SELECT id FROM web_jobs WHERE id=$1 FOR UPDATE', [job.id]);
       if (job.slot_id !== null) await client.query(`UPDATE web_worker_slots SET owner_id=NULL,job_id=NULL,lease_owner=NULL,lease_until=NULL
         WHERE id=$1 AND epoch=$2 AND owner_id=$3 AND job_id=$4 AND lease_owner=$5`, [job.slot_id, job.slot_epoch, ownerId, job.id, job.lease_owner]);
-      const status = invalidOwner || invalidProfile ? job.kind === 'translate' ? 'paused-config' : 'cancelled' : 'queued';
+      const status = invalidDocument ? 'cancelled' : invalidOwner || invalidProfile ? job.kind === 'translate' ? 'paused-config' : 'cancelled' : 'queued';
       await client.query(`UPDATE web_jobs SET status=$2,epoch=epoch+1,lease_owner=NULL,lease_until=NULL,slot_id=NULL,slot_epoch=NULL,
-        error_code=$3,updated_at=clock_timestamp() WHERE id=$1`, [job.id, status, invalidOwner ? 'UNAUTHORIZED' : invalidProfile ? 'PROFILE_CHANGED' : null]);
+        finalized_epoch=CASE WHEN $3='DOCUMENT_RETIRED' THEN epoch+1 ELSE finalized_epoch END,error_code=$3,updated_at=clock_timestamp() WHERE id=$1`, [job.id, status, invalidDocument ? 'DOCUMENT_RETIRED' : invalidOwner ? 'UNAUTHORIZED' : invalidProfile ? 'PROFILE_CHANGED' : null]);
     }
   });
 }

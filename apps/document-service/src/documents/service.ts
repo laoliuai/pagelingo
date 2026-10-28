@@ -1,3 +1,5 @@
+import { assertDocumentActive, lockDocument } from '../document-lifecycle/guards.js';
+import { assertIdentityNotRetired, assertOperationNotRetired } from '../document-lifecycle/retired-identities.js';
 import { libraryDocument, libraryList } from './library.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { documentListQuerySchema } from '@pagelingo/document-contracts';
@@ -31,7 +33,7 @@ export function createDocumentsService({ db, store, maxPdfBytes = 256 * 1024 * 1
       if (!/^[\x21-\x7e]{1,200}$/.test(input.idempotencyKey) || typeof input.originalFilename !== 'string') throw invalid();
       const initial = metadataSchema.safeParse({ ...(input.title !== undefined ? { title: input.title } : {}) });
       if (!initial.success) throw invalid();
-      const claim = await db.transaction(async client => { await assertActorCurrent(client, actor); return claimIngestion(client, actor.userId, input.idempotencyKey); });
+      const claim = await db.transaction(async client => { await assertActorCurrent(client, actor); await assertOperationNotRetired(client, actor.userId, 'pdf-upload', input.idempotencyKey); return claimIngestion(client, actor.userId, input.idempotencyKey); });
       const key = randomUUID(); const hash = createHash('sha256'); let bytes = 0;
       async function* pdfBody() {
         let prefix = Buffer.alloc(0); let recognized = false;
@@ -57,16 +59,21 @@ export function createDocumentsService({ db, store, maxPdfBytes = 256 * 1024 * 1
         if (stored.sha256 !== sha256 || stored.bytes !== bytes) throw new Error('Stored PDF identity mismatch');
         return await db.transaction(async client => {
           await assertActorCurrent(client, actor);
+          await assertOperationNotRetired(client, actor.userId, 'pdf-upload', input.idempotencyKey);
+          const same = await findSamePdf(client, actor.userId, sha256);
+          if (same) await lockDocument(client, actor.userId, same.id);
           const current = await lockIngestion(client, actor.userId, input.idempotencyKey, claim.epoch);
           if (current.status === 'completed') {
             if (current.request_hash !== sha256) throw new ServiceError(409, 'IDEMPOTENCY_CONFLICT', 'Idempotency key belongs to different content');
             return summary(await findDocument(client, actor.userId, current.document_id!));
           }
           if (current.status !== 'receiving') throw new ServiceError(409, 'UPLOAD_SUPERSEDED', 'Upload has been superseded');
+          await assertIdentityNotRetired(client, actor.userId, 'source-sha256', sha256, { table: 'ingestions', key: input.idempotencyKey });
+          if (same) await assertDocumentActive(client, actor.userId, same.id);
           await lockObjectPublication(client);
           if ((await store.stat(key)).bytes !== bytes) throw new Error('Stored PDF size mismatch');
           const originalFilename = cleanFilename(input.originalFilename);
-          const document = await findSamePdf(client, actor.userId, sha256) ?? await insertDocument(client, actor.userId, {
+          const document = same ?? await insertDocument(client, actor.userId, {
             title: metadata.data.title ?? originalFilename, originalFilename, key, bytes, sha256,
             titleOrigin: metadata.data.title === undefined ? 'filename' : 'user',
           });

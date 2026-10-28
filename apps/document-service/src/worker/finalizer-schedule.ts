@@ -31,6 +31,7 @@ export class FinalizerSchedule {
 export async function readFinalizerCandidates(db: Database, after: string | null, cooling: readonly FinalizerCandidate[]): Promise<FinalizerCandidate[]> {
   return (await db.pool.query<FinalizerCandidate>(`SELECT j.id,j.epoch FROM web_jobs j JOIN users u ON u.id=j.owner_id
     WHERE j.kind='translate' AND j.status IN ('cancelled','paused-config','partial','failed') AND u.active AND u.auth_version=j.auth_version
+    AND EXISTS (SELECT 1 FROM documents d WHERE d.owner_id=j.owner_id AND d.id=j.document_id AND d.deleted_at IS NULL AND d.lifecycle_epoch=j.document_epoch)
     AND j.finalized_epoch IS DISTINCT FROM j.epoch AND EXISTS (SELECT 1 FROM web_job_checkpoints c WHERE c.owner_id=j.owner_id AND c.job_id=j.id)
     AND NOT EXISTS (SELECT 1 FROM unnest($1::uuid[],$2::bigint[]) AS cooling(id,epoch) WHERE cooling.id=j.id AND cooling.epoch=j.epoch)
     AND ($3::uuid IS NULL OR j.id>$3::uuid)

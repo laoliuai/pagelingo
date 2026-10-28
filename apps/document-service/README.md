@@ -506,3 +506,27 @@ browser can recover existing jobs without creating one.
 ## S3 acceptance and operations
 
 See [capture workflow](../../docs/extension-site-capture.md) and [validation boundaries](../../docs/learning-site-s3-validation.md). From the repository root, build the site and extension, then run `npm run check:web-capture -- --samples tests/fixtures/web-s3/samples.json --output <new-directory>`. This declares synthetic inputs explicitly and uses the actual native extension, service, private store and independent mock worker. It reads no user environment file and makes no paid model call.
+
+## Document lifecycle (migration 007)
+
+`POST /api/v1/documents/:id/trash` accepts `{ expectedEpoch }` from the current
+organization's `lifecycleEpoch`, with the usual session, Origin and CSRF checks.
+It returns `{ documentId, lifecycleEpoch, deletedAt, purgeAfter }`, retains
+materials for 30 days, removes the document from ordinary lists and reads, and
+cancels unfinished work. A stale epoch returns `409 DOCUMENT_EPOCH_CONFLICT`;
+missing, foreign and trashed documents return 404 at ordinary read endpoints.
+Restore and permanent-cleanup routes are added separately; no restore stub is
+registered here.
+
+Workers retain the document epoch authorized at admission. Deletion invalidates
+leases, requested-job pointers and terminal finalization, so a later restoration
+cannot publish an old operation. Retained historical versions are readable when
+the document is active, regardless of their creation epoch. Untargeted ingress
+uses immutable server admission timestamps and persistent URL/source retirement
+identities, including after restoration. Purge receipt helpers keep UUID operation
+keys canonical while preserving case-sensitive legacy PDF keys.
+
+Before deploying migration 007, stop old API and worker writers, migrate, then
+start matching binaries. This compatibility boundary does not permit old writers
+to continue through migration. The lifecycle integration tests use owned temporary
+PostgreSQL and explicit test workers; they do not call real models.

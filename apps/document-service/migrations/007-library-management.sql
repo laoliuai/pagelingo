@@ -6,7 +6,7 @@ ALTER TABLE documents ADD COLUMN title_origin text NOT NULL DEFAULT 'legacy'
 ALTER TABLE documents ADD COLUMN lifecycle_epoch bigint NOT NULL DEFAULT 1 CHECK (lifecycle_epoch BETWEEN 1 AND 9007199254740991);
 ALTER TABLE documents ADD COLUMN deleted_at timestamptz;
 ALTER TABLE documents ADD COLUMN purge_after timestamptz;
-ALTER TABLE documents ADD CHECK ((deleted_at IS NULL AND purge_after IS NULL) OR (deleted_at IS NOT NULL AND purge_after >= deleted_at));
+ALTER TABLE documents ADD CHECK ((deleted_at IS NULL AND purge_after IS NULL) OR (deleted_at IS NOT NULL AND purge_after IS NOT NULL AND purge_after >= deleted_at));
 UPDATE documents SET origin = CASE WHEN kind='pdf' THEN 'upload'
   WHEN source_url ~* '^https?://([^/@]+\.)?(x\.com|twitter\.com)([/:]|$)' THEN 'x'
   WHEN source_url ~* '^https?://([^/@]+\.)?zhihu\.com([/:]|$)' THEN 'zhihu'
@@ -136,3 +136,21 @@ CREATE TABLE web_cache_document_refs (
 CREATE TABLE document_cache_cleanup_state (
   owner_id uuid PRIMARY KEY REFERENCES users(id), legacy_cache_cleared_at timestamptz
 );
+
+-- Admission occurs after the owner lock, not at the transaction's earlier start time.
+ALTER TABLE ingestions ALTER COLUMN created_at SET DEFAULT clock_timestamp();
+ALTER TABLE bundle_imports ALTER COLUMN created_at SET DEFAULT clock_timestamp();
+ALTER TABLE web_captures ALTER COLUMN created_at SET DEFAULT clock_timestamp();
+CREATE FUNCTION protect_lifecycle_admission() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+  IF (NEW.owner_id,NEW.idempotency_key,NEW.created_at) IS DISTINCT FROM (OLD.owner_id,OLD.idempotency_key,OLD.created_at) THEN
+    RAISE EXCEPTION 'Immutable operation admission';
+  END IF;
+  IF TG_TABLE_NAME='bundle_imports' THEN
+    IF (NEW.target_document_id,NEW.request_hash) IS DISTINCT FROM (OLD.target_document_id,OLD.request_hash) THEN
+      RAISE EXCEPTION 'Immutable bundle import input';
+    END IF;
+  END IF;
+  RETURN NEW;
+END; $$;
+CREATE TRIGGER lifecycle_ingestion_admission BEFORE UPDATE ON ingestions FOR EACH ROW EXECUTE FUNCTION protect_lifecycle_admission();
+CREATE TRIGGER lifecycle_import_admission BEFORE UPDATE ON bundle_imports FOR EACH ROW EXECUTE FUNCTION protect_lifecycle_admission();

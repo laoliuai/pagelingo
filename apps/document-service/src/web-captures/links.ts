@@ -1,3 +1,5 @@
+import { assertOperationNotRetired } from '../document-lifecycle/retired-identities.js';
+import { assertDocumentActive, lockDocument } from '../document-lifecycle/guards.js';
 import { createHash, randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
@@ -30,6 +32,7 @@ export function createDocumentLinksService({ db }: { db: Database }) {
       const authVersion = principal.kind === 'session' ? principal.actor.authVersion : principal.authVersion;
       return db.transaction(async client => {
         await assertCapturePrincipalCurrent(client, principal);
+        await assertOperationNotRetired(client, ownerId, 'document-link', key);
         const previous = (await client.query<{ request_hash: string; request: CreateDocumentLinkRequest; document_id: string; job_id: string | null }>('SELECT * FROM web_link_requests WHERE owner_id=$1 AND idempotency_key=$2', [ownerId, key])).rows[0];
         if (previous) {
           const replayHash = createHash('sha256').update(canonicalManifestBytes({ ...value,...replaySaveHints(value,previous.request) })).digest('hex');
@@ -44,6 +47,8 @@ export function createDocumentLinksService({ db }: { db: Database }) {
           document = { id: randomUUID(), kind: classification.kind };
           await insertWebDocument(client, { id: document.id, ownerId, kind: classification.kind, url: value.url, title: value.title ?? value.url.slice(0, 2000), titleOrigin: value.title === undefined ? 'url' : 'user', hints: authorized });
         }
+        await lockDocument(client, ownerId, document.id);
+        await assertDocumentActive(client, ownerId, document.id);
         let jobId: string | null = null;
         if (!classification.reason && document.kind === 'article') {
           const inputSha256 = createHash('sha256').update(canonicalManifestBytes({ kind: 'fetch-link', url: value.url, translationIntent: value.translationIntent })).digest('hex');

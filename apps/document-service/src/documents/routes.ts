@@ -66,10 +66,10 @@ export function registerDocumentsRoutes(app: FastifyInstance, store: ObjectStore
   app.get('/api/v1/documents/:id/source', async (request, reply) => {
     const actor = await requireSession(request); const document = await service.getPdf(actor, id(request));
     const asset = await service.getAsset(actor, document.source.assetId);
-    return sendSource(request, reply, store, asset, parse(sourceQuery, request.query).download === 'true');
+    return sendSource(request, reply, store, asset, parse(sourceQuery, request.query).download === 'true', () => service.getAsset(actor, asset.asset_id));
   });
   app.get('/api/v1/assets/:id/content', async (request, reply) => {
     const actor = await requireSession(request); const asset = await service.getAsset(actor, id(request));
-    return sendSource(request, reply, store, asset, parse(sourceQuery, request.query).download === 'true');
+    return sendSource(request, reply, store, asset, parse(sourceQuery, request.query).download === 'true', () => service.getAsset(actor, asset.asset_id));
   });
 }

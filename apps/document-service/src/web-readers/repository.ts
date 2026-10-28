@@ -110,7 +110,7 @@ export interface WebSourceRow {
 }
 export interface WebParseRow { id: string; owner_id: string; document_id: string; source_version_id: string; ir_asset_id: string; ir_sha256: string; created_at: Date }
 export async function findWebDocument(client: PoolClient, ownerId: string, id: string): Promise<WebDocumentRow | undefined> {
-  return (await client.query<WebDocumentRow>("SELECT * FROM documents WHERE owner_id=$1 AND id=$2 AND kind<>'pdf'", [ownerId,id])).rows[0];
+  return (await client.query<WebDocumentRow>("SELECT * FROM documents WHERE owner_id=$1 AND id=$2 AND deleted_at IS NULL AND kind<>'pdf'", [ownerId,id])).rows[0];
 }
 export async function findWebSource(client: PoolClient, ownerId: string, documentId: string, sourceId: string): Promise<WebSourceRow | undefined> {
   return (await client.query<WebSourceRow>(`SELECT w.*,s.asset_id,s.sha256,s.bytes,a.object_key FROM web_sources w

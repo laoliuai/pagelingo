@@ -1,3 +1,5 @@
+import { assertDocumentActive } from '../document-lifecycle/guards.js';
+import { assertIdentityNotRetired } from '../document-lifecycle/retired-identities.js';
 import { randomUUID } from 'node:crypto';
 import type { PoolClient } from 'pg';
 import type { CaptureFile } from '@pagelingo/document-contracts';
@@ -12,10 +14,12 @@ export interface CaptureAsset extends StoredObject { id: string; key: string; me
 const conflict = () => new ServiceError(409, 'CAPTURE_SUPERSEDED', 'Capture is no longer current');
 export async function publishCapture(client: PoolClient, store: ObjectStore, row: WebCaptureRow, prepared: PreparedCapture, assets: CaptureAsset[]) {
   const ownerId = row.owner_id; const manifest = prepared.manifest;
+  if (row.target_document_id) await assertDocumentActive(client, ownerId, row.target_document_id, Number(row.document_epoch));
+  else await assertIdentityNotRetired(client, ownerId, 'url', manifest.source.url, { table: 'web_captures', key: row.id });
   let document = row.target_document_id ? await readers.findWebDocument(client, ownerId, row.target_document_id)
     : (await client.query<readers.WebDocumentRow>(`SELECT * FROM documents WHERE owner_id=$1 AND source_url=$2 AND kind=$3 ORDER BY created_at,id LIMIT 1`, [ownerId, manifest.source.url, manifest.source.kind === 'x-post' ? 'x-post' : 'article'])).rows[0];
   if (row.target_document_id && (!document || !['article', 'x-post'].includes(document.kind) || document.source_url !== manifest.source.url)) throw new ServiceError(409, 'CAPTURE_SOURCE_CONFLICT', 'Capture source does not match target');
-  if (document) await client.query('SELECT id FROM documents WHERE owner_id=$1 AND id=$2 FOR UPDATE', [ownerId, document.id]);
+  if (document) { await client.query('SELECT id FROM documents WHERE owner_id=$1 AND id=$2 FOR UPDATE', [ownerId, document.id]); await assertDocumentActive(client, ownerId, document.id); }
   await lockObjectPublication(client);
   // All staged objects are immutable and checked while holding the same lock as orphan collection.
   for (const asset of assets) if ((await store.stat(asset.key)).bytes !== asset.bytes) throw new Error('Missing capture object');
