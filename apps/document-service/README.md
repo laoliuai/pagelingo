@@ -576,8 +576,34 @@ minimum aliases and edited conflicts never retarget jobs or receive another
 document's material. Public capture DTO/target validation is unchanged. Automatic
 translation uses the existing save-intent, preference, language and provider checks.
 Ordinary blog title/author/date metadata uses the same Readability extraction with
-no additional fetch and preserves user/legacy titles. GitLab stays link-only;
-arXiv acquisition remains explicitly unsupported pending its provider runner.
+no additional fetch and preserves user/legacy titles. GitLab stays link-only.
+
+arXiv saves resolve the requested modern or legacy ID through a bounded Atom feed,
+then stream the confirmed fixed-version PDF. The saved feed and PDF are reused after
+worker restart; an unversioned request is never resolved again after its feed is saved.
+The shared PostgreSQL limiter serializes provider requests, waits at least three
+seconds after managed cleanup, and honors longer Retry-After responses by persisting
+the next request time and releasing worker slots. Atom parsing rejects DTD/entity
+declarations, mismatched entries and invalid calendar dates; limits are 1 MiB,
+32 levels, 5,000 nodes, 1,000 authors and 20,000 summary characters. PDF downloads
+share the upload signature/byte validator and configured maxPdfBytes limit.
+
+A downloaded `paper` keeps its immutable kind and uses the PDF summary, original,
+Reader and progress capabilities. Downloading never starts server PDF processing or
+model requests. Local PDF v1 bundle imports require `targetDocumentId` and
+`targetPaperVersion`; optional `targetSourceVersionId` must match that owned version.
+Admission retains the canonical authorized IDs and checks the actual original and
+bundle SHA256/bytes before publication. Omitted legacy fields keep their original
+request hash encoding. A package already attached elsewhere cannot be moved.
+
+Different PDF bytes select a new source awaiting local processing; old Readers and
+registered original asset URLs remain available. Identical bytes can reuse a source
+and Reader only within that paper, with explicit `paper_reader_bindings` for each
+arXiv version. Historical imports register their binding without promoting current.
+Provider metadata stays authoritative over imported IR; user titles remain editable.
+Bound fixed versions cannot change their metadata or PDF bytes. Migration 008 adds
+compound source/version/Reader and immutable import-target references; cleanup
+removes targeted imports before arXiv revisions within the existing shared budgets.
 
 Stop old API/worker writers before applying 008, then run matching binaries. Source
 identity/acquisition/revision references are already in the unified restore/purge

@@ -34,6 +34,7 @@ interface PurgeStep { table: string; predicate: string }
  * Mutable job result pointers are detached first, breaking the job/Reader cycle.
  * Global users, configuration, taxonomy, slots and backfill cursor are never deleted. */
 export const purgePlan: readonly PurgeStep[] = [
+  { table:'bundle_imports',predicate:capturePredicate },
   { table:'paper_reader_bindings',predicate:byDocument },
   { table:'github_versions',predicate:byDocument },
   { table:'arxiv_versions',predicate:byDocument },
@@ -44,7 +45,6 @@ export const purgePlan: readonly PurgeStep[] = [
   { table:'web_fetch_acquisitions',predicate:byDocument },
   { table:'web_capture_files',predicate:`capture_id IN (SELECT id FROM web_captures WHERE owner_id=$1 AND ${webCapturePredicate})` },
   { table:'web_captures',predicate:webCapturePredicate },
-  { table:'bundle_imports',predicate:capturePredicate },
   { table:'ingestions',predicate:byDocument },
   { table:'web_link_requests',predicate:byDocument },
   { table:'web_job_checkpoints',predicate:'job_id IN (SELECT id FROM web_jobs WHERE owner_id=$1 AND document_id=$2)' },

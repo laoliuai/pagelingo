@@ -142,3 +142,30 @@ ALTER TABLE web_jobs ADD FOREIGN KEY(owner_id,document_id,source_github_revision
 ALTER TABLE web_jobs ADD FOREIGN KEY(owner_id,document_id,source_arxiv_revision_id) REFERENCES arxiv_versions(owner_id,document_id,id);
 ALTER TABLE web_jobs ADD CHECK((source_github_revision_id IS NULL AND source_arxiv_revision_id IS NULL) OR
   (kind='fetch-link' AND (source_github_revision_id IS NULL OR source_arxiv_revision_id IS NULL)));
+
+-- Paper PDF capability retains the original PDF graph and adds explicit version associations.
+CREATE OR REPLACE FUNCTION assert_pdf_document() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+  PERFORM 1 FROM documents d JOIN source_versions s ON(s.owner_id,s.document_id)=(d.owner_id,d.id)
+    JOIN assets a ON(a.owner_id,a.document_id,a.id)=(s.owner_id,s.document_id,s.asset_id)
+    WHERE d.owner_id=NEW.owner_id AND d.id=NEW.document_id AND d.kind IN ('pdf','paper')
+      AND s.id=NEW.source_version_id AND a.media_type='application/pdf' FOR SHARE OF d;
+  IF NOT FOUND THEN RAISE EXCEPTION 'PDF document/source kind mismatch' USING ERRCODE='23514'; END IF;
+  RETURN NEW;
+END $$;
+ALTER TABLE paper_reader_bindings ADD UNIQUE(owner_id,document_id,arxiv_version_id,source_version_id,reader_version_id);
+ALTER TABLE documents ADD FOREIGN KEY(owner_id,id,current_arxiv_revision_id,current_source_version_id)
+  REFERENCES arxiv_versions(owner_id,document_id,id,source_version_id) DEFERRABLE INITIALLY DEFERRED;
+ALTER TABLE documents ADD FOREIGN KEY(owner_id,id,current_arxiv_revision_id,current_source_version_id,current_reader_version_id)
+  REFERENCES paper_reader_bindings(owner_id,document_id,arxiv_version_id,source_version_id,reader_version_id) DEFERRABLE INITIALLY DEFERRED;
+ALTER TABLE documents ADD CHECK(kind<>'paper' OR current_source_version_id IS NULL OR (current_arxiv_revision_id IS NOT NULL AND original_filename IS NOT NULL));
+ALTER TABLE bundle_imports ADD COLUMN target_source_version_id uuid;
+ALTER TABLE bundle_imports ADD COLUMN target_arxiv_version_id uuid;
+ALTER TABLE bundle_imports ADD CHECK(target_source_version_id IS NULL OR target_document_id IS NOT NULL);
+ALTER TABLE bundle_imports ADD CHECK(target_arxiv_version_id IS NULL OR target_source_version_id IS NOT NULL);
+ALTER TABLE bundle_imports ADD FOREIGN KEY(owner_id,target_document_id,target_source_version_id) REFERENCES source_versions(owner_id,document_id,id);
+ALTER TABLE bundle_imports ADD FOREIGN KEY(owner_id,target_document_id,target_arxiv_version_id,target_source_version_id) REFERENCES arxiv_versions(owner_id,document_id,id,source_version_id);
+CREATE OR REPLACE FUNCTION protect_bundle_admitted_request() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+  IF (NEW.admitted_request,NEW.target_source_version_id,NEW.target_arxiv_version_id) IS DISTINCT FROM (OLD.admitted_request,OLD.target_source_version_id,OLD.target_arxiv_version_id)
+    THEN RAISE EXCEPTION 'Immutable bundle admission'; END IF;
+  RETURN NEW;
+END $$;

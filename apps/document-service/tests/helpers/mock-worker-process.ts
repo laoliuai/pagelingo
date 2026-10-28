@@ -4,6 +4,7 @@ import { openDatabase } from '../../src/db/database.js';
 import { readConfig } from '../../src/config.js';
 import { createLocalObjectStore } from '../../src/storage/local-object-store.js';
 import { runWorker } from '../../src/worker/main.js';
+import { arxivTransport, atom } from './arxiv-fixture.js';
 import { fixtureTransport, githubFixture } from './github-fixture.js';
 const config = readConfig(process.env);
 if (config.mode !== 'test') throw new Error('Mock worker is test-only');
@@ -37,9 +38,19 @@ const store={...baseStore,async putImmutable(...args:Parameters<typeof baseStore
   if(process.env.TEST_WORKER_HOLD_PUBLICATION === '1') { process.send?.({type:'publication',pid:process.pid}); await sleep(86400000,undefined,{signal:controller.signal}); }
   return stored;
 }};
+const arxiv = arxivTransport({ feed: atom('2401.12345', Number(process.env.TEST_WORKER_ARXIV_LATEST ?? 1)) });
+const sourceTransport = process.env.TEST_WORKER_ARXIV_FIXTURES === '1' ? { ...arxiv,
+  readSmall(...args: Parameters<typeof arxiv.readSmall>) { process.send?.({ type: 'source-request', pid: process.pid, url: args[0] }); return arxiv.readSmall(...args); },
+  async downloadPdf<T>(...args: Parameters<typeof arxiv.downloadPdf<T>>) {
+    process.send?.({ type: 'source-request', pid: process.pid, url: args[0] });
+    const result = await arxiv.downloadPdf<T>(...args);
+    if (process.env.TEST_WORKER_ARXIV_HOLD_PDF === '1') { process.send?.({ type: 'pdf-acquired', pid: process.pid }); await sleep(86400000, undefined, { signal: controller.signal }); }
+    return result;
+  },
+} : fixtureTransport(process.env.TEST_WORKER_GITHUB_FIXTURES === '1' ? githubFixture() : {});
 try {
   await runWorker({ db, config, store, signal: controller.signal, provider,
-    sourceTransport: fixtureTransport(process.env.TEST_WORKER_GITHUB_FIXTURES === '1' ? githubFixture() : {}),
+    sourceTransport,
     captureFetch: async (input, init) => {
       const url = new URL(String(input));
       if (process.env.TEST_WORKER_LINK_FIXTURES !== '1' || url.origin !== 'https://site-link-fixture.example') throw new Error('No external fetch in mock worker');

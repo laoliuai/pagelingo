@@ -28,7 +28,8 @@
     "@pagelingo/document-bundle": "0.1.0",
     "@pagelingo/document-renderer": "0.3.0",
     "@pagelingo/web-capture": "0.1.0",
-    "parse5": "8.0.1"
+    "parse5": "8.0.1",
+    "saxes": "6.0.0"
   },
   "devDependencies": {
     "@types/pg": "8.23.1",

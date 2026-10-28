@@ -6,9 +6,10 @@ import { ServiceError } from '../errors.js';
 import { assertDocumentActive } from '../document-management/repository.js';
 export async function libraryDocument(client: PoolClient, ownerId: string, id: string): Promise<DocumentSummary> {
   await assertDocumentActive(client,ownerId,id);
-  const kind = (await client.query<{ kind: string }>('SELECT kind FROM documents WHERE owner_id=$1 AND id=$2', [ownerId, id])).rows[0]?.kind;
+  const row = (await client.query<{ kind: string; current_source_version_id: string | null }>('SELECT kind,current_source_version_id FROM documents WHERE owner_id=$1 AND id=$2', [ownerId, id])).rows[0];
+  const kind = row?.kind;
   if (!kind) throw new ServiceError(404, 'NOT_FOUND', 'Document not found');
-  if (kind === 'pdf') return summary(await findDocument(client, ownerId, id));
+  if (kind === 'pdf' || (kind === 'paper' && row?.current_source_version_id)) return summary(await findDocument(client, ownerId, id));
   const document = (await findWebDocument(client, ownerId, id))!;
   const reader = await findWebReaderVersion(client, ownerId, id);
   const source = reader ? await findWebSource(client, ownerId, id, reader.source_version_id) : undefined;

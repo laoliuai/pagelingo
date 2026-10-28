@@ -13,7 +13,7 @@ import type { RuntimeConfig } from '../config.js';
 import type { ObjectStore } from '../storage/object-store.js';
 import { findDocument, findSamePdf } from '../documents/repository.js';
 import { ServiceError } from '../errors.js';
-import { conflict, expireImports, importView, lockImport, type ImportRow } from './repository.js';
+import { conflict, expireImports, importView, resolveBundleTarget, lockImport, type ImportRow } from './repository.js';
 import { aborted, abortable, receiveArchive } from './staging.js';
 import { validateInWorker } from './worker-client.js';
 import { publishBundle, type StagedAsset } from './publication.js';
@@ -24,6 +24,7 @@ let processing = false;
 const active = new Map<string, AbortController>();
 const idSchema = z.uuid();
 const hasSaveHints = (value: CreateBundleImportRequest) => value.organization !== undefined || value.discoveredFromDocumentId !== undefined;
+const hasCanonicalTarget = (value: CreateBundleImportRequest) => hasSaveHints(value) || value.targetSourceVersionId !== undefined || value.targetPaperVersion !== undefined;
 const abortedError = () => new ServiceError(409, 'BUNDLE_ABORTED', 'Bundle import was cancelled');
 function validId(id: string) { if (!idSchema.safeParse(id).success) throw new ServiceError(404, 'NOT_FOUND', 'Bundle import not found'); }
 function safeError(error: unknown): ServiceError {
@@ -48,21 +49,22 @@ export function createBundleImportsService({ db, store, config }: { db: Database
         if (existing) {
           const recorded = existing.admitted_request;
           const replay = recorded ? { ...parsed.data, ...replaySaveHints(parsed.data,recorded) } : parsed.data;
-          // Only hint-bearing admissions use authorized target identity. Legacy
-          // omitted-hint hashes retain their exact original spelling and bytes.
-          if (recorded && hasSaveHints(recorded) && replay.targetDocumentId && recorded.targetDocumentId &&
+          // Hints or explicit source bindings use authorized target identity.
+          // Legacy omitted-field hashes retain their original spelling and bytes.
+          if (recorded && hasCanonicalTarget(recorded) && replay.targetDocumentId && recorded.targetDocumentId &&
               replay.targetDocumentId.toLowerCase() === recorded.targetDocumentId.toLowerCase()) {
             replay.targetDocumentId = recorded.targetDocumentId;
           }
+          if (recorded?.targetSourceVersionId && replay.targetSourceVersionId?.toLowerCase() === recorded.targetSourceVersionId.toLowerCase()) replay.targetSourceVersionId = recorded.targetSourceVersionId;
           if (existing.request_hash !== hash(replay)) throw conflict('IDEMPOTENCY_CONFLICT'); return importView(existing);
         }
         const hints = await assertSaveHintsOwned(client, actor.userId, parsed.data);
-        const target = parsed.data.targetDocumentId ? await findDocument(client, actor.userId, parsed.data.targetDocumentId) : undefined;
-        const admitted = { ...parsed.data, ...hints, ...(hasSaveHints(parsed.data) && target ? { targetDocumentId: target.id } : {}) };
+        const target = await resolveBundleTarget(client, actor.userId, parsed.data);
+        const admitted = { ...parsed.data, ...hints, ...(hasCanonicalTarget(parsed.data) && target ? { targetDocumentId: target.document.id } : {}), ...(parsed.data.targetSourceVersionId && target ? { targetSourceVersionId: target.document.source_version_id } : {}) };
         const requestHash = hash(admitted);
         if ((await client.query("SELECT id FROM bundle_imports WHERE owner_id=$1 AND status IN ('created','receiving','validating')", [actor.userId])).rowCount) throw conflict('BUNDLE_IMPORT_BUSY');
-        return importView((await client.query<ImportRow>(`INSERT INTO bundle_imports (owner_id,idempotency_key,request_hash,target_document_id,admitted_request)
-          VALUES ($1,$2,$3,$4,$5) RETURNING *`, [actor.userId, idempotencyKey, requestHash, parsed.data.targetDocumentId ?? null, JSON.stringify(admitted)])).rows[0]!);
+        return importView((await client.query<ImportRow>(`INSERT INTO bundle_imports (owner_id,idempotency_key,request_hash,target_document_id,admitted_request,target_source_version_id,target_arxiv_version_id)
+          VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`, [actor.userId, idempotencyKey, requestHash, parsed.data.targetDocumentId ?? null, JSON.stringify(admitted), target?.sourceId ?? null, target?.paperId ?? null])).rows[0]!);
       });
     },
     get: read,
@@ -112,6 +114,13 @@ export function createBundleImportsService({ db, store, config }: { db: Database
           await client.query("UPDATE bundle_imports SET status='validating',updated_at=now(),heartbeat_at=now() WHERE owner_id=$1 AND id=$2", [actor.userId, id]);
         });
         const bundle = await validateInWorker(archivePath, config.bundleLimits, controller.signal);
+        if (row.target_source_version_id) {
+          const original = await db.transaction(async client => { await assertActorCurrent(client, actor); return findDocument(client, actor.userId, row!.target_document_id!, false, row!.target_source_version_id!); });
+          const hash = createHash('sha256'); let bytes = 0;
+          for await (const chunk of store.read(original.object_key)) { aborted(controller.signal); bytes += chunk.byteLength; if (bytes > config.maxPdfBytes) throw conflict('BUNDLE_SOURCE_CONFLICT'); hash.update(chunk); }
+          const sha256 = hash.digest('hex');
+          if (sha256 !== original.sha256 || bytes !== Number(original.bytes) || sha256 !== bundle.manifest.source.sha256 || bytes !== bundle.manifest.source.bytes) throw conflict('BUNDLE_SOURCE_CONFLICT');
+        }
         const files = createArchiveFileSource(archivePath, config.bundleLimits, controller.signal);
         const assets: StagedAsset[] = [];
         async function stage(kind: StagedAsset['kind'], content: AsyncIterable<Uint8Array>, mediaType: string, details: { path?: string; chunkId?: string } = {}) {
@@ -132,7 +141,7 @@ export function createBundleImportsService({ db, store, config }: { db: Database
         aborted(controller.signal);
         return await db.transaction(async client => {
           await assertActorCurrent(client, actor); await expireImports(client, actor.userId);
-          const document = row!.target_document_id ? await findDocument(client, actor.userId, row!.target_document_id) : await findSamePdf(client, actor.userId, bundle.manifest.source.sha256);
+          const document = row!.target_document_id ? await findDocument(client, actor.userId, row!.target_document_id, false, row!.target_source_version_id ?? undefined) : await findSamePdf(client, actor.userId, bundle.manifest.source.sha256);
           if (document) await lockDocument(client, actor.userId, document.id);
           const current = await lockImport(client, actor.userId, id, row!.epoch); aborted(controller.signal);
           const result = await publishBundle(client, store, current, bundle, assets);

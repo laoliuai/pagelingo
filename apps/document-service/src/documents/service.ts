@@ -1,5 +1,6 @@
 import { assertDocumentActive, lockDocument } from '../document-lifecycle/guards.js';
 import { assertIdentityNotRetired, assertOperationNotRetired } from '../document-lifecycle/retired-identities.js';
+import { validatePdf } from './pdf-validation.js';
 import { libraryDocument, libraryList } from './library.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { documentListQuerySchema } from '@pagelingo/document-contracts';
@@ -36,19 +37,9 @@ export function createDocumentsService({ db, store, maxPdfBytes = 256 * 1024 * 1
       const claim = await db.transaction(async client => { await assertActorCurrent(client, actor); await assertOperationNotRetired(client, actor.userId, 'pdf-upload', input.idempotencyKey); return claimIngestion(client, actor.userId, input.idempotencyKey); });
       const key = randomUUID(); const hash = createHash('sha256'); let bytes = 0;
       async function* pdfBody() {
-        let prefix = Buffer.alloc(0); let recognized = false;
-        for await (const chunk of input.body) {
-          bytes += chunk.byteLength;
-          if (bytes > maxPdfBytes) throw new ServiceError(413, 'PDF_TOO_LARGE', 'PDF exceeds the upload limit');
-          hash.update(chunk);
-          if (recognized) { yield chunk; continue; }
-          const needed = Math.min(1024 - prefix.length, chunk.byteLength);
-          prefix = Buffer.concat([prefix, chunk.subarray(0, needed)]);
-          if (prefix.includes(Buffer.from('%PDF-'))) {
-            recognized = true; yield prefix; if (needed < chunk.byteLength) yield chunk.subarray(needed);
-          } else if (prefix.length === 1024) throw new ServiceError(400, 'INVALID_PDF', 'PDF header was not found');
+        for await (const chunk of validatePdf(input.body, maxPdfBytes)) {
+          bytes += chunk.byteLength; hash.update(chunk); yield chunk;
         }
-        if (!recognized) throw new ServiceError(400, 'INVALID_PDF', 'PDF header was not found');
       }
       try {
         const stored = await store.putImmutable(key, pdfBody(), maxPdfBytes);

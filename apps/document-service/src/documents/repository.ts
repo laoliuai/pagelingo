@@ -1,36 +1,42 @@
 import { assertDocumentActive } from '../document-lifecycle/guards.js';
 import { randomUUID } from 'node:crypto';
 import type { PoolClient } from 'pg';
-import type { PdfDocumentSummary } from '@pagelingo/document-contracts';
+import type { PdfDocumentSummary, PaperPdfDocumentSummary } from '@pagelingo/document-contracts';
 import { ServiceError } from '../errors.js';
 import type { StoredObject } from '../storage/object-store.js';
 import { insertInitialOrganization, type OrganizationHints } from '../document-management/repository.js';
 import { projectSelectedMetadata } from '../document-management/metadata-projection.js';
 
 export interface DocumentRow {
-  id: string; title: string; original_filename: string; created_at: Date;
+  kind: 'pdf' | 'paper'; source_url: string | null; id: string; title: string; original_filename: string; created_at: Date;
   source_version_id: string; asset_id: string; sha256: string; bytes: string; object_key: string;
   reader_version_id: string | null; translation_status: NonNullable<PdfDocumentSummary['reader']>['translationStatus'];
   parse_coverage: NonNullable<PdfDocumentSummary['reader']>['parseCoverage']; reader_warnings: string[];
 }
-const documentSelect = `SELECT d.id, d.title, d.original_filename, d.created_at,
+const documentSelect = `SELECT d.kind, d.source_url, d.id, d.title, d.original_filename, d.created_at,
   s.id AS source_version_id, s.asset_id, s.sha256, s.bytes, a.object_key,
   r.id AS reader_version_id,t.status AS translation_status,p.coverage AS parse_coverage,p.warnings AS reader_warnings
   FROM documents d JOIN source_versions s ON (s.owner_id, s.document_id, s.id) =
     (d.owner_id, d.id, d.current_source_version_id)
   JOIN assets a ON (a.owner_id, a.document_id, a.id) = (s.owner_id, s.document_id, s.asset_id)
-  LEFT JOIN reader_versions r ON (r.owner_id,r.document_id,r.id)=(d.owner_id,d.id,d.current_reader_version_id)
+  LEFT JOIN reader_versions r ON (r.owner_id,r.document_id,r.id)=(d.owner_id,d.id,d.current_reader_version_id) AND r.source_version_id=s.id
   LEFT JOIN translation_runs t ON (t.owner_id,t.id)=(r.owner_id,r.translation_id)
   LEFT JOIN parse_runs p ON (p.owner_id,p.id)=(r.owner_id,r.parse_id)`;
-export function summary(row: DocumentRow): PdfDocumentSummary {
-  return { id: row.id, kind: 'pdf', title: row.title, originalFilename: row.original_filename,
+export function summary(row: DocumentRow): PdfDocumentSummary | PaperPdfDocumentSummary {
+  return { id: row.id, ...(row.kind === 'paper' ? { kind: 'paper' as const, url: row.source_url! } : { kind: 'pdf' as const }), title: row.title, originalFilename: row.original_filename,
     createdAt: row.created_at.toISOString(), source: { documentId: row.id,
       sourceVersionId: row.source_version_id, assetId: row.asset_id, sha256: row.sha256, bytes: Number(row.bytes) },
     saveStatus: 'original-saved', reader: row.reader_version_id ? { versionId: row.reader_version_id, translationStatus: row.translation_status, parseCoverage: row.parse_coverage, warnings: row.reader_warnings } : null,
     processingStatus: row.reader_version_id ? 'reader-ready' : 'awaiting-local-processing' };
 }
-export async function findDocument(client: PoolClient, owner: string, id: string, byAsset = false): Promise<DocumentRow> {
-  const row = (await client.query<DocumentRow>(`${documentSelect} WHERE d.kind = 'pdf' AND d.deleted_at IS NULL AND d.owner_id = $1 AND ${byAsset ? 'a.id' : 'd.id'} = $2`, [owner, id])).rows[0];
+export async function findDocument(client: PoolClient, owner: string, id: string, byAsset = false, sourceVersionId?: string): Promise<DocumentRow> {
+  let select = byAsset || sourceVersionId ? documentSelect.replace('(d.owner_id, d.id, d.current_source_version_id)', '(d.owner_id, d.id, s.id)') : documentSelect;
+  if (byAsset) select = select
+    .replace('d.original_filename,', "COALESCE((SELECT filename FROM source_acquisitions WHERE owner_id=d.owner_id AND document_id=d.id AND asset_id=a.id LIMIT 1),d.original_filename) AS original_filename,")
+    .replace('s.asset_id, s.sha256, s.bytes,', 'a.id AS asset_id, a.sha256, a.bytes,')
+    .replace('(a.owner_id, a.document_id, a.id) = (s.owner_id, s.document_id, s.asset_id)', `(a.owner_id,a.document_id)=(s.owner_id,s.document_id) AND (a.id=s.asset_id OR EXISTS(
+      SELECT 1 FROM arxiv_versions v WHERE (v.owner_id,v.document_id,v.source_version_id,v.pdf_asset_id)=(s.owner_id,s.document_id,s.id,a.id)))`);
+  const row = (await client.query<DocumentRow>(`${select} WHERE d.kind IN ('pdf','paper') AND a.media_type='application/pdf' AND d.deleted_at IS NULL AND d.owner_id=$1 AND ${byAsset ? 'a.id' : 'd.id'}=$2 ${sourceVersionId ? 'AND s.id=$3' : ''}`, sourceVersionId ? [owner, id, sourceVersionId] : [owner, id])).rows[0];
   if (!row) throw new ServiceError(404, 'NOT_FOUND', 'Document not found');
   await assertDocumentActive(client, owner, row.id);
   return row;

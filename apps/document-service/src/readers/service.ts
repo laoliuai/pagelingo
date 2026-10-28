@@ -31,6 +31,13 @@ export function createReadersService({ db, store }: { db: Database; store: Objec
     return { version, index, ir, epoch: metadata.epoch };
   }
   return {
+    authorize(actor: Actor, documentId: string) {
+      return db.transaction(async client => {
+        await assertActorCurrent(client, actor);
+        const active = await assertDocumentActive(client, actor.userId, documentId);
+        if (active.kind !== 'pdf' && active.kind !== 'paper') throw notFound();
+      });
+    },
     async descriptor(actor: Actor, documentId: string, versionId?: string) {
       const { ir, index, version } = await loadData(actor, documentId, versionId);
       return withVersion(actor, documentId, version.id, async (client) => {

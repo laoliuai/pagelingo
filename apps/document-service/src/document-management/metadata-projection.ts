@@ -48,7 +48,9 @@ export async function projectSearchMetadata(client: PoolClient, input: SearchPro
     WHERE d.owner_id=$1 AND d.id=$2 AND d.deleted_at IS NULL FOR UPDATE OF d`, [input.ownerId, input.documentId])).rows[0];
   if (!selected || selected.source_id !== (input.sourceVersionId?.toLowerCase() ?? null) || selected.sha256 !== input.sourceSha256
     || selected.parse_id !== input.parseId || selected.ir_sha256 !== (input.irSha256 ?? null)) return false;
-  const metadata = input.metadata;
+  // The selected fixed paper metadata is authoritative even for local IR/backfill.
+  const paper = (await client.query(`SELECT v.title,v.authors,v.summary FROM documents d JOIN arxiv_versions v ON(v.owner_id,v.document_id,v.id)=(d.owner_id,d.id,d.current_arxiv_revision_id) WHERE d.owner_id=$1 AND d.id=$2 AND d.kind='paper'`, [input.ownerId, input.documentId])).rows[0];
+  const metadata: Record<string, unknown> = paper ? { ...paper, url: selected.source_url } : input.metadata;
   const authors = Array.isArray(metadata.authors)
     ? metadata.authors.slice(0, 100).map(value => text(value, 500)).filter(Boolean).join('\n').slice(0, 8000)
     : text(metadata.author, 8000);

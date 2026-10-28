@@ -14,7 +14,8 @@ export async function publishBundle(client: PoolClient, store: ObjectStore, row:
   const owner = row.owner_id; const manifest = bundle.manifest;
   if (row.target_document_id) await assertDocumentActive(client, owner, row.target_document_id, Number(row.document_epoch));
   else await assertIdentityNotRetired(client, owner, 'source-sha256', manifest.source.sha256, { table: 'bundle_imports', key: row.id });
-  let document = row.target_document_id ? await findDocument(client, owner, row.target_document_id) : await findSamePdf(client, owner, manifest.source.sha256);
+  let document = row.target_document_id ? await findDocument(client, owner, row.target_document_id, false, row.target_source_version_id ?? undefined) : await findSamePdf(client, owner, manifest.source.sha256);
+  if (document?.kind === 'paper' && (!row.target_arxiv_version_id || !row.target_source_version_id)) throw conflict('BUNDLE_SOURCE_CONFLICT');
   if (document && (document.sha256 !== manifest.source.sha256 || Number(document.bytes) !== manifest.source.bytes)) throw conflict('BUNDLE_SOURCE_CONFLICT');
   if (document) { await client.query('SELECT id FROM documents WHERE owner_id=$1 AND id=$2 FOR UPDATE', [owner, document.id]); await assertDocumentActive(client, owner, document.id); }
   const duplicate = (await client.query<{ id: string; document_id: string; manifest_sha256: string }>('SELECT id,document_id,manifest_sha256 FROM reader_versions WHERE owner_id=$1 AND package_id=$2', [owner, manifest.packageId])).rows[0];
@@ -31,6 +32,7 @@ export async function publishBundle(client: PoolClient, store: ObjectStore, row:
         UNION SELECT p.ir_asset_id FROM reader_versions r JOIN parse_runs p ON (p.owner_id,p.id)=(r.owner_id,r.parse_id) WHERE r.owner_id=$1 AND r.id=$3
         UNION SELECT t.translation_asset_id FROM reader_versions r JOIN translation_runs t ON (t.owner_id,t.id)=(r.owner_id,r.translation_id) WHERE r.owner_id=$1 AND r.id=$3)`, [owner, duplicate.document_id, duplicate.id]);
     for (const asset of existing.rows) if ((await store.stat(asset.object_key)).bytes !== Number(asset.bytes)) throw new Error('Stored object mismatch');
+    await bindPaper(duplicate.id);
     return complete(duplicate.document_id, duplicate.id);
   }
   for (const asset of assets) if ((await store.stat(asset.key)).bytes !== asset.bytes) throw new Error('Stored object mismatch');
@@ -74,13 +76,18 @@ export async function publishBundle(client: PoolClient, store: ObjectStore, row:
   const rank = (status: string) => ['completed', 'not-required'].includes(status) ? 2 : status === 'partial' ? 1 : 0;
   const promote = !current || (rank(manifest.translation.status) >= rank(current.status) &&
     !(rank(current.status) === 2 && current.coverage === 'full' && bundle.parseCoverage !== 'full'));
-  if (promote) {
+  await bindPaper(version);
+  const selectedPaper = !row.target_arxiv_version_id || (await client.query('SELECT 1 FROM documents WHERE owner_id=$1 AND id=$2 AND current_arxiv_revision_id=$3', [owner, doc, row.target_arxiv_version_id])).rowCount === 1;
+  if (promote && selectedPaper) {
     await client.query('UPDATE documents SET current_reader_version_id=$3,updated_at=now() WHERE owner_id=$1 AND id=$2', [owner, doc, version]);
     await projectSelectedMetadata(client,owner,doc,{ title:manifest.title });
   }
   await client.query('INSERT INTO reading_state (owner_id,document_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [owner, doc]);
   return complete(doc, version);
 
+  async function bindPaper(readerVersionId: string) {
+    if (row.target_arxiv_version_id) await client.query('INSERT INTO paper_reader_bindings(owner_id,document_id,arxiv_version_id,source_version_id,reader_version_id) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING', [owner, row.target_document_id, row.target_arxiv_version_id, row.target_source_version_id, readerVersionId]);
+  }
   async function complete(documentId: string, versionId: string) {
     const result = await client.query<ImportRow>(`UPDATE bundle_imports SET status='completed',document_id=$4,reader_version_id=$5,warnings=$6,error_code=NULL,staging_key=NULL,updated_at=now(),heartbeat_at=now()
       WHERE owner_id=$1 AND id=$2 AND epoch=$3 AND status='validating' RETURNING *`, [owner, row.id, row.epoch, documentId, versionId,JSON.stringify(hintWarnings)]);

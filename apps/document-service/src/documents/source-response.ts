@@ -26,21 +26,32 @@ export async function sendStoredAsset(request: FastifyRequest, reply: FastifyRep
   let first: IteratorResult<Uint8Array> | undefined;
   try { if (iterator) first = await iterator!.next(); await options.authorize?.(); }
   catch (error) { await iterator?.return?.(); throw error; }
-  const encoded = encodeURIComponent(options.filename).replace(/['()*]/g, value => `%${value.charCodeAt(0).toString(16).toUpperCase()}`);
-  reply.header('Content-Type', options.mediaType);
-  reply.header('X-Content-Type-Options', 'nosniff');
-  reply.header('Content-Disposition', `${options.download ? 'attachment' : 'inline'}; filename="${options.fallbackFilename}"; filename*=UTF-8''${encoded}`);
-  reply.header('Accept-Ranges', 'bytes');
-  reply.header('ETag', `"${asset.sha256}"`);
-  reply.header('Content-Length', range ? range.end - range.start + 1 : size);
-  if (range) { reply.code(206); reply.header('Content-Range', `bytes ${range.start}-${range.end}/${size}`); }
-  if (request.method === 'HEAD') return reply.send(Readable.from([]));
-  try {
-    return reply.send(Readable.from((async function* () {
+  // Readable owns the pre-opened iterator even if it is destroyed before its first read.
+  // An unstarted async-generator wrapper does not execute its finally on return().
+  let returned: Promise<unknown> | undefined;
+  const close = () => returned ??= Promise.resolve(iterator?.return?.());
+  const ownedIterator: AsyncIterableIterator<Uint8Array> = {
+    [Symbol.asyncIterator]() { return this; },
+    async next() {
       try {
-        if (first && !first.done) yield first.value;
-        while (true) { const next = await iterator!.next(); if (next.done) return; await options.authorize?.(); yield next.value; }
-      } finally { await iterator!.return?.(); }
-    })()));
-  } catch (error) { await iterator!.return?.(); throw error; }
+        if (first) { const value = first; first = undefined; if (value.done) await close(); return value; }
+        const next = await iterator!.next();
+        if (next.done) await close(); else await options.authorize?.();
+        return next;
+      } catch (error) { await close(); throw error; }
+    },
+    async return() { await close(); return { done: true as const, value: undefined }; },
+  };
+  const stream = request.method === 'HEAD' ? Readable.from([]) : Readable.from(ownedIterator);
+  try {
+    const encoded = encodeURIComponent(options.filename).replace(/['()*]/g, value => `%${value.charCodeAt(0).toString(16).toUpperCase()}`);
+    reply.header('Content-Type', options.mediaType);
+    reply.header('X-Content-Type-Options', 'nosniff');
+    reply.header('Content-Disposition', `${options.download ? 'attachment' : 'inline'}; filename="${options.fallbackFilename}"; filename*=UTF-8''${encoded}`);
+    reply.header('Accept-Ranges', 'bytes');
+    reply.header('ETag', `"${asset.sha256}"`);
+    reply.header('Content-Length', range ? range.end - range.start + 1 : size);
+    if (range) { reply.code(206); reply.header('Content-Range', `bytes ${range.start}-${range.end}/${size}`); }
+    return reply.send(stream);
+  } catch (error) { stream.destroy(); await close(); throw error; }
 }
