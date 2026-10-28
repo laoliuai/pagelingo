@@ -346,10 +346,10 @@ lease：heartbeat 5 秒、30 秒失效；claim 使用 SKIP LOCKED 并增加 epoc
 
 **Files:** 新建 `scripts/check-web-capture.mjs`、`docs/learning-site-s3-validation.md`、`docs/extension-site-capture.md`、`docs/superpowers/specs/assets/2026-10-27-s3-validation/`；修改安装文档 / 包 READMEs / test-site / restart / root scripts / Docker 清单。
 **Interfaces:** `npm run check:web-capture -- --samples <samples.json> --output <new-dir>`；fixtures / 当前真实来源输入分开记录，默认 mock Provider，无环境 Key 读取和付费调用。
-- [ ] **Step 1:** 真扩展 → 站点 API → private ObjectStore → 独立 mock worker → reader 全链路；各类采集至少覆盖中文 / 英文、图、代码 / 公式、X回复边界、知乎回答与公众号 lazy 图。原站不可达后仍能读已存资料；每份真实样本记录 URL、时间、scope、资源 hash 和未验项，不以合成 fixture 冒充当前真实来源。
-- [ ] **Step 2:** 服务 S2→006 升级、浏览器 worker / 服务器 worker 中断、丢 ack、取消 / 换 Key / 停用、保留卷重建 API/worker/db后验证资料、部分译文、术语、进度、私有资源与权限；旧 S2 固定包及四个原包继续导入 / 下载复验，输入前后 hash 不变。
-- [ ] **Step 3:** 冻结共享源码 / static / dist 后顺序执行 `npm ci`、`npm run check`、`npm run check:site`、明确 samples 的 `check:web-capture`、S2兼容校验和 `npm audit`。Python未改则沿用S2证据；若实际改动才追加pdf:lint/pdf:test与原布局检查。每条命令记录退出码 / 来源范围 / mock与语义质量边界。
-- [ ] **Step 4:** 保存当前真实截图与来源验收矩阵；真实登录页无法取得时明确该 live case 未验证，不宣称该来源全部交付。开发 / 安装流程包含配对、权限、原文先保存、自动翻译偏好、撤销与重连，移除任何无效占位入口。
+- [x] **Step 1:** 真扩展 → 站点 API → private ObjectStore → 独立 mock worker → reader 全链路；各类采集至少覆盖中文 / 英文、图、代码 / 公式、X回复边界、知乎回答与公众号 lazy 图。原站不可达后仍能读已存资料；每份真实样本记录 URL、时间、scope、资源 hash 和未验项，不以合成 fixture 冒充当前真实来源。
+- [x] **Step 2:** 服务 S2→006 升级、浏览器 worker / 服务器 worker 中断、丢 ack、取消 / 换 Key / 停用、保留卷重建 API/worker/db后验证资料、部分译文、术语、进度、私有资源与权限；旧 S2 固定包及四个原包继续导入 / 下载复验，输入前后 hash 不变。
+- [x] **Step 3:** 冻结共享源码 / static / dist 后顺序执行 `npm ci`、`npm run check`、`npm run check:site`、明确 samples 的 `check:web-capture`、S2兼容校验和 `npm audit`。Python未改则沿用S2证据；若实际改动才追加pdf:lint/pdf:test与原布局检查。每条命令记录退出码 / 来源范围 / mock与语义质量边界。
+- [x] **Step 4:** 保存当前真实截图与来源验收矩阵；真实登录页无法取得时明确该 live case 未验证，不宣称该来源全部交付。开发 / 安装流程包含配对、权限、原文先保存、自动翻译偏好、撤销与重连，移除任何无效占位入口。
 - [ ] **Step 5:** 自检并提交 `docs: document S3 capture workflow and validation`。由控制方统一进行整分支审查与针对性修正复核；合入 / 推送按用户最终集成选择，保留宿主管理 worktree。不得提前勾选最终验收或宣称真实语义质量通过。
 
 ## 4. 计划自检与执行交接
