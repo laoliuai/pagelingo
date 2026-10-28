@@ -2,7 +2,8 @@
 // only source delivery and the translation provider are controlled test inputs.
 import assert from 'node:assert/strict';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { cp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { spawn } from 'node:child_process';
@@ -14,24 +15,82 @@ import { openDatabase } from '../../apps/document-service/dist/db/database.js';
 import { migrateDatabase } from '../../apps/document-service/dist/db/migrate.js';
 import { bootstrapAdmin } from '../../apps/document-service/dist/cli/bootstrap-admin.js';
 import { createApp } from '../../apps/document-service/dist/app.js';
+import { createOwnedCleanup } from './owned-cleanup.mjs';
 const [samplePath, output] = process.argv.slice(2);
-const declaration = JSON.parse(await readFile(samplePath, 'utf8'));
+let declaration;
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
-const root = await mkdtemp(join(tmpdir(), 'pgl-web-acceptance-'));
+let root;
 const schema = `pgl_accept_${randomUUID().replaceAll('-', '')}`;
 const databaseUrl = process.env.PAGELINGO_TEST_DATABASE_URL;
 assert(databaseUrl, 'Disposable database URL required');
-const admin = openDatabase(databaseUrl);
+let admin;
 let db, app, context, worker, origin, owner, other, control, reader;
 const modelRequests = [];
 let lostAck = false;
 const runtimeKey = randomBytes(32);
 const password = randomBytes(24).toString('hex');
 const report = { schemaVersion: 'pagelingo-web-acceptance/1', startedAt: new Date().toISOString(), status: 'running', samples: [], checks: [], provider: 'independent mock echo; no linguistic quality claim', liveAuthenticatedSources: 'UNVERIFIED: X, Zhihu, WeChat', sourceDelivery: 'declared immutable HTML; page requests routed; production extension HTTPS acquisition omits credentials and may fetch resources from explicitly granted source origins; actual archived hashes recorded' };
-const save = () => writeFile(join(output, 'report.json'), JSON.stringify(report, null, 2) + '\n');
-const config = { mode: 'test', host: '127.0.0.1', port: 0, publicOrigin: 'http://127.0.0.1', databaseUrl, dataDir: join(root, 'objects'), webDir: resolve('apps/web/dist'), maxPdfBytes: 1024 * 1024, bundleLimits: { ...defaultBundleLimits }, captureLimits: { ...defaultCaptureLimits }, keyring: { activeKeyId: 'test', keys: { test: runtimeKey } } };
+const save = () => writeFileSync(join(output, 'report.json'), JSON.stringify(report, null, 2) + '\n');
+const config = { mode: 'test', host: '127.0.0.1', port: 0, publicOrigin: 'http://127.0.0.1', databaseUrl, dataDir: undefined, webDir: resolve('apps/web/dist'), maxPdfBytes: 1024 * 1024, bundleLimits: { ...defaultBundleLimits }, captureLimits: { ...defaultCaptureLimits }, keyring: { activeKeyId: 'test', keys: { test: runtimeKey } } };
+
+const cancellation = new AbortController();
+const pendingAcquisitions = new Set();
+let interrupted;
+async function acquire(operation) {
+  cancellation.signal.throwIfAborted();
+  const pending = operation();
+  pendingAcquisitions.add(pending);
+  try { await pending; cancellation.signal.throwIfAborted(); }
+  finally { pendingAcquisitions.delete(pending); }
+}
+// Worst-case stage budgets total 3.8s, below with-test-postgres' 5s escalation.
+// Trace errors are recorded independently so they cannot skip browser closure.
+const release = createOwnedCleanup([
+  [{ name: 'pending acquisitions', timeoutMs: 1000, run: () => Promise.allSettled([...pendingAcquisitions]) }],
+  [
+    { name: 'trace', timeoutMs: 400, run: () => context?.tracing.stop({ path: join(output, 'trace.zip') }) },
+    { name: 'worker', timeoutMs: 900, run: () => stopWorker() },
+    { name: 'app', timeoutMs: 900, run: async () => { app?.server.closeAllConnections(); await app?.close(); } },
+  ],
+  [{ name: 'browser', timeoutMs: 700, run: () => context?.close() }],
+  [{ name: 'database pool', timeoutMs: 300, run: () => db?.close() }],
+  [{ name: 'owned schema', timeoutMs: 600, run: async () => {
+    if (admin) await admin.pool.query({ text: `DROP SCHEMA IF EXISTS "${schema}" CASCADE`, query_timeout: 500 });
+  } }],
+  [
+    { name: 'admin pool', timeoutMs: 300, run: () => admin?.close() },
+    { name: 'private store/profile root', timeoutMs: 300, run: () => root && rm(root, { recursive: true, force: true }) },
+  ],
+]);
+let cleanupCompletion;
+function cleanup() {
+  return cleanupCompletion ??= (async () => {
+    report.cleanup = await release();
+    if (report.cleanup.some(step => step.status === 'failed')) {
+      if (!interrupted) { report.status = 'failed'; process.exitCode = 1; }
+      console.error('Acceptance cleanup failures:', JSON.stringify(report.cleanup.filter(step => step.status === 'failed')));
+    }
+    report.finishedAt = new Date().toISOString();
+    save();
+    if (!interrupted && report.cleanup.some(step => step.status === 'failed')) process.exit(1);
+  })();
+}
+for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => {
+  if (interrupted) return;
+  interrupted = signal;
+  report.status = 'interrupted'; report.signal = signal;
+  report.error = `Acceptance interrupted by ${signal}`;
+  cancellation.abort(new Error(report.error));
+  process.exitCode = signal === 'SIGINT' ? 130 : 143;
+  try { save(); } catch (error) { console.error('Could not save interruption evidence:', error.message); }
+  // Closing resources interrupts Playwright operations too. Exit after bounded
+  // cleanup even if an aborted dependency still holds an unresolved operation.
+  void cleanup().finally(() => process.exit(process.exitCode));
+});
+
 async function request(path, { actor = owner, method = 'GET', body, headers = {} } = {}) {
-  return fetch(origin + path, { method, headers: { Origin: origin, ...(actor ? { Cookie: actor.cookie, 'X-CSRF-Token': actor.csrfToken } : {}), ...(body ? { 'Content-Type': 'application/json' } : {}), ...headers }, body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(60_000) });
+  cancellation.signal.throwIfAborted();
+  return fetch(origin + path, { method, headers: { Origin: origin, ...(actor ? { Cookie: actor.cookie, 'X-CSRF-Token': actor.csrfToken } : {}), ...(body ? { 'Content-Type': 'application/json' } : {}), ...headers }, body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.any([cancellation.signal, AbortSignal.timeout(60_000)]) });
 }
 async function json(path, options, status = 200) {
   const response = await request(path, options); const body = await response.json();
@@ -43,15 +102,20 @@ async function login(username) {
 }
 async function until(read, accepts, label, timeout = 45_000) {
   const end = Date.now() + timeout; let value;
-  do { value = await read(); if (accepts(value)) return value; await delay(150); } while (Date.now() < end);
+  do { cancellation.signal.throwIfAborted(); value = await read(); if (accepts(value)) return value; await delay(150, undefined, { signal: cancellation.signal }); } while (Date.now() < end);
   throw new Error(`${label}: ${JSON.stringify(value)}`);
 }
-async function rpc(command) { const response = await control.evaluate(value => chrome.runtime.sendMessage(value), command); assert(response.ok, response.error); return response.value; }
+async function rpc(command) { cancellation.signal.throwIfAborted(); const response = await control.evaluate(value => chrome.runtime.sendMessage(value), command); assert(response.ok, response.error); return response.value; }
 async function pair() { const { code } = await json('/api/v1/devices/pairing-codes', { method: 'POST', body: {} }, 201); return rpc({ type: 'archive:pair', origin, code }); }
 async function stopWorker(signal = 'SIGTERM') {
-  if (worker && worker.exitCode === null && worker.signalCode === null) { const done = once(worker, 'exit'); worker.kill(signal); await done; }
+  if (worker && worker.exitCode === null && worker.signalCode === null) {
+    const done = once(worker, 'exit');
+    const force = setTimeout(() => worker.kill('SIGKILL'), 400);
+    try { worker.kill(signal); await done; } finally { clearTimeout(force); }
+  }
 }
 function startWorker() {
+  cancellation.signal.throwIfAborted();
   worker = spawn(process.execPath, ['--import', 'tsx', 'apps/document-service/tests/helpers/mock-worker-process.ts', schema], {
     env: { PATH: process.env.PATH, PAGELINGO_SITE_MODE: 'test', PAGELINGO_SITE_ORIGIN: origin, PAGELINGO_DATA_DIR: config.dataDir, DATABASE_URL: databaseUrl, PAGELINGO_MASTER_KEY_ID: 'test', PAGELINGO_MASTER_KEYS_JSON: JSON.stringify({ test: runtimeKey.toString('base64') }) },
     stdio: ['ignore', 'inherit', 'inherit', 'ipc'],
@@ -59,7 +123,7 @@ function startWorker() {
   worker.on('message', value => { if (value.type === 'request') modelRequests.push(value); });
 }
 async function launchApp(port = 0) {
-  app = await createApp({ db, config, outboundFetch: async () => { throw new Error('Acceptance must not contact providers'); } });
+  await acquire(async () => { app = await createApp({ db, config, outboundFetch: async () => { throw new Error('Acceptance must not contact providers'); } }); });
   // Lose an acknowledgement AFTER the actual transaction and object publication.
   app.addHook('onSend', async (req, reply, payload) => {
     if (!lostAck && req.method === 'POST' && req.url.endsWith('/commit') && reply.statusCode === 200) {
@@ -67,19 +131,26 @@ async function launchApp(port = 0) {
     }
     return payload;
   });
-  origin = await app.listen({ host: '127.0.0.1', port }); config.publicOrigin = origin;
+  await acquire(async () => { origin = await app.listen({ host: '127.0.0.1', port }); }); config.publicOrigin = origin;
 }
 try {
-  await save(); await admin.pool.query(`CREATE SCHEMA "${schema}"`); db = openDatabase(databaseUrl, schema); await migrateDatabase(db);
+  declaration = JSON.parse(await readFile(samplePath, 'utf8'));
+  cancellation.signal.throwIfAborted();
+  root = mkdtempSync(join(tmpdir(), 'pgl-web-acceptance-')); config.dataDir = join(root, 'objects');
+  admin = openDatabase(databaseUrl);
+  await save();
+  await acquire(() => admin.pool.query(`CREATE SCHEMA "${schema}"`));
+  db = openDatabase(databaseUrl, schema);
+  await acquire(() => migrateDatabase(db));
   await bootstrapAdmin(db, { username: 'acceptance', password });
   await launchApp(); owner = await login('acceptance');
   await json('/api/v1/admin/users', { method: 'POST', body: { username: 'otherowner', password } }, 201);
   other = await login('otherowner'); startWorker();
-  const extension = join(root, 'extension'); await cp('apps/extension/dist', extension, { recursive: true });
+  const extension = join(root, 'extension'); await acquire(() => cp('apps/extension/dist', extension, { recursive: true }));
   const manifestPath = join(extension, 'manifest.json'); const extensionManifest = JSON.parse(await readFile(manifestPath, 'utf8'));
   extensionManifest.host_permissions = ['http://127.0.0.1/*', ...new Set(declaration.samples.map(sample => new URL(sample.url).origin + '/*'))];
-  await writeFile(manifestPath, JSON.stringify(extensionManifest));
-  context = await chromium.launchPersistentContext(join(root, 'profile'), { channel: 'chromium', headless: true, viewport: { width: 1280, height: 900 }, args: [`--disable-extensions-except=${extension}`, `--load-extension=${extension}`] });
+  await acquire(() => writeFile(manifestPath, JSON.stringify(extensionManifest)));
+  await acquire(async () => { context = await chromium.launchPersistentContext(join(root, 'profile'), { handleSIGINT: false, handleSIGTERM: false, handleSIGHUP: false, channel: 'chromium', headless: true, viewport: { width: 1280, height: 900 }, args: [`--disable-extensions-except=${extension}`, `--load-extension=${extension}`] }); });
   await context.tracing.start({ screenshots: true, snapshots: true });
   const nativeWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker');
   const extensionId = new URL(nativeWorker.url()).host;
@@ -106,6 +177,7 @@ try {
   reader = await context.newPage(); await reader.goto(origin + '/login');
   await reader.getByLabel('用户名', { exact: true }).fill('acceptance'); await reader.getByLabel('密码', { exact: true }).fill(password); await reader.getByRole('button', { name: '登录', exact: true }).click(); await expect(reader).toHaveURL(origin + '/library');
   for (const sample of declaration.samples) {
+    cancellation.signal.throwIfAborted();
     const evidence = { id: sample.id, kind: sample.kind, url: sample.url, collectedAt: sample.capturedAt, checkedAt: new Date().toISOString(), inputSha256Before: hash(await readFile(resolve(dirname(samplePath), sample.htmlFile))), status: 'running', unverified: sample.unverified };
     report.samples.push(evidence); await save();
     const page = await context.newPage();
@@ -175,7 +247,7 @@ try {
       await reader.screenshot({ path: join(output, sample.id + '-reader.png'), fullPage: true });
       evidence.status = 'passed';
     } catch (error) { evidence.status = 'failed'; evidence.error = error.message; throw error; }
-    finally { if (!page.isClosed()) await page.close(); evidence.inputSha256After = hash(await readFile(resolve(dirname(samplePath), sample.htmlFile))); assert.equal(evidence.inputSha256After, evidence.inputSha256Before); await save(); }
+    finally { if (interrupted) throw cancellation.signal.reason; if (!page.isClosed()) await page.close(); evidence.inputSha256After = hash(await readFile(resolve(dirname(samplePath), sample.htmlFile))); assert.equal(evidence.inputSha256After, evidence.inputSha256Before); await save(); }
   }
   sourceAvailable = false;
   const selected = report.samples[0];
@@ -190,7 +262,7 @@ try {
   const priorProgress = await json(`/api/v1/documents/${selected.documentId}/web-progress`);
   const progress = await json(`/api/v1/documents/${selected.documentId}/web-progress`, { method: 'PUT', body: { expectedRevision: priorProgress?.revision ?? 0, position } });
   const port = Number(new URL(origin).port);
-  await stopWorker('SIGKILL'); await app.close(); await db.close(); db = openDatabase(databaseUrl, schema); await launchApp(port); startWorker();
+  await stopWorker('SIGKILL'); await app.close(); await db.close(); cancellation.signal.throwIfAborted(); db = openDatabase(databaseUrl, schema); await launchApp(port); startWorker();
   assert.deepEqual(await json(`/api/v1/documents/${selected.documentId}/web-progress`), progress);
   assert.equal((await json('/api/v1/settings/glossary')).entries[0].target, '软件');
   assert.equal((await json(`/api/v1/documents/${selected.documentId}/web-reader?versionId=${selected.readerVersionId}`)).versionId, selected.readerVersionId);
@@ -201,14 +273,15 @@ try {
   assert.equal((await rpc({ type: 'archive:status' })).items.length, report.samples.length);
   report.checks.push('device-revoke/same-owner-reconnect');
   assert(modelRequests.length > 0); report.mockRequests = modelRequests.length; report.workerPids = [...new Set(modelRequests.map(value => value.pid))];
+  cancellation.signal.throwIfAborted();
   report.status = 'passed'; report.finishedAt = new Date().toISOString(); await save();
-  console.log(`Web capture acceptance passed: ${report.samples.length} declared samples; mock structure/lifecycle only.`);
 } catch (error) {
-  report.status = 'failed'; report.error = error.message; await save();
-  if (reader) await reader.screenshot({ path: join(output, 'failure.png'), fullPage: true }).catch(() => {});
-  console.error(error.stack); process.exitCode = 1;
+  if (!interrupted) {
+    report.status = 'failed'; report.error = error.message; await save();
+    if (reader) await reader.screenshot({ path: join(output, 'failure.png'), fullPage: true }).catch(() => {});
+    console.error(error.stack); process.exitCode = 1;
+  }
 } finally {
-  await context?.tracing.stop({ path: join(output, 'trace.zip') }).catch(() => {});
-  await context?.close(); await stopWorker(); await app?.close(); await db?.close();
-  await admin.pool.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`); await admin.close(); await rm(root, { recursive: true, force: true });
+  await cleanup();
 }
+if (report.status === 'passed') console.log(`Web capture acceptance passed: ${report.samples.length} declared samples; mock structure/lifecycle only.`);

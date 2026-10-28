@@ -1025,5 +1025,248 @@
         "changes": []
       }
     ]
-  }
+  },
+  "reviewFixes": [
+    {
+      "finding": "I1",
+      "fixBase": "b9653a53f7102c6c5bfb8c4480f407f945950921",
+      "checkedAt": "2026-10-28T00:07:44.179Z",
+      "sourceFreezeAt": "2026-10-28T00:05:26.158Z",
+      "sourceFiles": {
+        "scripts/check-web-capture.mjs": "ce7ba73ea7c252c91c77e05ed4e2d0b617f93700b864888bb63ec54cef11bfbe",
+        "scripts/test-site.mjs": "a749d4fef482b7be01444208b7e83b248bcf60a5f654ad9321278dda0990f172",
+        "tests/site/web-capture-runner.mjs": "9cb236f5a59baa466755df95a4bf52caad7661c70336e645a9c2c23bec8b3ab6",
+        "tests/site/owned-cleanup.mjs": "33150bfc29cec83ada5e3058bca9cbe2626e1a726c74f966d167461c56049f18",
+        "tests/site/owned-cleanup.test.mjs": "ae17a151975bec03a8e85ff1c8217d982288a41dc73f2c13a9b8951339040c12",
+        "tests/site/web-capture-signals.test.mjs": "254e212d0922ea7e7ff4dbccfcbe3125d0f163942536302a090c1a39455d419e"
+      },
+      "sourceChangesAfterFreeze": [],
+      "distCompared": 728,
+      "distChanges": [],
+      "node": {
+        "exitCode": 0,
+        "passed": 14,
+        "failed": 0,
+        "skipped": 0,
+        "durationMs": 19254.218831,
+        "logSha256": "1981454bfe44c122818b77a0a6d1a5871f6e40d50f7dead3a00869d69962da49"
+      },
+      "signals": [
+        {
+          "signal": "SIGINT",
+          "exitCode": 130,
+          "elapsedMs": 245,
+          "workerAlive": false,
+          "browserAlive": false,
+          "rootExists": false,
+          "ownedSchemaExists": false,
+          "sentinelSchemaExists": true,
+          "sentinelFile": "keep",
+          "unrelatedAlive": true,
+          "traceExists": true,
+          "reportStatus": "interrupted",
+          "cleanup": [
+            {
+              "name": "pending acquisitions",
+              "status": "passed"
+            },
+            {
+              "name": "trace",
+              "status": "passed"
+            },
+            {
+              "name": "worker",
+              "status": "passed"
+            },
+            {
+              "name": "app",
+              "status": "passed"
+            },
+            {
+              "name": "browser",
+              "status": "passed"
+            },
+            {
+              "name": "database pool",
+              "status": "passed"
+            },
+            {
+              "name": "owned schema",
+              "status": "passed"
+            },
+            {
+              "name": "admin pool",
+              "status": "passed"
+            },
+            {
+              "name": "private store/profile root",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "signal": "SIGTERM",
+          "exitCode": 143,
+          "elapsedMs": 197,
+          "workerAlive": false,
+          "browserAlive": false,
+          "rootExists": false,
+          "ownedSchemaExists": false,
+          "sentinelSchemaExists": true,
+          "sentinelFile": "keep",
+          "unrelatedAlive": true,
+          "traceExists": true,
+          "reportStatus": "interrupted",
+          "cleanup": [
+            {
+              "name": "pending acquisitions",
+              "status": "passed"
+            },
+            {
+              "name": "trace",
+              "status": "passed"
+            },
+            {
+              "name": "worker",
+              "status": "passed"
+            },
+            {
+              "name": "app",
+              "status": "passed"
+            },
+            {
+              "name": "browser",
+              "status": "passed"
+            },
+            {
+              "name": "database pool",
+              "status": "passed"
+            },
+            {
+              "name": "owned schema",
+              "status": "passed"
+            },
+            {
+              "name": "admin pool",
+              "status": "passed"
+            },
+            {
+              "name": "private store/profile root",
+              "status": "passed"
+            }
+          ]
+        }
+      ],
+      "native": {
+        "exitCode": 0,
+        "status": "passed",
+        "startedAt": "2026-10-28T00:06:00.920Z",
+        "finishedAt": "2026-10-28T00:06:42.270Z",
+        "sampleCount": 10,
+        "samples": [
+          {
+            "id": "blog-en",
+            "status": "passed",
+            "inputSha256Before": "9587a6de716c5cbf9d23b8165892aecea8768456fcc2040b4addf4359266146f",
+            "inputSha256After": "9587a6de716c5cbf9d23b8165892aecea8768456fcc2040b4addf4359266146f"
+          },
+          {
+            "id": "blog-zh",
+            "status": "passed",
+            "inputSha256Before": "4179d44adf0fcd6addb34fe3f9a8ca50e20765a9fa99246805a9ae0624239ae5",
+            "inputSha256After": "4179d44adf0fcd6addb34fe3f9a8ca50e20765a9fa99246805a9ae0624239ae5"
+          },
+          {
+            "id": "x-en",
+            "status": "passed",
+            "inputSha256Before": "3b3f79229b4cbcfcc405fa55f833a9cf5c2e18f8a82fdefaa9f3d23e9fa3e6ad",
+            "inputSha256After": "3b3f79229b4cbcfcc405fa55f833a9cf5c2e18f8a82fdefaa9f3d23e9fa3e6ad"
+          },
+          {
+            "id": "x-zh",
+            "status": "passed",
+            "inputSha256Before": "2cd3a854f0a0b5c9f099a3e70b8d8fe34a67596c9e1bbcc5f2afd640e4f00779",
+            "inputSha256After": "2cd3a854f0a0b5c9f099a3e70b8d8fe34a67596c9e1bbcc5f2afd640e4f00779"
+          },
+          {
+            "id": "zhihu-en",
+            "status": "passed",
+            "inputSha256Before": "854cd5f58d07a7273dc1f9c313a920ddcae00e9319d5c9dcab2d789a476c1fe0",
+            "inputSha256After": "854cd5f58d07a7273dc1f9c313a920ddcae00e9319d5c9dcab2d789a476c1fe0"
+          },
+          {
+            "id": "zhihu-zh",
+            "status": "passed",
+            "inputSha256Before": "1d9ea106465b44d15a30e95e8fc388c328b073131bb227934b7febfec3d2d1e6",
+            "inputSha256After": "1d9ea106465b44d15a30e95e8fc388c328b073131bb227934b7febfec3d2d1e6"
+          },
+          {
+            "id": "wechat-en",
+            "status": "passed",
+            "inputSha256Before": "1b5577bf952609a643c850e7c8cb15e9d4a9018942500b204ad0ec4ae5b248c9",
+            "inputSha256After": "1b5577bf952609a643c850e7c8cb15e9d4a9018942500b204ad0ec4ae5b248c9"
+          },
+          {
+            "id": "wechat-zh",
+            "status": "passed",
+            "inputSha256Before": "d7c6dd3284c46bd44e75dc554804c649ccca8516d7e5317518d6e90c4b0b4df3",
+            "inputSha256After": "d7c6dd3284c46bd44e75dc554804c649ccca8516d7e5317518d6e90c4b0b4df3"
+          },
+          {
+            "id": "public-blog-1",
+            "status": "passed",
+            "inputSha256Before": "03b6ed75b1dc0dedd200a077367d1f7737f0a18e08c104e7f653115e1f52b0ef",
+            "inputSha256After": "03b6ed75b1dc0dedd200a077367d1f7737f0a18e08c104e7f653115e1f52b0ef"
+          },
+          {
+            "id": "public-blog-2",
+            "status": "passed",
+            "inputSha256Before": "103c1caa52ebfb80ca4cc453322a85cadab0d2dfbba342520a6e52233417773e",
+            "inputSha256After": "103c1caa52ebfb80ca4cc453322a85cadab0d2dfbba342520a6e52233417773e"
+          }
+        ],
+        "cleanup": [
+          {
+            "name": "pending acquisitions",
+            "status": "passed"
+          },
+          {
+            "name": "trace",
+            "status": "passed"
+          },
+          {
+            "name": "worker",
+            "status": "passed"
+          },
+          {
+            "name": "app",
+            "status": "passed"
+          },
+          {
+            "name": "browser",
+            "status": "passed"
+          },
+          {
+            "name": "database pool",
+            "status": "passed"
+          },
+          {
+            "name": "owned schema",
+            "status": "passed"
+          },
+          {
+            "name": "admin pool",
+            "status": "passed"
+          },
+          {
+            "name": "private store/profile root",
+            "status": "passed"
+          }
+        ],
+        "reportSha256": "6ae164d18238d980594c2cf6cfe7642f7b7946ff669acaf36b11c362eacdd677",
+        "logSha256": "352583d7911e72b8e129a84d1a6d88972eb21db0ce09513793b737815fd045f8"
+      },
+      "verificationScope": "Focused I1 CLI/lifecycle and native checks repeated after the fix; earlier root/DB/browser/Docker/S2/audit evidence retains its original source chronology."
+    }
+  ]
 }

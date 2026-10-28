@@ -28,6 +28,8 @@ try {
   // No dotenv, provider keys, or user DATABASE_URL. The disposable runner owns its resources.
   const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => /^(PATH|HOME|TMPDIR|LANG|TZ|DISPLAY|XDG_RUNTIME_DIR|PLAYWRIGHT_BROWSERS_PATH|PAGELINGO_TEST_DATABASE_URL)$/.test(key)));
   const child = spawn(process.execPath, ['scripts/with-test-postgres.mjs', '--', process.execPath, '--import', 'tsx', 'tests/site/web-capture-runner.mjs', samples, output], { env, stdio: 'inherit' });
-  for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => child.kill(signal));
-  process.exitCode = await new Promise((resolveExit, reject) => { child.once('error', reject); child.once('exit', code => resolveExit(code ?? 1)); });
+  let interrupted;
+  for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => { interrupted ??= signal; child.kill(signal); });
+  process.exitCode = await new Promise((resolveExit, reject) => { child.once('error', reject); child.once('exit', (code, signal) => resolveExit(code ?? (signal === 'SIGINT' ? 130 : signal === 'SIGTERM' ? 143 : 1))); });
+  if (interrupted) process.exitCode = interrupted === 'SIGINT' ? 130 : 143;
 } catch (error) { console.error(error.message); process.exitCode = 1; }

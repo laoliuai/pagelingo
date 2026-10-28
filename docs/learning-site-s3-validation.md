@@ -10,7 +10,7 @@ S3 的验证分别记录合成来源、匿名公开输入、登录来源与 mock
 npm run check:web-capture -- --samples tests/fixtures/web-s3/samples.json --output /tmp/pagelingo-capture-new-run
 ```
 
-输出目录必须不存在，父目录必须存在。脚本不读取 `.env`、用户模型 Key 或 `DATABASE_URL`；只允许显式测试数据库地址，否则创建随机命名、loopback 映射的临时 PostgreSQL。API、私有 ObjectStore、随机 schema、浏览器 profile 和 mock worker 均由本次检查拥有并清理，失败报告、截图、trace 留在输出目录。不会终止其他进程或修改生产数据。
+输出目录必须不存在，父目录必须存在。脚本不读取 `.env`、用户模型 Key 或 `DATABASE_URL`；只允许显式测试数据库地址，否则创建随机命名、loopback 映射的临时 PostgreSQL。API、私有 ObjectStore、随机 schema、浏览器 profile 和 mock worker 均由本次检查拥有并清理，失败报告、截图、trace 留在输出目录。不会终止其他进程或修改生产数据。 收到 SIGINT/SIGTERM 后停止新工作、取消正在等待的请求并统一清理；报告标记 `interrupted`，保留信号、结束时间、逐项清理结果和可用 trace，退出码分别为 130/143。清理步骤失败或超时仍继续尝试其他自有资源；异步清理预算为 3.8 秒，低于数据库 wrapper 的 5 秒升级终止界限。
 
 样本声明为 `pagelingo-web-samples/1`：每项包含唯一 `id`、`kind`（`synthetic` 或 `cached-public`）、原 URL、`htmlFile`、输入 `sha256`、实际采集 `capturedAt`、`expected.scope/contains` 和明确 `unverified`。文件路径相对声明文件；可选 `resources` 包含 URL、文件、媒体类型及 SHA256。检查使用实际构建扩展，仅测试副本增加明确来源和本机站点的 host grants，替代 headless 无法点击 action 授予 activeTab 的限制。生产 manifest 不变。
 
@@ -41,6 +41,8 @@ npm run check:web-capture -- --samples tests/fixtures/web-s3/samples.json --outp
 
 未修改源码的 publication + bundle 两文件串行探针为 33/33。随后仅修正两个测试 harness 文件：integration 文件串行执行，publication fixture 用有界轮询消费 nullable `SKIP LOCKED` claim。schema 隔离仍共享数据库全局 advisory locks；捕获监视事务也可能暂时持有 owner 行锁，单次 claim 非空不是 API 保证。保留 isolation 和明确的独立 worker 并发场景，未增加任何超时、未修改生产 monitor。各 timeout 的具体耗时来源未逐一证明，不能一概归因为宿主负载。服务 typecheck 退出 0；修正后完整 DB 为 **251/251（21 files，401.52s）**，没有未处理错误。完整 `check:site` 最终退出 **0**：DB **251/251**、站点浏览器 **87/87（6.9m）**、Node 开发生命周期/CLI **11/11**。前述 root gate 在这两个测试修正前，运行时/shared/static 源码 hash 未变；不把 targeted 探针或旧 gate 冒称成修正后的全套通过。随后仅将新 native 检查 helper 的 mock worker stdout/stderr 转发到原始 CLI 日志；最终 native gate 覆盖该诊断改动。734 个非文档文件与 728 个实际 dist 文件按最后一次快照核对；最早的源快照未包含 ignored dist，不补造早期 dist hash 证据。Python 未修改，沿用 S2 证据，不安装模型或重跑解析。
 
+任务审查 I1 发现 native CLI 中断时可能绕过清理。修正后重新冻结 CLI/测试 harness，再顺序运行完整 Node 生命周期/CLI 组（**14/14**，含实际 SIGINT/SIGTERM 和清理失败回归）及明确声明的 native 检查（**10/10**）。实际信号通过 CLI → wrapper 传递，在自有 worker、Chromium、私有 store/profile 和 schema 已建立后触发；退出 130/143，245/197 ms 完成关闭，所有清理步骤通过，保留中断报告与 trace，独立进程、schema、文件哨兵均存活。运行时/shared/static 与 728 个 dist 文件未变；没有把旧 root/DB/站点浏览器门禁重新标记为修正后重跑。失败探针及各轮结果独立保留，`acceptance-summary.json.reviewFixes` 记录此次源码 hash 和结果。
+
 ## 本次结果与证据
 
 2026-10-28（Asia/Shanghai）完成以下检查；命令退出码均按各自实际 run 记录。
@@ -69,3 +71,6 @@ npm run check:web-capture -- --samples tests/fixtures/web-s3/samples.json --outp
 - CRX 3.0.0 的内置 IIFE 配置仍传 `inlineDynamicImports`，Vite/Rolldown 提示其在 `codeSplitting:false` 下忽略。保留 warning，冻结版本下不修改依赖内部构建行为。
 - Vitest transform-cache/isolation 的性能建议保留，隔离没有关闭。它不是测试失败，也未据此放宽超时。
 - 既有 schema/lease 与 Reader page/job-status 的紧凑格式列为未完成 Minor：本任务没有扩展这些产品逻辑，不为格式重写已审查的大块代码。交控制方最终审查，不能静默丢弃。
+
+- 任务审查 M1：restart harness 的 finally 中，若原 ZIP 变得不可读，hash 读取错误可能跳过后续 Compose 清理；记录为整分支审查待处理 Minor，本轮 I1 修正未改动该路径。
+- 任务审查 M2：本地 samples 声明/输入文件的前置大小、数量与字段约束仍可收紧；受信任声明已验证，本轮没有扩展为通用输入加固。
