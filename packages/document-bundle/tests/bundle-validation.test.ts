@@ -425,3 +425,53 @@ describe('published S2 compatibility', () => {
     await expect(validateBundle(source(files), { limits })).rejects.toMatchObject({ code: 'INVALID_BUNDLE' });
   });
 });
+
+it('retains S2 and S3 packages after current renderer evolves', async () => {
+  const current = JSON.parse((await fixture()).get('manifest.json')!.toString());
+  for (const release of ['s2-final', 's3-final']) {
+    const root = new URL(`./fixtures/${release}/`, import.meta.url);
+    const frozen = JSON.parse(await readFile(new URL('frozen.json', root), 'utf8'));
+    const archivePath = new URL('reader.zip', root).pathname;
+    const originalBytes = await readFile(archivePath);
+    expect(originalBytes.length).toBe(frozen.archive.bytes);
+    expect(hash(originalBytes)).toBe(frozen.archive.sha256);
+    expect(current.renderer.version).not.toBe(frozen.renderer.version);
+    const archive = createArchiveFileSource(archivePath, limits);
+    const result = await validateBundle(archive, { limits });
+    expect(result.manifest.renderer).toEqual(frozen.renderer);
+    expect(result.manifestSha256).toBe(frozen.manifestSha256);
+    expect(result.packageId).toBe(frozen.packageId);
+    expect(result.files).toEqual(frozen.files.filter((file: { path: string }) => file.path !== 'manifest.json'));
+    const files = new Map<string, Buffer>();
+    for (const file of frozen.files) {
+      const parts: Uint8Array[] = [];
+      for await (const bytes of archive.read(file.path)) parts.push(bytes);
+      const bytes = Buffer.concat(parts);
+      expect(bytes.length, file.path).toBe(file.bytes);
+      expect(hash(bytes), file.path).toBe(file.sha256);
+      files.set(file.path, bytes);
+    }
+    const output = join(await temp(), `${release}.zip`);
+    await writeBundle(source(files), output, { limits });
+    const reread = await validateBundle(createArchiveFileSource(output, limits), { limits });
+    expect(reread.manifestSha256).toBe(frozen.manifestSha256);
+    expect(reread.files).toEqual(result.files);
+    // Neither a known version with a new hash nor a known hash under a new version is trusted.
+    for (const renderer of [
+      { ...frozen.renderer, codeSha256: '0'.repeat(64) },
+      { ...frozen.renderer, version: '9.9.9' },
+    ]) {
+      const manifest = { ...result.manifest, renderer };
+      const forged = new Map(files);
+      forged.set('manifest.json', json(manifest));
+      await expect(validateBundle(source(forged), { limits })).rejects.toMatchObject({ code: 'INVALID_BUNDLE' });
+    }
+    for (const path of ['assets/offline-runtime.js', 'render/data/c_000001.js', 'licenses/katex.txt']) {
+      const forged = new Map(files);
+      forged.set(path, Buffer.concat([forged.get(path)!, Buffer.from('\n/* forged */')]));
+      updateManifest(forged);
+      await expect(validateBundle(source(forged), { limits })).rejects.toMatchObject({ code: 'INVALID_BUNDLE' });
+    }
+    expect(await readFile(archivePath)).toEqual(originalBytes);
+  }
+});

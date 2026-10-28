@@ -1,6 +1,8 @@
 import type { ReaderBuild } from './chunking.js';
 import { createStaticFilePlan, type GeneratedStaticFile, type OfflineMetadata, type TrustedAsset } from './static.js';
 import { rendererVersion, rendererSha256, trustedStaticAssets } from './static-catalog.js';
+import { createStaticFilePlan as createS3Plan } from './compat/s3-0.2.0/static.js';
+import { rendererVersion as s3Version, rendererSha256 as s3Sha256, trustedStaticAssets as s3Assets } from './compat/s3-0.2.0/catalog.js';
 import { createStaticFilePlan as createS2Plan } from './compat/s2-0.1.0/static.js';
 import { rendererVersion as s2Version, rendererSha256 as s2Sha256, trustedStaticAssets as s2Assets } from './compat/s2-0.1.0/catalog.js';
 
@@ -19,9 +21,14 @@ const publishedS2: TrustedRendererCatalog = Object.freeze({
   generateFiles: (build: ReaderBuild, metadata: OfflineMetadata) => createS2Plan(build, metadata).generatedFiles,
 });
 
+const publishedS3: TrustedRendererCatalog = Object.freeze({
+  version: s3Version, codeSha256: s3Sha256, trustedAssets: s3Assets,
+  generateFiles: (build: ReaderBuild, metadata: OfflineMetadata) => createS3Plan(build, metadata).generatedFiles,
+});
+
 /** Exact version AND code identity: there are no historical aliases or caller-provided catalogs. */
 export function resolveTrustedCatalog(identity: { version: string; codeSha256: string }): TrustedRendererCatalog {
-  const catalog = [current, publishedS2].find(catalog =>
+  const catalog = [current, publishedS2, publishedS3].find(catalog =>
     catalog.version === identity.version && catalog.codeSha256 === identity.codeSha256);
   if (!catalog) throw new Error('Untrusted renderer catalog');
   return catalog;

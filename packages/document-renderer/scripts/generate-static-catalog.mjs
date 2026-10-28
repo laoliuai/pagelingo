@@ -21,9 +21,11 @@ for (const name of (await readdir(join(katexRoot, 'dist/fonts'))).sort()) {
   await asset('katex', katexRoot, `dist/fonts/${name}`, `assets/katex/fonts/${name}`, mediaType);
 }
 assets.sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
-const legacy = JSON.parse(await readFile(join(root, 'compat/s2-0.1.0/catalog.json'), 'utf8'));
-const legacyOutput = `// Frozen published S2 metadata. Never recompute from current assets.\nimport type { TrustedAsset } from '../../static.js';\nexport const rendererVersion = '${legacy.version}';\nexport const rendererSha256 = '${legacy.codeSha256}';\nexport const trustedStaticAssets: readonly TrustedAsset[] = Object.freeze(${JSON.stringify(legacy.trustedAssets, null, 2)}.map(asset => Object.freeze({ ...asset, source: Object.freeze(asset.source) })) as TrustedAsset[]);\n`;
-await writeFile(join(root, 'src/compat/s2-0.1.0/catalog.ts'), legacyOutput);
+for (const [release, label] of [['s2-0.1.0', 'S2'], ['s3-0.2.0', 'S3']]) {
+  const legacy = JSON.parse(await readFile(join(root, `compat/${release}/catalog.json`), 'utf8'));
+  const legacyOutput = `// Frozen published ${label} metadata. Never recompute from current assets.\nimport type { TrustedAsset } from '../../static.js';\nexport const rendererVersion = '${legacy.version}';\nexport const rendererSha256 = '${legacy.codeSha256}';\nexport const trustedStaticAssets: readonly TrustedAsset[] = Object.freeze(${JSON.stringify(legacy.trustedAssets, null, 2)}.map(asset => Object.freeze({ ...asset, source: Object.freeze(asset.source) })) as TrustedAsset[]);\n`;
+  await writeFile(join(root, `src/compat/${release}/catalog.ts`), legacyOutput);
+}
 const code = [];
 async function sourceFiles(base, prefix = '') {
   const files = [];

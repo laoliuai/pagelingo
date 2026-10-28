@@ -26,7 +26,7 @@
     "undici": "7.30.1",
     "ipaddr.js": "2.5.0",
     "@pagelingo/document-bundle": "0.1.0",
-    "@pagelingo/document-renderer": "0.2.0",
+    "@pagelingo/document-renderer": "0.3.0",
     "@pagelingo/web-capture": "0.1.0",
     "parse5": "8.0.1"
   },
