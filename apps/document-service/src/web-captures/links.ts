@@ -8,6 +8,7 @@ import type { Database } from '../db/database.js';
 import { ServiceError } from '../errors.js';
 import { insertWebDocument } from '../web-readers/repository.js';
 import { findWebJobByInput, insertWebJob } from '../web-jobs/repository.js';
+import { assertSaveHintsOwned, replaySaveHints } from '../document-management/repository.js';
 /** Classification never claims access to browser/login content. All other article URLs are only candidates. */
 export function classifyDocumentLink(url: string, requested?: CreateDocumentLinkRequest['kind']) {
   const parsed = new URL(url);
@@ -25,21 +26,23 @@ export function createDocumentLinksService({ db }: { db: Database }) {
       if (!parsed.success || !z.uuid().safeParse(key).success) throw new ServiceError(400, 'INVALID_REQUEST', 'Valid link request and UUID Idempotency-Key required');
       if (principal.kind === 'device' && principal.scope !== 'links:write') throw new ServiceError(403, 'FORBIDDEN', 'Device scope required');
       const value = { ...parsed.data, url: normalizeCaptureUrl(parsed.data.url) };
-      const requestHash = createHash('sha256').update(canonicalManifestBytes(value)).digest('hex');
       const ownerId = principal.kind === 'session' ? principal.actor.userId : principal.userId;
       const authVersion = principal.kind === 'session' ? principal.actor.authVersion : principal.authVersion;
       return db.transaction(async client => {
         await assertCapturePrincipalCurrent(client, principal);
-        const previous = (await client.query<{ request_hash: string; document_id: string; job_id: string | null }>('SELECT * FROM web_link_requests WHERE owner_id=$1 AND idempotency_key=$2', [ownerId, key])).rows[0];
+        const previous = (await client.query<{ request_hash: string; request: CreateDocumentLinkRequest; document_id: string; job_id: string | null }>('SELECT * FROM web_link_requests WHERE owner_id=$1 AND idempotency_key=$2', [ownerId, key])).rows[0];
         if (previous) {
-          if (previous.request_hash !== requestHash) throw new ServiceError(409, 'IDEMPOTENCY_CONFLICT', 'Idempotency-Key was already used for another link request');
+          const replayHash = createHash('sha256').update(canonicalManifestBytes({ ...value,...replaySaveHints(value,previous.request) })).digest('hex');
+          if (previous.request_hash !== replayHash) throw new ServiceError(409, 'IDEMPOTENCY_CONFLICT', 'Idempotency-Key was already used for another link request');
           return documentLinkResultSchema.parse({ documentId: previous.document_id, jobId: previous.job_id });
         }
         const classification = classifyDocumentLink(value.url, value.kind);
+        const authorized = { ...value,...await assertSaveHintsOwned(client, ownerId, value) };
+        const requestHash = createHash('sha256').update(canonicalManifestBytes(authorized)).digest('hex');
         let document = (await client.query<{ id: string; kind: string }>("SELECT id,kind FROM documents WHERE owner_id=$1 AND source_url=$2 AND kind<>'pdf' ORDER BY created_at,id LIMIT 1", [ownerId, value.url])).rows[0];
         if (!document) {
           document = { id: randomUUID(), kind: classification.kind };
-          await insertWebDocument(client, { id: document.id, ownerId, kind: classification.kind, url: value.url, title: value.title ?? value.url.slice(0, 2000) });
+          await insertWebDocument(client, { id: document.id, ownerId, kind: classification.kind, url: value.url, title: value.title ?? value.url.slice(0, 2000), titleOrigin: value.title === undefined ? 'url' : 'user', hints: authorized });
         }
         let jobId: string | null = null;
         if (!classification.reason && document.kind === 'article') {
@@ -50,7 +53,7 @@ export function createDocumentLinksService({ db }: { db: Database }) {
           await client.query('UPDATE documents SET requested_web_job_id=$3 WHERE owner_id=$1 AND id=$2', [ownerId, document.id, jobId]);
         }
         await client.query(`INSERT INTO web_link_requests (owner_id,idempotency_key,request_hash,request,document_id,job_id,auth_version,reason)
-          VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`, [ownerId, key, requestHash, JSON.stringify(value), document.id, jobId, authVersion, classification.reason]);
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`, [ownerId, key, requestHash, JSON.stringify(authorized), document.id, jobId, authVersion, classification.reason]);
         return documentLinkResultSchema.parse({ documentId: document.id, jobId });
       });
     },

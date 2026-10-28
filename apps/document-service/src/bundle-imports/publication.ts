@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { PoolClient } from 'pg';
+import { projectSelectedMetadata } from '../document-management/metadata-projection.js';
 import type { ObjectStore, StoredObject } from '../storage/object-store.js';
 import { findDocument, findSamePdf, insertDocument, lockObjectPublication } from '../documents/repository.js';
 import { conflict, importView, type ImportRow } from './repository.js';
@@ -64,7 +65,10 @@ export async function publishBundle(client: PoolClient, store: ObjectStore, row:
   const rank = (status: string) => ['completed', 'not-required'].includes(status) ? 2 : status === 'partial' ? 1 : 0;
   const promote = !current || (rank(manifest.translation.status) >= rank(current.status) &&
     !(rank(current.status) === 2 && current.coverage === 'full' && bundle.parseCoverage !== 'full'));
-  if (promote) await client.query('UPDATE documents SET current_reader_version_id=$3,updated_at=now() WHERE owner_id=$1 AND id=$2', [owner, doc, version]);
+  if (promote) {
+    await client.query('UPDATE documents SET current_reader_version_id=$3,updated_at=now() WHERE owner_id=$1 AND id=$2', [owner, doc, version]);
+    await projectSelectedMetadata(client,owner,doc,{ title:manifest.title });
+  }
   await client.query('INSERT INTO reading_state (owner_id,document_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [owner, doc]);
   return complete(doc, version);
 

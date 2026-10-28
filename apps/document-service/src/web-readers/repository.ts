@@ -1,7 +1,9 @@
 import type { PoolClient } from 'pg';
+import { insertInitialOrganization, type OrganizationHints } from '../document-management/repository.js';
+import { documentOrigin, projectSelectedMetadata } from '../document-management/metadata-projection.js';
 import { webReadingPositionSchema, type CaptureFile, type CaptureScope, type ReaderTranslationStatus, type WebReadingPosition, type WebReadingProgress } from '@pagelingo/document-contracts';
 
-export interface WebDocumentInput { id: string; ownerId: string; kind: 'article' | 'x-post' | 'repository' | 'paper'; title: string; url: string }
+export interface WebDocumentInput { id: string; ownerId: string; kind: 'article' | 'x-post' | 'repository' | 'paper'; title: string; url: string; titleOrigin?: 'user'|'url'|'source'; hints?: OrganizationHints }
 export interface WebAssetInput { id: string; ownerId: string; documentId: string; objectKey: string; sha256: string; bytes: number; mediaType: string }
 export interface WebSourceInput {
   ownerId: string; documentId: string; sourceVersionId: string; manifestAssetId: string; sha256: string; bytes: number;
@@ -20,6 +22,9 @@ export interface WebReaderVersionRow {
 export interface WebAssetRow { id: string; object_key: string; sha256: string; bytes: string; media_type: string }
 export async function insertWebDocument(client: PoolClient, input: WebDocumentInput): Promise<void> {
   await client.query('INSERT INTO documents (id,owner_id,kind,title,source_url) VALUES ($1,$2,$3,$4,$5)', [input.id,input.ownerId,input.kind,input.title,input.url]);
+  await client.query('UPDATE documents SET origin=$3,title_origin=$4 WHERE owner_id=$1 AND id=$2', [input.ownerId,input.id,documentOrigin(input.url,input.kind),input.titleOrigin ?? 'source']);
+  await insertInitialOrganization(client,input.ownerId,input.id,input.hints);
+  await projectSelectedMetadata(client,input.ownerId,input.id);
 }
 export async function insertWebAsset(client: PoolClient, input: WebAssetInput): Promise<void> {
   await client.query('INSERT INTO assets (id,owner_id,document_id,object_key,sha256,bytes,media_type) VALUES ($1,$2,$3,$4,$5,$6,$7)', [input.id,input.ownerId,input.documentId,input.objectKey,input.sha256,input.bytes,input.mediaType]);
@@ -55,6 +60,7 @@ export async function setLatestWebSource(client: PoolClient, ownerId: string, do
 /** Caller applies promotion policy while holding user -> document -> publication lock. */
 export async function setCurrentWebReader(client: PoolClient, ownerId: string, documentId: string, sourceId: string, readerId: string): Promise<void> {
   await client.query("UPDATE documents SET current_source_version_id=$3,current_web_reader_version_id=$4,updated_at=clock_timestamp() WHERE owner_id=$1 AND id=$2 AND kind IN ('article','x-post')", [ownerId,documentId,sourceId,readerId]);
+  await projectSelectedMetadata(client,ownerId,documentId);
 }
 export async function findWebReaderVersion(client: PoolClient, ownerId: string, documentId: string, versionId?: string): Promise<WebReaderVersionRow | undefined> {
   return (await client.query<WebReaderVersionRow>(`SELECT r.* FROM web_reader_versions r JOIN documents d ON (d.owner_id,d.id)=(r.owner_id,r.document_id)

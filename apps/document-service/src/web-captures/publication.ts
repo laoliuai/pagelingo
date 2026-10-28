@@ -21,7 +21,7 @@ export async function publishCapture(client: PoolClient, store: ObjectStore, row
   for (const asset of assets) if ((await store.stat(asset.key)).bytes !== asset.bytes) throw new Error('Missing capture object');
   const documentId = document?.id ?? randomUUID();
   if (!document) {
-    await readers.insertWebDocument(client, { id: documentId, ownerId, title: manifest.metadata.title, url: manifest.source.url, kind: manifest.source.kind === 'x-post' ? 'x-post' : 'article' });
+    await readers.insertWebDocument(client, { id: documentId, ownerId, title: manifest.metadata.title, url: manifest.source.url, kind: manifest.source.kind === 'x-post' ? 'x-post' : 'article', hints:row.save_hints });
     document = (await readers.findWebDocument(client, ownerId, documentId))!;
   }
   const previous = (await client.query<{ source_version_id: string; reader_version_id: string }>(`SELECT s.source_version_id,r.id AS reader_version_id FROM web_sources s

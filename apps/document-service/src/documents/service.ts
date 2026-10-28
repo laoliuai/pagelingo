@@ -68,6 +68,7 @@ export function createDocumentsService({ db, store, maxPdfBytes = 256 * 1024 * 1
           const originalFilename = cleanFilename(input.originalFilename);
           const document = await findSamePdf(client, actor.userId, sha256) ?? await insertDocument(client, actor.userId, {
             title: metadata.data.title ?? originalFilename, originalFilename, key, bytes, sha256,
+            titleOrigin: metadata.data.title === undefined ? 'filename' : 'user',
           });
           await client.query(`UPDATE ingestions SET status = 'completed', document_id = $3, request_hash = $4,
             updated_at = now() WHERE owner_id = $1 AND idempotency_key = $2 AND epoch = $5 AND status = 'receiving'`, [actor.userId, input.idempotencyKey, document.id, sha256, claim.epoch]);
@@ -82,7 +83,7 @@ export function createDocumentsService({ db, store, maxPdfBytes = 256 * 1024 * 1
     },
     async list(actor: Actor, query: { q?: string; page: number; pageSize: number }) {
       const parsed = documentListQuerySchema.safeParse(query); if (!parsed.success) throw invalid();
-      return db.transaction(async client => { await assertActorCurrent(client, actor); return libraryList(client, actor.userId, parsed.data); });
+      return db.transaction(async client => { await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ'); await assertActorCurrent(client, actor); return libraryList(client, actor.userId, parsed.data); });
     },
     async get(actor: Actor, id: string) {
       if (!idSchema.safeParse(id).success) throw new ServiceError(404, 'NOT_FOUND', 'Document not found');

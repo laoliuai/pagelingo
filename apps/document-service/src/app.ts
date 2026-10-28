@@ -2,6 +2,7 @@ import { registerGlossaryRoutes } from './glossary/routes.js';
 import { registerWebJobsRoutes } from './web-jobs/routes.js';
 import { createCaptureJobScheduler } from './web-jobs/service.js';
 import { registerDocumentLinksRoutes } from './web-captures/links.js';
+import { registerDocumentManagementRoutes } from './document-management/routes.js';
 import { registerStaticSite } from './static-site.js';
 import Fastify from 'fastify';
 import cookie from '@fastify/cookie';
@@ -48,6 +49,7 @@ export async function createApp({ db, config, outboundFetch }: AppOptions): Prom
   registerProvidersRoutes(app, providerFetch);
   const store = createLocalObjectStore(config.dataDir);
   registerDocumentsRoutes(app, store);
+  registerDocumentManagementRoutes(app);
   registerBundleImportsRoutes(app, store);
   registerReadersRoutes(app, store);
   registerGlossaryRoutes(app);

@@ -53,7 +53,7 @@ it('migrates_populated_s2_without_changing_pdf_rows and replays safely', async (
   await migrateDatabase(db); await migrateDatabase(db); await verifyDatabaseSchema(db);
   expect((await db.pool.query("SELECT id,checksum FROM schema_migrations WHERE id < '006' ORDER BY id")).rows).toEqual(before);
   expect((await db.pool.query('SELECT id,owner_id,kind,title,original_filename,current_source_version_id,current_reader_version_id,created_at,updated_at FROM documents')).rows).toEqual(pdfBefore);
-  expect((await db.pool.query('SELECT count(*)::int n FROM schema_migrations')).rows[0].n).toBe(6);
+  expect((await db.pool.query('SELECT count(*)::int n FROM schema_migrations')).rows[0].n).toBe(7);
   expect((await db.pool.query('SELECT count(*)::int n FROM web_worker_slots')).rows[0].n).toBe(2);
   expect((await db.pool.query('SELECT count(*)::int n FROM site_metadata')).rows[0].n).toBe(1);
   const w = await web(db,o), pdf = await import('../../src/documents/repository.js');

@@ -236,6 +236,6 @@ it('upgrades a populated S1 schema without changing original references and migr
       expect((await test.db.pool.query('SELECT asset_id FROM source_versions WHERE id=$1', [source])).rows[0].asset_id).toBe(asset);
     } else await migrateDatabase(test.db);
     await verifyDatabaseSchema(test.db); await migrateDatabase(test.db);
-    expect((await test.db.pool.query('SELECT count(*)::int AS total FROM schema_migrations')).rows[0].total).toBe(6);
+    expect((await test.db.pool.query('SELECT count(*)::int AS total FROM schema_migrations')).rows[0].total).toBe(7);
   }
 });

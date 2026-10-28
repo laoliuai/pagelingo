@@ -3,6 +3,8 @@ import type { PoolClient } from 'pg';
 import type { PdfDocumentSummary } from '@pagelingo/document-contracts';
 import { ServiceError } from '../errors.js';
 import type { StoredObject } from '../storage/object-store.js';
+import { insertInitialOrganization, type OrganizationHints } from '../document-management/repository.js';
+import { projectSelectedMetadata } from '../document-management/metadata-projection.js';
 
 export interface DocumentRow {
   id: string; title: string; original_filename: string; created_at: Date;
@@ -27,7 +29,7 @@ export function summary(row: DocumentRow): PdfDocumentSummary {
     processingStatus: row.reader_version_id ? 'reader-ready' : 'awaiting-local-processing' };
 }
 export async function findDocument(client: PoolClient, owner: string, id: string, byAsset = false): Promise<DocumentRow> {
-  const row = (await client.query<DocumentRow>(`${documentSelect} WHERE d.kind = 'pdf' AND d.owner_id = $1 AND ${byAsset ? 'a.id' : 'd.id'} = $2`, [owner, id])).rows[0];
+  const row = (await client.query<DocumentRow>(`${documentSelect} WHERE d.kind = 'pdf' AND d.deleted_at IS NULL AND d.owner_id = $1 AND ${byAsset ? 'a.id' : 'd.id'} = $2`, [owner, id])).rows[0];
   if (!row) throw new ServiceError(404, 'NOT_FOUND', 'Document not found');
   return row;
 }
@@ -36,7 +38,7 @@ export async function findSamePdf(client: PoolClient, owner: string, sha256: str
 }
 export async function listDocuments(client: PoolClient, owner: string, query: { q?: string; page: number; pageSize: number }) {
   const pattern = `%${(query.q ?? '').replace(/[\\%_]/g, value => `\\${value}`)}%`;
-  const where = "d.kind = 'pdf' AND d.owner_id = $1 AND d.title ILIKE $2 ESCAPE '\\'";
+  const where = "d.kind = 'pdf' AND d.deleted_at IS NULL AND d.owner_id = $1 AND d.title ILIKE $2 ESCAPE '\\'";
   const count = await client.query<{ total: number }>(`SELECT count(*)::int AS total FROM documents d WHERE ${where}`, [owner, pattern]);
   const rows = await client.query<DocumentRow>(`${documentSelect} WHERE ${where} ORDER BY d.created_at DESC, d.id DESC LIMIT $3 OFFSET $4`, [owner, pattern, query.pageSize, (query.page - 1) * query.pageSize]);
   return { items: rows.rows.map(summary), total: count.rows[0]!.total, page: query.page, pageSize: query.pageSize };
@@ -58,14 +60,17 @@ export async function lockIngestion(client: PoolClient, owner: string, key: stri
   if (!row || row.epoch !== epoch) throw new ServiceError(409, 'UPLOAD_SUPERSEDED', 'Upload has been superseded');
   return row;
 }
-export async function insertDocument(client: PoolClient, owner: string, input: { title: string; originalFilename: string; key: string } & StoredObject): Promise<DocumentRow> {
+export async function insertDocument(client: PoolClient, owner: string, input: { title: string; originalFilename: string; key: string; titleOrigin?: 'user'|'filename'|'source'; hints?: OrganizationHints } & StoredObject): Promise<DocumentRow> {
   const id = randomUUID(); const asset = randomUUID(); const source = randomUUID();
   await client.query('INSERT INTO documents (id, owner_id, title, original_filename) VALUES ($1,$2,$3,$4)', [id, owner, input.title, input.originalFilename]);
+  await client.query("UPDATE documents SET origin='upload',title_origin=$3 WHERE owner_id=$1 AND id=$2", [owner,id,input.titleOrigin ?? 'source']);
+  await insertInitialOrganization(client, owner, id, input.hints);
   await client.query(`INSERT INTO assets (id, owner_id, document_id, object_key, sha256, bytes, media_type)
     VALUES ($1,$2,$3,$4,$5,$6,'application/pdf')`, [asset, owner, id, input.key, input.sha256, input.bytes]);
   await client.query(`INSERT INTO source_versions (id, owner_id, document_id, asset_id, sha256, bytes)
     VALUES ($1,$2,$3,$4,$5,$6)`, [source, owner, id, asset, input.sha256, input.bytes]);
   await client.query('UPDATE documents SET current_source_version_id = $2 WHERE id = $1 AND owner_id = $3', [id, source, owner]);
+  await projectSelectedMetadata(client, owner, id);
   return findDocument(client, owner, id);
 }
 /** Shared by reference publication and cleanup; never delete between stat and commit. */

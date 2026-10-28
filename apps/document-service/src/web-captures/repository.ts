@@ -1,16 +1,17 @@
 import type { PoolClient } from 'pg';
+import type { OrganizationHints } from '../document-management/repository.js';
 import { webCaptureManifestSchema, type CaptureFile, type CaptureStatus, type TranslationIntent, type WebCaptureManifest } from '@pagelingo/document-contracts';
 
 export interface WebCaptureInput {
   id: string; ownerId: string; authVersion: number; deviceId: string | null; sessionId: string | null;
-  fetchJobId?: string; manifest: WebCaptureManifest; requestHash: string; targetDocumentId: string | null; translationIntent: TranslationIntent; stagingKey: string;
+  fetchJobId?: string; manifest: WebCaptureManifest; requestHash: string; targetDocumentId: string | null; translationIntent: TranslationIntent; stagingKey: string; saveHints?: OrganizationHints;
 }
 export interface WebCaptureRow {
   id: string; capture_id: string; owner_id: string; auth_version: number; device_id: string | null; session_id: string | null;
   fetch_job_id: string | null; idempotency_key: string; request_hash: string; manifest: WebCaptureManifest; target_document_id: string | null;
   translation_intent: TranslationIntent; status: CaptureStatus; epoch: string; staging_key: string;
   document_id: string | null; source_version_id: string | null; reader_version_id: string | null; job_id: string | null;
-  save_status: 'original-saved' | 'partial-resources' | null; error_code: string | null; warnings: string[]; created_at: Date; updated_at: Date;
+  save_status: 'original-saved' | 'partial-resources' | null; error_code: string | null; warnings: string[]; created_at: Date; updated_at: Date; save_hints: OrganizationHints;
 }
 export interface CaptureFileRow {
   id: string; descriptor: CaptureFile; staging_key: string | null; upload_token: string | null; upload_until: Date | null; received_sha256: string | null; received_bytes: string | null; received_at: Date | null;
@@ -18,8 +19,8 @@ export interface CaptureFileRow {
 /** All mutations run in the caller's transaction after session/device or real job-lease revalidation. */
 export async function insertWebCapture(client: PoolClient, input: WebCaptureInput): Promise<void> {
   const manifest = webCaptureManifestSchema.parse(input.manifest);
-  await client.query(`INSERT INTO web_captures (id,capture_id,owner_id,auth_version,device_id,session_id,idempotency_key,request_hash,manifest,target_document_id,translation_intent,staging_key,fetch_job_id)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`, [input.id,manifest.captureId,input.ownerId,input.authVersion,input.deviceId,input.sessionId,manifest.captureId,input.requestHash,JSON.stringify(manifest),input.targetDocumentId,input.translationIntent,input.stagingKey,input.fetchJobId ?? null]);
+  await client.query(`INSERT INTO web_captures (id,capture_id,owner_id,auth_version,device_id,session_id,idempotency_key,request_hash,manifest,target_document_id,translation_intent,staging_key,fetch_job_id,save_hints)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`, [input.id,manifest.captureId,input.ownerId,input.authVersion,input.deviceId,input.sessionId,manifest.captureId,input.requestHash,JSON.stringify(manifest),input.targetDocumentId,input.translationIntent,input.stagingKey,input.fetchJobId ?? null,JSON.stringify(input.saveHints ?? {})]);
   for (const file of manifest.files) await client.query('INSERT INTO web_capture_files (owner_id,capture_id,id,descriptor) VALUES ($1,$2,$3,$4)', [input.ownerId,input.id,file.id,JSON.stringify(file)]);
 }
 export async function findWebCapture(client: PoolClient, ownerId: string, id: string): Promise<WebCaptureRow | undefined> {

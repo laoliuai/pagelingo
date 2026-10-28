@@ -1,4 +1,5 @@
 import { randomUUID, createHash } from 'node:crypto';
+import { assertSaveHintsOwned, replaySaveHints } from '../document-management/repository.js';
 import { createReadStream } from 'node:fs';
 import { unlink } from 'node:fs/promises';
 import type { PoolClient } from 'pg';
@@ -49,11 +50,16 @@ export function createWebCapturesService({ db, store, config, onPublication }: {
       if (!parsed.success || key !== parsed.data.manifest.captureId || parsed.data.manifest.files.some(f => f.id.startsWith('uploaded:'))) throw new ServiceError(400, 'INVALID_REQUEST', 'Invalid capture request');
       const value = parsed.data; const limits = config.captureLimits;
       if (value.manifest.files.length > limits.maxFiles || value.manifest.files.reduce((n, f) => n + f.bytes, 0) > limits.maxTotalBytes || value.manifest.files.some(f => f.bytes > (f.role === 'html' ? limits.maxHtmlBytes : limits.maxResourceBytes))) throw new ServiceError(413, 'CAPTURE_TOO_LARGE', 'Capture exceeds configured limits');
-      const requestHash = createHash('sha256').update(canonicalManifestBytes(value)).digest('hex');
       return db.transaction(async client => {
         await assertCapturePrincipalCurrent(client, p);
         const existing = await findWebCaptureByKey(client, owner(p), key);
-        if (existing) { if (existing.request_hash !== requestHash) throw conflict('IDEMPOTENCY_CONFLICT'); return view(client, await locked(client, p, existing.id)); }
+        if (existing) {
+          const replayHash = createHash('sha256').update(canonicalManifestBytes({ ...value,...replaySaveHints(value,existing.save_hints) })).digest('hex');
+          if (existing.request_hash !== replayHash) throw conflict('IDEMPOTENCY_CONFLICT');
+          return view(client, await locked(client, p, existing.id));
+        }
+        const hints = await assertSaveHintsOwned(client,owner(p),value);
+        const requestHash = createHash('sha256').update(canonicalManifestBytes({ ...value,...hints })).digest('hex');
         if (value.targetDocumentId) {
           const target = await findWebDocument(client, owner(p), value.targetDocumentId);
           if (!target || !['article', 'x-post'].includes(target.kind)) throw missing();
@@ -62,7 +68,7 @@ export function createWebCapturesService({ db, store, config, onPublication }: {
         const sessionId = p.kind === 'session' ? (await client.query<{ id: string }>('SELECT id FROM sessions WHERE token_hash=$1', [p.actor.sessionHash])).rows[0]!.id : null;
         const id = randomUUID();
         await insertWebCapture(client, { id, ownerId: owner(p), authVersion: authVersion(p), deviceId: p.kind === 'device' ? p.deviceId : null, sessionId,
-          manifest: value.manifest, requestHash, targetDocumentId: value.targetDocumentId ?? null, translationIntent: value.translationIntent, stagingKey: randomUUID() });
+          manifest: value.manifest, requestHash, targetDocumentId: value.targetDocumentId ?? null, translationIntent: value.translationIntent, stagingKey: randomUUID(), saveHints: hints });
         return view(client, (await findWebCapture(client, owner(p), id))!);
       });
     },
