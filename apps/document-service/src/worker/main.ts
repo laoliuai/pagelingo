@@ -1,3 +1,5 @@
+import { runDocumentMaintenance } from '../document-lifecycle/maintenance.js';
+import { runMetadataBackfill } from '../document-management/metadata-projection.js';
 import { randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { setTimeout as sleep } from 'node:timers/promises';
@@ -17,8 +19,16 @@ export async function runWorker(deps: WebJobDependencies, workerId = randomUUID(
   await verifyDatabaseSchema(deps.db);
   const active = new Set<Promise<void>>();
   const finalizers = new FinalizerSchedule();
+  let maintenance: Promise<void> | undefined; let nextMaintenance = 0;
   try {
     while (!deps.signal.aborted) {
+      if (!maintenance && Date.now()>=nextMaintenance) {
+        nextMaintenance=Date.now()+5000;
+        maintenance=(async () => {
+          await runDocumentMaintenance({ ...deps,dataDir:deps.config.dataDir },{ limit:100 });
+          await runMetadataBackfill(deps,{ limit:20 });
+        })().catch(()=>{}).finally(()=>{ maintenance=undefined; });
+      }
       await reconcileWebJobs(deps.db);
       const terminal = await finalizers.next((after,cooling) => readFinalizerCandidates(deps.db,after,cooling));
       for (const job of terminal) {
@@ -39,7 +49,7 @@ export async function runWorker(deps: WebJobDependencies, workerId = randomUUID(
       }
       await sleep(200,undefined,{ signal: deps.signal }).catch(() => {});
     }
-  } finally { await Promise.allSettled(active); }
+  } finally { await Promise.allSettled([...active, ...(maintenance ? [maintenance] : [])]); }
 }
 async function main() {
   const config = readConfig(process.env);

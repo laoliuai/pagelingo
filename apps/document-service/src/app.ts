@@ -51,7 +51,7 @@ export async function createApp({ db, config, outboundFetch }: AppOptions): Prom
   const store = createLocalObjectStore(config.dataDir);
   registerDocumentsRoutes(app, store);
   registerDocumentManagementRoutes(app);
-  registerDocumentLifecycleRoutes(app);
+  registerDocumentLifecycleRoutes(app, store);
   registerBundleImportsRoutes(app, store);
   registerReadersRoutes(app, store);
   registerGlossaryRoutes(app);

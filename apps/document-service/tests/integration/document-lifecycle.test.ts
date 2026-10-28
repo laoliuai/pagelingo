@@ -37,7 +37,7 @@ it('rejects delete-restore ABA publication from an independent worker', async ()
   await eventually(async () => worker.messages, values => values.some(v => v.type === 'request'));
   const deleted = await t.request(`/api/v1/documents/${saved.documentId}/trash`, 'POST', { expectedEpoch: 1 });
   expect(deleted.statusCode, deleted.body).toBe(200);
-  await t.db.pool.query('UPDATE documents SET deleted_at=NULL,purge_after=NULL,lifecycle_epoch=lifecycle_epoch+1 WHERE id=$1', [saved.documentId]);
+  expect((await t.request(`/api/v1/documents/${saved.documentId}/restore`, 'POST', { expectedEpoch: Number((await t.db.pool.query('SELECT lifecycle_epoch FROM documents WHERE id=$1',[saved.documentId])).rows[0].lifecycle_epoch) })).statusCode).toBe(200);
   await eventually(async () => worker.messages, values => values.some(v => v.type === 'aborted'));
   expect((await t.db.pool.query('SELECT current_web_reader_version_id FROM documents WHERE id=$1', [saved.documentId])).rows[0].current_web_reader_version_id).toBe(saved.readerVersionId);
   expect((await t.db.pool.query('SELECT id FROM web_translation_runs WHERE job_id=$1', [saved.jobId])).rowCount).toBe(0);
@@ -71,7 +71,7 @@ it('does not admit a new translation at a restored epoch after its authorization
   await reached;
   try {
     expect((await t.request(`/api/v1/documents/${saved.documentId}/trash`, 'POST', { expectedEpoch: 1 })).statusCode).toBe(200);
-    await t.db.pool.query('UPDATE documents SET deleted_at=NULL,purge_after=NULL,lifecycle_epoch=lifecycle_epoch+1 WHERE id=$1', [saved.documentId]);
+    expect((await t.request(`/api/v1/documents/${saved.documentId}/restore`, 'POST', { expectedEpoch: Number((await t.db.pool.query('SELECT lifecycle_epoch FROM documents WHERE id=$1',[saved.documentId])).rows[0].lifecycle_epoch) })).statusCode).toBe(200);
   } finally { release(); }
   expect(await pending).toMatchObject({ error: { code: 'DOCUMENT_EPOCH_CONFLICT' } });
   expect((await t.db.pool.query('SELECT id FROM web_jobs WHERE document_id=$1', [saved.documentId])).rowCount).toBe(1);
@@ -145,7 +145,7 @@ it('fences targeted and untargeted captures after validation, independent of cap
     try {
       const epoch = targeted ? 3 : 1;
       expect((await t.request(`/api/v1/documents/${saved.documentId}/trash`, 'POST', { expectedEpoch: epoch })).statusCode).toBe(200);
-      await t.db.pool.query('UPDATE documents SET deleted_at=NULL,purge_after=NULL,lifecycle_epoch=lifecycle_epoch+1 WHERE id=$1', [saved.documentId]);
+      expect((await t.request(`/api/v1/documents/${saved.documentId}/restore`, 'POST', { expectedEpoch: Number((await t.db.pool.query('SELECT lifecycle_epoch FROM documents WHERE id=$1',[saved.documentId])).rows[0].lifecycle_epoch) })).statusCode).toBe(200);
     } finally { release(); }
     expect(await pending).toHaveProperty('error');
     expect((await t.db.pool.query('SELECT id FROM web_reader_versions WHERE document_id=$1', [saved.documentId])).rowCount).toBe(1);
@@ -214,7 +214,7 @@ it('fences a completed checkpoint held at an independent worker object-publicati
   const checkpoint = (await t.db.pool.query('SELECT checkpoint FROM web_job_checkpoints WHERE job_id=$1', [saved.jobId])).rows[0].checkpoint;
   expect(checkpoint.units.some((u: { status: string }) => u.status === 'completed')).toBe(true);
   expect((await t.request(`/api/v1/documents/${saved.documentId}/trash`, 'POST', { expectedEpoch: 1 })).statusCode).toBe(200);
-  await t.db.pool.query('UPDATE documents SET deleted_at=NULL,purge_after=NULL,lifecycle_epoch=lifecycle_epoch+1 WHERE id=$1', [saved.documentId]);
+  expect((await t.request(`/api/v1/documents/${saved.documentId}/restore`, 'POST', { expectedEpoch: Number((await t.db.pool.query('SELECT lifecycle_epoch FROM documents WHERE id=$1',[saved.documentId])).rows[0].lifecycle_epoch) })).statusCode).toBe(200);
   worker.child.send({ type: 'publication-control', hold: false });
   await eventually(async () => worker.messages.filter(m => m.type === 'publication-control-ack').length, count => count === 2);
   await worker.stop();
@@ -248,7 +248,7 @@ it('actively aborts source acquisition in an independent worker across delete an
   const worker = await startWorker(t, { fetchDelay: 10000 }); cleanup.push(worker.stop);
   await eventually(async () => worker.messages, messages => messages.some(m => m.type === 'fetch-request'));
   expect((await t.request(`/api/v1/documents/${saved.documentId}/trash`, 'POST', { expectedEpoch: 1 })).statusCode).toBe(200);
-  await t.db.pool.query('UPDATE documents SET deleted_at=NULL,purge_after=NULL,lifecycle_epoch=lifecycle_epoch+1 WHERE id=$1', [saved.documentId]);
+  expect((await t.request(`/api/v1/documents/${saved.documentId}/restore`, 'POST', { expectedEpoch: Number((await t.db.pool.query('SELECT lifecycle_epoch FROM documents WHERE id=$1',[saved.documentId])).rows[0].lifecycle_epoch) })).statusCode).toBe(200);
   await eventually(async () => worker.messages, messages => messages.some(m => m.type === 'fetch-aborted'), 1500);
   expect((await t.db.pool.query('SELECT job_id FROM web_fetch_acquisitions WHERE job_id=$1', [saved.jobId])).rowCount).toBe(0);
   expect((await t.db.pool.query('SELECT id FROM assets WHERE document_id=$1', [saved.documentId])).rowCount).toBe(0);
@@ -256,7 +256,7 @@ it('actively aborts source acquisition in an independent worker across delete an
 it('admits fresh automatic work after restoration without reactivating the old job', async () => {
   const t = await jobFixture(); cleanup.push(t.close); const old = await t.save();
   expect((await t.request(`/api/v1/documents/${old.documentId}/trash`, 'POST', { expectedEpoch: 1 })).statusCode).toBe(200);
-  await t.db.pool.query('UPDATE documents SET deleted_at=NULL,purge_after=NULL,lifecycle_epoch=lifecycle_epoch+1 WHERE id=$1', [old.documentId]);
+  expect((await t.request(`/api/v1/documents/${old.documentId}/restore`, 'POST', { expectedEpoch: 2 })).statusCode).toBe(200);
   const fresh = await t.save(); expect(fresh.documentId).toBe(old.documentId); expect(fresh.jobId).not.toBe(old.jobId);
   const rows = (await t.db.pool.query('SELECT document_epoch,status FROM web_jobs WHERE document_id=$1 ORDER BY document_epoch', [old.documentId])).rows;
   expect(rows).toEqual([{ document_epoch: '1', status: 'cancelled' },{ document_epoch: '3', status: 'queued' }]);
@@ -283,7 +283,7 @@ it('fences an untargeted capture file acknowledgement that completes before the 
   await reached;
   try {
     expect((await t.request(`/api/v1/documents/${saved.documentId}/trash`, 'POST', { expectedEpoch: 1 })).statusCode).toBe(200);
-    await t.db.pool.query('UPDATE documents SET deleted_at=NULL,purge_after=NULL,lifecycle_epoch=lifecycle_epoch+1 WHERE id=$1', [saved.documentId]);
+    expect((await t.request(`/api/v1/documents/${saved.documentId}/restore`, 'POST', { expectedEpoch: Number((await t.db.pool.query('SELECT lifecycle_epoch FROM documents WHERE id=$1',[saved.documentId])).rows[0].lifecycle_epoch) })).statusCode).toBe(200);
   } finally { release(); }
   expect(await pending).toMatchObject({ error: { code: 'DOCUMENT_RETIRED' } });
   expect((await t.db.pool.query('SELECT received_at FROM web_capture_files WHERE capture_id=$1', [row.id])).rows[0].received_at).toBeNull();

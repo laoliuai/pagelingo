@@ -1,10 +1,16 @@
+import type { ObjectStore } from '../storage/object-store.js';
+import { restoreDocument } from './restore.js';
+import { requestDocumentPurge, listTrash } from './repository.js';
 import type { Actor } from '../auth/guards.js';
 import { assertActorCurrent } from '../auth/guards.js';
 import type { Database } from '../db/database.js';
 import { assertDocumentActive, lockDocument } from './guards.js';
 import { identityDigest } from './retired-identities.js';
-export function createDocumentLifecycleService({ db }: { db: Database }) {
+export function createDocumentLifecycleService({ db, store }: { db: Database; store: ObjectStore }) {
   return {
+    restoreDocument: (actor: Actor, id: string, expectedEpoch: number) => restoreDocument({ db,store },actor,id,expectedEpoch),
+    requestDocumentPurge: (actor: Actor, id: string) => requestDocumentPurge(db,actor,id),
+    listTrash: (actor: Actor, query: { limit?: number; cursor?: string }) => listTrash(db,actor,query),
     async trashDocument(actor: Actor, id: string, expectedEpoch: number) {
       return db.transaction(async client => {
         await assertActorCurrent(client, actor); await lockDocument(client, actor.userId, id);

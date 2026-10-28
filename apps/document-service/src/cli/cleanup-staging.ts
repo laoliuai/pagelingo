@@ -1,3 +1,4 @@
+import { runDocumentMaintenance } from '../document-lifecycle/maintenance.js';
 import { expireWebCaptureStaging } from '../web-captures/cleanup.js';
 import { lstat, readdir, realpath, unlink } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
@@ -13,6 +14,7 @@ import { createLocalObjectStore, isObjectKey } from '../storage/local-object-sto
 /** Reconcile only stale files; source/asset references remain the authority. */
 export async function cleanupStaging({ db, dataDir }: { db: Database; dataDir: string }): Promise<{ objects: number; staging: number }> {
   const root = resolve(dataDir); const store = createLocalObjectStore(root);
+  await runDocumentMaintenance({ db,store,dataDir:root,signal:new AbortController().signal },{ limit:100 });
   const cutoff = Date.now() - 24 * 3600_000; const removed = { objects: 0, staging: 0 };
   await db.transaction(client => expireImports(client));
   await expireWebCaptureStaging(db);

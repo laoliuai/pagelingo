@@ -154,3 +154,32 @@ CREATE FUNCTION protect_lifecycle_admission() RETURNS trigger LANGUAGE plpgsql A
 END; $$;
 CREATE TRIGGER lifecycle_ingestion_admission BEFORE UPDATE ON ingestions FOR EACH ROW EXECUTE FUNCTION protect_lifecycle_admission();
 CREATE TRIGGER lifecycle_import_admission BEFORE UPDATE ON bundle_imports FOR EACH ROW EXECUTE FUNCTION protect_lifecycle_admission();
+
+-- Durable exact-key cleanup. Staging paths are registered before their ingress rows disappear.
+ALTER TABLE object_deletion_queue ADD COLUMN storage_kind text NOT NULL DEFAULT 'objects'
+  CHECK(storage_kind IN ('objects','bundle-staging','web-staging'));
+ALTER TABLE object_deletion_queue DROP CONSTRAINT object_deletion_queue_pkey;
+ALTER TABLE object_deletion_queue ADD PRIMARY KEY(owner_id,task_id,storage_kind,object_key);
+CREATE TABLE document_purge_cache_keys (
+  owner_id uuid NOT NULL, task_id uuid NOT NULL, cache_key text NOT NULL,
+  PRIMARY KEY(owner_id,task_id,cache_key),
+  FOREIGN KEY(owner_id,task_id) REFERENCES document_purges(owner_id,id) ON DELETE CASCADE
+);
+ALTER TABLE document_cache_cleanup_state ADD COLUMN legacy_cache_cutoff timestamptz;
+-- Shared non-content scan anchors advance even when a candidate owner is busy.
+CREATE TABLE document_maintenance_cursor (
+  singleton boolean PRIMARY KEY DEFAULT true CHECK(singleton),
+  last_due_at timestamptz, last_task_id uuid,
+  last_expiry_at timestamptz, last_document_id uuid,
+  CHECK((last_due_at IS NULL)=(last_task_id IS NULL)),
+  CHECK((last_expiry_at IS NULL)=(last_document_id IS NULL))
+);
+INSERT INTO document_maintenance_cursor DEFAULT VALUES;
+-- Unknown-target captures need the shared runtime URL normalizer before association.
+ALTER TABLE document_purges ADD COLUMN capture_cursor uuid;
+ALTER TABLE document_purges ADD COLUMN captures_scanned boolean NOT NULL DEFAULT false;
+CREATE TABLE document_purge_captures (
+  owner_id uuid NOT NULL, task_id uuid NOT NULL, capture_id uuid NOT NULL,
+  PRIMARY KEY(owner_id,task_id,capture_id),
+  FOREIGN KEY(owner_id,task_id) REFERENCES document_purges(owner_id,id) ON DELETE CASCADE
+);

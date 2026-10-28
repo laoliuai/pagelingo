@@ -515,8 +515,33 @@ It returns `{ documentId, lifecycleEpoch, deletedAt, purgeAfter }`, retains
 materials for 30 days, removes the document from ordinary lists and reads, and
 cancels unfinished work. A stale epoch returns `409 DOCUMENT_EPOCH_CONFLICT`;
 missing, foreign and trashed documents return 404 at ordinary read endpoints.
-Restore and permanent-cleanup routes are added separately; no restore stub is
-registered here.
+`GET /api/v1/trash?limit=50&cursor=<uuid>` lists only the session owner's trash
+metadata (maximum 100). `POST /api/v1/documents/:id/restore {expectedEpoch}` streams
+and verifies every retained source/Reader/raw-acquisition reference's bytes and SHA-256, then restores
+with an epoch CAS. Missing/corrupt material returns `409 RESTORE_MATERIAL_UNAVAILABLE`.
+A durable purge request prevents restoration before any cleanup begins. Restoration
+never restarts cancelled jobs or invalidates the earlier admission retirement cutoffs.
+
+`DELETE /api/v1/trash/:id` returns HTTP 202 with `{id,documentId,status}`. The same
+request returns the same receipt, with `processing` until business rows and registered
+files are actually gone, then `completed`. It never deletes another document through
+relations. Operation keys retain only owner-scoped digests after purge; old replays
+return `410 DOCUMENT_PURGED`. A genuinely fresh operation admitted after the purge
+cutoff can create a new document ID.
+
+The independent worker performs at most one maintenance run per process and starts
+at most once per five seconds. A run scans/claims bounded pages, deletes at most 500
+business rows and 100 exact registered files in total, and performs metadata backfill
+with limit 20. Durable 30-second claims, scan positions and 1–60 second failure backoff
+survive process restart. Missing files count as removed; a failed unlink keeps the
+receipt processing while other files continue. Content hashes are checked outside
+SQL transactions; bounded local unlink uses the shared object publication lock.
+
+For a single explicit maintenance pass after building, run
+`node apps/document-service/dist/cli/cleanup-documents.js` from the repository root
+with the service runtime configuration explicitly supplied. It prints JSON cleanup
+and backfill counts and uses the same implementation as the worker. It does not load
+an environment file. The legacy staging cleanup CLI also invokes this bounded pass.
 
 Workers retain the document epoch authorized at admission. Deletion invalidates
 leases, requested-job pointers and terminal finalization, so a later restoration
