@@ -16,8 +16,9 @@ export function createDocumentLifecycleService({ db, store }: { db: Database; st
       return db.transaction(async client => {
         await assertActorCurrent(client, actor); await lockDocument(client, actor.userId, id);
         await assertDocumentActive(client, actor.userId, id, expectedEpoch);
+        const rootId = (await client.query<{ id: string }>('SELECT id FROM documents WHERE owner_id=$1 AND id=$2', [actor.userId,id])).rows[0]!.id;
         const group = (await client.query<{ id: string }>(`SELECT id FROM documents WHERE owner_id=$1 AND deleted_at IS NULL AND (id=$2 OR id IN
-          (SELECT document_id FROM document_source_aliases WHERE owner_id=$1 AND canonical_document_id=$2 AND resolution='alias')) ORDER BY id`,[actor.userId,id])).rows;
+          (SELECT document_id FROM document_source_aliases WHERE owner_id=$1 AND canonical_document_id=$2 AND resolution='alias')) ORDER BY id`,[actor.userId,rootId])).rows;
         let root: { documentId: string; lifecycleEpoch: number; deletedAt: string; purgeAfter: string } | undefined;
         for (const member of group) {
           const memberId = member.id;
@@ -36,8 +37,8 @@ export function createDocumentLifecycleService({ db, store }: { db: Database; st
           for (const table of ['bundle_imports','web_captures']) await client.query(`UPDATE ${table} SET status='cancelled',epoch=epoch+1,error_code='DOCUMENT_RETIRED',updated_at=clock_timestamp()
             WHERE owner_id=$1 AND target_document_id=$2 AND status IN ('created','receiving','validating','failed')`, [actor.userId,memberId]);
           await retireProviderIdentity(client,actor.userId,memberId,'trash');
-          if (memberId!==id) await client.query('UPDATE documents SET source_trash_parent_id=$3 WHERE owner_id=$1 AND id=$2',[actor.userId,memberId,id]);
-          if (memberId===id) root = { documentId: deleted.id, lifecycleEpoch: Number(deleted.lifecycle_epoch), deletedAt: deleted.deleted_at.toISOString(), purgeAfter: deleted.purge_after.toISOString() };
+          if (memberId!==rootId) await client.query('UPDATE documents SET source_trash_parent_id=$3 WHERE owner_id=$1 AND id=$2',[actor.userId,memberId,rootId]);
+          if (memberId===rootId) root = { documentId: deleted.id, lifecycleEpoch: Number(deleted.lifecycle_epoch), deletedAt: deleted.deleted_at.toISOString(), purgeAfter: deleted.purge_after.toISOString() };
         }
         return root!;
       });

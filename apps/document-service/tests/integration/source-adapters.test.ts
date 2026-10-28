@@ -1,3 +1,4 @@
+import { join, basename } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { afterEach, expect, it } from 'vitest';
 import { bootstrapAdmin } from '../../src/cli/bootstrap-admin.js';
@@ -72,12 +73,17 @@ it('keeps one canonical identity without retargeting old jobs and preserves edit
 });
 it('retains first acquired bytes across worker restart and verifies historical raw material on restore', async () => {
   const t = await setup(); const saved = await t.save('https://github.com/Org/Repo');
-  const { execFile }=await import('node:child_process'); const {promisify}=await import('node:util'); const {writeFile}=await import('node:fs/promises');
+  const { execFile }=await import('node:child_process'); const {promisify}=await import('node:util'); const {writeFile,readFile,mkdir}=await import('node:fs/promises');
+  const evidenceDirectory = process.env.PAGELINGO_TEST_SOURCE_EVIDENCE_DIR ?? join(t.config.dataDir, 'source-evidence');
+  await mkdir(evidenceDirectory, { recursive: true });
   const { reconcileWebJobs } = await import('../../src/web-jobs/lease.js');
   const schema=(await t.db.pool.query('SELECT current_schema() AS schema')).rows[0].schema;
   async function worker(mode:string) {
     const result=await promisify(execFile)(process.execPath,['--import','tsx',new URL('../helpers/source-acquisition-process.ts',import.meta.url).pathname,schema,t.actor.userId,saved.jobId,t.config.dataDir,mode],{env:{PATH:process.env.PATH,PAGELINGO_TEST_DATABASE_URL:process.env.PAGELINGO_TEST_DATABASE_URL}});
-    await writeFile(new URL(`../../../../.superpowers/sdd/2026-10-28-learning-site-s4/task-7-evidence/acquisition-${mode}-${randomUUID()}.json`,import.meta.url),JSON.stringify(result)); return JSON.parse(result.stdout);
+    const path = join(evidenceDirectory, `acquisition-${mode}-${randomUUID()}.json`);
+    await writeFile(path,JSON.stringify(result));
+    expect.soft(await readFile(join(evidenceDirectory,basename(path)), 'utf8').catch(() => null)).toBe(JSON.stringify(result));
+    return JSON.parse(result.stdout);
   }
   const firstProcess=await worker('initial'); const first=firstProcess.acquisition;
   await t.db.pool.query("UPDATE web_jobs SET lease_until=clock_timestamp()-interval '1 second' WHERE id=$1", [saved.jobId]); await reconcileWebJobs(t.db);
@@ -111,18 +117,22 @@ it.each([{ provider: 'github' as const, id: '12345', urls: ['https://github.com/
 });
 it('serializes arxiv requests across processes and releases denied slots through durable cooldown', async () => {
   const { spawn } = await import('node:child_process'); const { once } = await import('node:events');
-  const { appendFile } = await import('node:fs/promises'); const { eventually } = await import('../helpers/web-jobs.js');
+  const { appendFile, readFile, mkdir } = await import('node:fs/promises'); const { eventually } = await import('../helpers/web-jobs.js');
   const t = await setup(); const first = await t.save('https://arxiv.org/abs/2401.12345v1');
   await t.db.pool.query("INSERT INTO users(username,password_hash,role) SELECT 'alice',password_hash,'user' FROM users WHERE username='admin'");
   const other = await login(t.app,'alice','correct password 123456');
   const saved = await t.app.inject({method:'POST',url:'/api/v1/documents/links',headers:{cookie:other.cookie,origin:t.config.publicOrigin,'x-csrf-token':other.csrfToken,'idempotency-key':randomUUID()},payload:{url:'https://arxiv.org/abs/2402.12345v1',translationIntent:'none'}}); expect(saved.statusCode).toBe(201);
   const schema = (await t.db.pool.query('SELECT current_schema() AS schema')).rows[0].schema;
   const traces: Array<{type:string;at:number;pid:number;executed?:boolean;closed?:boolean}> = [];
-  const path = new URL(`../../../../.superpowers/sdd/2026-10-28-learning-site-s4/task-7-evidence/limiter-${randomUUID()}.jsonl`,import.meta.url);
+  const evidenceDirectory = process.env.PAGELINGO_TEST_SOURCE_EVIDENCE_DIR ?? join(t.config.dataDir, 'source-evidence');
+  await mkdir(evidenceDirectory, { recursive: true });
+  const path = join(evidenceDirectory, `limiter-${randomUUID()}.jsonl`);
+  const processOutput: string[] = [];
   const children = [ [t.actor.userId,first.jobId,'1'], [other.user.id,saved.json().jobId,'2'] ].map(args => {
     const child = spawn(process.execPath,['--import','tsx',new URL('../helpers/source-limit-process.ts',import.meta.url).pathname,schema,...args],{env:{PATH:process.env.PATH,PAGELINGO_TEST_DATABASE_URL:process.env.PAGELINGO_TEST_DATABASE_URL},stdio:['ignore','pipe','pipe','ipc']});
     child.on('message',value => { traces.push(value as typeof traces[number]); });
-    child.stdout!.on('data',v => { void appendFile(path,v); }); child.stderr!.on('data',v => { void appendFile(path,v); }); return child;
+    child.stdout!.on('data',v => { processOutput.push(JSON.stringify({ stream: 'stdout', pid: child.pid, text: String(v) })); });
+    child.stderr!.on('data',v => { processOutput.push(JSON.stringify({ stream: 'stderr', pid: child.pid, text: String(v) })); }); return child;
   });
   try {
     await eventually(async () => traces.filter(v=>v.type==='ready').length,n=>n===2);
@@ -139,7 +149,8 @@ it('serializes arxiv requests across processes and releases denied slots through
     expect(traces.filter(v=>v.type==='error')).toEqual([]);
   } finally {
     for(const child of children) { if(child.exitCode===null&&child.signalCode===null) { const exit=once(child,'exit'); child.kill('SIGTERM'); await exit; } }
-    await appendFile(path,traces.map(v=>JSON.stringify(v)).join('\n')+'\n');
+    await appendFile(path,[...processOutput, ...traces.map(v=>JSON.stringify(v))].join('\n')+'\n');
+    expect(await readFile(join(evidenceDirectory,basename(path)), 'utf8').catch(() => null)).toContain('"type":"started"');
   }
 },20000);
 it('shows the selected revision independently of a failed latest attempt and pages registered revisions', async () => {
@@ -241,4 +252,38 @@ it('dispatches a source lease through the shared worker with only an explicit so
   const {runWebJob}=await import('../../src/web-jobs/translation-runner.js');const {createSourceTransport}=await import('../../src/source-adapters/network.js');
   await runWebJob(lease,{db:t.db,store:t.store,config:t.config,signal:new AbortController().signal,sourceTransport:createSourceTransport({lookup:async()=>{throw new Error('No provider is implemented');}})});
   expect((await t.db.pool.query('SELECT status,error_code FROM web_jobs WHERE id=$1',[saved.jobId])).rows[0]).toEqual({status:'failed',error_code:'UNSUPPORTED_SOURCE'});
+});
+it.each([false, true])('canonicalizes uppercase trash and restore IDs with aliases=%s', async grouped => {
+  const t = await setup();
+  const rootId = 'abcde123-4567-489a-8bcd-123456789abc';
+  const url = grouped ? 'https://github.com/Uppercase/Root' : 'https://public.example/uppercase';
+  const { insertWebDocument } = await import('../../src/web-readers/repository.js');
+  await t.db.transaction(client => insertWebDocument(client, { id: rootId, ownerId: t.actor.userId, kind: grouped ? 'repository' : 'article', url, title: url, titleOrigin: 'url' }));
+  const root = await t.save(url);
+  let aliasId: string | undefined, conflictId: string | undefined;
+  if (grouped) {
+    const alias = await t.save('https://github.com/Uppercase/Alias');
+    const conflict = await t.save('https://github.com/Uppercase/Edited', { title: 'Retain this title' });
+    aliasId = alias.documentId; conflictId = conflict.documentId;
+    const { resolveSourceIdentity } = await import('../../src/source-adapters/identity.js');
+    const { finishWebJob } = await import('../../src/web-jobs/lease.js');
+    for (const [saved, resolution] of [[root, 'self'], [alias, 'alias'], [conflict, 'conflict']] as const) {
+      const lease = (await t.lease(saved.jobId))!;
+      expect(await resolveSourceIdentity(t.db, lease, { provider: 'github', id: '12345' })).toMatchObject({ resolution, canonicalDocumentId: rootId });
+      await finishWebJob(lease, t.db, 'failed', 'UNSUPPORTED_SOURCE');
+    }
+  }
+  const readState = async (id: string) => (await t.db.pool.query('SELECT id,lifecycle_epoch,source_trash_parent_id,deleted_at IS NOT NULL AS trashed,title FROM documents WHERE owner_id=$1 AND id=$2', [t.actor.userId,id])).rows[0];
+  const trash = await t.app.inject({ method: 'POST', url: `/api/v1/documents/${rootId.toUpperCase()}/trash`, headers: t.headers, payload: { expectedEpoch: 1 } });
+  expect(trash.statusCode, trash.body).toBe(200);
+  expect.soft(trash.body ? trash.json() : null).toMatchObject({ documentId: rootId, lifecycleEpoch: 2 });
+  expect.soft(await readState(rootId)).toMatchObject({ id: rootId, lifecycle_epoch: '2', source_trash_parent_id: null, trashed: true });
+  if (aliasId) expect.soft(await readState(aliasId)).toMatchObject({ lifecycle_epoch: '2', source_trash_parent_id: rootId, trashed: true });
+  if (conflictId) expect.soft(await readState(conflictId)).toMatchObject({ lifecycle_epoch: '1', source_trash_parent_id: null, trashed: false, title: 'Retain this title' });
+  const restored = await t.app.inject({ method: 'POST', url: `/api/v1/documents/${rootId.toUpperCase()}/restore`, headers: t.headers, payload: { expectedEpoch: 2 } });
+  expect(restored.statusCode, restored.body).toBe(200);
+  expect.soft(restored.json()).toEqual({ documentId: rootId, lifecycleEpoch: 3 });
+  expect.soft(await readState(rootId)).toMatchObject({ id: rootId, lifecycle_epoch: '3', source_trash_parent_id: null, trashed: false });
+  if (aliasId) expect.soft(await readState(aliasId)).toMatchObject({ lifecycle_epoch: '3', source_trash_parent_id: null, trashed: false });
+  if (conflictId) expect.soft(await readState(conflictId)).toMatchObject({ lifecycle_epoch: '1', source_trash_parent_id: null, trashed: false, title: 'Retain this title' });
 });
