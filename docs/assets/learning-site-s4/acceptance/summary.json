@@ -1,10 +1,10 @@
 {
   "schemaVersion": "pagelingo-s4-public-validation/1",
-  "status": "reviewed-ready-for-integration",
+  "status": "integrated-local-main",
   "baseCommit": "7b31efb835eb1d82c74a0b399abc03b696b86d62",
   "startedAt": "2026-10-29T01:48:22.315Z",
   "finishedAt": "2026-10-29T01:50:02.529Z",
-  "reviewBoundary": "All task gates and final findings I1-I5/N1 addressed; final code review passed at 0e9154f. Integration/push/deploy pending user choice.",
+  "reviewBoundary": "All task gates and final findings I1-I5/N1 addressed; final code review passed at 0e9154f. Explicitly authorized fast-forward merge into local main completed; remote Git refs are verified separately during synchronization. No deployment.",
   "commands": [
     {
       "label": "final-01-npm-ci",
@@ -2173,5 +2173,18 @@
     ],
     "compiled805Unchanged": true,
     "scope": "Documentation-only completion record; tested application/package bytes unchanged."
+  },
+  "integration": {
+    "branch": "main",
+    "method": "fast-forward",
+    "previousMain": "b8ca85dd6d202a456fb1047d834d9c856632b988",
+    "mergedFeatureHead": "1b48fa31d83f421ee77ebac0ffcc508b6da26c98",
+    "userInstruction": "merge back to local main and sync to remote",
+    "applicationAndPackageTree": "Identical to the reviewed feature head; subsequent integration status changes are documentation only.",
+    "remote": "origin",
+    "remoteBranch": "main",
+    "remoteVerificationMethod": "After normal push, compare local main, origin/main, and the advertised refs/heads/main.",
+    "evidenceRetention": "Feature worktree and ignored raw evidence retained under approved requirements; host-managed worktrees preserved.",
+    "deploymentPerformed": false
   }
 }
