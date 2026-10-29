@@ -202,3 +202,11 @@ it('recognizes a PDF header only within the first 1024 bytes without requiring p
   expect((await service.savePdf(actor, input(randomUUID(), accepted))).processingStatus).toBe('awaiting-local-processing');
   await expect(service.savePdf(actor, input(randomUUID(), Buffer.concat([Buffer.alloc(1020, 32), Buffer.from('%PDF-')])))).rejects.toMatchObject({ statusCode: 400 });
 });
+it('returns an owner-scoped restore conflict for a fresh duplicate PDF upload', async () => {
+  const t = await setup(), first = (await t.upload()).json();
+  expect((await t.app.inject({ method: 'POST', url: `/api/v1/documents/${first.id}/trash`, headers: headers(t.alice), payload: { expectedEpoch: 1 } })).statusCode).toBe(200);
+  const duplicate = await t.upload();
+  expect(duplicate.statusCode).toBe(409); expect(duplicate.json().error.code).toBe('DOCUMENT_IN_TRASH');
+  expect((await t.upload(t.bob)).statusCode).toBe(201);
+  expect((await t.app.inject({ url: `/api/v1/documents/${first.id}`, headers: headers(t.alice) })).statusCode).toBe(404);
+});

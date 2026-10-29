@@ -5,11 +5,12 @@ import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { defaultBundleLimits } from '@pagelingo/document-contracts';
 import { createMemoryFileSource, createArchiveFileSource, readArchive, validateWebBundle, writeWebBundle } from '../../../../packages/document-bundle/src/index';
-import { webFixture, hash } from '../../../../packages/document-bundle/tests/web-fixtures';
+import { webFixture, hash, addOriginalCapture } from '../../../../packages/document-bundle/tests/web-fixtures';
 
 test('opens the validated streamed Web ZIP offline with real archived preview and image bytes', async ({ page }, info) => {
   const root = info.outputPath('exported'); await mkdir(root, { recursive: true });
   const fixture = await webFixture(true), options = { limits: defaultBundleLimits };
+  const original = await addOriginalCapture(fixture);
   const archivePath = join(root, 'reader.zip'), before = [...fixture.files].map(([path, body]) => [path, hash(body)]);
   const identity = await writeWebBundle(createMemoryFileSource(fixture.files, defaultBundleLimits), archivePath, options);
   await validateWebBundle(createArchiveFileSource(archivePath, defaultBundleLimits), options);
@@ -33,6 +34,8 @@ test('opens the validated streamed Web ZIP offline with real archived preview an
   expect(await page.locator('iframe').getAttribute('sandbox')).toBe('');
   expect(await frame.locator('script,form,iframe').count()).toBe(0);
   await expect.poll(() => frame.locator('img').first().evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(7);
+  expect(await page.evaluate(() => (window as any).originalAttachmentExecuted)).toBeUndefined();
+  expect(await readFile(join(unpacked, original.htmlPath))).toEqual(original.raw);
   expect(outbound).toEqual([]); expect(observed.unexpected()).toEqual([]);
   expect([...fixture.files].map(([path, body]) => [path, hash(body)])).toEqual(before);
   expect(hash(await readFile(join(unpacked, 'manifest.json')))).toBe(identity.manifestSha256);

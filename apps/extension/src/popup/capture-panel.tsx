@@ -69,7 +69,7 @@ export function CapturePanel({ tabId }: { tabId?: number }) {
         {['retry','manual'].includes(item.state) && <button disabled={busy} onClick={() => run({ type: 'archive:retry', id: item.id })}>重试保存</button>}
         {!['completed','cancelled'].includes(item.state) && <button disabled={busy} onClick={() => run({ type: 'archive:cancel', id: item.id })}>取消保存</button>}
         {['completed','cancelled','manual'].includes(item.state) && <button disabled={busy} onClick={() => run({ type: 'archive:remove-local', id: item.id })}>移除本地记录</button>}
-        {item.error && <p className="error">{item.error}</p>}
+        {item.error && <p className="error">{item.error.includes('DOCUMENT_IN_TRASH') ? <>资料已在回收站，请先恢复。<a href={`${status.binding!.siteOrigin}/trash`} target="_blank" rel="noreferrer">前往回收站恢复</a></> : item.error}</p>}
         {item.warnings.length > 0 && <details><summary>保存说明（{item.warnings.length}）</summary><ul>{item.warnings.map((warning, i) => <li key={i}>{warning}</li>)}</ul></details>}
       </article>)}
       {status.items.length > 10 && <button onClick={() => setShowAll(!showAll)}>{showAll ? '收起历史记录' : '显示最近 50 条记录（更早记录仍保留）'}</button>}

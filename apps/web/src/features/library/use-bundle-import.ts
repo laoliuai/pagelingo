@@ -8,6 +8,7 @@ import { activeImport } from './import-status';
 export function importError(error: unknown): string {
   const code = error instanceof ApiError ? error.code : typeof error === 'string' ? error : '';
   switch (code) {
+    case 'DOCUMENT_IN_TRASH': return '资料已在回收站，请先恢复。';
     case 'SOURCE_VERSION_MISMATCH':
     case 'SOURCE_MISMATCH': return '阅读包与此 PDF 原件不匹配。请选择由同一原件生成的包。';
     case 'BUNDLE_TOO_LARGE': return '阅读包超出服务器大小限制。请缩小阅读包后重新导出。';
@@ -30,7 +31,7 @@ const aborted = (error: unknown) => error instanceof DOMException && error.name 
 const rejectedAdmission = (error: unknown) => error instanceof ApiError && (
   (error.status === 400 && error.code === 'INVALID_REQUEST') ||
   (error.status === 404 && error.code === 'NOT_FOUND') ||
-  (error.status === 409 && error.code === 'BUNDLE_IMPORT_BUSY')
+  (error.status === 409 && ['BUNDLE_IMPORT_BUSY', 'DOCUMENT_IN_TRASH'].includes(error.code))
 );
 
 export function useBundleImport(open: boolean, targetDocument: DocumentSummary | undefined, onImported: (result: BundleImport) => void, targetRevision?: ArxivSourceRevision) {
@@ -169,7 +170,7 @@ export function useBundleImport(open: boolean, targetDocument: DocumentSummary |
       }
     } catch (error) {
       if (!aborted(error)) {
-        setError(admissionWasRejected ? '服务器未接受本次导入。请核对分类和目标资料后重试，或重新选择阅读包。' : importError(error));
+        setError(error instanceof ApiError && error.code === 'DOCUMENT_IN_TRASH' ? importError(error) : admissionWasRejected ? '服务器未接受本次导入。请核对分类和目标资料后重试，或重新选择阅读包。' : importError(error));
         void recent.refetch();
       }
     } finally {

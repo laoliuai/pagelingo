@@ -17,7 +17,7 @@ export async function exportInWorker(input: { material: ExportMaterial; dataDir:
     const cancel = () => finish(signal.reason);
     const timer = setTimeout(() => finish(new ServiceError(408,'EXPORT_TIMEOUT','Export timed out')),120_000);
     signal.addEventListener('abort',cancel,{ once: true });
-    worker.once('message',(m: { ok: boolean; code?: string }) => finish(m.ok ? undefined : new ServiceError(400,m.code === 'BUNDLE_UNSUPPORTED_SOURCE' ? m.code : 'EXPORT_FAILED','Export could not be generated')));
+    worker.once('message',(m: { ok: boolean; code?: string }) => finish(m.ok ? undefined : new ServiceError(400,['BUNDLE_UNSUPPORTED_SOURCE', 'EXPORT_ORIGINALS_UNAVAILABLE'].includes(m.code ?? '') ? m.code! : 'EXPORT_FAILED','Export could not be generated')));
     worker.once('error',() => finish(new ServiceError(400,'EXPORT_FAILED','Export could not be generated')));
     worker.once('exit',() => { if (!settled) finish(new ServiceError(400,'EXPORT_FAILED','Export stopped')); });
     if (signal.aborted) cancel();

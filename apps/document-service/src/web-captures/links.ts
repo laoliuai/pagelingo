@@ -1,7 +1,7 @@
 import { classifySourceUrl } from '../source-adapters/url.js';
 import { admitSourceRequest } from '../source-adapters/service.js';
 import { assertOperationNotRetired } from '../document-lifecycle/retired-identities.js';
-import { assertDocumentActive, lockDocument } from '../document-lifecycle/guards.js';
+import { assertDuplicateSaveActive, lockDocument } from '../document-lifecycle/guards.js';
 import { createHash, randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
@@ -45,15 +45,16 @@ export function createDocumentLinksService({ db }: { db: Database }) {
         const authorized = { ...value,...await assertSaveHintsOwned(client, ownerId, value) };
         const requestHash = createHash('sha256').update(canonicalManifestBytes(authorized)).digest('hex');
         let document = (await client.query<{ id: string; kind: string }>("SELECT id,kind FROM documents WHERE owner_id=$1 AND source_url=$2 AND kind=$3 ORDER BY created_at,id LIMIT 1", [ownerId, value.url, classification.kind])).rows[0];
+        const existingDocument = !!document;
         if (!document) {
           document = { id: randomUUID(), kind: classification.kind };
           await insertWebDocument(client, { id: document.id, ownerId, kind: classification.kind, url: value.url, title: value.title ?? value.url.slice(0, 2000), titleOrigin: value.title === undefined ? 'url' : 'user', hints: authorized });
         }
         await lockDocument(client, ownerId, document.id);
-        await assertDocumentActive(client, ownerId, document.id);
+        await assertDuplicateSaveActive(client, ownerId, document.id);
         let jobId: string | null = null;
         const source = classifySourceUrl(value.url);
-        if (source) jobId = (await admitSourceRequest(client, ownerId, authVersion, document.id, source, { translationIntent: value.translationIntent === 'none' ? 'none' : 'auto' }, key)).jobId;
+        if (source && !existingDocument) jobId = (await admitSourceRequest(client, ownerId, authVersion, document.id, source, { translationIntent: value.translationIntent === 'none' ? 'none' : 'auto' }, key)).jobId;
         if (!classification.reason && document.kind === 'article') {
           const inputSha256 = createHash('sha256').update(canonicalManifestBytes({ kind: 'fetch-link', url: value.url, translationIntent: value.translationIntent })).digest('hex');
           const job = await findWebJobByInput(client, ownerId, document.id, authVersion, inputSha256)

@@ -38,6 +38,7 @@ export function ExportPanel({ documentId,readerVersionId }: { documentId: string
     <Button disabled={busy || !!pending || !!receipt && ['queued','running'].includes(receipt.status)} onClick={() => void submit()}>生成新的离线包</Button>
     {pending && <><p>上次提交尚未确认；重试会使用原先选择的版本。</p><Button disabled={busy} onClick={() => void submit(pending)}>重试本次导出</Button></>}
     {receipt && <p role="status">{labels[receipt.status]}{receipt.readerVersionId !== readerVersionId ? '（另一个已选择的历史版本）' : ''}</p>}
+    {receipt?.errorCode === 'EXPORT_ORIGINALS_UNAVAILABLE' && <p role="alert">保留的原始材料或入站身份无法完整验证，暂不能生成完整离线包。已有阅读版本仍可使用。</p>}
     {receipt?.errorCode === 'BUNDLE_UNSUPPORTED_SOURCE' && <p role="alert">此来源使用尚不支持的历史投影配置，无法生成离线包。原件与阅读版本仍可使用。</p>}
     {receipt?.status === 'completed' && <a href={`${base}/${receipt.id}/file`} download>下载离线包</a>}
     {receipt && ['queued','running'].includes(receipt.status) && pollRound >= 80 && <Button onClick={() => setPollRound(0)}>继续查询导出状态</Button>}

@@ -282,16 +282,24 @@ test('unconfirmed paper import retains its File and exact target when the curren
   await expect(page.getByRole('combobox', { name: '来源版本', exact: true })).toBeEnabled();
 });
 
-test('a repeated link save offers the owned existing item explicitly', async ({ page }) => {
-  await newReader(page, 'source-existing');
-  const saved = await save(page, 'https://github.com/Org/Repo');
-  await page.goto('/library');
-  await page.getByRole('button', { name: '添加链接', exact: true }).click();
-  await page.getByLabel('网页地址').fill('https://github.com/Org/Repo');
-  await page.getByRole('button', { name: '保存链接', exact: true }).click();
-  await expect(page.getByRole('dialog')).toBeHidden();
-  await expect(page.getByRole('link', { name: '查看已保存资料', exact: true })).toHaveAttribute('href', `/library/${saved.documentId}`);
-});
+for (const url of ['https://github.com/Org/Repo', 'https://arxiv.org/abs/2401.12345v2']) {
+  test(`a repeated link save preserves completed source and jobs: ${url}`, async ({ page }) => {
+    await newReader(page, 'source-existing');
+    const saved = await save(page, url);
+    const details = async () => (await (await page.request.get(`/api/v1/documents/${saved.documentId}/source-details`)).json());
+    await expect.poll(async () => (await details()).latestAttempt.status, { timeout: 10000 }).toBe('completed');
+    const before = await details();
+    const jobs = async () => (await (await page.request.get(`/api/v1/documents/${saved.documentId}/web-jobs`)).json()).items;
+    const beforeJobs = await jobs();
+    await page.goto('/library');
+    await page.getByRole('button', { name: '添加链接', exact: true }).click();
+    await page.getByLabel('网页地址').fill(url);
+    await page.getByRole('button', { name: '保存链接', exact: true }).click();
+    await expect(page.getByRole('dialog')).toBeHidden();
+    await expect(page.getByRole('link', { name: '查看已保存资料', exact: true })).toHaveAttribute('href', `/library/${saved.documentId}`);
+    expect(await details()).toEqual(before); expect(await jobs()).toEqual(beforeJobs);
+  });
+}
 
 test('discovered-link admissions survive snapshot, chunk eviction, Reader changes and owner reset', async ({ page }) => {
   test.setTimeout(60000);

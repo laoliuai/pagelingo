@@ -108,9 +108,11 @@ async function lifecycle(sample, documentId) {
   const receipt = await json(base+'/web-exports',{method:'POST',body:{readerVersionId:descriptor.versionId},headers:{'Idempotency-Key':randomUUID()}},201);
   if (!report.interruptions.some(item=>item.kind==='export')) {
     const task = childProcess('hold-export'); const held = await task.wait('held');
+    assert.equal(held.job_id,(await db.pool.query('SELECT job_id FROM web_exports WHERE id=$1',[receipt.id])).rows[0].job_id);
+    assert.equal(held.status,'running'); assert.equal(held.publishedAssets,0); assert(held.bytes>0);
     await run('maintenance'); assert((await createLocalObjectStore(join(root,'objects')).stat(held.key)).bytes>0);
     await stop(task.child,'SIGKILL'); await expireLeases();
-    report.interruptions.push({kind:'export',pid:task.child.pid,boundary:held.boundary,key:held.key,liveWriterProtected:true,clockAdvance:'expired owned lease/slot/writer grace after SIGKILL'});
+    report.interruptions.push({kind:'export',pid:task.child.pid,boundary:held.boundary,key:held.key,jobId:held.job_id,workId:held.work_id,bytes:held.bytes,publishedAssets:held.publishedAssets,jobStatus:held.status,liveWriterProtected:true,clockAdvance:'expired owned lease/slot/writer grace after SIGKILL'});
   }
   await run('job'); const completed = await json(`${base}/web-exports/${receipt.id}`); assert.equal(completed.status,'completed');
   const filePath = `${base}/web-exports/${receipt.id}/file`; await assertPrivate(filePath,completed.sha256);

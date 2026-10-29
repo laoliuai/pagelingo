@@ -1,3 +1,4 @@
+import { validateWebOriginals } from './web-originals.js';
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { dirname } from 'node:path';
@@ -107,6 +108,7 @@ export async function validateWebBundle(input: BundleFileSource, options: Bundle
         check(file.role === 'render' && file.mediaType === generated.mediaType && file.bytes === bytes.length && file.sha256 === hash(bytes)); allowed.add(file.path);
       }
     } finally { iterator.return?.(); }
+    await validateWebOriginals(input, manifest, source, translation, limits, allowed, tick, signal);
     check(manifest.files.every(f => allowed.has(f.path))); await checkpoint();
     return { packageId: manifest.packageId, manifestSha256: manifestBody.sha256, manifest, source, ir, translation, readerBuild, files: manifest.files };
   } catch (error) { throw sanitize(error, signal); }

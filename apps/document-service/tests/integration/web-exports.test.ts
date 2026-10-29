@@ -285,12 +285,21 @@ it('keeps writer-attempt lease identities immutable in the database',async()=>{
   await runWebJob((await claimWebJob('immutable-attempt',t.db))!,{db:t.db,store:t.store,config:t.config,signal:new AbortController().signal});
   await expect(t.db.pool.query('UPDATE registered_object_work SET job_epoch=job_epoch+1')).rejects.toThrow('Immutable registered writer');
 });
-it('exports partial imported translations and preserves their original registered bytes',async()=>{
+it.each([false, true])('exports partial imported translations and their selected capture, retained=%s',async retained=>{
   const {withCandidates}=await import('../helpers/web-capture.js'); const {createHash}=await import('node:crypto');
   const {writeFile}=await import('node:fs/promises'); const {join}=await import('node:path');
   const {createArchiveFileSource,validateWebBundle}=await import('@pagelingo/document-bundle'); const {defaultBundleLimits}=await import('@pagelingo/document-contracts');
   const t=await jobFixture(); closes.push(t.close);
-  const captured=await withCandidates('<article><p>First original paragraph.</p><p>Second original paragraph.</p></article>');
+  const html = '<article><p>First original paragraph.</p><p>Second original paragraph.</p></article>';
+  let originalSource: string | undefined;
+  if (retained) {
+    const { capture } = await import('../helpers/web-capture.js'); const first = capture((await withCandidates(html)).body.toString());
+    const admission = await t.app.inject({ method:'POST', url:'/api/v1/captures', headers:{...t.headers,'idempotency-key':first.manifest.captureId}, payload:{manifest:first.manifest,translationIntent:'none'} });
+    expect(admission.statusCode).toBe(201);
+    await t.app.inject({method:'PUT',url:`/api/v1/captures/${admission.json().id}/files/html`,headers:{...t.headers,'content-type':'text/html'},payload:first.body});
+    originalSource = (await t.request(`/api/v1/captures/${admission.json().id}/commit`,'POST',{})).json().sourceVersionId;
+  }
+  const captured=await withCandidates(html);
   const payload=JSON.parse(captured.translation.toString()); payload.blocks=payload.blocks.slice(0,1); captured.translation=Buffer.from(JSON.stringify(payload));
   Object.assign(captured.manifest.files.find(f=>f.id==='translation')!,{bytes:captured.translation.length,sha256:createHash('sha256').update(captured.translation).digest('hex')});
   const admission=await t.app.inject({method:'POST',url:'/api/v1/captures',headers:{...t.headers,'idempotency-key':captured.manifest.captureId},payload:{manifest:captured.manifest,translationIntent:'none'}}); expect(admission.statusCode).toBe(201);
@@ -303,6 +312,12 @@ it('exports partial imported translations and preserves their original registere
   const path=join(t.config.dataDir,'partial.zip'); await writeFile(path,file.rawPayload);
   const source=createArchiveFileSource(path,defaultBundleLimits), validated=await validateWebBundle(source,{limits:defaultBundleLimits});
   expect(validated.translation?.status).toBe('partial'); expect(validated.translation?.generationKind).toBe('import');
+  if (retained) {
+    expect(saved.sourceVersionId).toBe(originalSource);
+    expect(validated.manifest.originals).toHaveProperty('readerCapture.sharedFiles', expect.arrayContaining([{ id: 'html', sourceFileId: 'html' }]));
+    const raw=[]; for await (const chunk of source.read('originals/reader-capture/files/translation.json')) raw.push(Buffer.from(chunk));
+    expect(Buffer.concat(raw)).toEqual(captured.translation);
+  }
   const registered=(await t.db.pool.query('SELECT a.* FROM web_translation_runs t JOIN assets a ON a.id=t.translation_asset_id WHERE t.document_id=$1',[saved.documentId])).rows[0];
   expect(validated.manifest.translation?.sha256).toBe(registered.sha256);
   const {readWebAsset}=await import('../../src/web-readers/assets.js'); const chunks=[]; for await(const chunk of source.read('translation.json')) chunks.push(Buffer.from(chunk));
@@ -328,4 +343,61 @@ it('treats capture local IDs as data and safely encodes a non-BMP download title
   await runWebJob((await claimWebJob('opaque-local-id',t.db))!,{db:t.db,store:t.store,config:t.config,signal:new AbortController().signal});
   const state=await t.request(`${base}/${created.json().id}`); expect(state.json().status).toBe('completed');
   const file=await t.request(`${base}/${created.json().id}/file`); expect(file.statusCode).toBe(200); expect(file.headers['content-disposition']).toContain('%F0%9F%98%80');
+});
+it.each(['historical', 'new', 'uppercase-target'])('exports exact original upload bytes and admission manifest as inert attachments: %s', async mode => {
+  const { capture } = await import('../helpers/web-capture.js');
+  const { canonicalManifestBytes } = await import('@pagelingo/web-capture');
+  const { writeFile } = await import('node:fs/promises'); const { join } = await import('node:path');
+  const { createArchiveFileSource, validateWebBundle } = await import('@pagelingo/document-bundle');
+  const { defaultBundleLimits } = await import('@pagelingo/document-contracts');
+  const t = await jobFixture(); closes.push(t.close);
+  const original = capture('<article><script>window.originalMustNeverExecute=1</script><p>Retained exact original content.</p></article>');
+  let targetDocumentId: string | undefined;
+  if (mode === 'uppercase-target') {
+    const previous = await t.save(1); targetDocumentId = previous.documentId.toUpperCase();
+    await t.request(`/api/v1/web-jobs/${previous.jobId}/cancel`, 'POST', {});
+  }
+  const request = { manifest: original.manifest, translationIntent: 'none', ...(targetDocumentId ? { targetDocumentId } : {}) };
+  const admitted = await t.app.inject({ method: 'POST', url: '/api/v1/captures', headers: { ...t.headers, 'idempotency-key': original.manifest.captureId }, payload: request });
+  expect(admitted.statusCode).toBe(201);
+  if (mode === 'historical') {
+    // Reproduce the exact pre-fix retained layout in this owned fixture schema.
+    await t.db.pool.query('ALTER TABLE web_captures DISABLE TRIGGER immutable_capture_admitted_request');
+    await t.db.pool.query('UPDATE web_captures SET admitted_request=NULL WHERE id=$1', [admitted.json().id]);
+    await t.db.pool.query('ALTER TABLE web_captures ENABLE TRIGGER immutable_capture_admitted_request');
+  }
+  expect((await t.app.inject({ method: 'PUT', url: `/api/v1/captures/${admitted.json().id}/files/html`, headers: { ...t.headers, 'content-type': 'text/html' }, payload: original.body })).statusCode).toBe(200);
+  const saved = (await t.request(`/api/v1/captures/${admitted.json().id}/commit`, 'POST', {})).json();
+  const base = `/api/v1/documents/${saved.documentId}/web-exports`;
+  const created = await t.app.inject({ method: 'POST', url: base, headers: { ...t.headers, 'idempotency-key': randomUUID() }, payload: { readerVersionId: saved.readerVersionId } });
+  await runWebJob((await claimWebJob('originals-export', t.db))!, { db: t.db, store: t.store, config: t.config, signal: new AbortController().signal });
+  const file = await t.request(`${base}/${created.json().id}/file`); expect(file.statusCode).toBe(200);
+  const path = join(t.config.dataDir, 'originals.zip'); await writeFile(path, file.rawPayload);
+  const archive = createArchiveFileSource(path, defaultBundleLimits), validated = await validateWebBundle(archive, { limits: defaultBundleLimits });
+  const read = async (path: string) => { const chunks = []; for await (const c of archive.read(path)) chunks.push(Buffer.from(c)); return Buffer.concat(chunks); };
+  expect(validated.manifest).toHaveProperty('originals.capture');
+  expect(await read('originals/capture/manifest.json')).toEqual(Buffer.from(canonicalManifestBytes(original.manifest)));
+  expect(await read('originals/capture/request.json')).toEqual(Buffer.from(canonicalManifestBytes(request)));
+  expect(await read('originals/capture/files/source.html')).toEqual(original.body);
+  expect(await read(`source/${validated.source.files.find(f => f.id === validated.source.htmlFileId)!.path}`)).not.toEqual(original.body);
+});
+it.each(['missing-file', 'missing-capture', 'unverifiable-admission'])('fails honestly when original closure is unavailable: %s', async mode => {
+  const t = await fixture();
+  if (mode === 'missing-file') {
+    const asset = (await t.db.pool.query("SELECT a.* FROM web_source_files f JOIN assets a ON a.id=f.asset_id WHERE f.source_version_id=$1 AND f.id LIKE 'uploaded:%' LIMIT 1", [t.saved.sourceVersionId])).rows[0];
+    await t.store.deleteUnreferenced(asset.object_key);
+  } else if (mode === 'missing-capture') {
+    // Explicitly simulate a lost original capture ledger while keeping source/Reader bytes intact.
+    await t.db.pool.query('DELETE FROM web_capture_files WHERE capture_id IN (SELECT id FROM web_captures WHERE source_version_id=$1)', [t.saved.sourceVersionId]);
+    await t.db.pool.query('DELETE FROM web_captures WHERE source_version_id=$1', [t.saved.sourceVersionId]);
+  } else {
+    await t.db.pool.query('ALTER TABLE web_captures DISABLE TRIGGER immutable_web_capture_input');
+    await t.db.pool.query("UPDATE web_captures SET request_hash=$2 WHERE source_version_id=$1", [t.saved.sourceVersionId, 'f'.repeat(64)]);
+    await t.db.pool.query('ALTER TABLE web_captures ENABLE TRIGGER immutable_web_capture_input');
+  }
+  const created = await t.create();
+  await runWebJob((await claimWebJob('missing-originals', t.db))!, { db: t.db, store: t.store, config: t.config, signal: new AbortController().signal });
+  expect((await t.request(`${t.url}/${created.json().id}`)).json()).toMatchObject({ status: 'failed' });
+  expect((await t.request(`${t.url}/${created.json().id}/file`)).statusCode).toBe(404);
+  expect((await t.request(`/api/v1/documents/${t.saved.documentId}/web-reader`)).statusCode).toBe(200);
 });

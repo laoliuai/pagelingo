@@ -295,3 +295,13 @@ it('recovers durable status and retries ingestion after the actual receiver proc
     expect(await restarted.receive(t.actor, id, body(fixture.bytes))).toMatchObject({ status: 'completed', epoch: 2 });
   } finally { if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL'); await exited; }
 });
+it('returns restore conflicts for fresh targeted and untargeted imports while replaying accepted receipts', async () => {
+  const t = await setup(), fixture = await bundleFixture(t.config.dataDir);
+  const key = randomUUID(), admitted = await t.service.create(t.actor, {}, key);
+  const first = await t.service.receive(t.actor, admitted.id, body(fixture.bytes));
+  const { createDocumentLifecycleService } = await import('../../src/document-lifecycle/trash.js');
+  await createDocumentLifecycleService(t).trashDocument(t.actor, first.documentId!, 1);
+  expect(await t.service.create(t.actor, {}, key)).toEqual(first);
+  await expect(t.service.create(t.actor, { targetDocumentId: first.documentId! }, randomUUID())).rejects.toMatchObject({ statusCode: 409, code: 'DOCUMENT_IN_TRASH' });
+  await expect(t.ingest(fixture.bytes)).rejects.toMatchObject({ statusCode: 409, code: 'DOCUMENT_IN_TRASH' });
+});

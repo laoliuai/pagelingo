@@ -29,3 +29,10 @@ export async function lockDocuments(client: PoolClient, ownerId: string, documen
     SELECT id FROM documents WHERE owner_id=$1 AND (id IN(SELECT id FROM roots) OR id IN
     (SELECT document_id FROM document_source_aliases WHERE owner_id=$1 AND canonical_document_id IN(SELECT id FROM roots) AND resolution='alias')) ORDER BY id FOR UPDATE`,[ownerId,documentIds]);
 }
+
+/** Fresh owner-scoped save admission only; ordinary reads and admitted work keep their fences. */
+export async function assertDuplicateSaveActive(client: PoolClient, ownerId: string, documentId: string) {
+  const row = (await client.query('SELECT deleted_at FROM documents WHERE owner_id=$1 AND id=$2', [ownerId, documentId])).rows[0];
+  if (row?.deleted_at) throw new ServiceError(409, 'DOCUMENT_IN_TRASH', 'Restore this document from trash before saving it again');
+  return assertDocumentActive(client, ownerId, documentId);
+}

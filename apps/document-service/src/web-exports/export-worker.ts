@@ -16,6 +16,6 @@ try {
   try { await directory.sync(); } finally { await directory.close(); }
   parentPort!.postMessage({ ok: true });
 } catch (error) {
-  const code = (error as { code?: string }).code === 'BUNDLE_UNSUPPORTED_SOURCE' ? 'BUNDLE_UNSUPPORTED_SOURCE' : 'EXPORT_FAILED';
+  const code = ['BUNDLE_UNSUPPORTED_SOURCE', 'EXPORT_ORIGINALS_UNAVAILABLE'].includes(String((error as { code?: string }).code)) ? (error as { code: string }).code : 'EXPORT_FAILED';
   parentPort!.postMessage({ ok: false,code });
 }

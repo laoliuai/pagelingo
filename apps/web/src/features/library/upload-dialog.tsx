@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import type { DocumentSummary } from '@pagelingo/document-contracts';
 import { useSession } from '../../app/session';
@@ -54,7 +55,9 @@ export function UploadDialog() {
     } catch (error) {
       if (controller.signal.aborted || request.current !== controller) return;
       setError(
-        error instanceof ApiError && error.code === 'INVALID_PDF'
+        error instanceof ApiError && error.code === 'DOCUMENT_IN_TRASH'
+          ? '资料已在回收站，请先恢复。'
+          : error instanceof ApiError && error.code === 'INVALID_PDF'
           ? '请选择有效的 PDF 文件。'
           : error instanceof ApiError && error.status === 413
             ? '文件超出服务器大小限制，请选择较小的 PDF。'
@@ -105,6 +108,7 @@ export function UploadDialog() {
           </p>
         )}
         <Feedback message={error} error />
+        {error === '资料已在回收站，请先恢复。' && <Link to="/trash">前往回收站恢复</Link>}
         <div className="form-actions">
           <Button type="button" onClick={close}>
             取消上传

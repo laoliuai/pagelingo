@@ -29,7 +29,7 @@ export function admitWebManifest(value: unknown, listed: FileInfo[], limits: Bun
 
 /** Web bytes retain their capture ceilings even when bundle JSON budgets are larger. */
 export function webFileLimit(path: string, limits: BundleLimits): number {
-  return path === 'source-ir.json' || path.startsWith('source/')
+  return path === 'source-ir.json' || path.startsWith('source/') || path.startsWith('originals/')
     ? Math.min(defaultCaptureLimits.maxIrBytes, fileLimit(path, limits))
     : fileLimit(path, limits);
 }

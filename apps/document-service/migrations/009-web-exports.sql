@@ -69,3 +69,15 @@ CREATE FUNCTION protect_registered_writer() RETURNS trigger LANGUAGE plpgsql AS 
   RETURN NEW;
 END $$;
 CREATE TRIGGER immutable_registered_writer BEFORE UPDATE ON registered_object_work FOR EACH ROW EXECUTE FUNCTION protect_registered_writer();
+
+-- Preserve the exact admitted request spelling (notably optional UUID casing).
+-- Historical captures remain recoverable from immutable input fields when their hash matches.
+ALTER TABLE web_captures ADD COLUMN admitted_request jsonb CHECK (admitted_request IS NULL OR jsonb_typeof(admitted_request)='object');
+CREATE FUNCTION protect_capture_admitted_request() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.admitted_request IS DISTINCT FROM OLD.admitted_request THEN
+    RAISE EXCEPTION 'Immutable capture admitted request' USING ERRCODE='23514';
+  END IF;
+  RETURN NEW;
+END; $$;
+CREATE TRIGGER immutable_capture_admitted_request BEFORE UPDATE ON web_captures FOR EACH ROW EXECUTE FUNCTION protect_capture_admitted_request();

@@ -173,7 +173,9 @@ it('allows read-only accepted replay after trash but rejects a new save of the s
   const id = accepted.json().documentId;
   expect((await t.request(`/api/v1/documents/${id}/trash`, 'POST', { expectedEpoch: 1 })).statusCode).toBe(200);
   const replay = await save(key.toUpperCase()); expect(replay.statusCode).toBe(201); expect(replay.json()).toEqual(accepted.json());
-  expect((await save(randomUUID())).statusCode).toBe(404);
+  const fresh = await save(randomUUID());
+  expect(fresh.statusCode).toBe(409);
+  expect(fresh.json().error.code).toBe('DOCUMENT_IN_TRASH');
 });
 it('actively aborts a targeted capture file upload when the document is trashed', async () => {
   const t = await jobFixture(); cleanup.push(t.close); const saved = await t.save();
@@ -287,4 +289,11 @@ it('fences an untargeted capture file acknowledgement that completes before the 
   } finally { release(); }
   expect(await pending).toMatchObject({ error: { code: 'DOCUMENT_RETIRED' } });
   expect((await t.db.pool.query('SELECT received_at FROM web_capture_files WHERE capture_id=$1', [row.id])).rows[0].received_at).toBeNull();
+});
+it.each([false, true])('rejects fresh capture admission for a trashed match, targeted=%s', async targeted => {
+  const t = await jobFixture(); cleanup.push(t.close); const saved = await t.save();
+  const { capture } = await import('../helpers/web-capture.js'); const value = capture();
+  expect((await t.request(`/api/v1/documents/${saved.documentId}/trash`, 'POST', { expectedEpoch: 1 })).statusCode).toBe(200);
+  const result = await t.app.inject({ method: 'POST', url: '/api/v1/captures', headers: { ...t.headers, 'idempotency-key': value.manifest.captureId }, payload: { manifest: value.manifest, translationIntent: 'none', ...(targeted ? { targetDocumentId: saved.documentId } : {}) } });
+  expect(result.statusCode).toBe(409); expect(result.json().error.code).toBe('DOCUMENT_IN_TRASH');
 });

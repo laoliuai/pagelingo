@@ -80,7 +80,7 @@ export async function runWebJob(lease: JobLease, deps: WebJobDependencies): Prom
   } catch (error) {
     await reconcileWebJobs(deps.db);
     if (!signal.aborted && !(error instanceof CheckpointConflictError)) {
-      try { await finishWebJob(lease,deps.db,'failed',lease.kind === 'export-web' ? (error instanceof Error && 'code' in error && error.code === 'BUNDLE_UNSUPPORTED_SOURCE' ? 'BUNDLE_UNSUPPORTED_SOURCE' : error instanceof Error && 'code' in error && error.code === 'EXPORT_TIMEOUT' ? 'EXPORT_TIMEOUT' : 'EXPORT_FAILED') : 'TRANSLATION_FAILED'); }
+      try { await finishWebJob(lease,deps.db,'failed',lease.kind === 'export-web' ? (error instanceof Error && 'code' in error && ['BUNDLE_UNSUPPORTED_SOURCE', 'EXPORT_ORIGINALS_UNAVAILABLE'].includes(String(error.code)) ? String(error.code) : error instanceof Error && 'code' in error && error.code === 'EXPORT_TIMEOUT' ? 'EXPORT_TIMEOUT' : 'EXPORT_FAILED') : 'TRANSLATION_FAILED'); }
       catch (fence) { if (!(fence instanceof CheckpointConflictError)) throw fence; }
     }
   } finally {

@@ -1,4 +1,4 @@
-import { assertDocumentActive, lockDocument } from '../document-lifecycle/guards.js';
+import { assertDuplicateSaveActive, lockDocument } from '../document-lifecycle/guards.js';
 import { assertIdentityNotRetired, assertOperationNotRetired } from '../document-lifecycle/retired-identities.js';
 import { validatePdf } from './pdf-validation.js';
 import { libraryDocument, libraryList } from './library.js';
@@ -60,7 +60,7 @@ export function createDocumentsService({ db, store, maxPdfBytes = 256 * 1024 * 1
           }
           if (current.status !== 'receiving') throw new ServiceError(409, 'UPLOAD_SUPERSEDED', 'Upload has been superseded');
           await assertIdentityNotRetired(client, actor.userId, 'source-sha256', sha256, { table: 'ingestions', key: input.idempotencyKey });
-          if (same) await assertDocumentActive(client, actor.userId, same.id);
+          if (same) await assertDuplicateSaveActive(client, actor.userId, same.id);
           await lockObjectPublication(client);
           if ((await store.stat(key)).bytes !== bytes) throw new Error('Stored PDF size mismatch');
           const originalFilename = cleanFilename(input.originalFilename);

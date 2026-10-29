@@ -1,14 +1,18 @@
+import { canonicalManifestBytes } from '@pagelingo/web-capture';
+import { ServiceError } from '../errors.js';
+import type { ExportOriginals } from './originals.js';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
-import { defaultBundleLimits, defaultCaptureLimits, webCaptureManifestSchema, webReaderIrSchema, webTranslationSchema, webReaderIndexSchema, webReaderChunkSchema, type BundleFile } from '@pagelingo/document-contracts';
+import { defaultBundleLimits, defaultCaptureLimits, createWebCaptureRequestSchema, type WebDocumentBundleManifest, webCaptureManifestSchema, webReaderIrSchema, webTranslationSchema, webReaderIndexSchema, webReaderChunkSchema, type BundleFile } from '@pagelingo/document-contracts';
 import { resolveTrustedWebCatalog } from '@pagelingo/document-renderer';
 import { writeWebBundle } from '@pagelingo/document-bundle';
 import { createLocalObjectStore } from '../storage/local-object-store.js';
 import { readWebAsset } from '../web-readers/assets.js';
 import type { WebAssetRow } from '../web-readers/repository.js';
 export interface ExportMaterial {
+  originals?: ExportOriginals;
   contentFingerprint: string; packageId: string; title: string; createdAt: string; rendererVersion: string; rendererSha256: string;
   manifest: WebAssetRow; ir: WebAssetRow; translation: WebAssetRow | null; index: WebAssetRow;
   chunks: WebAssetRow[]; source: Array<WebAssetRow & { local_id: string; path: string }>;
@@ -39,6 +43,53 @@ export async function assembleWebExport(material: ExportMaterial, dataDir: strin
     if (sourceBytes > defaultCaptureLimits.maxTotalBytes) throw Error('Source total limit');
     add(`source/${file.path}`,await read(asset,file.role === 'html' ? defaultCaptureLimits.maxHtmlBytes : defaultCaptureLimits.maxResourceBytes),file.mediaType,'source');
   }
+  if (!material.originals) throw Error('Original material mapping missing');
+  let originalsDeclaration: NonNullable<WebDocumentBundleManifest['originals']>;
+  function addOriginalJson(path: string, bytes: Uint8Array) {
+    if (bytes.byteLength > defaultCaptureLimits.maxIrBytes) throw Error('Original manifest limit');
+    total += bytes.byteLength;
+    if (total > defaultBundleLimits.maxExpandedBytes) throw Error('Original total limit');
+    add(path, bytes, 'application/json', 'provenance');
+  }
+  if ('captures' in material.originals) {
+    const groups = material.originals.captures;
+    if (groups.length < 1 || groups.length > 2 || groups[0]!.prefix !== 'capture' || groups[1] && groups[1].prefix !== 'reader-capture') throw Error('Original group binding');
+    let originalSource: typeof capture | undefined;
+    const declarations = [];
+    for (const group of groups) {
+      const original = webCaptureManifestSchema.parse(group.manifest), bytes = canonicalManifestBytes(original);
+      const request = group.request ? createWebCaptureRequestSchema.parse(group.request) : null;
+      const requestBytes = request ? canonicalManifestBytes(request) : bytes;
+      if (hash(requestBytes) !== group.requestHash || request && hash(canonicalManifestBytes(request.manifest)) !== hash(bytes)) throw new ServiceError(409, 'EXPORT_ORIGINALS_UNAVAILABLE', 'Original admission hash mismatch');
+      const prefix = `originals/${group.prefix}`;
+      addOriginalJson(`${prefix}/manifest.json`, bytes);
+      if (request) addOriginalJson(`${prefix}/request.json`, requestBytes);
+      const sharedFiles: Array<{ id: string; sourceFileId: string }> = [];
+      let originalBytes = 0;
+      for (const file of original.files) {
+        originalBytes += file.bytes;
+        if (originalBytes > defaultCaptureLimits.maxTotalBytes) throw Error('Original total limit');
+        const item = group.files.find(item => item.descriptor.id === file.id);
+        if (!item || item.asset.sha256 !== file.sha256 || Number(item.asset.bytes) !== file.bytes || item.asset.media_type !== file.mediaType) throw Error('Original file binding');
+        const shared = originalSource?.files.find(f => f.sha256 === file.sha256 && f.bytes === file.bytes && f.mediaType === file.mediaType && f.role === file.role);
+        if (shared) { sharedFiles.push({ id: file.id, sourceFileId: shared.id }); continue; }
+        add(`${prefix}/files/${file.path}`, await read(item.asset, file.role === 'html' ? defaultCaptureLimits.maxHtmlBytes : file.role === 'preview' ? defaultCaptureLimits.maxPreviewHtmlBytes : defaultCaptureLimits.maxResourceBytes), file.mediaType, 'provenance');
+      }
+      declarations.push({ manifestSha256: hash(bytes), requestSha256: group.requestHash, admissionKind: request ? 'upload' as const : 'fetch' as const, sharedFiles });
+      if (group.prefix === 'capture') originalSource = original;
+    }
+    const first = declarations[0]!;
+    originalsDeclaration = { capture: { manifestSha256: first.manifestSha256, requestSha256: first.requestSha256, admissionKind: first.admissionKind },
+      ...(groups[1] ? { readerCapture: { ...declarations[1]!, translationSha256: groups[1].translationSha256! } } : {}) };
+  } else {
+    originalsDeclaration = material.originals.declaration;
+    let originalBytes = 0;
+    for (const item of material.originals.files) {
+      originalBytes += Number(item.asset.bytes);
+      if (originalBytes > defaultCaptureLimits.maxTotalBytes) throw Error('Original total limit');
+      add(item.path, await read(item.asset, item.ceiling), item.asset.media_type, 'provenance');
+    }
+  }
   const irBytes = await read(material.ir,defaultCaptureLimits.maxIrBytes), ir = webReaderIrSchema.parse(json(irBytes));
   add('source-ir.json',irBytes,'application/json','reader-ir');
   const translated = material.translation ? await read(material.translation,defaultBundleLimits.maxTranslationBytes) : null;
@@ -66,6 +117,7 @@ export async function assembleWebExport(material: ExportMaterial, dataDir: strin
   }
   files.set('manifest.json',Buffer.from(JSON.stringify({ schemaVersion: 'pagelingo-web-document-bundle/1',packageId: material.packageId,createdAt: material.createdAt,title: material.title,
     source: { manifestPath: 'source/manifest.json',manifestSha256: hash(manifestBytes),snapshotSha256: ir.source.snapshotSha256,contentFingerprint: material.contentFingerprint },
+    originals: originalsDeclaration,
     parse: { id: ir.parse.id,readerIrSha256: hash(irBytes) },translation: translation && translated ? { path: 'translation.json',sha256: hash(translated),status: translation.status,generationKind: translation.generationKind } : null,
     renderer: { version: material.rendererVersion,codeSha256: material.rendererSha256 },files: entries })));
   await writeWebBundle({ async list() { return [...files].map(([path,bytes]) => ({ path,bytes: bytes.length })); }, async *read(path) { const bytes = files.get(path); if (!bytes) throw Error('Missing member'); yield bytes; } },destination,{ signal,limits: defaultBundleLimits });

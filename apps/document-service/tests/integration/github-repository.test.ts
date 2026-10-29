@@ -158,6 +158,9 @@ it('keeps the selected revision matched when lawful automatic SDK translation pr
   }
   const saved = await t.save(undefined, { translationIntent: 'auto' }); await t.run(saved.jobId, fixturesFor(commit, 'First revision'));
   const first = await t.details(saved.documentId); await translate(first.current.sourceVersionId);
+  const admissionBefore = { jobs: (await t.db.pool.query('SELECT * FROM web_jobs ORDER BY id')).rows, document: (await t.db.pool.query('SELECT * FROM documents WHERE id=$1', [saved.documentId])).rows };
+  expect(await t.save(undefined, { translationIntent: 'auto' })).toEqual({ documentId: saved.documentId, jobId: null });
+  expect({ jobs: (await t.db.pool.query('SELECT * FROM web_jobs ORDER BY id')).rows, document: (await t.db.pool.query('SELECT * FROM documents WHERE id=$1', [saved.documentId])).rows }).toEqual(admissionBefore);
   const response = await t.app.inject({ method: 'POST', url: `/api/v1/documents/${saved.documentId}/source-refresh`, headers: { ...t.headers, 'idempotency-key': randomUUID() }, payload: { translationIntent: 'auto' } });
   expect(response.statusCode, response.body).toBe(202); await t.run(response.json().jobId, fixturesFor('b'.repeat(40), 'Second revision'));
   const pending = await t.details(saved.documentId); expect(pending.current.id).toBe(first.current.id); expect(pending.latestAttempt.resolvedRevision).not.toBe(first.current.id);
@@ -179,5 +182,31 @@ it('preserves user and legacy titles while projecting bounded metadata from one 
     expect((await t.db.pool.query('SELECT title FROM documents WHERE id=$1', [saved.documentId])).rows[0].title).toBe(origin === 'url' ? 'Source article title' : origin === 'user' ? 'User title' : 'Legacy title');
     expect((await t.db.pool.query('SELECT metadata FROM web_sources WHERE document_id=$1', [saved.documentId])).rows[0].metadata).toMatchObject({ title: 'Source article title', author: 'Ada Reader', publishedAt: '2026-10-01T00:00:00.000Z' });
     expect((await t.db.pool.query('SELECT authors FROM document_search_metadata WHERE document_id=$1', [saved.documentId])).rows[0].authors).toBe('Ada Reader');
+  }
+});
+it('exports only the selected Reader original provider acquisition closure after a failed newer fetch', async () => {
+  const { createArchiveFileSource, validateWebBundle } = await import('@pagelingo/document-bundle');
+  const { defaultBundleLimits } = await import('@pagelingo/document-contracts');
+  const { claimWebJob } = await import('../../src/web-jobs/lease.js');
+  const { readWebAsset } = await import('../../src/web-readers/assets.js');
+  const t = await setup(), saved = await t.save(); await t.run(saved.jobId);
+  const reader = (await t.app.inject({ url: `/api/v1/documents/${saved.documentId}/web-reader`, headers: t.headers })).json();
+  const before = await t.details(saved.documentId);
+  await t.run(await t.refresh(saved.documentId), githubFixture({ [`https://api.github.com/repos/Org/Repo/readme?ref=${commit}|application/vnd.github.raw+json`]: { body: '# Different bytes', type: 'text/plain' } }));
+  const base = `/api/v1/documents/${saved.documentId}/web-exports`;
+  const created = await t.app.inject({ method: 'POST', url: base, headers: { ...t.headers, 'idempotency-key': randomUUID() }, payload: { readerVersionId: reader.versionId } });
+  expect(created.statusCode).toBe(201);
+  await runWebJob((await claimWebJob('github-originals', t.db))!, { db: t.db, store: t.store, config: t.config, signal: new AbortController().signal });
+  const file = await t.app.inject({ url: `${base}/${created.json().id}/file`, headers: t.headers }); expect(file.statusCode, file.body).toBe(200);
+  const path = join(t.config.dataDir, 'original-provider.zip'); await writeFile(path, file.rawPayload);
+  const archive = createArchiveFileSource(path, defaultBundleLimits), validated = await validateWebBundle(archive, { limits: defaultBundleLimits });
+  expect(validated.manifest.originals).toHaveProperty('github.revision.id', before.current.id);
+  const originals = validated.manifest.originals!; if (!('github' in originals)) throw Error('Missing github provenance');
+  expect(originals.github.jobId).toBe(saved.jobId);
+  const assets = (await t.db.pool.query('SELECT a.*,q.role FROM source_acquisitions q JOIN assets a ON a.id=q.asset_id WHERE q.job_id=$1', [saved.jobId])).rows;
+  expect(originals.github.files).toHaveLength(assets.length);
+  for (const asset of assets) {
+    const chunks = []; for await (const chunk of archive.read(`originals/github/${asset.role}`)) chunks.push(Buffer.from(chunk));
+    expect(Buffer.concat(chunks)).toEqual(await readWebAsset(t.store, asset));
   }
 });

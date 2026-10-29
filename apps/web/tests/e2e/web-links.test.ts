@@ -113,3 +113,44 @@ test('link retries retain unresolved identity until acknowledgement and explicit
   await expect(page.getByLabel('本次不自动翻译')).not.toBeChecked();
   await expect(page.getByLabel('网页地址')).toBeEmpty();
 });
+
+test('stale classification rejection releases the frozen link action for correction', async ({ page, browser }) => {
+  await newReader(page, 'stale-classification');
+  const session = await (await page.request.get('/api/v1/auth/session')).json();
+  const headers = { Origin: origin, 'X-CSRF-Token': session.csrfToken };
+  const collection = await (await page.request.post('/api/v1/collections', { headers, data: { name: 'Soon deleted' } })).json();
+  await page.getByRole('button', { name: '添加链接', exact: true }).click();
+  await page.getByLabel('网页地址').fill('https://www.zhihu.com/question/stale-choice');
+  await page.getByLabel('所属集合').selectOption(collection.id);
+  // A second authenticated tab deletes the selected classification after form selection.
+  const second = await browser.newContext({ storageState: await page.context().storageState() });
+  expect((await second.request.delete(`${origin}/api/v1/collections/${collection.id}`, { headers })).status()).toBe(204);
+  await second.close();
+  const sent: { key: string; body: any }[] = [];
+  page.on('request', request => { if (request.url().endsWith('/documents/links') && request.method() === 'POST') sent.push({ key: request.headers()['idempotency-key'], body: request.postDataJSON() }); });
+  await page.getByRole('button', { name: '保存链接', exact: true }).click();
+  await expect(page.getByRole('alert')).toBeVisible();
+  await expect(page.getByLabel('网页地址')).toBeEnabled();
+  await page.getByLabel('所属集合').selectOption('');
+  await page.getByRole('button', { name: '保存链接', exact: true }).click();
+  await expect(page.getByRole('dialog')).toBeHidden();
+  expect(sent).toHaveLength(2); expect(sent[1].key).not.toBe(sent[0].key);
+  expect(sent[0].body.organization.collectionId).toBe(collection.id);
+  expect(sent[1].body.organization).toBeUndefined();
+});
+
+test('a trashed duplicate shows a restore path and releases the rejected action', async ({ page }) => {
+  await newReader(page, 'trashed-save');
+  const session = await (await page.request.get('/api/v1/auth/session')).json();
+  const headers = { Origin: origin, 'X-CSRF-Token': session.csrfToken };
+  const url = 'https://www.zhihu.com/question/restore-save';
+  const original = await (await page.request.post('/api/v1/documents/links', { headers: { ...headers, 'Idempotency-Key': crypto.randomUUID() }, data: { url, translationIntent: 'none' } })).json();
+  expect((await page.request.post(`/api/v1/documents/${original.documentId}/trash`, { headers, data: { expectedEpoch: 1 } })).status()).toBe(200);
+  await page.getByRole('button', { name: '添加链接', exact: true }).click(); await page.getByLabel('网页地址').fill(url);
+  await page.getByRole('button', { name: '保存链接', exact: true }).click();
+  await expect(page.getByRole('link', { name: '前往回收站恢复' })).toHaveAttribute('href', '/trash');
+  await expect(page.getByLabel('网页地址')).toBeEnabled();
+  expect((await page.request.post(`/api/v1/documents/${original.documentId}/restore`, { headers, data: { expectedEpoch: 2 } })).status()).toBe(200);
+  await page.getByRole('button', { name: '保存链接', exact: true }).click(); await expect(page.getByRole('dialog')).toBeHidden();
+  await expect(page.getByRole('link', { name: '查看已保存资料', exact: true })).toHaveAttribute('href', `/library/${original.documentId}`);
+});

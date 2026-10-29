@@ -24,4 +24,4 @@ interface SourceDetailsBase {
   latestAttempt: { jobId: string; status: string; requestedRef: string | null; resolvedRevision: string | null; errorCode: string | null } | null;
 }
 export type SourceDetails = SourceDetailsBase & ({ kind: 'link' } | { kind: 'github'; current: GithubSourceRevision | null } | { kind: 'arxiv'; current: ArxivSourceRevision | null });
-export interface SourceRefreshInput { ref?: string; translationIntent: 'auto' | 'none' }
+export type SourceRefreshInput = import('@pagelingo/document-contracts').SourceRefreshRequest;

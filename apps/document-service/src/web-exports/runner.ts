@@ -1,7 +1,9 @@
+import { loadExportOriginals } from './originals.js';
+import { readWebAsset } from '../web-readers/assets.js';
 import { randomUUID,createHash } from 'node:crypto';
 import { mkdir, realpath, lstat } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import { defaultBundleLimits } from '@pagelingo/document-contracts';
+import { defaultBundleLimits, defaultCaptureLimits, webCaptureManifestSchema } from '@pagelingo/document-contracts';
 import type { WebJobDependencies } from '../web-jobs/translation-runner.js';
 import { assertJobLeaseCurrent,releaseWebJobSlot,type JobLease } from '../web-jobs/repository.js';
 import { lockObjectPublication } from '../documents/repository.js';
@@ -13,7 +15,7 @@ import type { WebAssetRow } from '../web-readers/repository.js';
 export async function runWebExportJob(lease: Extract<JobLease,{ kind: 'export-web' }>,deps: WebJobDependencies): Promise<void> {
   deps = { ...deps,signal: AbortSignal.any([deps.signal,AbortSignal.timeout(120_000)]) };
   const workId = randomUUID(), objectKey = randomUUID(), workspaceKey = randomUUID();
-  const material = await deps.db.transaction(async client => {
+  const material: ExportMaterial = await deps.db.transaction(async client => {
     await assertJobLeaseCurrent(client,lease);
     const row = (await findExport(client,lease.ownerId,lease.documentId,lease.exportId))!;
     const selected = (await client.query<{ index_asset_id: string; translation_id: string | null }>('SELECT index_asset_id,translation_id FROM web_reader_versions WHERE owner_id=$1 AND document_id=$2 AND id=$3 AND source_version_id=$4 AND parse_id=$5',[lease.ownerId,lease.documentId,row.reader_version_id,lease.sourceVersionId,lease.parseId])).rows[0];
@@ -37,6 +39,13 @@ export async function runWebExportJob(lease: Extract<JobLease,{ kind: 'export-we
   });
   try {
     deps.signal.throwIfAborted();
+    if (Number(material.manifest.bytes) > defaultCaptureLimits.maxIrBytes) throw Error('Source manifest limit');
+    const capture = webCaptureManifestSchema.parse(JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(await readWebAsset(deps.store, material.manifest))));
+    material.originals = await deps.db.transaction(async client => {
+      await assertJobLeaseCurrent(client, lease);
+      const row = (await findExport(client, lease.ownerId, lease.documentId, lease.exportId))!;
+      return loadExportOriginals(client, lease.ownerId, lease.documentId, lease.sourceVersionId, row.reader_version_id, capture, material.manifest.sha256);
+    });
     const staging = join(resolve(deps.config.dataDir),'export-staging');
     await mkdir(staging,{ recursive: true,mode: 0o700 });
     const info = await lstat(staging);

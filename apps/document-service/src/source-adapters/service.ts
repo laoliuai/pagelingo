@@ -3,7 +3,7 @@ import { sourceRevision } from './repository.js';
 import { createHash, randomUUID } from 'node:crypto';
 import type { PoolClient } from 'pg';
 import { z } from 'zod';
-import type { DocumentLinkResult } from '@pagelingo/document-contracts';
+import { sourceRefreshRequestSchema, type DocumentLinkResult } from '@pagelingo/document-contracts';
 import { canonicalManifestBytes } from '@pagelingo/web-capture';
 import { assertActorCurrent, type Actor } from '../auth/guards.js';
 import type { Database } from '../db/database.js';
@@ -13,7 +13,7 @@ import { insertWebJob } from '../web-jobs/repository.js';
 import { classifySourceUrl } from './url.js';
 import { sourceRequestDigest } from './receipts.js';
 import type { SourceDetails, SourceReference, SourceRefreshInput } from './types.js';
-export const sourceRefreshSchema = z.strictObject({ ref: z.string().min(1).max(1024).optional(), translationIntent: z.enum(['auto','none']) });
+export const sourceRefreshSchema = sourceRefreshRequestSchema;
 function requestedReference(reference: SourceReference, ref?: string): SourceReference {
   if (ref === undefined) return reference;
   if (reference.provider === 'github') {

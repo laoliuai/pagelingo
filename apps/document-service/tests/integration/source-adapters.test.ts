@@ -267,6 +267,8 @@ it.each([false, true])('canonicalizes uppercase trash and restore IDs with alias
   const root = await t.save(url);
   let aliasId: string | undefined, conflictId: string | undefined;
   if (grouped) {
+    const refresh = await t.app.inject({ method: 'POST', url: `/api/v1/documents/${rootId}/source-refresh`, headers: { ...t.headers, 'idempotency-key': randomUUID() }, payload: { translationIntent: 'none' } });
+    expect(refresh.statusCode).toBe(202); root.jobId = refresh.json().jobId;
     const alias = await t.save('https://github.com/Uppercase/Alias');
     const conflict = await t.save('https://github.com/Uppercase/Edited', { title: 'Retain this title' });
     aliasId = alias.documentId; conflictId = conflict.documentId;
@@ -367,4 +369,31 @@ it.each([false, true])('verifies source-only GitHub fallback only when unique, a
   expect(created.statusCode, created.body).toBe(201);
   const foreign = await login(t.app, 'foreign-fallback', 'correct password 123456');
   expect((await t.app.inject({ url: `${path}&revisionId=${original.id}`, headers: { cookie: foreign.cookie } })).statusCode).toBe(404);
+});
+it.each(['https://github.com/Org/Repeat', 'https://arxiv.org/abs/2401.12345'])('duplicate save preserves source admission until explicit refresh: %s', async url => {
+  const t = await setup();
+  const first = await t.save(url, { translationIntent: 'auto' });
+  const snapshot = async () => ({
+    jobs: (await t.db.pool.query('SELECT * FROM web_jobs ORDER BY id')).rows,
+    requests: (await t.db.pool.query('SELECT * FROM source_requests ORDER BY job_id')).rows,
+    document: (await t.db.pool.query('SELECT * FROM documents WHERE id=$1', [first.documentId])).rows,
+  });
+  const before = await snapshot();
+  const duplicate = await t.save(url, { translationIntent: 'auto' });
+  expect(duplicate).toEqual({ documentId: first.documentId, jobId: null });
+  expect(await snapshot()).toEqual(before);
+  const refresh = await t.app.inject({ method: 'POST', url: `/api/v1/documents/${first.documentId}/source-refresh`, headers: { ...t.headers, 'idempotency-key': randomUUID() }, payload: { translationIntent: 'none' } });
+  expect(refresh.statusCode).toBe(202);
+  expect(refresh.json().jobId).not.toBe(first.jobId);
+  expect((await snapshot()).jobs).toHaveLength(2);
+});
+it('admits exactly 200 ref characters and rejects 201 without poisoning details or job pointers', async () => {
+  const { sourceDetailsSchema } = await import('@pagelingo/document-contracts');
+  const t = await setup(), saved = await t.save('https://github.com/Org/Boundary');
+  const refresh = (length: number) => t.app.inject({ method: 'POST', url: `/api/v1/documents/${saved.documentId}/source-refresh`, headers: { ...t.headers, 'idempotency-key': randomUUID() }, payload: { ref: 'a'.repeat(length), translationIntent: 'none' } });
+  expect((await refresh(200)).statusCode).toBe(202);
+  const snapshot = async () => ({ jobs: (await t.db.pool.query('SELECT * FROM web_jobs ORDER BY id')).rows, document: (await t.db.pool.query('SELECT * FROM documents WHERE id=$1', [saved.documentId])).rows, details: (await t.app.inject({ url: `/api/v1/documents/${saved.documentId}/source-details`, headers: t.headers })).json() });
+  const before = await snapshot(); expect(sourceDetailsSchema.safeParse(before.details).success).toBe(true);
+  expect((await refresh(201)).statusCode).toBe(400);
+  expect(await snapshot()).toEqual(before);
 });

@@ -76,6 +76,7 @@ function BundleImportScope({ targetDocument, targetRevision, onImported, disable
         {state.result?.status === 'completed' && <p className="muted">导入完成只表示阅读包已校验并保存，解析与翻译状态见下方。</p>}
         {state.descriptor.data && <ReaderStatus reader={state.descriptor.data} />}
         {state.descriptor.isError && <><Feedback message="阅读包已保存，暂时无法读取版本状态。请重试查看。" error /><Button type="button" onClick={() => void state.descriptor.refetch()}>重试查看状态</Button></>}
+        {state.error === '资料已在回收站，请先恢复。' && <Link to="/trash">前往回收站恢复</Link>}
         <Feedback message={oversized ? '文件超出服务器大小限制，请选择较小的阅读包。' : state.error} error />
         <div className="form-actions">
           {priorTarget && state.result?.status === 'failed' && <Button type="button" onClick={startCurrentImport}>为当前 PDF 新建导入</Button>}

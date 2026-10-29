@@ -66,3 +66,30 @@ export async function modelSnapshot(ir: WebReaderIR): Promise<WebModelTranslatio
   t.blocks = plan.inputs.map(input => ({ blockId: input.id, status: 'translated', rawText: input.protectedText }));
   t.status = 'completed'; t.generationKind = 'mock'; return t;
 }
+/** An admitted hostile original is retained as inert bytes, independently of trusted projection. */
+export async function addOriginalCapture(f: Awaited<ReturnType<typeof webFixture>>) {
+  const { canonicalManifestBytes } = await import('@pagelingo/web-capture');
+  const original = structuredClone(f.capture);
+  const raw = Buffer.from('<script>window.originalAttachmentExecuted=true;fetch("https://must-not-run.example/")</script><article>Original raw content</article>');
+  const html = original.files.find(file => file.id === original.htmlFileId)!;
+  html.bytes = raw.length; html.sha256 = hash(raw);
+  function add(path: string, bytes: Uint8Array, mediaType: string) {
+    f.files.set(path, bytes); f.manifest.files.push({ path, bytes: bytes.length, sha256: hash(bytes), mediaType, role: 'provenance' });
+  }
+  if (f.translation?.generationKind === 'import') {
+    const translation = f.translation;
+    const candidate = { schemaVersion: 'web-capture-translation-candidate/1', sourceSnapshotSha256: translation.sourceSnapshotSha256, sourceContentFingerprint: translation.sourceContentFingerprint,
+      sourceLanguage: translation.sourceLanguage, targetLanguage: translation.targetLanguage, sdkVersion: translation.sdkVersion, promptVersion: translation.promptVersion, protectionVersion: translation.protectionVersion,
+      blocks: translation.blocks.map(({ blockId: _blockId, ...proof }) => proof) };
+    const candidateBytes = json(candidate), file = { id: 'original-translation', path: 'candidate.json', role: 'translation' as const, mediaType: 'application/json', bytes: candidateBytes.length, sha256: hash(candidateBytes) };
+    original.files.push(file); original.existingTranslation = { fileId: file.id, sourceSnapshotSha256: candidate.sourceSnapshotSha256, sourceContentFingerprint: candidate.sourceContentFingerprint, targetLanguage: candidate.targetLanguage };
+    f.files.set(`source/${file.path}`, candidateBytes);
+  }
+  const manifest = canonicalManifestBytes(original), request = canonicalManifestBytes({ manifest: original, translationIntent: 'none' });
+  add('originals/capture/manifest.json', manifest, 'application/json'); add('originals/capture/request.json', request, 'application/json');
+  for (const file of original.files) add(`originals/capture/files/${file.path}`, file.id === original.htmlFileId ? raw : f.files.get(`source/${file.path}`)!, file.mediaType);
+  Object.assign(f.manifest, { originals: { capture: { manifestSha256: hash(manifest), requestSha256: hash(request), admissionKind: 'upload' } } });
+  if (f.translation?.generationKind === 'import') f.files.delete('source/candidate.json');
+  f.files.set('manifest.json', json(f.manifest));
+  return { original, raw, htmlPath: `originals/capture/files/${html.path}` };
+}

@@ -1,4 +1,4 @@
-import { assertDocumentActive } from '../document-lifecycle/guards.js';
+import { assertDuplicateSaveActive, assertDocumentActive } from '../document-lifecycle/guards.js';
 import { assertIdentityNotRetired } from '../document-lifecycle/retired-identities.js';
 import { randomUUID } from 'node:crypto';
 import type { PoolClient } from 'pg';
@@ -17,7 +17,7 @@ export async function publishBundle(client: PoolClient, store: ObjectStore, row:
   let document = row.target_document_id ? await findDocument(client, owner, row.target_document_id, false, row.target_source_version_id ?? undefined) : await findSamePdf(client, owner, manifest.source.sha256);
   if (document?.kind === 'paper' && (!row.target_arxiv_version_id || !row.target_source_version_id)) throw conflict('BUNDLE_SOURCE_CONFLICT');
   if (document && (document.sha256 !== manifest.source.sha256 || Number(document.bytes) !== manifest.source.bytes)) throw conflict('BUNDLE_SOURCE_CONFLICT');
-  if (document) { await client.query('SELECT id FROM documents WHERE owner_id=$1 AND id=$2 FOR UPDATE', [owner, document.id]); await assertDocumentActive(client, owner, document.id); }
+  if (document) { await client.query('SELECT id FROM documents WHERE owner_id=$1 AND id=$2 FOR UPDATE', [owner, document.id]); await assertDuplicateSaveActive(client, owner, document.id); }
   const duplicate = (await client.query<{ id: string; document_id: string; manifest_sha256: string }>('SELECT id,document_id,manifest_sha256 FROM reader_versions WHERE owner_id=$1 AND package_id=$2', [owner, manifest.packageId])).rows[0];
   if (duplicate && (duplicate.manifest_sha256 !== bundle.manifestSha256 || (document && duplicate.document_id !== document.id))) throw conflict('BUNDLE_IDENTITY_CONFLICT');
   await lockObjectPublication(client);

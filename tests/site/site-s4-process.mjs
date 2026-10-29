@@ -18,11 +18,18 @@ const send = value => process.send?.({ ...value, pid: process.pid });
 let app;
 for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => { controller.abort(); if (app) void app.close(); });
 const hold = async value => { send({ type: 'held', ...value }); await new Promise(() => {}); };
-let reads = 0;
+let reads = 0, runningJobId;
 const store = {
   ...local,
   async *read(key, range) {
-    if (mode === 'hold-export') await hold({ boundary: 'durable-export-before-publication', key });
+    if (mode === 'hold-export') {
+      const registered = await db.pool.query(`SELECT w.job_id,w.id AS work_id,j.status FROM object_deletion_queue q JOIN registered_object_work w ON w.id=q.work_id
+        JOIN web_jobs j ON j.id=w.job_id WHERE q.object_key=$1 AND q.storage_kind='objects' AND NOT w.writer_stopped AND j.status='running' AND w.job_id=$2`, [key, runningJobId]);
+      if (registered.rowCount) {
+        const info = await local.stat(key);
+        await hold({ boundary: 'durable-export-before-publication', key, bytes: info.bytes, ...registered.rows[0], publishedAssets: (await db.pool.query('SELECT id FROM assets WHERE object_key=$1', [key])).rowCount });
+      }
+    }
     yield* local.read(key, range);
   },
   async deleteUnreferenced(key) {
@@ -56,7 +63,7 @@ try {
       downloadResource: async (url, input, consume) => { const r = await response(url, input.accept); return consume(r.body, { status: r.status, url, headers: r.headers }); },
     };
     await reconcileWebJobs(db);
-    const lease = await claimWebJob(`s4-${process.pid}`, db); send({ type: 'lease', lease });
+    const lease = await claimWebJob(`s4-${process.pid}`, db); runningJobId = lease?.jobId; send({ type: 'lease', lease });
     if (lease) await runWebJob(lease, { db, store, config, signal: controller.signal, sourceTransport,
       captureFetch: async url => response(url, 'text/html'),
       provider: { generate: async () => { send({ type: 'unexpected-model' }); throw new Error('No model calls authorized'); } },

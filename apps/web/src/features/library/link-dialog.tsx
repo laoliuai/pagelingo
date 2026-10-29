@@ -25,6 +25,7 @@ function LinkDialogScope({ discoveredFromDocumentId, initialUrl = '', initialTit
   const [title, setTitle] = useState(initialTitle);
   const [skipTranslation, setSkipTranslation] = useState(false);
   const [error, setError] = useState('');
+  const [inTrash, setInTrash] = useState(false);
   const [pending, setPending] = useState(false);
   const [unknown, setUnknown] = useState(false);
   const [saved, setSaved] = useState<DocumentLinkResult | null>(null);
@@ -59,7 +60,7 @@ function LinkDialogScope({ discoveredFromDocumentId, initialUrl = '', initialTit
     });
     if (!parsed.success) { setError('请输入不含账号密码的 HTTP 或 HTTPS 网页地址。'); return; }
     admission.current ??= { key: crypto.randomUUID(), body: structuredClone(parsed.data) };
-    setPending(true); setError('');
+    setPending(true); setError(''); setInTrash(false);
     try {
       const result = admittedResult.current ?? await apiRequest<DocumentLinkResult>('/api/v1/documents/links', {
         method: 'POST', body: admission.current.body, idempotencyKey: admission.current.key, signal: lifetime.current.signal,
@@ -85,10 +86,16 @@ function LinkDialogScope({ discoveredFromDocumentId, initialUrl = '', initialTit
       }
     } catch (error) {
       if (!lifetime.current.signal.aborted) {
-        const rejected = !admittedResult.current && error instanceof ApiError && error.status === 400 && error.code === 'INVALID_REQUEST';
+        const rejected = !admittedResult.current && error instanceof ApiError && (
+          (error.status === 400 && error.code === 'INVALID_REQUEST') ||
+          (error.status === 404 && error.code === 'NOT_FOUND') ||
+          (error.status === 409 && error.code === 'DOCUMENT_IN_TRASH')
+        );
+        const trashed = rejected && error instanceof ApiError && error.code === 'DOCUMENT_IN_TRASH';
+        setInTrash(trashed);
         if (rejected) admission.current = null;
         setUnknown(!rejected);
-        setError(rejected ? '服务器未接受本次链接，请核对地址和分类后重试。' : `${errorMessage(error)} 保存尚未确认，重试保留本次链接与分类。`);
+        setError(trashed ? '资料已在回收站，请先恢复。' : rejected ? '服务器未接受本次链接，请核对地址和分类后重试。' : `${errorMessage(error)} 保存尚未确认，重试保留本次链接与分类。`);
       }
     } finally { if (!lifetime.current.signal.aborted) setPending(false); }
   }
@@ -107,7 +114,7 @@ function LinkDialogScope({ discoveredFromDocumentId, initialUrl = '', initialTit
         <label className="checkbox"><input type="checkbox" checked={skipTranslation} onChange={event => setSkipTranslation(event.target.checked)} />本次不自动翻译</label>
         <p>默认遵循自动翻译偏好，可能使用你的模型配置产生费用。论文下载不启动 PDF 推理。分类仅用于新资料，已有资料保留原分类。</p>
       </fieldset>
-      {error && <p role="alert">{error}</p>}
+      {error && <p role="alert">{error}{inTrash && <> <Link to="/trash">前往回收站恢复</Link></>}</p>}
       {saved && <p role="status">所选资料已保存，已有资料保留原有组织。<Link to={`/library/${saved.documentId}`}>查看已保存资料</Link></p>}
       <div className="form-actions"><Button type="button" onClick={close}>关闭</Button>{!saved && <Button primary type="submit" disabled={pending}>{pending ? '正在保存…' : unknown ? '重试本次保存' : '保存链接'}</Button>}</div>
     </form>

@@ -1,4 +1,4 @@
-import { assertDocumentActive, lockDocument } from '../document-lifecycle/guards.js';
+import { assertDuplicateSaveActive, assertDocumentActive, lockDocument } from '../document-lifecycle/guards.js';
 import { assertIdentityNotRetired, assertOperationNotRetired } from '../document-lifecycle/retired-identities.js';
 import { randomUUID, createHash } from 'node:crypto';
 import { assertSaveHintsOwned, replaySaveHints } from '../document-management/repository.js';
@@ -66,6 +66,11 @@ export function createWebCapturesService({ db, store, config, onPublication }: {
         }
         const hints = await assertSaveHintsOwned(client,owner(p),value);
         const requestHash = createHash('sha256').update(canonicalManifestBytes({ ...value,...hints })).digest('hex');
+        const duplicateId = value.targetDocumentId ?? (await client.query<{ id: string }>(
+          'SELECT id FROM documents WHERE owner_id=$1 AND source_url=$2 AND kind=$3 ORDER BY created_at,id LIMIT 1',
+          [owner(p), normalizeCaptureUrl(value.manifest.source.url), value.manifest.source.kind === 'x-post' ? 'x-post' : 'article'],
+        )).rows[0]?.id;
+        if (duplicateId) { await lockDocument(client, owner(p), duplicateId); await assertDuplicateSaveActive(client, owner(p), duplicateId); }
         if (value.targetDocumentId) {
           const target = await findWebDocument(client, owner(p), value.targetDocumentId);
           if (!target || !['article', 'x-post'].includes(target.kind)) throw missing();
@@ -74,7 +79,7 @@ export function createWebCapturesService({ db, store, config, onPublication }: {
         const sessionId = p.kind === 'session' ? (await client.query<{ id: string }>('SELECT id FROM sessions WHERE token_hash=$1', [p.actor.sessionHash])).rows[0]!.id : null;
         const id = randomUUID();
         await insertWebCapture(client, { id, ownerId: owner(p), authVersion: authVersion(p), deviceId: p.kind === 'device' ? p.deviceId : null, sessionId,
-          manifest: value.manifest, requestHash, targetDocumentId: value.targetDocumentId ?? null, translationIntent: value.translationIntent, stagingKey: randomUUID(), saveHints: hints });
+          manifest: value.manifest, admittedRequest: { ...value, ...hints }, requestHash, targetDocumentId: value.targetDocumentId ?? null, translationIntent: value.translationIntent, stagingKey: randomUUID(), saveHints: hints });
         return view(client, (await findWebCapture(client, owner(p), id))!);
       });
     },

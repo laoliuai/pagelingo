@@ -1,5 +1,5 @@
 import { assertOperationNotRetired } from '../document-lifecycle/retired-identities.js';
-import { assertDocumentActive, lockDocument } from '../document-lifecycle/guards.js';
+import { assertDuplicateSaveActive, assertDocumentActive, lockDocument } from '../document-lifecycle/guards.js';
 import type { PoolClient } from 'pg';
 import type { BundleImport, BundleImportStatus, CreateBundleImportRequest } from '@pagelingo/document-contracts';
 import { findDocument } from '../documents/repository.js';
@@ -41,7 +41,7 @@ export async function lockImport(client: PoolClient, owner: string, id: string, 
 /** Resolve admitted targets from owned rows, never infer an arXiv version from source bytes. */
 export async function resolveBundleTarget(client: PoolClient, owner: string, input: CreateBundleImportRequest) {
   if (!input.targetDocumentId) return undefined;
-  const active = await assertDocumentActive(client, owner, input.targetDocumentId);
+  const active = await assertDuplicateSaveActive(client, owner, input.targetDocumentId);
   let sourceId = input.targetSourceVersionId, paperId: string | undefined;
   if (active.kind === 'paper') {
     if (input.targetPaperVersion === undefined) throw new ServiceError(400, 'INVALID_REQUEST', 'Paper version required');
