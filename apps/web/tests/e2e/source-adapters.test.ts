@@ -100,6 +100,7 @@ test('paper selection imports an explicit fixed target, retains historical origi
   const { readerBundle } = await import('./reader-helpers');
   const bundle = await readerBundle();
   await newReader(page, 'paper-ui');
+  const modelCallsBefore = (await (await page.request.get('/__test/metrics')).json()).modelCalls;
   expect((await page.request.post('/__test/source-fixture', { data: { version: 1, pdf: bundle.pdf.toString('base64') } })).status()).toBe(200);
   const saved = await save(page, 'https://arxiv.org/html/2401.12345v1');
   const details = () => page.request.get(`/api/v1/documents/${saved.documentId}/source-details`).then(r => r.json());
@@ -168,7 +169,7 @@ test('paper selection imports an explicit fixed target, retains historical origi
     await page.evaluate(theme => document.documentElement.dataset.theme = theme, theme);
     await page.screenshot({ path: process.env.PAGELINGO_TEST_SOURCE_EVIDENCE_DIR ? `${process.env.PAGELINGO_TEST_SOURCE_EVIDENCE_DIR}/paper-${width}-${theme}.png` : test.info().outputPath(`paper-${width}-${theme}.png`), fullPage: true });
   }
-  expect((await (await page.request.get('/__test/metrics')).json()).modelCalls).toBe(0);
+  expect((await (await page.request.get('/__test/metrics')).json()).modelCalls).toBe(modelCallsBefore);
 });
 
 test('aliases navigate explicitly and conflict records keep edited data', async ({ page }) => {

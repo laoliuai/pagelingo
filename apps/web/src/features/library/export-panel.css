@@ -1,0 +1,5 @@
+.export-panel { margin: 0; padding: 0; border: 0; }
+.export-panel > summary { min-height: 44px; padding: 12px 0; box-sizing: border-box; }
+.document-downloads { flex-shrink: 0; }
+.document-page .page-header:has(.export-panel[open]) { flex-wrap: wrap; }
+.document-page .page-header:has(.export-panel[open]) > .document-downloads { flex-basis: 100%; }

@@ -16,7 +16,8 @@
       "type": "string",
       "enum": [
         "fetch-link",
-        "translate"
+        "translate",
+        "export-web"
       ]
     },
     "status": {

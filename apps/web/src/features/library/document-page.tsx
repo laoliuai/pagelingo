@@ -1,3 +1,4 @@
+import { ExportPanel } from './export-panel';
 import { lazy, Suspense, useRef, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -66,7 +67,10 @@ function DocumentScope() {
     {document && !isPdfReadableDocument(document) && <>
       <PageHeader title={document.title}
         description={`${webSaveLabel(document.saveStatus)} · ${webProcessingLabel(document.processingStatus)}`}
-        action={<a href={document.url} target="_blank" rel="noopener noreferrer">打开原网站</a>} />
+        action={<div className="document-downloads">
+          <a href={document.url} target="_blank" rel="noopener noreferrer">打开原网站</a>
+          {document.reader && openedVersion && <ExportPanel documentId={document.id} readerVersionId={openedVersion} />}
+        </div>} />
       {document.reader ? <Suspense fallback={<p>正在加载阅读器…</p>}>
         <WebReaderPage key={document.id} document={document} versionId={openedVersion} />
       </Suspense> : <>
@@ -81,6 +85,7 @@ function DocumentScope() {
       <PageHeader title={document.title}
         description={openedVersion ? 'PDF 阅读版本 · 原件按所选阅读包固定' : 'PDF 原件 · 原文已保存 · 等待本地处理'}
         action={document.kind === 'pdf' ? <BundleImportDialog targetDocument={document} onImported={() => {}} /> : undefined} />
+      {!openedVersion && <a href={`/api/v1/documents/${document.id}/source?download=true`} download>下载 PDF 原件</a>}
       {openedVersion ? <Suspense fallback={<p role="status">正在加载阅读器…</p>}>
         <ReaderPage documentId={document.id} versionId={openedVersion} onVersionSelect={versionId => void selectPdfVersion(versionId)} />
       </Suspense> : <PdfSource key={document.id} sourceUrl={`/api/v1/documents/${document.id}/source`} title={document.title} />}

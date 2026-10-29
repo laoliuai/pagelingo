@@ -93,6 +93,10 @@ test('version switching releases the old preview and late binary delivery cannot
   let started = false, release!: () => void; const gate = new Promise<void>(resolve => { release = resolve; });
   await page.route('**/web-snapshots/**/files/*', async route => { const response = await route.fetch(); started = true; await gate; await route.fulfill({ response }).catch(() => {}); });
   await page.getByRole('button', { name: '定位快照', exact: true }).first().click(); await expect.poll(() => started).toBe(true);
-  await page.getByRole('button', { name: '退出登录', exact: true }).click(); release(); await page.unrouteAll({ behavior: 'wait' });
+  const loggedOut = page.waitForResponse(response => response.url().endsWith('/api/v1/auth/logout') && response.request().method() === 'POST');
+  await page.getByRole('button', { name: '退出登录', exact: true }).click();
+  expect((await loggedOut).status()).toBe(200);
+  await expect(page).toHaveURL(/\/login$/);
+  release(); await page.unrouteAll({ behavior: 'wait' });
   await expect(page.locator('iframe')).toHaveCount(0); expect(await page.evaluate(() => (window as unknown as { previewBlobs: Set<string> }).previewBlobs.size)).toBe(0);
 });

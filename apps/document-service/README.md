@@ -609,3 +609,27 @@ Stop old API/worker writers before applying 008, then run matching binaries. Sou
 identity/acquisition/revision references are already in the unified restore/purge
 graph. Tests inject explicit managed source transports; they do not establish live
 GitHub acceptance or replace the pinned DNS/peer-validation tests.
+
+Web offline exports use `POST /api/v1/documents/:id/web-exports` with a UUID
+`Idempotency-Key` and `{readerVersionId}`. The admitted Reader, source, parse,
+renderer catalog, title and package identity remain fixed. Retrying a lost response
+uses the same body/key; generating another package requires a new key. State GETs
+are pure reads. Completed files use the private `.../:exportId/file` route and expire
+24 hours after publication. Historical PDF source downloads and Reader ZIP downloads
+return their retained original bytes.
+
+The existing worker dispatches `export-web` with the same global two/owner one slots,
+30-second leases, 500 ms authorization monitor and five-second heartbeats. Exports
+never resolve model keys, write translation checkpoints or promote the current Reader.
+Each export uses an isolated worker with a 120-second total deadline, 768 MiB old
+space ceiling and 256 MiB ZIP ceiling. Unsupported historical projection configuration
+returns terminal `BUNDLE_UNSUPPORTED_SOURCE`; original material remains readable.
+
+Migration 009 adds the immutable export ledger and registered writer attempts. The
+same maintenance invocation removes expired optional ZIPs and fixed-depth temporary
+workspaces under the existing 500-row/100-object-attempt allowance. Busy export work
+leaves capacity for pending permanent purges. Attempt identities and exact keys are
+registered before writing; live leases and a conservative writer deadline prevent
+premature cleanup. Failed deletes retain restartable claims/backoff. Expired export
+absence does not block restoring retained originals. Stop old writers before 009;
+completed permanent purge receipts never reopen.

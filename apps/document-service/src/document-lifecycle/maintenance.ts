@@ -1,3 +1,4 @@
+import { maintainRegisteredWork } from './registered-work.js';
 import { randomUUID } from 'node:crypto';
 import { lstat, realpath, unlink } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
@@ -48,13 +49,18 @@ export async function runDocumentMaintenance(deps: MaintenanceDependencies, { li
   if (!Number.isInteger(limit) || limit<1 || limit>100) throw new Error('Maintenance limit must be between 1 and 100');
   const { db,signal } = deps; const result: MaintenanceResult = { scheduled:0,claimed:0,rowsDeleted:0,capturesScanned:0,objectsDeleted:0,completed:0,failed:0 };
   // Scheduling clears document pointers too; charge it before offering cleanup its allowance.
-  let rowsMutated = 0;
+  // Reserve part of this call for permanent purges when both work classes are due.
+  const purgeDue = !!(await db.pool.query("SELECT 1 FROM document_purges WHERE status<>'completed' AND next_attempt_at<=clock_timestamp() LIMIT 1")).rowCount;
+  const workAllowance = { rows: purgeDue ? Math.floor(PURGE_ROW_LIMIT/2) : PURGE_ROW_LIMIT,objects: purgeDue ? Math.floor(PURGE_OBJECT_LIMIT/2) : PURGE_OBJECT_LIMIT };
+  const workBudget = { ...workAllowance };
+  await maintainRegisteredWork(deps,workBudget,result,limit);
+  let rowsMutated = workAllowance.rows-workBudget.rows;
   const expired = await db.transaction(async client => {
     await client.query('SELECT singleton FROM document_maintenance_cursor WHERE singleton FOR UPDATE');
     const rows = (await client.query<{ owner_id: string; id: string; due: string }>(`SELECT d.owner_id,d.id,d.purge_after::text AS due FROM documents d CROSS JOIN document_maintenance_cursor c
       WHERE d.deleted_at IS NOT NULL AND d.purge_after<=clock_timestamp()
       AND NOT EXISTS(SELECT 1 FROM document_purges p WHERE(p.owner_id,p.document_id)=(d.owner_id,d.id))
-      ORDER BY CASE WHEN c.last_document_id IS NULL OR (d.purge_after,d.id)>(c.last_expiry_at,c.last_document_id) THEN 0 ELSE 1 END,d.purge_after,d.id LIMIT $1`,[limit])).rows;
+      ORDER BY CASE WHEN c.last_document_id IS NULL OR (d.purge_after,d.id)>(c.last_expiry_at,c.last_document_id) THEN 0 ELSE 1 END,d.purge_after,d.id LIMIT $1`,[Math.min(limit,PURGE_ROW_LIMIT-rowsMutated)])).rows;
     const last=rows.at(-1);
     if(last) await client.query('UPDATE document_maintenance_cursor SET last_expiry_at=$1::timestamptz,last_document_id=$2 WHERE singleton',[last.due,last.id]);
     return rows;
@@ -79,7 +85,7 @@ export async function runDocumentMaintenance(deps: MaintenanceDependencies, { li
     if(last) await client.query('UPDATE document_maintenance_cursor SET last_due_at=$1::timestamptz,last_task_id=$2 WHERE singleton',[last.due,last.id]);
     return rows;
   });
-  let filesAttempted = 0;
+  let filesAttempted = workAllowance.objects-workBudget.objects;
   for (const candidate of candidates) {
     if (signal.aborted || (rowsMutated>=PURGE_ROW_LIMIT && filesAttempted>=PURGE_OBJECT_LIMIT)) break;
     const token = randomUUID();
@@ -118,6 +124,7 @@ export async function runDocumentMaintenance(deps: MaintenanceDependencies, { li
       if (!await lockTask(client,task,token)) return;
       const remaining = (await client.query(`SELECT EXISTS(SELECT 1 FROM documents WHERE owner_id=$1 AND id=$2)
         OR EXISTS(SELECT 1 FROM object_deletion_queue WHERE owner_id=$1 AND task_id=$3)
+        OR EXISTS(SELECT 1 FROM registered_object_work WHERE owner_id=$1 AND document_id=$2)
         OR EXISTS(SELECT 1 FROM web_owner_cache c JOIN document_cache_cleanup_state s USING(owner_id) WHERE c.owner_id=$1
           AND NOT EXISTS(SELECT 1 FROM web_cache_document_refs r WHERE(r.owner_id,r.cache_key)=(c.owner_id,c.cache_key))
           AND (EXISTS(SELECT 1 FROM document_purge_cache_keys k WHERE(k.owner_id,k.task_id,k.cache_key)=(c.owner_id,$3,c.cache_key))

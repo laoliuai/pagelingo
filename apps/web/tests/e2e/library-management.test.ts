@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { login, newReader, origin, upload } from './library-helpers';
 
-test('organizes documents across devices and preserves filters', async ({ page, browser }) => {
+test('organizes documents across devices and preserves filters', async ({ page, browser }, testInfo) => {
   const username = await newReader(page, 'manage');
   const patches: Record<string,unknown>[]=[]; page.on('request',request=>{if(request.method()==='PATCH'&&request.url().endsWith('/organization'))patches.push(request.postDataJSON());});
   await upload(page, '管理原文');
@@ -43,7 +43,7 @@ test('organizes documents across devices and preserves filters', async ({ page, 
   for (const width of [1440, 375]) for (const theme of ['light', 'dark']) {
     await page.setViewportSize({ width, height: 1000 });
     await page.evaluate(value => document.documentElement.dataset.theme = value, theme);
-    await page.screenshot({ path: `../../.superpowers/sdd/2026-10-28-learning-site-s4/task-6-evidence/organization-${width}-${theme}.png`, fullPage: true });
+    await page.screenshot({ path: testInfo.outputPath(`organization-${width}-${theme}.png`), fullPage: true });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   }
   await other.close();
@@ -87,16 +87,17 @@ test('initializes new link and imported-package classification from the actual s
   const library=await(await page.request.get('/api/v1/library')).json();expect(library.total).toBe(2);for(const item of library.items)expect(item.organization).toMatchObject({collectionId:collection.id,tagIds:[tag.id]});
 });
 
-test('keeps reading space and keyboard focus with management collapsed on narrow screens',async({page})=>{
+test('keeps reading space and keyboard focus with management collapsed on narrow screens',async({page},testInfo)=>{
   const {archive}=await import('./web-helpers');await newReader(page,'reader-management');const saved=await archive(page);await page.reload();
-  for(const width of [1440,375])for(const theme of ['light','dark']){await page.setViewportSize({width,height:900});await page.evaluate(value=>document.documentElement.dataset.theme=value,theme);await page.screenshot({path:`../../.superpowers/sdd/2026-10-28-learning-site-s4/task-6-evidence/library-${width}-${theme}.png`,fullPage:true});}
+  for(const width of [1440,375])for(const theme of ['light','dark']){await page.setViewportSize({width,height:900});await page.evaluate(value=>document.documentElement.dataset.theme=value,theme);await page.screenshot({path:testInfo.outputPath(`library-${width}-${theme}.png`),fullPage:true});}
+  const modelCallsBefore=(await(await page.request.get('/__test/metrics')).json()).modelCalls;
   const writes:string[]=[];page.on('request',request=>{if(['PUT','PATCH','POST','DELETE'].includes(request.method())&&request.url().includes('/api/v1/'))writes.push(request.method());});
   await page.goto(`/library/${saved.documentId}`);await expect(page.locator('.management-panel')).not.toHaveAttribute('open','');await expect(page.getByText('这是已经归档的中文原文，可以直接阅读。',{exact:true})).toBeVisible();
   const control=await page.locator('.management-panel > summary').boundingBox(),back=await page.locator('.back-link').boundingBox();expect(control!.height).toBeGreaterThanOrEqual(44);expect(Math.abs(control!.y-back!.y)).toBeLessThanOrEqual(4);
   await page.locator('.management-panel > summary').focus();await page.keyboard.press('Enter');await expect(page.getByLabel('收藏备注')).toBeVisible();
   const expanded=await page.locator('.management-panel').boundingBox(),reading=await page.getByRole('region',{name:'网页阅读器',exact:true}).boundingBox();expect(expanded!.width).toBeGreaterThan(300);expect(reading!.y).toBeGreaterThanOrEqual(expanded!.y+expanded!.height);
   await page.locator('.management-panel > summary').click();await expect(page.locator('.management-panel')).not.toHaveAttribute('open','');
-  for(const theme of ['light','dark']){await page.evaluate(value=>document.documentElement.dataset.theme=value,theme);await page.screenshot({path:`../../.superpowers/sdd/2026-10-28-learning-site-s4/task-6-evidence/reader-collapsed-375-${theme}.png`,fullPage:true});}expect(writes).toEqual([]);expect((await(await page.request.get('/__test/metrics')).json()).modelCalls).toBe(0);
+  for(const theme of ['light','dark']){await page.evaluate(value=>document.documentElement.dataset.theme=value,theme);await page.screenshot({path:testInfo.outputPath(`reader-collapsed-375-${theme}.png`),fullPage:true});}expect(writes).toEqual([]);expect((await(await page.request.get('/__test/metrics')).json()).modelCalls).toBe(modelCallsBefore);
 });
 
 test('keeps unconfirmed import classification immutable when the create acknowledgement is lost', async ({ page }) => {

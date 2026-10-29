@@ -47,7 +47,7 @@ for (const scenario of [
   });
 }
 
-test('link retries retain identity until intent changes and closing or account reset clears the choice', async ({ page }, testInfo) => {
+test('link retries retain unresolved identity until acknowledgement and explicit new actions reset intent', async ({ page }, testInfo) => {
   await newReader(page, 'link-retry');
   const requests: { key: string; body: Record<string, unknown>; documentId: string }[] = [];
   await page.route('**/api/v1/documents/links', async route => {
@@ -59,6 +59,7 @@ test('link retries retain identity until intent changes and closing or account r
   });
   const open = () => page.getByRole('button', { name: '添加链接', exact: true }).click();
   const save = () => page.getByRole('button', { name: '保存链接', exact: true }).click();
+  const retry = () => page.getByRole('button', { name: '重试本次保存', exact: true }).click();
   await open();
   await page.getByLabel('网页地址').fill('https://github.com/example/retry-intent');
   await page.getByLabel('链接标题').fill('Retry identity');
@@ -69,26 +70,36 @@ test('link retries retain identity until intent changes and closing or account r
   await page.setViewportSize(viewport);
   await save();
   await expect(page.getByRole('alert')).toBeVisible();
-  await save();
+  await expect(page.getByLabel('本次不自动翻译')).toBeDisabled();
+  await retry();
   await expect.poll(() => requests.length).toBe(2);
   await expect(page.getByRole('alert')).toBeVisible();
   expect(requests[1]).toEqual(requests[0]);
   expect(requests[0].body.translationIntent).toBe('auto');
+  await expect(page.getByLabel('本次不自动翻译')).toBeDisabled();
+  await page.getByRole('dialog').locator('form').getByRole('button', { name: '关闭', exact: true }).click();
+  await open();
+  await retry();
+  await expect(page.getByRole('dialog')).toBeHidden();
+  expect(requests[2]).toEqual(requests[0]);
+  await open();
+  await page.getByLabel('网页地址').fill('https://github.com/example/retry-intent');
+  await page.getByLabel('链接标题').fill('Retry identity');
   await page.getByLabel('本次不自动翻译').check();
   await save();
   await expect(page.getByRole('dialog')).toBeHidden();
-  expect(requests[2].key).not.toBe(requests[0].key);
-  expect(requests[2].body.translationIntent).toBe('none');
-  expect(requests[2].documentId).toBe(requests[0].documentId);
+  expect(requests[3].key).not.toBe(requests[0].key);
+  expect(requests[3].body.translationIntent).toBe('none');
+  expect(requests[3].documentId).toBe(requests[0].documentId);
   const session = await (await page.request.get('/api/v1/auth/session')).json();
   const headers = { Origin: origin, 'X-CSRF-Token': session.csrfToken, 'Idempotency-Key': requests[0].key };
   expect((await page.request.post('/api/v1/documents/links', { headers, data: requests[0].body })).status()).toBe(201);
-  expect((await page.request.post('/api/v1/documents/links', { headers, data: requests[2].body })).status()).toBe(409);
+  expect((await page.request.post('/api/v1/documents/links', { headers, data: requests[3].body })).status()).toBe(409);
   await open();
   await expect(page.getByLabel('本次不自动翻译')).not.toBeChecked();
   await page.getByLabel('本次不自动翻译').check();
   await page.getByLabel('网页地址').fill('https://github.com/private/draft');
-  await page.getByRole('button', { name: '取消', exact: true }).click();
+  await page.getByRole('dialog').locator('form').getByRole('button', { name: '关闭', exact: true }).click();
   await open();
   await expect(page.getByLabel('本次不自动翻译')).not.toBeChecked();
   await expect(page.getByLabel('网页地址')).toBeEmpty();

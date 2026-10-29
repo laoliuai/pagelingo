@@ -53,7 +53,7 @@ it('migrates_populated_s2_without_changing_pdf_rows and replays safely', async (
   await migrateDatabase(db); await migrateDatabase(db); await verifyDatabaseSchema(db);
   expect((await db.pool.query("SELECT id,checksum FROM schema_migrations WHERE id < '006' ORDER BY id")).rows).toEqual(before);
   expect((await db.pool.query('SELECT id,owner_id,kind,title,original_filename,current_source_version_id,current_reader_version_id,created_at,updated_at FROM documents')).rows).toEqual(pdfBefore);
-  expect((await db.pool.query('SELECT count(*)::int n FROM schema_migrations')).rows[0].n).toBe(7);
+  expect((await db.pool.query('SELECT id FROM schema_migrations ORDER BY id')).rows.map(row => row.id)).toEqual(expect.arrayContaining(['001-accounts', '002-providers', '003-documents', '004-user-management', '005-reader-bundles', '006-web-capture', '007-library-management', '008-source-adapters', '009-web-exports']));
   expect((await db.pool.query('SELECT count(*)::int n FROM web_worker_slots')).rows[0].n).toBe(2);
   expect((await db.pool.query('SELECT count(*)::int n FROM site_metadata')).rows[0].n).toBe(1);
   const w = await web(db,o), pdf = await import('../../src/documents/repository.js');
@@ -270,7 +270,15 @@ it('rejects cross-kind historical sources, PDF parses on Web sources, and unpair
   const db = await database(), f = await web(db), link = randomUUID(), a = randomUUID();
   await db.pool.query("INSERT INTO documents (id,owner_id,kind,title) VALUES ($1,$2,'paper','Link')",[link,f.o]);
   await db.pool.query("INSERT INTO assets (id,owner_id,document_id,object_key,sha256,bytes,media_type) VALUES ($1,$2,$3,'link-asset',repeat('a',64),1,'text/plain')",[a,f.o,link]);
-  await expect(db.pool.query("INSERT INTO source_versions (owner_id,document_id,asset_id,sha256,bytes) VALUES ($1,$2,$3,repeat('a',64),1)",[f.o,link,a])).rejects.toThrow();
+  const nonPdfSource = randomUUID(), pdfAsset = randomUUID(), pdfSource = randomUUID();
+  const paperParseId = `p_${createHash('sha256').update(pdfSource).digest('hex')}`;
+  await db.pool.query("INSERT INTO source_versions (id,owner_id,document_id,asset_id,sha256,bytes) VALUES ($1,$2,$3,$4,repeat('a',64),1)",[nonPdfSource,f.o,link,a]);
+  await expect(db.pool.query("INSERT INTO web_sources (owner_id,document_id,source_version_id,url,scope,content_fingerprint,snapshot_sha256) VALUES ($1,$2,$3,'https://example.com/paper','{}',repeat('b',64),repeat('c',64))",[f.o,link,nonPdfSource])).rejects.toThrow();
+  await expect(db.pool.query("INSERT INTO parse_runs (id,owner_id,document_id,source_version_id,ir_asset_id,ir_sha256,status,coverage,warnings) VALUES ($1,$2,$3,$4,$5,repeat('a',64),'complete','full','[]')",[f.p,f.o,link,nonPdfSource,a])).rejects.toThrow();
+  await db.pool.query("INSERT INTO assets (id,owner_id,document_id,object_key,sha256,bytes,media_type) VALUES ($1,$2,$3,'paper-pdf',repeat('b',64),1,'application/pdf')",[pdfAsset,f.o,link]);
+  await db.pool.query("INSERT INTO source_versions (id,owner_id,document_id,asset_id,sha256,bytes) VALUES ($1,$2,$3,$4,repeat('b',64),1)",[pdfSource,f.o,link,pdfAsset]);
+  await db.pool.query("INSERT INTO parse_runs (id,owner_id,document_id,source_version_id,ir_asset_id,ir_sha256,status,coverage,warnings) VALUES ($1,$2,$3,$4,$5,repeat('a',64),'complete','full','[]')",[paperParseId,f.o,link,pdfSource,a]);
+  expect((await db.pool.query('SELECT source_version_id FROM parse_runs WHERE owner_id=$1 AND document_id=$2',[f.o,link])).rows).toEqual([{source_version_id:pdfSource}]);
   await expect(db.pool.query("INSERT INTO parse_runs (id,owner_id,document_id,source_version_id,ir_asset_id,ir_sha256,status,coverage,warnings) VALUES ($1,$2,$3,$4,$5,repeat('a',64),'complete','full','[]')",[f.p,f.o,f.d,f.s,f.a])).rejects.toThrow();
   await expect(db.pool.query('UPDATE documents SET current_source_version_id=$1 WHERE id=$2',[f.s,f.d])).rejects.toThrow();
 });

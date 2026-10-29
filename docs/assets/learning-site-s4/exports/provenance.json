@@ -1,0 +1,26 @@
+[
+  {
+    "source": ".superpowers/sdd/2026-10-28-learning-site-s4/task-13-evidence/final-amended-site-output-01/document-downloads-exports-44aca-edgement-across-panel-close/private-download.png",
+    "copy": ".superpowers/sdd/2026-10-28-learning-site-s4/task-13-evidence/review-01/web-export-desktop.png",
+    "sha256": "87b2401ba9812c3c4a9d5a9e884536fdb49ab9e6e2b84fb9a23b122c10af8ce6",
+    "sourceMtimeNs": 1793233266396764233
+  },
+  {
+    "source": ".superpowers/sdd/2026-10-28-learning-site-s4/task-13-evidence/final-amended-site-output-01/document-downloads-exports-44aca-edgement-across-panel-close/mobile-private-download.png",
+    "copy": ".superpowers/sdd/2026-10-28-learning-site-s4/task-13-evidence/review-01/web-export-mobile-375.png",
+    "sha256": "30110bffd36291ebd9e1849dd1341baaf303c02feabcb303f878651d5b217740",
+    "sourceMtimeNs": 1793233268396763903
+  },
+  {
+    "source": ".superpowers/sdd/2026-10-28-learning-site-s4/task-13-evidence/final-amended-site-output-01/document-downloads-downloa-0636a--package-on-a-narrow-screen/mobile-original-downloads.png",
+    "copy": ".superpowers/sdd/2026-10-28-learning-site-s4/task-13-evidence/review-01/pdf-originals-mobile.png",
+    "sha256": "238cf256c34745ff00ec943b6e0d1d312d2a6f509eb2f408034e3a0664d9ede9",
+    "sourceMtimeNs": 1793233272684762852
+  },
+  {
+    "source": ".superpowers/sdd/2026-10-28-learning-site-s4/task-13-evidence/final-amended-site-output-01/web-progress-mobile-and-de-8e56b-lict-and-collapsed-warnings/web-reader-mobile-dark.png",
+    "copy": ".superpowers/sdd/2026-10-28-learning-site-s4/task-13-evidence/review-01/web-reader-mobile-dark.png",
+    "sha256": "bd928af941afd67cb780aaa304585d99fdcec308e685071779be0b80c01894ed",
+    "sourceMtimeNs": 1793233309196754338
+  }
+]

@@ -10,12 +10,12 @@ export async function assertIdentityNotRetired(client: PoolClient, ownerId: stri
   if (retired.rowCount) throw new ServiceError(409, 'DOCUMENT_RETIRED', 'Operation predates document retirement');
 }
 
-export type OperationKind = 'pdf-upload' | 'bundle-import-id' | 'web-capture-id' | 'bundle-import' | 'web-capture' | 'document-link' | 'web-job' | 'web-job-request';
+export type OperationKind = 'web-export' | 'pdf-upload' | 'bundle-import-id' | 'web-capture-id' | 'bundle-import' | 'web-capture' | 'document-link' | 'web-job' | 'web-job-request';
 export interface RequestScope { documentId: string; authVersion: number }
 /** These receipt hashes are separate from immutable semantic/SDK input hashes. */
 export function operationKeyDigest(kind: OperationKind, key: string, scope?: RequestScope): string {
   const identity = kind === 'pdf-upload' || kind === 'bundle-import' ? key : key.toLowerCase();
-  if (kind === 'web-job-request') {
+  if (kind === 'web-job-request' || kind === 'web-export') {
     if (!scope) throw new Error('Manual job receipt requires document and auth scope');
     return identityDigest(JSON.stringify([kind, scope.documentId.toLowerCase(), scope.authVersion, identity]));
   }

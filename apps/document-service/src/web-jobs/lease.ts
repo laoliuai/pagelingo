@@ -8,14 +8,14 @@ export async function claimWebJob(workerId: string, db: Database): Promise<JobLe
     const owner = (await client.query<{ id: string }>(`SELECT u.id FROM users u WHERE u.active
       AND EXISTS (SELECT 1 FROM web_jobs j WHERE j.owner_id=u.id AND j.auth_version=u.auth_version AND j.status='queued'
         AND (j.next_request_at IS NULL OR j.next_request_at<=clock_timestamp())
-        AND (j.kind='fetch-link' OR EXISTS (SELECT 1 FROM provider_profiles p WHERE p.owner_id=u.id AND p.revision=j.profile_revision AND p.key_id IS NOT NULL)))
+        AND (j.kind<>'translate' OR EXISTS (SELECT 1 FROM provider_profiles p WHERE p.owner_id=u.id AND p.revision=j.profile_revision AND p.key_id IS NOT NULL)))
       AND NOT EXISTS (SELECT 1 FROM web_jobs j WHERE j.owner_id=u.id AND j.status='running')
       ORDER BY u.id FOR UPDATE SKIP LOCKED LIMIT 1`)).rows[0];
     if (!owner) return null;
     const job = (await client.query<{ id: string }>(`SELECT j.id FROM web_jobs j WHERE owner_id=$1 AND status='queued'
       AND (next_request_at IS NULL OR next_request_at<=clock_timestamp())
       AND auth_version=(SELECT auth_version FROM users WHERE id=$1)
-      AND (kind='fetch-link' OR EXISTS (SELECT 1 FROM provider_profiles p WHERE p.owner_id=$1 AND p.revision=j.profile_revision AND p.key_id IS NOT NULL))
+      AND (kind<>'translate' OR EXISTS (SELECT 1 FROM provider_profiles p WHERE p.owner_id=$1 AND p.revision=j.profile_revision AND p.key_id IS NOT NULL))
       ORDER BY created_at,id LIMIT 1`, [owner.id])).rows[0];
     if (!job) return null;
     for (const slotId of [1,2]) {

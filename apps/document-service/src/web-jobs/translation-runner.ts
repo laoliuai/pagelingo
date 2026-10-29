@@ -1,3 +1,4 @@
+import { runWebExportJob } from '../web-exports/runner.js';
 import type { SourceTransport } from '../source-adapters/types.js';
 import { CheckpointConflictError, TranslationEngine, OpenAICompatibleProvider, type TranslationProvider } from '@pagelingo/translation-core';
 import type { RuntimeConfig } from '../config.js';
@@ -20,7 +21,7 @@ export interface WebJobDependencies {
 export async function runWebJob(lease: JobLease, deps: WebJobDependencies): Promise<void> {
   if ((deps.provider || deps.captureFetch || deps.sourceTransport) && deps.config.mode !== 'test') throw new Error('Test provider injection requires test mode');
   const sourceJob=lease.kind==='fetch-link' && !!(await deps.db.pool.query('SELECT 1 FROM source_requests WHERE owner_id=$1 AND job_id=$2',[lease.ownerId,lease.jobId])).rowCount;
-  if (deps.config.mode === 'test' && (lease.kind === 'translate' ? !deps.provider : sourceJob ? !deps.sourceTransport : !deps.captureFetch)) throw new Error('Test jobs require explicit mocks');
+  if (deps.config.mode === 'test' && lease.kind !== 'export-web' && (lease.kind === 'translate' ? !deps.provider : sourceJob ? !deps.sourceTransport : !deps.captureFetch)) throw new Error('Test jobs require explicit mocks');
   const controller = new AbortController();
   const signal = AbortSignal.any([deps.signal,controller.signal]);
   let checking: Promise<void> | undefined;
@@ -38,6 +39,7 @@ export async function runWebJob(lease: JobLease, deps: WebJobDependencies): Prom
     if (lease.kind === 'fetch-link') {
       await runFetchJob(lease, { ...deps, signal, onPublication: createCaptureJobScheduler() }); return;
     }
+    if (lease.kind === 'export-web') { await runWebExportJob(lease,{ ...deps,signal }); return; }
     const publicationDeps = { db: deps.db, store: deps.store, generationKind: deps.provider ? 'mock' as const : 'model' as const };
     let context = await loadPublication(lease.jobId, lease.ownerId, publicationDeps, guard);
     const resolveProfile = createJobProfileResolver({ db: deps.db, keyring: deps.config.keyring });
@@ -78,7 +80,7 @@ export async function runWebJob(lease: JobLease, deps: WebJobDependencies): Prom
   } catch (error) {
     await reconcileWebJobs(deps.db);
     if (!signal.aborted && !(error instanceof CheckpointConflictError)) {
-      try { await finishWebJob(lease,deps.db,'failed','TRANSLATION_FAILED'); }
+      try { await finishWebJob(lease,deps.db,'failed',lease.kind === 'export-web' ? (error instanceof Error && 'code' in error && error.code === 'BUNDLE_UNSUPPORTED_SOURCE' ? 'BUNDLE_UNSUPPORTED_SOURCE' : error instanceof Error && 'code' in error && error.code === 'EXPORT_TIMEOUT' ? 'EXPORT_TIMEOUT' : 'EXPORT_FAILED') : 'TRANSLATION_FAILED'); }
       catch (fence) { if (!(fence instanceof CheckpointConflictError)) throw fence; }
     }
   } finally {

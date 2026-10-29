@@ -12,6 +12,8 @@ export function VersionSelect({ descriptor, onSelect }: { descriptor: ReaderDesc
     queryFn: async ({ signal }) => readerVersionListSchema.parse(await apiRequest(`/api/v1/documents/${descriptor.documentId}/reader-versions?page=${page}`, { signal })), gcTime: 0 });
   const items = query.data?.items ?? [];
   return <>
+    <a href={`/api/v1/assets/${descriptor.source.assetId}/content?download=true`} download>下载所选版本 PDF 原件</a>
+    <a href={`/api/v1/documents/${descriptor.documentId}/readers/${descriptor.versionId}/bundle`} download>下载所选版本原始阅读包</a>
     <label className="reader-version-label">阅读版本 <select aria-label="阅读版本" value={descriptor.versionId} onChange={event => onSelect(event.target.value || undefined)}>
       <option value="">当前版本</option>
       {!items.some(item => item.id === descriptor.versionId) && <option value={descriptor.versionId}>正在阅读的版本</option>}

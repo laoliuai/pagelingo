@@ -22,3 +22,5 @@ export * from './language-words.js';
 export * from './library-management.js';
 export * from './source-details.js';
 export { webDocumentBundleManifestSchema, webDocumentBundleManifestShapeSchema, type WebDocumentBundleManifest } from './web-bundle.js';
+
+export * from './web-exports.js';

@@ -34,6 +34,8 @@ for (const [name, schema] of [
   ['source-reference', contracts.sourceReferenceSchema],
   ['source-versions', contracts.sourceVersionsSchema],
   ['devices', contracts.deviceDtoSchema],
+  ['web-exports', contracts.webExportSchema],
+  ['web-export-request', contracts.createWebExportRequestSchema],
   ['web-jobs', contracts.webJobSchema],
   ['web-job-list', contracts.webJobListSchema],
   ['web-job-list-query', contracts.webJobListQuerySchema],

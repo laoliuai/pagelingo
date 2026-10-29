@@ -11,6 +11,7 @@ const webCapturePredicate = `(document_id=$2 OR target_document_id=$2 OR id IN (
 const byDocument = 'document_id=$2';
 /** Retained material FK graph, including every historical version. Extend together
  * with purgePlan when adding source adapters/exports; orphan asset rows are not originals. */
+// Temporary web_exports outputs are deliberately excluded: expiry must not block restore.
 export const retainedAssetReferences: readonly { table: string; columns: readonly string[] }[] = [
   { table: 'source_versions', columns: ['asset_id'] },
   { table: 'source_acquisitions', columns: ['asset_id'] },
@@ -34,6 +35,7 @@ interface PurgeStep { table: string; predicate: string }
  * Mutable job result pointers are detached first, breaking the job/Reader cycle.
  * Global users, configuration, taxonomy, slots and backfill cursor are never deleted. */
 export const purgePlan: readonly PurgeStep[] = [
+  { table:'web_exports',predicate:byDocument },
   { table:'bundle_imports',predicate:capturePredicate },
   { table:'paper_reader_bindings',predicate:byDocument },
   { table:'github_versions',predicate:byDocument },
@@ -76,6 +78,7 @@ export const purgePlan: readonly PurgeStep[] = [
 ];
 // Cleanup needs identities and registered keys only, never manifest/checkpoint/Reader payloads.
 const retirementColumns: Readonly<Record<string, readonly string[]>> = {
+  web_exports: ['idempotency_key','auth_version'],
   source_requests: ['idempotency_key','auth_version'],
   ingestions: ['idempotency_key'],
   bundle_imports: ['id', 'idempotency_key', 'staging_key'],
@@ -91,7 +94,7 @@ export async function queueObject(client: PoolClient, task: PurgeRow, key: strin
   if (key) await client.query('INSERT INTO object_deletion_queue(owner_id,task_id,object_key,storage_kind) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING',[task.owner_id,task.id,key,kind]);
 }
 async function retire(client: PoolClient, task: PurgeRow, table: string, row: ContentRow, kind: OperationKind, key: string) {
-  const digest = operationKeyDigest(kind,key,kind === 'web-job-request' ? { documentId:task.document_id,authVersion:Number(row.auth_version) } : undefined);
+  const digest = operationKeyDigest(kind,key,kind === 'web-job-request' || kind === 'web-export' ? { documentId:task.document_id,authVersion:Number(row.auth_version) } : undefined);
   // accepted_at is copied in SQL, preserving its exact database precision.
   await client.query(`INSERT INTO retired_operations(owner_id,operation_kind,key_digest,document_id,accepted_at,retired_at)
     SELECT $1,$3,$4,$2,r.created_at,t.purged_at FROM ${table} r JOIN document_tombstones t ON(t.owner_id,t.document_id)=($1,$2)
@@ -99,6 +102,9 @@ async function retire(client: PoolClient, task: PurgeRow, table: string, row: Co
 }
 async function beforeDelete(client: PoolClient, task: PurgeRow, table: string, row: ContentRow) {
   const key = String(row.idempotency_key);
+  if (table==='web_exports') {
+    await retire(client,task,table,row,'web-export',key);
+  }
   if (table==='source_requests') await client.query(`INSERT INTO retired_operations(owner_id,operation_kind,key_digest,document_id,accepted_at,retired_at)
     SELECT $1,'source-request',$3,$2,r.created_at,t.purged_at FROM source_requests r JOIN document_tombstones t ON(t.owner_id,t.document_id)=($1,$2)
     WHERE r.owner_id=$1 AND r.ctid=$4::tid ON CONFLICT DO NOTHING`, [task.owner_id,task.document_id,sourceRequestDigest(task.document_id,Number(row.auth_version),key),row.row_tid]);

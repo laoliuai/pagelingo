@@ -13,12 +13,12 @@ async function database() {
 }
 
 describe('PostgreSQL persistence', () => {
-  it('records seven migrations and does not replay them', async () => {
+  it('records released and required migrations and does not replay them', async () => {
     const db = await database();
     await migrateDatabase(db);
     await db.pool.query("INSERT INTO users (username, password_hash, role) VALUES ('alice', 'hash', 'user')");
     await migrateDatabase(db);
-    expect((await db.pool.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n).toBe(7);
+    expect((await db.pool.query('SELECT id FROM schema_migrations ORDER BY id')).rows.map(row => row.id)).toEqual(expect.arrayContaining(['001-accounts', '002-providers', '003-documents', '004-user-management', '005-reader-bundles', '006-web-capture', '007-library-management', '008-source-adapters', '009-web-exports']));
     expect((await db.pool.query('SELECT username FROM users')).rows[0].username).toBe('alice');
   });
   it('rejects a changed checksum', async () => {
@@ -47,7 +47,7 @@ describe('PostgreSQL persistence', () => {
   it('serializes concurrent migration attempts on the same schema', async () => {
     const db = await database();
     await Promise.all(Array.from({ length: 5 }, () => migrateDatabase(db)));
-    expect((await db.pool.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n).toBe(7);
+    expect((await db.pool.query('SELECT id FROM schema_migrations ORDER BY id')).rows.map(row => row.id)).toEqual(expect.arrayContaining(['001-accounts', '002-providers', '003-documents', '004-user-management', '005-reader-bundles', '006-web-capture', '007-library-management', '008-source-adapters', '009-web-exports']));
   });
   it('defaults new ingestions to receiving for stale-upload recovery', async () => {
     const db = await database();

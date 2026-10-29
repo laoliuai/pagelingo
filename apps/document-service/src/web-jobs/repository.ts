@@ -6,6 +6,7 @@ import { CheckpointConflictError, type CacheEntry, type TranslationCheckpoint } 
 interface JobIdentity { jobId: string; ownerId: string; authVersion: number; epoch: number; leaseOwner: string; leaseUntil: Date; slotId: number; slotEpoch: number; documentId: string; documentEpoch: number }
 export type JobLease = JobIdentity & (
   { kind: 'fetch-link'; url: string } |
+  { kind: 'export-web'; sourceVersionId: string; parseId: string; exportId: string } |
   { kind: 'translate'; sourceVersionId: string; parseId: string; profileRevision: number; glossaryRevision: number }
 );
 export type WebJobInput = { id: string; ownerId: string; authVersion: number; documentId: string; inputSha256: string } & (
@@ -13,7 +14,7 @@ export type WebJobInput = { id: string; ownerId: string; authVersion: number; do
   { kind: 'translate'; sourceVersionId: string; parseId: string; profileRevision: number; glossaryRevision: number; sourceLanguage: string | null; selectionBlockIds: string[] | null; requestId?: string }
 );
 export interface WebJobRow {
-  id: string; owner_id: string; document_id: string; document_epoch: string; auth_version: number; kind: 'fetch-link' | 'translate';
+  id: string; owner_id: string; document_id: string; document_epoch: string; auth_version: number; kind: 'fetch-link' | 'translate' | 'export-web';
   input_sha256: string; url: string | null; source_version_id: string | null; parse_id: string | null;
   request_id: string | null;
   profile_revision: number | null; glossary_revision: number | null; source_language: string | null; selection_block_ids: string[] | null;
@@ -68,6 +69,11 @@ export async function startWebJobLease(client: PoolClient, input: { ownerId: str
   const updated = (await client.query<WebJobRow>(`UPDATE web_jobs SET status='running',epoch=epoch+1,lease_owner=$3,lease_until=$4,slot_id=$5,slot_epoch=$6,updated_at=clock_timestamp()
     WHERE owner_id=$1 AND id=$2 RETURNING *`, [input.ownerId,input.jobId,input.leaseOwner,until,input.slotId,epoch])).rows[0]!;
   const identity: JobIdentity = { jobId: updated.id, ownerId: updated.owner_id, authVersion: updated.auth_version, epoch: Number(updated.epoch), leaseOwner: input.leaseOwner, leaseUntil: until, slotId: input.slotId, slotEpoch: epoch, documentId: updated.document_id, documentEpoch: Number(updated.document_epoch) };
+  if (updated.kind === 'export-web') {
+    const exported = (await client.query<{ id: string }>('SELECT id FROM web_exports WHERE owner_id=$1 AND job_id=$2 AND source_version_id=$3 AND parse_id=$4', [updated.owner_id, updated.id, updated.source_version_id, updated.parse_id])).rows[0];
+    if (!exported) throw conflict();
+    return { ...identity, kind: 'export-web', sourceVersionId: updated.source_version_id!, parseId: updated.parse_id!, exportId: exported.id };
+  }
   return updated.kind === 'fetch-link' ? { ...identity, kind: 'fetch-link', url: updated.url! } : {
     ...identity, kind: 'translate', sourceVersionId: updated.source_version_id!, parseId: updated.parse_id!, profileRevision: updated.profile_revision!, glossaryRevision: updated.glossary_revision!,
   };
@@ -85,7 +91,9 @@ export async function assertJobLeaseCurrent(client: PoolClient, lease: JobLease)
   if (!slot || !job || slot.owner_id !== lease.ownerId || slot.job_id !== lease.jobId || Number(slot.epoch) !== lease.slotEpoch || slot.lease_owner !== lease.leaseOwner || !slot.lease_until || slot.lease_until <= now ||
     job.status !== 'running' || job.auth_version !== lease.authVersion || Number(job.epoch) !== lease.epoch || job.lease_owner !== lease.leaseOwner || !job.lease_until || job.lease_until <= now || job.slot_id !== lease.slotId || Number(job.slot_epoch) !== lease.slotEpoch || job.document_id !== lease.documentId || job.kind !== lease.kind || Number(job.document_epoch) !== lease.documentEpoch) throw conflict();
   if (lease.kind === 'fetch-link') { if (job.url !== lease.url) throw conflict(); }
-  else {
+  else if (lease.kind === 'export-web') {
+    if (job.source_version_id !== lease.sourceVersionId || job.parse_id !== lease.parseId || !(await client.query('SELECT 1 FROM web_exports WHERE owner_id=$1 AND id=$2 AND job_id=$3 AND document_epoch=$4', [lease.ownerId, lease.exportId, lease.jobId, lease.documentEpoch])).rowCount) throw conflict();
+  } else {
     if (job.source_version_id !== lease.sourceVersionId || job.parse_id !== lease.parseId || job.profile_revision !== lease.profileRevision || job.glossary_revision !== lease.glossaryRevision) throw conflict();
     if (!(await client.query('SELECT 1 FROM provider_profiles WHERE owner_id=$1 AND revision=$2', [lease.ownerId,lease.profileRevision])).rowCount) throw conflict();
   }

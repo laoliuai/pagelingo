@@ -244,6 +244,7 @@ export function createWebJobsService({ db, store }: { db: Database; store: Objec
       const result = await owned(actor, async (c) => {
         await assertOperationNotRetired(c, actor.userId, 'web-job', id);
         const row = await currentJob(c, actor, id);
+        if (row.kind === 'export-web') throw new ServiceError(409,'EXPORT_TERMINAL','Start a new export action');
         await assertDocumentActive(c, actor.userId, row.document_id, Number(row.document_epoch));
         const profile = await findProviderProfile(c, actor.userId);
         if (

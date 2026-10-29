@@ -1,3 +1,4 @@
+import { registerWebExportsRoutes } from './web-exports/routes.js';
 import { registerSourceAdapterRoutes } from './source-adapters/routes.js';
 import { registerDocumentLifecycleRoutes } from './document-lifecycle/routes.js';
 import { registerGlossaryRoutes } from './glossary/routes.js';
@@ -57,6 +58,7 @@ export async function createApp({ db, config, outboundFetch }: AppOptions): Prom
   registerReadersRoutes(app, store);
   registerGlossaryRoutes(app);
   registerWebJobsRoutes(app, store);
+  registerWebExportsRoutes(app, store);
   registerWebCapturesRoutes(app, store, createCaptureJobScheduler());
   registerDocumentLinksRoutes(app);
   registerSourceAdapterRoutes(app, store);

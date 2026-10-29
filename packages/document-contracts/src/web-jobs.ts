@@ -19,7 +19,7 @@ export const createWebJobRequestSchema = z.strictObject({
 });
 export type CreateWebJobRequest = z.infer<typeof createWebJobRequestSchema>;
 export const webJobSchema = z.strictObject({
-  id: z.uuid(), documentId: z.uuid(), kind: z.enum(['fetch-link', 'translate']), status: webJobStatusSchema,
+  id: z.uuid(), documentId: z.uuid(), kind: z.enum(['fetch-link', 'translate', 'export-web']), status: webJobStatusSchema,
   sourceVersionId: z.uuid().nullable(), parseId: parseIdSchema.nullable(), profileRevision: safeNonnegativeIntegerSchema.nullable(), glossaryRevision: safeNonnegativeIntegerSchema.nullable(),
   /** Immutable resolved job input: null selection means the entire source. Adapters
    * validate membership and canonicalize selection against the immutable IR. */
