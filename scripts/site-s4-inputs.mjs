@@ -7,6 +7,13 @@ const MiB = 1024 * 1024;
 const limits = { html: 8 * MiB, image: 16 * MiB, css: 16 * MiB, json: 16 * MiB, text: MiB, pdf: 256 * MiB, bundle: 256 * MiB };
 const digest = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
 const text = value => typeof value === 'string' && value.length > 0;
+const headerValue = value => text(value) && value.length <= 256 && /^[\x20-\x7e]+$/.test(value);
+const primaryResponses = {
+  html: { accept: 'text/html', mediaTypes: ['text/html', 'application/xhtml+xml'] },
+  github: { accept: 'application/vnd.github+json', mediaTypes: ['application/json', 'application/vnd.github+json'] },
+  arxiv: { accept: 'application/atom+xml', mediaTypes: ['application/atom+xml', 'application/xml', 'text/xml'] },
+  bundle: { accept: 'application/zip', mediaTypes: ['application/zip', 'application/x-zip-compressed'] },
+};
 function sourceUrl(value) {
   assert(text(value) && value.length <= 8192, 'Source URL required');
   const url = new URL(value);
@@ -78,6 +85,13 @@ export async function preflight(samplePath, outputPath, { requireUpgradeBaseline
     assert(typeof sample.id === 'string' && /^[a-z0-9-]{1,80}$/.test(sample.id) && !ids.has(sample.id), 'Unique sample id required'); ids.add(sample.id);
     assert(['synthetic', 'cached-public', 'live-public'].includes(sample.kind), 'Explicit sample kind required');
     assert(['html', 'github', 'arxiv', 'bundle'].includes(sample.format), 'Supported sample format required');
+    const response = primaryResponses[sample.format];
+    if (sample.accept !== undefined) {
+      assert(headerValue(sample.accept) && sample.accept === response.accept, 'Primary response Accept must match the declared format');
+    }
+    if (sample.mediaType !== undefined) {
+      assert(headerValue(sample.mediaType) && response.mediaTypes.includes(sample.mediaType.split(';')[0].trim().toLowerCase()), 'Primary response media type must match the declared format');
+    }
     sourceUrl(sample.url);
     if (sample.responseUrl !== undefined) sourceUrl(sample.responseUrl);
     assert(text(sample.version), 'Fixed source version required');
@@ -96,6 +110,7 @@ export async function preflight(samplePath, outputPath, { requireUpgradeBaseline
         assert(text(resource.accept) && Object.hasOwn(responseLimits, resource.accept), 'Explicit supported GitHub response Accept required');
         assert(resourceInput.bytes <= responseLimits[resource.accept], 'GitHub response file limit exceeded');
       }
+      if (resource.accept !== undefined) assert(headerValue(resource.accept), 'Resource response Accept must be a scalar HTTP header');
       resources.push({ ...resource, input: resourceInput }); sampleBytes += resourceInput.bytes; origins.add(new URL(resource.url).origin);
     }
     if (['html', 'github'].includes(sample.format)) assert(sample.resources.length + 1 <= 256 && sampleBytes <= 64 * MiB && origins.size <= 16, 'Capture file/total/origin limit exceeded');

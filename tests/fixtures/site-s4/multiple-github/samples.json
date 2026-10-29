@@ -1,0 +1,135 @@
+{
+  "schemaVersion": "pagelingo-site-s4-samples/1",
+  "samples": [
+    {
+      "id": "released-s2",
+      "kind": "synthetic",
+      "format": "bundle",
+      "url": "https://example.com/released-s2",
+      "version": "renderer-0.1.0",
+      "file": "../../../../packages/document-bundle/tests/fixtures/s2-final/reader.zip",
+      "sha256": "4bb9c04d33dd57a43e64b21f2921b916fb2c451ced57a73f75cacf9e9712c136",
+      "capturedAt": "2026-10-29T00:00:00Z",
+      "expected": {
+        "scope": "Released synthetic PDF bundle",
+        "contains": []
+      },
+      "unverified": [
+        "Real site material and semantic translation quality"
+      ],
+      "resources": []
+    },
+    {
+      "id": "github-one",
+      "kind": "synthetic",
+      "format": "github",
+      "url": "https://github.com/s4-fixture/repository-one",
+      "responseUrl": "https://api.github.com/repos/s4-fixture/repository-one",
+      "accept": "application/vnd.github+json",
+      "mediaType": "application/json",
+      "version": "1111111111111111111111111111111111111111",
+      "file": "one-repository.json",
+      "sha256": "6533da8d39ad65c558a6d102f2ce523f58dd5867daff5ff9ee3098998472fb34",
+      "capturedAt": "2026-10-29T02:21:00Z",
+      "expected": {
+        "scope": "Synthetic independent GitHub identity and actual owned job pipeline",
+        "contains": [
+          "Synthetic repository one original."
+        ]
+      },
+      "unverified": [
+        "No public network acquisition or semantic model quality"
+      ],
+      "resources": [
+        {
+          "file": "one-commit.txt",
+          "sha256": "468d019ea81224aeca7ee270b11959d8a187f6f0b6a3febff1c34dc1d66c8d85",
+          "role": "text",
+          "mediaType": "text/plain",
+          "url": "https://api.github.com/repos/s4-fixture/repository-one/commits/main",
+          "accept": "application/vnd.github.sha"
+        },
+        {
+          "file": "one-descriptor.json",
+          "sha256": "bc5815f67d9d11736a4fbc99426ef00105b3670de957328a5592c852327a8e17",
+          "role": "json",
+          "mediaType": "application/json",
+          "url": "https://api.github.com/repos/s4-fixture/repository-one/readme?ref=1111111111111111111111111111111111111111",
+          "accept": "application/vnd.github+json"
+        },
+        {
+          "file": "one-readme.raw",
+          "sha256": "a6a341b27762b602e88374599787fd2470d405000ac72820fe7a62287501a70e",
+          "role": "text",
+          "mediaType": "text/plain",
+          "url": "https://api.github.com/repos/s4-fixture/repository-one/readme?ref=1111111111111111111111111111111111111111",
+          "accept": "application/vnd.github.raw+json"
+        },
+        {
+          "file": "one-readme.html",
+          "sha256": "3c33a0e4d1b94c5a80742b36bcdc135e5920b600cd15ea96b27363e10552cb87",
+          "role": "html",
+          "mediaType": "text/html",
+          "url": "https://api.github.com/repos/s4-fixture/repository-one/readme?ref=1111111111111111111111111111111111111111",
+          "accept": "application/vnd.github.html+json"
+        }
+      ]
+    },
+    {
+      "id": "github-two",
+      "kind": "synthetic",
+      "format": "github",
+      "url": "https://github.com/s4-fixture/repository-two",
+      "responseUrl": "https://api.github.com/repos/s4-fixture/repository-two",
+      "accept": "application/vnd.github+json",
+      "mediaType": "application/json",
+      "version": "2222222222222222222222222222222222222222",
+      "file": "two-repository.json",
+      "sha256": "a34b1f1310c51b3128b43124791e0a3f2ac91ee785d7cef71e9c48022695d715",
+      "capturedAt": "2026-10-29T02:21:00Z",
+      "expected": {
+        "scope": "Synthetic independent GitHub identity and actual owned job pipeline",
+        "contains": [
+          "Synthetic repository two original."
+        ]
+      },
+      "unverified": [
+        "No public network acquisition or semantic model quality"
+      ],
+      "resources": [
+        {
+          "file": "two-commit.txt",
+          "sha256": "79396ef8980b554cb66116d8c775a13c499189f5681b6d3a2efd2df8990afc55",
+          "role": "text",
+          "mediaType": "text/plain",
+          "url": "https://api.github.com/repos/s4-fixture/repository-two/commits/main",
+          "accept": "application/vnd.github.sha"
+        },
+        {
+          "file": "two-descriptor.json",
+          "sha256": "0583772d3a4824793f76fe7e475ca103f5629dfa5a09bfa50a3143119a0d1faa",
+          "role": "json",
+          "mediaType": "application/json",
+          "url": "https://api.github.com/repos/s4-fixture/repository-two/readme?ref=2222222222222222222222222222222222222222",
+          "accept": "application/vnd.github+json"
+        },
+        {
+          "file": "two-readme.raw",
+          "sha256": "1fbeb6687a9a99a82b581e38d67cfaa4b65df664582e728e42e760913e9dbd0f",
+          "role": "text",
+          "mediaType": "text/plain",
+          "url": "https://api.github.com/repos/s4-fixture/repository-two/readme?ref=2222222222222222222222222222222222222222",
+          "accept": "application/vnd.github.raw+json"
+        },
+        {
+          "file": "two-readme.html",
+          "sha256": "6aebfe3febaa6e9237a4b6a9c1947d9b234d700f2efd87dee23eff78b3ded2bd",
+          "role": "html",
+          "mediaType": "text/html",
+          "url": "https://api.github.com/repos/s4-fixture/repository-two/readme?ref=2222222222222222222222222222222222222222",
+          "accept": "application/vnd.github.html+json"
+        }
+      ]
+    }
+  ]
+}

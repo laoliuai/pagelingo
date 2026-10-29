@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, writeFile, mkdir, rm, symlink, link, truncate, stat } from 'node:fs/promises';
+import { mkdtemp, writeFile, mkdir, rm, symlink, link, truncate, stat, readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { preflight } from '../../scripts/site-s4-inputs.mjs';
 const hash = data => createHash('sha256').update(data).digest('hex');
@@ -121,5 +121,69 @@ for (const field of ['role', 'accept']) test(`rejects array resource ${field} be
   f.sample.resources = [resource]; await f.save();
   const result = run(['--samples', f.path, '--output', f.output]);
   assert.equal(result.status, 1); assert.match(result.stderr, field === 'role' ? /Supported input role/ : /supported GitHub response Accept/);
+  assert.equal(await stat(f.output).catch(() => null), null);
+});
+
+const primaryMetadata = {
+  html: { accept: 'text/html', mediaType: 'text/html; charset=utf-8' },
+  github: { accept: 'application/vnd.github+json', mediaType: 'application/json; charset=utf-8' },
+  arxiv: { accept: 'application/atom+xml', mediaType: 'application/atom+xml; charset=utf-8' },
+  bundle: { accept: 'application/zip', mediaType: 'application/zip' },
+};
+async function withReleasedBaseline(t, format) {
+  const f = await fixture(t);
+  const directory = resolve('tests/fixtures/site-s4');
+  const declared = JSON.parse(await readFile(join(directory, 'samples.json'), 'utf8')).samples;
+  const baseline = declared.find(sample => sample.id === 'released-s2');
+  f.declaration.samples.push({ ...baseline, file: resolve(directory, baseline.file) });
+  Object.assign(f.sample, { format, ...primaryMetadata[format] });
+  if (format === 'bundle') {
+    const other = declared.find(sample => sample.id === 'released-s3');
+    Object.assign(f.sample, { file: resolve(directory, other.file), sha256: other.sha256 });
+  }
+  await f.save();
+  const admitted = await preflight(f.path, f.output, { requireUpgradeBaseline: true });
+  assert(admitted.upgradeBaselineId);
+  assert(admitted.samples.find(sample => sample.id === 'released-s2').bundle);
+  return f;
+}
+for (const format of Object.keys(primaryMetadata)) {
+  for (const field of ['accept', 'mediaType']) {
+    for (const malformed of ['non-scalar', 'wrong-format']) {
+      test(`rejects ${format} primary ${field} ${malformed} with a validated baseline before side effects`, async t => {
+        const f = await withReleasedBaseline(t, format);
+        f.sample[field] = malformed === 'wrong-format' ? 'image/png' : field === 'accept' ? [f.sample.accept] : {};
+        await f.save();
+        const expected = field === 'accept' ? /Primary response Accept/ : /Primary response media type/;
+        // RED stops here: no malformed declaration ever launches the owned runner.
+        await assert.rejects(preflight(f.path, f.output, { requireUpgradeBaseline: true }), expected);
+        const result = run(['--samples', f.path, '--output', f.output]);
+        assert.equal(result.status, 1); assert.match(result.stderr, expected);
+        assert.equal(await stat(f.output).catch(() => null), null);
+      });
+    }
+  }
+}
+for (const field of ['accept', 'mediaType']) {
+  for (const malformed of ['', 'text/html\r\nX-Untrusted: value']) {
+    test(`rejects invalid primary ${field} header ${JSON.stringify(malformed)} before side effects`, async t => {
+      const f = await withReleasedBaseline(t, 'html');
+      f.sample[field] = malformed; await f.save();
+      const expected = field === 'accept' ? /Primary response Accept/ : /Primary response media type/;
+      await assert.rejects(preflight(f.path, f.output, { requireUpgradeBaseline: true }), expected);
+      const result = run(['--samples', f.path, '--output', f.output]);
+      assert.equal(result.status, 1); assert.match(result.stderr, expected);
+      assert.equal(await stat(f.output).catch(() => null), null);
+    });
+  }
+}
+test('rejects non-scalar optional resource Accept outside GitHub API before side effects', async t => {
+  const f = await withReleasedBaseline(t, 'html');
+  await writeFile(join(f.root, 'resource'), 'x');
+  f.sample.resources = [{ file: 'resource', sha256: hash('x'), role: 'text', mediaType: 'text/plain', url: 'https://example.com/resource', accept: ['text/plain'] }];
+  await f.save();
+  await assert.rejects(preflight(f.path, f.output, { requireUpgradeBaseline: true }), /Resource response Accept/);
+  const result = run(['--samples', f.path, '--output', f.output]);
+  assert.equal(result.status, 1); assert.match(result.stderr, /Resource response Accept/);
   assert.equal(await stat(f.output).catch(() => null), null);
 });

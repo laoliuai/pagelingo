@@ -180,10 +180,10 @@ try {
       if (sample.kind === 'synthetic' && sample.format === 'arxiv') owner = other;
       const previous=sample.format==='arxiv'&&report.samples.find(s=>s!==evidence&&s.format==='arxiv'&&s.documentId&&s.version.replace(/v\d+$/, '')===sample.version.replace(/v\d+$/, ''));
       const accepted=previous?await json(`/api/v1/documents/${previous.documentId}/source-refresh`,{method:'POST',body:{ref:sample.version,translationIntent:'none'},headers:{'Idempotency-Key':randomUUID()}},202):await json('/api/v1/documents/links',{method:'POST',body:{url:sample.url,translationIntent:'none'},headers:{'Idempotency-Key':randomUUID()}},201);
-      const documentId=previous?.documentId??accepted.documentId; evidence.documentId=documentId; evidence.format=sample.format;
+      const documentId=previous?.documentId??accepted.documentId; evidence.documentId=documentId; evidence.format=sample.format; evidence.jobId=accepted.jobId;
       if(sample.format==='github'&&!report.interruptions.some(item=>item.kind==='acquisition')) {
         const task=childProcess('hold-acquisition',sample), held=await task.wait('held'); const acquired=(await db.pool.query('SELECT id,role,sha256,bytes FROM source_acquisitions WHERE job_id=$1',[accepted.jobId])).rows; assert(acquired.length>0); await stop(task.child,'SIGKILL'); await expireLeases();
-        report.interruptions.push({kind:'acquisition',pid:task.child.pid,boundary:held.boundary,acquired});
+        report.interruptions.push({kind:'acquisition',sampleId:sample.id,jobId:accepted.jobId,pid:task.child.pid,boundary:held.boundary,acquired});
       }
       await run('job',sample);
       // arXiv's shared limiter may defer between the two durable material requests.
@@ -192,9 +192,19 @@ try {
       const details=await json(`/api/v1/documents/${documentId}/source-details`); evidence.details=details;
       evidence.acquisitions=(await db.pool.query('SELECT id,role,sha256,bytes FROM source_acquisitions WHERE job_id=$1 ORDER BY role',[accepted.jobId])).rows;
       if(sample.format==='github') {
-        const interrupted=report.interruptions.find(item=>item.kind==='acquisition');
-        for(const retained of interrupted?.acquired??[])assert(evidence.acquisitions.some(row=>row.id===retained.id&&row.sha256===retained.sha256&&row.bytes===retained.bytes));
-        const reads=report.processes.flatMap(process=>process.messages).filter(message=>message.type==='source-read'&&message.url===sample.responseUrl);assert.equal(reads.length,1,'Durable acquired repository response must not be fetched again after restart');
+        const interrupted = report.interruptions.find(item => item.kind === 'acquisition'
+          && item.sampleId === sample.id && item.jobId === accepted.jobId);
+        for (const retained of interrupted?.acquired ?? []) {
+          assert(evidence.acquisitions.some(row => row.id === retained.id
+            && row.sha256 === retained.sha256 && row.bytes === retained.bytes));
+        }
+        const jobProcesses = report.processes.filter(process => process.messages.some(message =>
+          message.type === 'lease' && message.lease?.jobId === accepted.jobId));
+        const reads = jobProcesses.flatMap(process => process.messages).filter(message =>
+          message.type === 'source-read' && message.url === sample.responseUrl);
+        assert.equal(reads.length, 1, 'Each source job reads its repository once, including after interruption');
+        evidence.repositoryReadCount = reads.length;
+        evidence.reusedAcquisitionIds = interrupted?.acquired.map(row => row.id) ?? [];
       }
       const sourcePage = owner === other ? otherPage : page;
       await sourcePage.goto(origin+'/library/'+documentId);
