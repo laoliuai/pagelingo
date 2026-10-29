@@ -87,9 +87,9 @@ export async function addOriginalCapture(f: Awaited<ReturnType<typeof webFixture
   }
   const manifest = canonicalManifestBytes(original), request = canonicalManifestBytes({ manifest: original, translationIntent: 'none' });
   add('originals/capture/manifest.json', manifest, 'application/json'); add('originals/capture/request.json', request, 'application/json');
-  for (const file of original.files) add(`originals/capture/files/${file.path}`, file.id === original.htmlFileId ? raw : f.files.get(`source/${file.path}`)!, file.mediaType);
+  for (const [ordinal, file] of original.files.entries()) add(`originals/capture/files/${ordinal}`, file.id === original.htmlFileId ? raw : f.files.get(`source/${file.path}`)!, file.mediaType);
   Object.assign(f.manifest, { originals: { capture: { manifestSha256: hash(manifest), requestSha256: hash(request), admissionKind: 'upload' } } });
   if (f.translation?.generationKind === 'import') f.files.delete('source/candidate.json');
   f.files.set('manifest.json', json(f.manifest));
-  return { original, raw, htmlPath: `originals/capture/files/${html.path}` };
+  return { original, raw, htmlPath: `originals/capture/files/${original.files.indexOf(html)}` };
 }

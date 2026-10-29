@@ -315,7 +315,7 @@ it.each([false, true])('exports partial imported translations and their selected
   if (retained) {
     expect(saved.sourceVersionId).toBe(originalSource);
     expect(validated.manifest.originals).toHaveProperty('readerCapture.sharedFiles', expect.arrayContaining([{ id: 'html', sourceFileId: 'html' }]));
-    const raw=[]; for await (const chunk of source.read('originals/reader-capture/files/translation.json')) raw.push(Buffer.from(chunk));
+    const raw=[]; for await (const chunk of source.read(`originals/reader-capture/files/${captured.manifest.files.findIndex(file => file.id === 'translation')}`)) raw.push(Buffer.from(chunk));
     expect(Buffer.concat(raw)).toEqual(captured.translation);
   }
   const registered=(await t.db.pool.query('SELECT a.* FROM web_translation_runs t JOIN assets a ON a.id=t.translation_asset_id WHERE t.document_id=$1',[saved.documentId])).rows[0];
@@ -344,7 +344,7 @@ it('treats capture local IDs as data and safely encodes a non-BMP download title
   const state=await t.request(`${base}/${created.json().id}`); expect(state.json().status).toBe('completed');
   const file=await t.request(`${base}/${created.json().id}/file`); expect(file.statusCode).toBe(200); expect(file.headers['content-disposition']).toContain('%F0%9F%98%80');
 });
-it.each(['historical', 'new', 'uppercase-target'])('exports exact original upload bytes and admission manifest as inert attachments: %s', async mode => {
+it.each(['historical', 'new', 'uppercase-target', 'long-path'])('exports exact original upload bytes and admission manifest as inert attachments: %s', async mode => {
   const { capture } = await import('../helpers/web-capture.js');
   const { canonicalManifestBytes } = await import('@pagelingo/web-capture');
   const { writeFile } = await import('node:fs/promises'); const { join } = await import('node:path');
@@ -352,6 +352,7 @@ it.each(['historical', 'new', 'uppercase-target'])('exports exact original uploa
   const { defaultBundleLimits } = await import('@pagelingo/document-contracts');
   const t = await jobFixture(); closes.push(t.close);
   const original = capture('<article><script>window.originalMustNeverExecute=1</script><p>Retained exact original content.</p></article>');
+  if (mode === 'long-path') original.manifest.files[0]!.path = 'a'.repeat(215) + '.html';
   let targetDocumentId: string | undefined;
   if (mode === 'uppercase-target') {
     const previous = await t.save(1); targetDocumentId = previous.documentId.toUpperCase();
@@ -378,8 +379,24 @@ it.each(['historical', 'new', 'uppercase-target'])('exports exact original uploa
   expect(validated.manifest).toHaveProperty('originals.capture');
   expect(await read('originals/capture/manifest.json')).toEqual(Buffer.from(canonicalManifestBytes(original.manifest)));
   expect(await read('originals/capture/request.json')).toEqual(Buffer.from(canonicalManifestBytes(request)));
-  expect(await read('originals/capture/files/source.html')).toEqual(original.body);
+  expect(await read('originals/capture/files/0')).toEqual(original.body);
   expect(await read(`source/${validated.source.files.find(f => f.id === validated.source.htmlFileId)!.path}`)).not.toEqual(original.body);
+  if (mode === 'long-path') {
+    expect(original.manifest.files[0]!.path.length).toBe(220);
+    expect(validated.manifest.files.every(file => Buffer.byteLength(file.path) <= defaultBundleLimits.maxPathBytes)).toBe(true);
+    expect(validated.manifest.files.find(file => file.path === 'originals/capture/files/0')?.sha256).toBe(original.manifest.files[0]!.sha256);
+    const evidenceRoot = process.env.PAGELINGO_TEST_OUTPUT_ROOT;
+    if (evidenceRoot) {
+      const { mkdir } = await import('node:fs/promises'); const { createHash } = await import('node:crypto');
+      await mkdir(evidenceRoot, { recursive: true });
+      await writeFile(join(evidenceRoot, 'path-service-originals.zip'), file.rawPayload);
+      await writeFile(join(evidenceRoot, 'path-service-originals.json'), JSON.stringify({
+        export: (await t.request(`${base}/${created.json().id}`)).json(),
+        zipSha256: createHash('sha256').update(file.rawPayload).digest('hex'), zipBytes: file.rawPayload.length,
+        originalManifest: original.manifest, originalRequest: request, validatedManifest: validated.manifest,
+      }, null, 2));
+    }
+  }
 });
 it.each(['missing-file', 'missing-capture', 'unverifiable-admission'])('fails honestly when original closure is unavailable: %s', async mode => {
   const t = await fixture();

@@ -174,7 +174,7 @@ it('validates an exact inert original capture closure without changing trusted r
   const manifest = Buffer.from(canonicalManifestBytes(original));
   const request = Buffer.from(canonicalManifestBytes({ manifest: original, translationIntent: 'none' }));
   add('originals/capture/manifest.json', manifest, 'application/json'); add('originals/capture/request.json', request, 'application/json');
-  for (const file of original.files) add(`originals/capture/files/${file.path}`, file.id === original.htmlFileId ? raw : f.files.get(`source/${file.path}`)!, file.mediaType);
+  for (const [ordinal, file] of original.files.entries()) add(`originals/capture/files/${ordinal}`, file.id === original.htmlFileId ? raw : f.files.get(`source/${file.path}`)!, file.mediaType);
   Object.assign(f.manifest, { originals: { capture: { manifestSha256: hash(manifest), requestSha256: hash(request), admissionKind: 'upload' } } });
   f.files.set('manifest.json', json(f.manifest));
   const before = f.files.get('render/index.html');
@@ -182,15 +182,29 @@ it('validates an exact inert original capture closure without changing trusted r
   expect(f.files.get('render/index.html')).toEqual(before);
   const output = join(await temp(), 'originals.zip'); await bundle.writeWebBundle(source(f), output, options);
   expect((await bundle.validateWebBundle(bundle.createArchiveFileSource(output, options.limits), options)).manifest).toHaveProperty('originals.capture');
-  f.files.delete(`originals/capture/files/${html.path}`);
+  f.files.delete(`originals/capture/files/${original.files.indexOf(html)}`);
   await expect(bundle.validateWebBundle(source(f), options)).rejects.toMatchObject({ code: 'BUNDLE_MISSING_RESOURCE' });
 });
-it.each(['extra', 'admission', 'mapping', 'depth', 'actual-stream', 'writer-stream'])('rejects incomplete or changed inert original closure: %s', async mode => {
+it.each(['extra', 'admission', 'mapping', 'depth', 'ordinal-alias', 'ordinal-swap', 'actual-stream', 'writer-stream'])('rejects incomplete or changed inert original closure: %s', async mode => {
   const { addOriginalCapture } = await import('./web-fixtures.js');
   const f = await webFixture(), original = await addOriginalCapture(f);
   if (mode === 'extra') {
     const path = 'originals/capture/files/undeclared.js', bytes = Buffer.from('unexpected');
     f.files.set(path, bytes); f.manifest.files.push({ path, bytes: bytes.length, sha256: hash(bytes), mediaType: 'text/javascript', role: 'provenance' });
+  }
+  if (mode === 'ordinal-alias' || mode === 'ordinal-swap') {
+    const firstPath = original.htmlPath, secondPath = 'originals/capture/files/1';
+    const firstBytes = f.files.get(firstPath)!, secondBytes = f.files.get(secondPath)!;
+    if (mode === 'ordinal-alias') {
+      f.files.delete(firstPath); f.files.set('originals/capture/files/00', firstBytes);
+      f.manifest.files.find(file => file.path === firstPath)!.path = 'originals/capture/files/00';
+    } else {
+      f.files.set(firstPath, secondBytes); f.files.set(secondPath, firstBytes);
+      for (const file of f.manifest.files) {
+        if (file.path === firstPath) file.path = secondPath;
+        else if (file.path === secondPath) file.path = firstPath;
+      }
+    }
   }
   if (mode === 'admission') (f.manifest as any).originals.capture.requestSha256 = 'a'.repeat(64);
   if (mode === 'mapping') {
@@ -212,22 +226,23 @@ it.each(['extra', 'admission', 'mapping', 'depth', 'actual-stream', 'writer-stre
     else await expect(bundle.validateWebBundle(changing, options)).rejects.toMatchObject({ code: 'INVALID_BUNDLE' });
   } else await expect(bundle.validateWebBundle(source(f), options)).rejects.toThrow();
 });
-it.each(['valid', 'translation', 'candidate'])('binds a second original capture only to the selected imported Reader: %s', async mode => {
+it.each(['valid', 'translation', 'candidate', 'shared-file'])('binds a second original capture only to the selected imported Reader: %s', async mode => {
   const { addOriginalCapture } = await import('./web-fixtures.js');
   const { canonicalManifestBytes } = await import('@pagelingo/web-capture');
   const f = await webFixture(true), first = await addOriginalCapture(f), second = structuredClone(first.original);
   second.captureId = '55555555-5555-4555-8555-555555555555';
   const sharedFiles = second.files.map(file => ({ id: file.id, sourceFileId: file.id }));
+  if (mode === 'shared-file') sharedFiles[0]!.sourceFileId = 'missing-source-id';
   const add = (path: string, bytes: Uint8Array, mediaType = 'application/json') => {
     f.files.set(path, bytes); f.manifest.files.push({ path, bytes: bytes.length, sha256: hash(bytes), mediaType, role: 'provenance' });
   };
   if (mode === 'candidate') {
     const candidateFile = second.files.find(file => file.id === second.existingTranslation!.fileId)!;
-    const candidate = JSON.parse(Buffer.from(f.files.get(`originals/capture/files/${candidateFile.path}`)!).toString());
+    const candidate = JSON.parse(Buffer.from(f.files.get(`originals/capture/files/${first.original.files.findIndex(file => file.id === candidateFile.id)}`)!).toString());
     candidate.blocks[0].rawText = 'Not the selected translation';
     const bytes = json(candidate); candidateFile.sha256 = hash(bytes); candidateFile.bytes = bytes.length;
     sharedFiles.splice(sharedFiles.findIndex(file => file.id === candidateFile.id), 1);
-    add(`originals/reader-capture/files/${candidateFile.path}`, bytes);
+    add(`originals/reader-capture/files/${second.files.indexOf(candidateFile)}`, bytes);
   }
   const manifestBytes = canonicalManifestBytes(second), requestBytes = canonicalManifestBytes({ manifest: second, translationIntent: 'none' });
   add('originals/reader-capture/manifest.json', manifestBytes); add('originals/reader-capture/request.json', requestBytes);
@@ -236,4 +251,62 @@ it.each(['valid', 'translation', 'candidate'])('binds a second original capture 
   f.files.set('manifest.json', json(f.manifest));
   if (mode === 'valid') expect((await bundle.validateWebBundle(source(f), options)).manifest.originals).toHaveProperty('readerCapture');
   else await expect(bundle.validateWebBundle(source(f), options)).rejects.toMatchObject({ code: 'INVALID_BUNDLE' });
+});
+
+it.each(['source', 'reader', 'shared', 'duplicate-content'])('roundtrips bounded original attachment paths without losing descriptors: %s', async mode => {
+  const { addOriginalCapture } = await import('./web-fixtures.js');
+  const { canonicalManifestBytes } = await import('@pagelingo/web-capture');
+  const { webCaptureManifestSchema, createWebCaptureRequestSchema } = await import('@pagelingo/document-contracts');
+  const longPath = 'a'.repeat(215) + '.html';
+  const hasReader = mode === 'reader' || mode === 'shared';
+  const f = await webFixture(hasReader, { htmlPath: mode === 'reader' ? 'source.html' : longPath }), first = await addOriginalCapture(f);
+  const expected = new Map<string, Uint8Array>();
+  const add = (path: string, bytes: Uint8Array, mediaType: string) => {
+    f.files.set(path, bytes); f.manifest.files.push({ path, bytes: bytes.length, sha256: hash(bytes), mediaType, role: 'provenance' });
+  };
+  if (mode === 'duplicate-content') {
+    const image = first.original.files.find(file => file.role === 'image')!;
+    const duplicate = { ...image, id: 'same-bytes-different-id', path: 'b'.repeat(216) + '.jpg' };
+    first.original.files.push(duplicate);
+    first.original.resources.push({ id: 'duplicate-image', url: 'https://example.com/duplicate.jpg', role: 'image', status: 'available', fileId: duplicate.id });
+    add(`originals/capture/files/${first.original.files.indexOf(duplicate)}`, f.files.get(`originals/capture/files/${first.original.files.indexOf(image)}`)!, duplicate.mediaType);
+    const bytes = canonicalManifestBytes(first.original), request = canonicalManifestBytes({ manifest: first.original, translationIntent: 'none' });
+    refresh(f, 'originals/capture/manifest.json', bytes); refresh(f, 'originals/capture/request.json', request);
+    Object.assign((f.manifest as any).originals.capture, { manifestSha256: hash(bytes), requestSha256: hash(request) });
+  }
+  const groups = [{ original: first.original, prefix: 'originals/capture', shared: false }];
+  if (hasReader) {
+    const second = structuredClone(first.original);
+    second.captureId = '55555555-5555-4555-8555-555555555555';
+    second.files.reverse();
+    for (const [index, file] of second.files.entries()) file.path = 'r'.repeat(210) + String(index).padStart(5, '0') + '.data';
+    const bytes = canonicalManifestBytes(second), request = canonicalManifestBytes({ manifest: second, translationIntent: 'none' });
+    add('originals/reader-capture/manifest.json', bytes, 'application/json'); add('originals/reader-capture/request.json', request, 'application/json');
+    const sharedFiles = mode === 'shared' ? second.files.map(file => ({ id: file.id, sourceFileId: file.id })) : [];
+    if (mode !== 'shared') for (const file of second.files) {
+      const originalFile = first.original.files.find(source => source.id === file.id)!;
+      add(`originals/reader-capture/files/${second.files.indexOf(file)}`, f.files.get(`originals/capture/files/${first.original.files.indexOf(originalFile)}`)!, file.mediaType);
+    }
+    (f.manifest as any).originals.readerCapture = { manifestSha256: hash(bytes), requestSha256: hash(request), admissionKind: 'upload', sharedFiles, translationSha256: f.manifest.translation!.sha256 };
+    groups.push({ original: second, prefix: 'originals/reader-capture', shared: mode === 'shared' });
+  }
+  for (const group of groups) {
+    expect(webCaptureManifestSchema.parse(group.original)).toEqual(group.original);
+    const request = createWebCaptureRequestSchema.parse({ manifest: group.original, translationIntent: 'none' });
+    expected.set(`${group.prefix}/manifest.json`, canonicalManifestBytes(group.original));
+    expected.set(`${group.prefix}/request.json`, canonicalManifestBytes(request));
+    if (!group.shared) for (const ordinal of group.original.files.keys()) expected.set(`${group.prefix}/files/${ordinal}`, f.files.get(`${group.prefix}/files/${ordinal}`)!);
+  }
+  f.files.set('manifest.json', json(f.manifest));
+  await bundle.validateWebBundle(source(f), options);
+  expect(f.manifest.files.every(file => Buffer.byteLength(file.path) <= defaultBundleLimits.maxPathBytes)).toBe(true);
+  const output = join(await temp(), 'long-originals.zip'); await bundle.writeWebBundle(source(f), output, options);
+  const archive = bundle.createArchiveFileSource(output, options.limits);
+  const validated = await bundle.validateWebBundle(archive, options);
+  for (const [path, bytes] of expected) {
+    const chunks = []; for await (const chunk of archive.read(path)) chunks.push(Buffer.from(chunk));
+    expect(Buffer.concat(chunks)).toEqual(Buffer.from(bytes));
+    expect(validated.manifest.files.find(file => file.path === path)?.sha256).toBe(hash(bytes));
+  }
+  expect(validated.manifest.files.filter(file => file.path.startsWith('originals/') && file.path.includes('/files/'))).toHaveLength(groups.reduce((count, group) => count + (group.shared ? 0 : group.original.files.length), 0));
 });

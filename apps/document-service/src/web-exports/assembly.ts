@@ -66,14 +66,15 @@ export async function assembleWebExport(material: ExportMaterial, dataDir: strin
       if (request) addOriginalJson(`${prefix}/request.json`, requestBytes);
       const sharedFiles: Array<{ id: string; sourceFileId: string }> = [];
       let originalBytes = 0;
-      for (const file of original.files) {
+      // The immutable manifest ordinal bounds member names without changing original paths/IDs.
+      for (const [ordinal, file] of original.files.entries()) {
         originalBytes += file.bytes;
         if (originalBytes > defaultCaptureLimits.maxTotalBytes) throw Error('Original total limit');
         const item = group.files.find(item => item.descriptor.id === file.id);
         if (!item || item.asset.sha256 !== file.sha256 || Number(item.asset.bytes) !== file.bytes || item.asset.media_type !== file.mediaType) throw Error('Original file binding');
         const shared = originalSource?.files.find(f => f.sha256 === file.sha256 && f.bytes === file.bytes && f.mediaType === file.mediaType && f.role === file.role);
         if (shared) { sharedFiles.push({ id: file.id, sourceFileId: shared.id }); continue; }
-        add(`${prefix}/files/${file.path}`, await read(item.asset, file.role === 'html' ? defaultCaptureLimits.maxHtmlBytes : file.role === 'preview' ? defaultCaptureLimits.maxPreviewHtmlBytes : defaultCaptureLimits.maxResourceBytes), file.mediaType, 'provenance');
+        add(`${prefix}/files/${ordinal}`, await read(item.asset, file.role === 'html' ? defaultCaptureLimits.maxHtmlBytes : file.role === 'preview' ? defaultCaptureLimits.maxPreviewHtmlBytes : defaultCaptureLimits.maxResourceBytes), file.mediaType, 'provenance');
       }
       declarations.push({ manifestSha256: hash(bytes), requestSha256: group.requestHash, admissionKind: request ? 'upload' as const : 'fetch' as const, sharedFiles });
       if (group.prefix === 'capture') originalSource = original;

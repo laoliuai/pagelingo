@@ -38,12 +38,14 @@ export async function validateWebOriginals(input: BundleFileSource, manifest: We
       check([...shared.keys()].every(id => original.files.some(file => file.id === id)));
       total = 0;
       let candidateBytes: Buffer | undefined;
-      for (const file of original.files) {
-        const sourceFile = shared.has(file.id) ? sharedSource?.files.find(sourceFile => sourceFile.id === shared.get(file.id)) : undefined;
+      // IDs and paths are unique in each validated manifest. Ordinals retain that exact order.
+      for (const [ordinal, file] of original.files.entries()) {
+        const sourceOrdinal = shared.has(file.id) ? sharedSource!.files.findIndex(sourceFile => sourceFile.id === shared.get(file.id)) : -1;
+        const sourceFile = sharedSource?.files[sourceOrdinal];
         if (shared.has(file.id)) {
           check(sourceFile && sourceFile.sha256 === file.sha256 && sourceFile.bytes === file.bytes && sourceFile.mediaType === file.mediaType && sourceFile.role === file.role);
         }
-        const path = sourceFile ? `originals/capture/files/${sourceFile.path}` : `${prefix}/files/${file.path}`;
+        const path = sourceFile ? `originals/capture/files/${sourceOrdinal}` : `${prefix}/files/${ordinal}`;
         const candidate = file.id === original.existingTranslation?.fileId;
         const body = await read(path, file.sha256,
           file.role === 'html' ? defaultCaptureLimits.maxHtmlBytes : file.role === 'preview' ? defaultCaptureLimits.maxPreviewHtmlBytes : defaultCaptureLimits.maxResourceBytes,
