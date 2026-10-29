@@ -1,10 +1,10 @@
 {
   "schemaVersion": "pagelingo-s4-public-validation/1",
-  "status": "task-reviewed-whole-branch-review-pending",
+  "status": "reviewed-ready-for-integration",
   "baseCommit": "7b31efb835eb1d82c74a0b399abc03b696b86d62",
   "startedAt": "2026-10-29T01:48:22.315Z",
   "finishedAt": "2026-10-29T01:50:02.529Z",
-  "reviewBoundary": "Task14 including fix1 independently reviewed; whole-branch review pending. No merge/push/deploy.",
+  "reviewBoundary": "All task gates and final findings I1-I5/N1 addressed; final code review passed at 0e9154f. Integration/push/deploy pending user choice.",
   "commands": [
     {
       "label": "final-01-npm-ci",
@@ -207,7 +207,14 @@
     "auditVulnerabilities": 0,
     "fix1FocusedPreflight": 48,
     "fix1DeclaredSamples": 3,
-    "fix1DistinctGithub": 2
+    "fix1DistinctGithub": 2,
+    "finalFixServicePhase2": 72,
+    "finalFixBrowserPhase1": 18,
+    "finalFixBrowserPhase2": 3,
+    "finalFixOwnedAcceptance": 3,
+    "finalPathBundle": 43,
+    "finalPathService": 6,
+    "finalPathServiceFilteredSkipped": 25
   },
   "sourcePhases": {
     "initial": "338ebc7c08f9c2b72956e5fd706e721d532ceca5d2d0309e5e2c82a7830507e1",
@@ -371,7 +378,12 @@
         "sha256": "98aa9802d16eb7199fb62363c28c057d9c3dc591b533bc370b4de959f16a8806"
       }
     ],
-    "currentCliAfterTaskReview": "39a28809ca91c8c5b919738987ef480e5ca2775550fdcecc856f8f91ee7a7916"
+    "currentCliAfterTaskReview": "39a28809ca91c8c5b919738987ef480e5ca2775550fdcecc856f8f91ee7a7916",
+    "finalPathPreRun": {
+      "source": "32473952db66bf4baa41933111b94b46f10908add4ae30dadee2b34b45368ea6",
+      "compiled": "834623c920429df06222948f11a514e08bd8f3b7ae1f3d21dc44add9f12adb77",
+      "scope": "Pre-run file maps only for path covering checks; not retroactive global or phase-1/2 execution proof."
+    }
   },
   "declaration": {
     "sha256": "48ab45f6f197318363896e9093d52f3df079298d3ee400c44a9ff173918a4bc6",
@@ -1442,7 +1454,10 @@
     "18 historical PNG originals remain uncertified; observed copies unchanged, not restored originals.",
     "Compressed controls/limit walkers/worker formatting and human-friendly partial/mock labels remain Minor.",
     "Web ZIP reimport unsupported; only web-projector/1/defaultCaptureLimits supported.",
-    "Task14 fix1 is a new CLI/harness-only phase: 48 preflight and 3 declared samples. The original nine-sample application run and global checks retain their original identities; generic fix-map amendment labels are stale, exact per-file hashes are authoritative."
+    "Task14 fix1 is a new CLI/harness-only phase: 48 preflight and 3 declared samples. The original nine-sample application run and global checks retain their original identities; generic fix-map amendment labels are stale, exact per-file hashes are authoritative.",
+    "Complete originals use exact retained source/Reader/provider provenance. Unavailable bytes, ambiguous capture mapping or unreconstructable historical admitted-envelope spelling fail explicitly; original server material/Reader remains. Existing v1 optional target UUID request-hash spelling semantics are preserved, not migrated.",
+    "Original nine public-source/cached application results are not a new run of the final originals closure. New closure and path fixes use separately identified synthetic/service/package covering phases.",
+    "Final fix phase-1/2 maps are source-only without pre-run compiled maps. Path correction has genuine pre-run source+compiled identities. No single final-HEAD all-suite snapshot is claimed."
   ],
   "historicalObservedIntegrity": {
     "artifact": "controller-historical-observed-integrity-after-root.json",
@@ -1789,5 +1804,374 @@
       "rawMapLabelQualification": "The generic amendment label in the fix1 maps was copied from the earlier screenshot-readiness map. The exact per-file deltas and digests, not that stale description, identify primary metadata validation and per-job acquisition assertions."
     },
     "noGlobalResweep": true
+  },
+  "countsScope": "Original counts retain original phases. Final fix/path covering runs are separate and overlap; do not add them into a single final-HEAD run.",
+  "finalReview": {
+    "base": "b8ca85dd6d202a456fb1047d834d9c856632b988",
+    "broadReviewHead": "d5d82a66b0cfa50787f01946d91300a906e6405c",
+    "fixCommits": [
+      "ea29d6dfbe5217c0eae26c1b03d393613aa9b9e7",
+      "0e9154ff9e6722c7080edd9e48d7057f76c7e33c"
+    ],
+    "codeReviewHead": "0e9154ff9e6722c7080edd9e48d7057f76c7e33c",
+    "verdict": "All I1-I5 and N1 addressed, no new Critical/Important breakage",
+    "rawReviewSha256": "3d01853247f764822f93d5f2c9c6c3162f63490793741eebf7b71c761a05cd5b",
+    "record": "docs/learning-site-s4-review.md",
+    "scope": "One broad branch review, one scoped review seat continued for the bounded N1 correction; not a new broad audit."
+  },
+  "finalFixWave": {
+    "base": "d5d82a66b0cfa50787f01946d91300a906e6405c",
+    "commit": "ea29d6dfbe5217c0eae26c1b03d393613aa9b9e7",
+    "phases": [
+      {
+        "id": "phase-1",
+        "sourceHash": "0282a4756a333650ed389cbf1cfddccac0124d67851e68c97e4d2040494ebad1",
+        "sourceEntries": 1203,
+        "compiledEntries": 0,
+        "service": {
+          "passed": 198,
+          "failed": 2,
+          "exitCode": 1
+        },
+        "browserPassed": 18,
+        "bundlePassed": 33,
+        "contractsPassed": 2,
+        "notes": "Two actual failures retained: duplicate-save fixture expected a fetch; first-read export interceptor held original manifest. Later setup uses explicit refresh and actual registered export object."
+      },
+      {
+        "id": "phase-2",
+        "sourceHash": "307ecd33a135463569f2265aef9004672b0f6e2105b194d4c53e79f15a82298d",
+        "sourceEntries": 1203,
+        "compiledEntries": 0,
+        "servicePassed": 72,
+        "bundlePassed": 36,
+        "browserPassed": 3,
+        "contractsPassed": 2,
+        "fixedZipCompatibilityPassed": 2,
+        "declaredOwnedSamplesPassed": 3,
+        "modelRequests": 0
+      }
+    ],
+    "phase2Commands": [
+      {
+        "label": "service-cover-2",
+        "rawLog": "service-cover-2.log",
+        "rawLogSha256": "9197b983ae5ea33e505ee620ab11fe3179dda94a30cfbfcff95fe0db257a62d6",
+        "exitCode": 0,
+        "exitEvidence": "numeric sidecar",
+        "reportedCommand": "node scripts/with-test-postgres.mjs -- npm run test:integration -w @pagelingo/document-service -- tests/integration/web-exports.test.ts tests/integration/source-adapters.test.ts tests/integration/github-repository.test.ts"
+      },
+      {
+        "label": "package-cover-2",
+        "rawLog": "package-cover-2.log",
+        "rawLogSha256": "3ae976af357c2afdf1953a639362b6fe4fd2bb621ba733de2278e2ac73d66dde",
+        "exitCode": 0,
+        "exitEvidence": "numeric sidecar",
+        "reportedCommand": "npm test -w @pagelingo/document-bundle -- tests/web-bundle-validation.test.ts"
+      },
+      {
+        "label": "browser-cover-2",
+        "rawLog": "browser-cover-2.log",
+        "rawLogSha256": "2ac6958f29ad36748978efaf4a870317071346180d12552a1d6f87fce7566417",
+        "exitCode": 0,
+        "exitEvidence": "numeric sidecar",
+        "reportedCommand": "PAGELINGO_TEST_OUTPUT_ROOT=<new-owned-output> node scripts/with-test-postgres.mjs -- npm run test:e2e -w @pagelingo/web -- tests/e2e/document-downloads.test.ts tests/e2e/web-bundle-offline.test.ts"
+      },
+      {
+        "label": "contracts-cover-2",
+        "rawLog": "contracts-cover-2.log",
+        "rawLogSha256": "4072808534e140396988a2ba71421b4a2e3cbb98d672ca31791069a78f3767cb",
+        "exitCode": 0,
+        "exitEvidence": "numeric sidecar",
+        "reportedCommand": "npm test -w @pagelingo/document-contracts -- tests/web-bundle.test.ts"
+      },
+      {
+        "label": "fixed-compat-2",
+        "rawLog": "fixed-compat-2.log",
+        "rawLogSha256": "5dc2ee7bf43abb4c7560efe5cfdd8a6248ee908cda36326087ea2f6623aee363",
+        "exitCode": 0,
+        "exitEvidence": "numeric sidecar",
+        "reportedCommand": "node scripts/check-s2-compat.mjs --input packages/document-bundle/tests/fixtures --output <new-owned-output>"
+      },
+      {
+        "label": "acceptance-3",
+        "rawLog": "acceptance-3.log",
+        "rawLogSha256": "58c6fe283bdc2277d947ca2881d245cc57abaac21f3108c5059a9652c7d830ad",
+        "exitCode": 0,
+        "exitEvidence": "numeric sidecar",
+        "reportedCommand": "node scripts/check-site-s4.mjs --samples <explicit-synthetic-declaration> --output <new-owned-output>"
+      },
+      {
+        "label": "builds-2",
+        "rawLog": "builds-2.log",
+        "rawLogSha256": "23ea01376efdddf2059a01692f64c964d5ec4b0c3e6e2889c7b6f47a3f4f017d",
+        "reportedExitCode": 0,
+        "exitEvidence": "implementer report and successful log completion; no numeric sidecar"
+      },
+      {
+        "label": "types-3",
+        "rawLog": "types-3.log",
+        "rawLogSha256": "a8df853a55f9bd679fa3a650c88b5536fb8bd37083da3bbc0717ebeabca8667f",
+        "reportedExitCode": 0,
+        "exitEvidence": "implementer report and successful log completion; no numeric sidecar"
+      }
+    ],
+    "acceptance": {
+      "rawReport": "acceptance-3/report.json",
+      "sha256": "0d9e66d95b63af37600328931c8285915e02ad62464cb8bff6cac7ccb3052f88",
+      "status": "passed",
+      "samples": [
+        {
+          "id": "released-s3",
+          "status": "passed"
+        },
+        {
+          "id": "declared-article",
+          "status": "passed"
+        },
+        {
+          "id": "github-one",
+          "status": "passed"
+        }
+      ],
+      "modelRequests": 0,
+      "interruptions": [
+        {
+          "kind": "export",
+          "pid": 1503572,
+          "boundary": "durable-export-before-publication",
+          "key": "db1635d9-2c0c-4054-993e-57fc244dda92",
+          "jobId": "f22b29af-b644-4927-8bb0-1757e1d29d07",
+          "workId": "f50e7a5e-0668-44e9-8de3-31cc4da17de0",
+          "bytes": 902711,
+          "publishedAssets": 0,
+          "jobStatus": "running",
+          "liveWriterProtected": true,
+          "clockAdvance": "expired owned lease/slot/writer grace after SIGKILL"
+        },
+        {
+          "kind": "purge",
+          "pid": 1503677,
+          "boundary": "physical-delete-before-queue-ack",
+          "key": "db1635d9-2c0c-4054-993e-57fc244dda92",
+          "receiptId": "dd330a7e-dd1d-451b-8c03-8e76b1cb8e1a"
+        },
+        {
+          "kind": "acquisition",
+          "sampleId": "github-one",
+          "jobId": "7fd6ee0e-898b-4afa-afa5-4b04196b4847",
+          "pid": 1504231,
+          "boundary": "first-acquisition-committed-before-next-response",
+          "acquired": [
+            {
+              "id": "4ba42651-f3d5-416e-ad55-7f474f52d4e0",
+              "role": "github-repository",
+              "sha256": "6533da8d39ad65c558a6d102f2ce523f58dd5867daff5ff9ee3098998472fb34",
+              "bytes": "226"
+            }
+          ]
+        }
+      ],
+      "scope": "Released S3 baseline plus synthetic native article and GitHub. New original closure and current registered output holds; no new public collection or original-nine rerun."
+    },
+    "runtimeEvidenceQualification": "Phase-1/2 source maps exclude dist and omit nine Unicode documentation names. No pre-run compiled runtime hash map exists for these two phases. Build logs, emitted ZIP/catalog/process/browser behavior are separate narrower evidence. types-3/builds-2 have no numeric exit sidecars; their exit-0 statements come from the report and successful logs. Post-run 805-file snapshot is handoff-only, not test-time proof.",
+    "postRunOnlyCompiledSnapshot": {
+      "file": "post-run-runtime-20261029T035440Z.json",
+      "sha256": "c1b26c883208ce42bbc872fb32a12f1277e0f5dee816b9d42d45c2ef904b2f35",
+      "files": 805,
+      "scope": "POST-RUN ONLY; not retroactive phase-1/2 runtime proof."
+    }
+  },
+  "pathCorrection": {
+    "base": "ea29d6dfbe5217c0eae26c1b03d393613aa9b9e7",
+    "commit": "0e9154ff9e6722c7080edd9e48d7057f76c7e33c",
+    "finding": "N1: legal 220-byte original path became 244-byte attachment path",
+    "mapping": "Zero-based validated immutable manifest.files ordinal; shared source ID resolves source ordinal. Original descriptors/canonical bytes untouched; path ceiling unchanged.",
+    "commands": [
+      {
+        "command": [
+          "npm",
+          "test",
+          "-w",
+          "@pagelingo/document-bundle",
+          "--",
+          "tests/web-bundle-validation.test.ts",
+          "-t",
+          "roundtrips bounded original attachment paths"
+        ],
+        "cwd": ".",
+        "startedAt": "2026-10-29T04:07:06.655859+00:00",
+        "exitCode": 1,
+        "finishedAt": "2026-10-29T04:07:08.241350+00:00",
+        "rawMetadata": "path-red-bundle-2.json",
+        "rawMetadataSha256": "5b5ca71ad94e8c7be95141284ff0d24de1dd80865f56653125ef1c5dd69c3d04",
+        "rawLog": "path-red-bundle-2.log",
+        "rawLogSha256": "de641291f085a9f170383ab06a33965596fd2d34b125d44d92119b5cbdb53d5f"
+      },
+      {
+        "command": [
+          "node",
+          "scripts/with-test-postgres.mjs",
+          "--",
+          "npm",
+          "run",
+          "test:integration",
+          "-w",
+          "@pagelingo/document-service",
+          "--",
+          "tests/integration/web-exports.test.ts",
+          "-t",
+          "inert attachments: long-path"
+        ],
+        "cwd": ".",
+        "startedAt": "2026-10-29T04:06:30.793533+00:00",
+        "exitCode": 1,
+        "finishedAt": "2026-10-29T04:06:36.374354+00:00",
+        "rawMetadata": "path-red-service.json",
+        "rawMetadataSha256": "f8ea96f20312f17e9872b607366197245078896985629e5ea221485d097430ea",
+        "rawLog": "path-red-service.log",
+        "rawLogSha256": "6d3ca67cb7b7d19b9721a727d2b359a05bb5522e0a2b38dd00aeaf82eaf15f72"
+      },
+      {
+        "command": [
+          "npm",
+          "run",
+          "build",
+          "-w",
+          "@pagelingo/document-bundle"
+        ],
+        "cwd": ".",
+        "startedAt": "2026-10-29T04:08:11.698276+00:00",
+        "exitCode": 0,
+        "finishedAt": "2026-10-29T04:08:11.944448+00:00",
+        "rawMetadata": "path-green-build-bundle.json",
+        "rawMetadataSha256": "fe1b440e9eae54997cd5e32a0bed7ecd18a3e5e81c59d43d2f056d89b3cef6f4",
+        "rawLog": "path-green-build-bundle.log",
+        "rawLogSha256": "62b381a8500bb49b8cdfa4221bcd90b27bfe99544298f5c29ee1a62da45203f6"
+      },
+      {
+        "command": [
+          "npm",
+          "run",
+          "build",
+          "-w",
+          "@pagelingo/document-service"
+        ],
+        "cwd": ".",
+        "startedAt": "2026-10-29T04:08:24.092793+00:00",
+        "exitCode": 0,
+        "finishedAt": "2026-10-29T04:08:25.459217+00:00",
+        "rawMetadata": "path-green-build-service.json",
+        "rawMetadataSha256": "9b99a346685c4d138021c26777ffd66ec53621a87d9fb0ea55a99cf2484137fa",
+        "rawLog": "path-green-build-service.log",
+        "rawLogSha256": "71c8796455f4620004334e4599b03f1e8da8f2af492a12b65d5361a0d9f5e717"
+      },
+      {
+        "command": [
+          "npm",
+          "run",
+          "typecheck",
+          "-w",
+          "@pagelingo/document-bundle",
+          "-w",
+          "@pagelingo/document-service"
+        ],
+        "cwd": ".",
+        "startedAt": "2026-10-29T04:08:24.093298+00:00",
+        "exitCode": 0,
+        "finishedAt": "2026-10-29T04:08:25.878488+00:00",
+        "rawMetadata": "path-green-types.json",
+        "rawMetadataSha256": "e1cd496bb827e3db45941b4e1e5edc9a6da2df2931fe4fff6fd7a63d39a895f9",
+        "rawLog": "path-green-types.log",
+        "rawLogSha256": "6acf663ffe24bb22ea7d039a8035dd28a0a060d7d89d839c9b22a304a2345fd1"
+      },
+      {
+        "command": [
+          "npm",
+          "test",
+          "-w",
+          "@pagelingo/document-bundle",
+          "--",
+          "tests/web-bundle-validation.test.ts"
+        ],
+        "cwd": ".",
+        "startedAt": "2026-10-29T04:08:46.686997+00:00",
+        "exitCode": 0,
+        "finishedAt": "2026-10-29T04:08:57.075169+00:00",
+        "rawMetadata": "path-green-bundle.json",
+        "rawMetadataSha256": "9deb952511b07095dd1dec171e8118751eb2a43464409c2f2aff88e7370d219f",
+        "rawLog": "path-green-bundle.log",
+        "rawLogSha256": "43d517636c9fb7ce959fe8c0126a9a2a4076048f524e1c3b478a7c55a92cfae4"
+      },
+      {
+        "command": [
+          "env",
+          "PAGELINGO_TEST_OUTPUT_ROOT=./.superpowers/sdd/2026-10-28-learning-site-s4/final-fix-evidence",
+          "node",
+          "scripts/with-test-postgres.mjs",
+          "--",
+          "npm",
+          "run",
+          "test:integration",
+          "-w",
+          "@pagelingo/document-service",
+          "--",
+          "tests/integration/web-exports.test.ts",
+          "-t",
+          "inert attachments|exports partial imported translations"
+        ],
+        "cwd": ".",
+        "startedAt": "2026-10-29T04:08:46.688974+00:00",
+        "exitCode": 0,
+        "finishedAt": "2026-10-29T04:09:09.428016+00:00",
+        "rawMetadata": "path-green-service.json",
+        "rawMetadataSha256": "90d9c08cf51ca417f4caaf04a32367be3c43c0a22611e0a7694a21922e19ab4d",
+        "rawLog": "path-green-service.log",
+        "rawLogSha256": "bd7ff9f406d047ad42aaed3baaae882bae5dbbf7a74666d377a805c8c790efca"
+      }
+    ],
+    "commandCuration": "Known worktree prefix replaced with . in displayed argv/cwd. Original exact argv/time/exit JSON remains identified by rawMetadataSha256.",
+    "counts": {
+      "bundlePassed": 43,
+      "focusedServicePassed": 6,
+      "filteredServiceSkipped": 25
+    },
+    "preRun": {
+      "file": "path-green-pre-run.json",
+      "capturedAt": "2026-10-29T04:08:40.322842+00:00",
+      "sourceEntries": 1212,
+      "sourceHash": "32473952db66bf4baa41933111b94b46f10908add4ae30dadee2b34b45368ea6",
+      "compiledEntries": 805,
+      "compiledHash": "834623c920429df06222948f11a514e08bd8f3b7ae1f3d21dc44add9f12adb77",
+      "compiledRoots": 9,
+      "verifiedUnchangedAfterChecks": true,
+      "scope": "Source files plus current compiled outputs at declared dist roots; excludes node_modules, host executables and process-loaded state."
+    },
+    "actualZip": {
+      "file": "path-service-originals.zip",
+      "bytes": 901964,
+      "sha256": "7e6e4dc42bb41324f20e3217efef79d14aa6c64165a2045444a214278b6344d7",
+      "originalPathBytes": 220,
+      "maxMemberPathBytes": 227,
+      "originalMember": "originals/capture/files/0",
+      "originalManifestSha256": "55b01c127a0cee2cb40cc1ba22165fd0c4b463d3f9b6c0eed7a8133cc032ce08",
+      "originalRequestSha256": "691b1e2b1ff50dfa79d52b42f3735c7b638d6a2c587f049cc524294161914096"
+    },
+    "redFixtureQualification": "First package RED included an undeclared duplicate resource fixture error; preserved and corrected before second four-case product RED. Original phase-1/2 evidence remains unchanged."
+  },
+  "finalDocumentationAmendment": {
+    "base": "0e9154ff9e6722c7080edd9e48d7057f76c7e33c",
+    "changedMappedSources": [
+      "docs/assets/learning-site-s4/acceptance/summary.json",
+      "docs/learning-site-s4-decisions.md",
+      "docs/learning-site-s4-validation.md",
+      "docs/superpowers/plans/2026-10-28-learning-site-s4.md",
+      "docs/superpowers/specs/2026-10-26-personal-learning-site-design.md"
+    ],
+    "newDocumentation": [
+      "docs/learning-site-s4-review.md"
+    ],
+    "compiled805Unchanged": true,
+    "scope": "Documentation-only completion record; tested application/package bytes unchanged."
   }
 }

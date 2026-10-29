@@ -111,7 +111,9 @@
 - 新增现有队列kind `export-web`，不可变输入固定source/parse/Reader/catalog/epoch；profile/glossary/requestId为空，唯一请求账本在web_exports。沿用全局2/owner1 slot，不解密Key、不进入翻译finalizer、不改current Reader。文件有效24小时，过期同key只返回旧收据，新生成需新key。
 - `createWebStaticFilePlan(input:WebStaticPlanInput):WebStaticFilePlan`，input为 `{ir:WebReaderIR,translation:WebTranslation|null,index:WebReaderIndex,chunks:readonly WebReaderChunk[],capture:WebCaptureManifest,assets:readonly WebOfflineAsset[],previews?:readonly WebOfflinePreview[],previewImages?:readonly WebOfflinePreviewImage[]}`；`WebOfflinePreview={fileId:string,html:string}` 为严格UTF-8解码的实际归档预览；`WebOfflinePreviewImage={fileId:string,data:Uint8Array}` 为实际登记raster图片。生成器重验role/bytes/hash及既有预算，opaque file sandbox预览使用派生data:image和可信内联样式；缺少输入明确不可用，不以IR冒充快照，不放宽浏览器安全设置。`WebOfflineAsset={id,path,mediaType,bytes,sha256}` 的path是已验证包内路径，不伪装成安装包TrustedAsset。返回WebStaticFilePlan复用StaticFilePlan形状：rendererVersion/rendererSha256、仅运行时/字体的trustedAssets、惰性generatedFiles。`validateWebBundle(input:BundleFileSource,options:BundleOptions):Promise<ValidatedWebBundle>`、`writeWebBundle(input:BundleFileSource,destination:string,options:BundleOptions):Promise<BundleIdentity>` 复用安全路径/ZIP流式机制，独立验证Web合同。
 - Web包保留原capture manifest/文件、IR、真实可空译文、可信完整离线Reader和来源/缺失说明。新manifest固定 `pagelingo-web-document-bundle/1`，带packageId、source/IR/translation/runtime实际hash及完整files；不伪造PDF字段或模型记录。原始HTML/CSS惰性保存。
-- `WebDocumentBundleManifest = {schemaVersion,packageId,createdAt,title,source:{manifestPath:'source/manifest.json',manifestSha256,snapshotSha256,contentFingerprint},parse:{id,readerIrSha256},translation:{path:'translation.json',sha256,status,generationKind}|null,renderer:{version,codeSha256},files:BundleFile[]}`。固定入口 `render/index.html`、IR `source-ir.json`，原件放source/下并保留原capture内部相对路径；Reader数据/预览/资源只引用已登记包内路径。title是本次导出的资料头快照，不重写原IR标题。
+- `WebDocumentBundleManifest = {schemaVersion,packageId,createdAt,title,source:{manifestPath:'source/manifest.json',manifestSha256,snapshotSha256,contentFingerprint},originals?:{capture,readerCapture?}|{github},parse:{id,readerIrSha256},translation:{path:'translation.json',sha256,status,generationKind}|null,renderer:{version,codeSha256},files:BundleFile[]}`。固定入口 `render/index.html`、IR `source-ir.json`，原件放source/下并保留原capture内部相对路径；Reader数据/预览/资源只引用已登记包内路径。title是本次导出的资料头快照，不重写原IR标题。
+- `originals`为严格可选的惰性原件闭包：`{capture:{manifestSha256,requestSha256,admissionKind},readerCapture?:{...capture,translationSha256,sharedFiles:[{id,sourceFileId}]}}`或`{github:{sourceManifestSha256,revision,jobId,files}}`。只取来源创建采集及精确所选Reader的不同采集，最多两组；各组分别保持采集限额，整包使用原BundleLimits。原件存`originals/capture/files/<清单序号>`及`originals/reader-capture/files/<清单序号>`，原始ID/路径保持在原canonical清单中，共享文件按源ID映射到源序号；不因前缀增加而截短原路径或提高240字节包路径限额。原件/请求验证在隔离组装进程，不在SQL事务内做大对象hash。
+- 009新增不可变nullable `web_captures.admitted_request`保存已经参与入站hash的授权请求，避免后续丢失可选target UUID的原拼写。保留旧digest和重放语义；历史只在实际原请求可证明时完整导出，无法证明不猜字段。纯合成包没有另存原件时可不声明该闭包；实际站点完整导出必须选择其真实登记原件。
 - 首个Web包格式支持可重现的 `web-projector/1` / `defaultCaptureLimits` 投影；未存实际参数的历史收紧配置或未知projector明确返回 `BUNDLE_UNSUPPORTED_SOURCE`，不从hash猜配置、不重写原parse身份。站点导出显示终止错误，原资料继续保留；不声称任意历史自定义配置均可导出。
 - 沿用defaultBundleLimits：ZIP256MiB、展开1GiB、manifest2MiB、IR/译文各32MiB、provenance单件128MiB、其他单件64MiB及readerContractCeilings。配置只读复用，不提高旧预算；每个流重新计数/hash、原子不覆盖输出。
 - Web源manifest/IR仍受原16MiB限制，不能用bundle的32MiB替代原Web ceiling。相同已保存图片可由多个本地ID引用同一登记路径，不用重复字节或符号链接凑闭包。
@@ -272,7 +274,7 @@
 - [x] **Step 2:** 在本次独立DB先应用001–006并导入已有PDF/Web、进度、标签前基线，再升级007–009；保留卷重建API/worker/DB后检查原资料、元信息、私有权限与下载。故障注入断在purge/export/acquisition各一次，重启后只恢复合法剩余工作，无重复付费请求。
 - [x] **Step 3:** 冻结最终运行时/合同/静态目录后顺序执行 `npm ci`、`npm run check`、`npm run check:site`、声明的S4全链路、S2/S3兼容和 `npm audit --json`；每次记录实际命令/退出码/来源与mock边界。失败先保留raw/context/trace再修正并运行覆盖改动的检查，不因无变化反复跑整套。Python未改不重复安装/跑parser。
 - [x] **Step 4:** 至少各一份公开GitHub repo和固定arXiv真材料补充匿名验收，保存实际响应/时间/hash；拿不到则明确未验证及原因，不能宣称来源全部通过。X/知乎/公众号真实登录与真实BYOK语义质量留在S5的专门验收；检查默认用mock，不在后台顺手发真实模型请求。
-- [ ] **Step 5:** 保存来源矩阵、未验证范围、未解决Minor、截图和升级/中断证据；自检提交 `docs: document S4 collection management and source validation`。随后按保留的执行方式做任务/整分支审查，修正复核后才标最终完成；合入/推送依用户最终集成选择，保留宿主管理worktree。
+- [x] **Step 5:** 保存来源矩阵、未验证范围、未解决Minor、截图和升级/中断证据；自检提交 `docs: document S4 collection management and source validation`。随后按保留的执行方式做任务/整分支审查，修正复核后才标最终完成；合入/推送依用户最终集成选择，保留宿主管理worktree。
 
 ## 5. 计划自检与交接
 
@@ -286,7 +288,7 @@
 
 ### 当前执行进度（2026-10-29）
 
-任务0–14的实现已通过独立任务审查与必要修正复核，已完成资料组织、生命周期、GitHub/arXiv来源、离线Reader、完整包及私有下载；升级、中断恢复、真实公开材料和整体回归已记录。当前还有整分支最终审查这一收尾步骤，任务14 Step 5 保持未勾选，最终审查结束后才标S4完成。
+任务0–14的实现已通过独立任务审查与必要修正复核，已完成资料组织、生命周期、GitHub/arXiv来源、离线Reader、完整包及私有下载；升级、中断恢复、真实公开材料和整体回归已记录。整分支发现修正及专项复核也已完成，75个步骤全部关闭；S4本轮开发与验收完成，待用户最终选择合入/推送。
 
 | 任务 | 结果与提交 |
 | --- | --- |
@@ -304,7 +306,7 @@
 | 11 | 独立可信Web目录、三模式本地阅读、真实无脚本快照、资源失败提示与有界长文；`0119517`。 |
 | 12 | 独立Web完整包、原件/SDK/可信执行文件闭包校验、原子流式写出与普通离线浏览器往返；`c4af15c`。 |
 | 13 | 所选版本私有导出、共享租约/槽与临时工作清理、24小时附件、稳定重试与历史PDF下载；`0192a8b`、`0e19866`。 |
-| 14 | 有数据升级/重建、三类真实进程中断、9项声明验收、实际公开材料及最终回归；`a331217`、`1498f7a`、`ee0ddda`，输入/多仓库修正 `3934fba` 已复审，整分支最终审查待完成。 |
+| 14 | 有数据升级/重建、三类真实进程中断、9项声明验收、实际公开材料及最终回归；`a331217`、`1498f7a`、`ee0ddda`，输入/多仓库修正 `3934fba` 已复审；最终 `ea29d6d`、`0e9154f` 修正与专项复核完成。 |
 
 任务4保留309项服务端完整集成快照；最终恢复引用修订通过42项相关回归，预算与维护错误修正通过23项回收站回归、139项单元测试及类型检查/构建。任务5的最终修正通过91项归档单元测试、14项原生浏览器测试及类型检查/构建，验证真实IndexedDB失败回滚与确认后仅本地重试；不冒称物理磁盘耗尽验收。
 
@@ -320,9 +322,9 @@
 
 任务13冻结结果为服务399/401、站点110/115，原始失败全部保留。迁移/旧预期与实际窄屏布局修正后，60项服务专项通过，跨类型断言补强后单项通过；浏览器专项8/9后仅定位器修正的单项通过。独立审查另发现改密后完成附件被创建auth版本挡住，修正后23项导出集成及构建/类型检查通过，专项复审关闭。以上不宣称最终全量401/115重跑；最终完整验收及后续窄修边界另见任务14。精选当前界面：[桌面导出](../../assets/learning-site-s4/exports/web-export-desktop.png)、[375px导出](../../assets/learning-site-s4/exports/web-export-mobile-375.png)、[深色阅读](../../assets/learning-site-s4/exports/web-reader-mobile-dark.png)。
 
-任务14最终必需六条命令依序退出0：root检查1012项Vitest、10项Node、69项native通过及2项DB跳过，随后这2项以自有数据库专项通过；site检查402项服务、117项浏览器、35项Node；声明9项和固定兼容2包通过，audit零漏洞。审查后的CLI/harness修正另有48项预检和3项双GitHub声明通过，原始全量/九项运行身份不改写。真实GitHub/arXiv响应已保存，应用验收使用cached-public回放；真实PDF保持source-only。详见[最终验收与边界](../../learning-site-s4-validation.md)。整分支审查尚未结束，未合入/推送。
+任务14最终必需六条命令依序退出0：root检查1012项Vitest、10项Node、69项native通过及2项DB跳过，随后这2项以自有数据库专项通过；site检查402项服务、117项浏览器、35项Node；声明9项和固定兼容2包通过，audit零漏洞。审查后的CLI/harness修正另有48项预检和3项双GitHub声明通过，原始全量/九项运行身份不改写。真实GitHub/arXiv响应已保存，应用验收使用cached-public回放；真实PDF保持source-only。详见[最终验收与边界](../../learning-site-s4-validation.md)。整分支最终问题已由 `ea29d6d`、`0e9154f` 修正并复核关闭；新增原件闭包、源码/运行时身份边界与分轮结果见[最终审查](../../learning-site-s4-review.md)。尚未合入/推送。
 
-实施中的接口补齐、验证裁定及其影响另见[实施裁定记录](../../learning-site-s4-decisions.md)，最终分支审查后继续核对。
+实施中的接口补齐、验证裁定及其影响另见[实施裁定记录](../../learning-site-s4-decisions.md)，已与最终修正和审查结果核对。
 
 四份原始S2大样本ZIP在当前环境缺失；新增旧包兼容验证使用仓库固定S2/S3合成包，真实大样本验证沿用既有验收记录，不记作本轮重跑。逐任务失败、修正和验证原始证据保留在本工作区的ignored执行目录。
 
