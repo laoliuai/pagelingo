@@ -60,7 +60,8 @@
     "build:web-capture": "npm run build:contracts && npm run build --workspace @pagelingo/web-capture",
     "test:web-capture": "npm run build:web-capture && npm run test --workspace @pagelingo/web-capture",
     "test:web-capture:browser": "npm run build:web-capture && npm run test:browser --workspace @pagelingo/web-capture",
-    "check:web-capture": "node scripts/check-web-capture.mjs"
+    "check:web-capture": "node scripts/check-web-capture.mjs",
+    "check:site:s4": "node scripts/check-site-s4.mjs"
   },
   "engines": {
     "node": ">=24.0.0"

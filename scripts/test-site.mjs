@@ -12,6 +12,6 @@ for (const args of [
 }
 
 if (check) {
-  const result = spawnSync(process.execPath, ['--test', 'tests/site/dev.test.mjs', 'tests/site/pdf-reader.test.mjs', 'tests/site/web-capture.test.mjs', 'tests/site/owned-cleanup.test.mjs', 'tests/site/owned-acquisition.test.mjs', 'tests/site/web-capture-signals.test.mjs', 'tests/site/restart-cleanup.test.mjs'], { stdio: 'inherit', env });
+  const result = spawnSync(process.execPath, ['--test', 'tests/site/dev.test.mjs', 'tests/site/pdf-reader.test.mjs', 'tests/site/web-capture.test.mjs', 'tests/site/owned-cleanup.test.mjs', 'tests/site/owned-acquisition.test.mjs', 'tests/site/web-capture-signals.test.mjs', 'tests/site/restart-cleanup.test.mjs', 'tests/site/site-s4-preflight.test.mjs'], { stdio: 'inherit', env });
   if (result.status !== 0) process.exit(result.status ?? 1);
 }

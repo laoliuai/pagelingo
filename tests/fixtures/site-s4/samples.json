@@ -1,0 +1,139 @@
+{
+  "schemaVersion": "pagelingo-site-s4-samples/1",
+  "samples": [
+    {
+      "id": "declared-article",
+      "kind": "synthetic",
+      "format": "html",
+      "url": "https://example.com/declared-article",
+      "version": "fixture-v1",
+      "file": "article.html",
+      "sha256": "b866cabab44cb90efa6d4356a1492400e2467c1b25f7434e0da766368ba4c7dd",
+      "capturedAt": "2026-10-29T00:00:00Z",
+      "expected": {
+        "scope": "Synthetic article only",
+        "contains": [
+          "This synthetic original"
+        ]
+      },
+      "unverified": [
+        "Real site material and semantic translation quality"
+      ],
+      "resources": []
+    },
+    {
+      "id": "github-document-subpage",
+      "kind": "synthetic",
+      "format": "html",
+      "url": "https://github.com/octocat/Hello-World/blob/7fd1a60b01f91b314f59955a4e4d4e80d8edf11d/docs/example.md",
+      "version": "synthetic-doc-path-v1",
+      "file": "github-doc.html",
+      "sha256": "b866cabab44cb90efa6d4356a1492400e2467c1b25f7434e0da766368ba4c7dd",
+      "capturedAt": "2026-10-29T00:00:00Z",
+      "expected": {
+        "scope": "Synthetic article on a GitHub document subpage URL; not repository identity",
+        "contains": [
+          "This synthetic original"
+        ]
+      },
+      "unverified": [
+        "This body is synthetic, not real GitHub page material"
+      ],
+      "resources": []
+    },
+    {
+      "id": "released-s2",
+      "kind": "synthetic",
+      "format": "bundle",
+      "url": "https://example.com/released-s2",
+      "version": "renderer-0.1.0",
+      "file": "../../../packages/document-bundle/tests/fixtures/s2-final/reader.zip",
+      "sha256": "4bb9c04d33dd57a43e64b21f2921b916fb2c451ced57a73f75cacf9e9712c136",
+      "capturedAt": "2026-10-29T00:00:00Z",
+      "expected": {
+        "scope": "Released synthetic PDF bundle",
+        "contains": []
+      },
+      "unverified": [
+        "Real site material and semantic translation quality"
+      ],
+      "resources": []
+    },
+    {
+      "id": "released-s3",
+      "kind": "synthetic",
+      "format": "bundle",
+      "url": "https://example.com/released-s3",
+      "version": "renderer-0.2.0",
+      "file": "../../../packages/document-bundle/tests/fixtures/s3-final/reader.zip",
+      "sha256": "cc1d55c638db2d789b31403c10e7ff94c2f1afac4f567f9008b2f7c49b4245a3",
+      "capturedAt": "2026-10-29T00:00:00Z",
+      "expected": {
+        "scope": "Released synthetic PDF bundle",
+        "contains": []
+      },
+      "unverified": [
+        "Real site material and semantic translation quality"
+      ],
+      "resources": []
+    },
+    {
+      "id": "synthetic-paper-v1",
+      "kind": "synthetic",
+      "format": "arxiv",
+      "url": "https://arxiv.org/abs/2401.12345v1",
+      "responseUrl": "https://export.arxiv.org/api/query?id_list=2401.12345v1",
+      "accept": "application/atom+xml",
+      "mediaType": "application/atom+xml",
+      "version": "2401.12345v1",
+      "file": "paper-v1.atom",
+      "sha256": "8ec5b4d09d8503be103f5859ee5ad6fe38d9980443de10a412b03bc2fd0e11f9",
+      "capturedAt": "2026-10-29T00:00:00Z",
+      "expected": {
+        "scope": "Synthetic paper version and local bundle binding",
+        "contains": []
+      },
+      "unverified": [
+        "Not a public paper"
+      ],
+      "resources": [
+        {
+          "file": "paper.pdf",
+          "url": "https://arxiv.org/pdf/2401.12345v1",
+          "role": "pdf",
+          "mediaType": "application/pdf",
+          "sha256": "c1a7003a44fcfd3fb5b94041a84a485249db86efe3fb4de3a47059fd9a0395ad"
+        }
+      ]
+    },
+    {
+      "id": "synthetic-paper-v2",
+      "kind": "synthetic",
+      "format": "arxiv",
+      "url": "https://arxiv.org/abs/2401.12345v2",
+      "responseUrl": "https://export.arxiv.org/api/query?id_list=2401.12345v2",
+      "accept": "application/atom+xml",
+      "mediaType": "application/atom+xml",
+      "version": "2401.12345v2",
+      "file": "paper-v2.atom",
+      "sha256": "d8706289bf8980ae6781667325242edfeb9d75be2651cc664f2d382aa78e1a35",
+      "capturedAt": "2026-10-29T00:00:00Z",
+      "expected": {
+        "scope": "Synthetic paper version and local bundle binding",
+        "contains": []
+      },
+      "unverified": [
+        "Not a public paper"
+      ],
+      "resources": [
+        {
+          "file": "paper-v2.pdf",
+          "url": "https://arxiv.org/pdf/2401.12345v2",
+          "role": "pdf",
+          "mediaType": "application/pdf",
+          "sha256": "c1a7003a44fcfd3fb5b94041a84a485249db86efe3fb4de3a47059fd9a0395ad"
+        }
+      ]
+    }
+  ]
+}
