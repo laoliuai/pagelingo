@@ -83,6 +83,8 @@
 - 新增缓存文档引用；新cache get/put记录归属，最后一个引用消失才清理共享结果。旧的无法归属的本 owner cache在首次永久清理时保守清除，代价是未来新翻译可能少缓存命中，不能因此主动请求模型或删除其他Reader。
 - `runDocumentMaintenance(deps,{limit:100}):Promise<MaintenanceResult>` 被worker及清理CLI复用，worker每进程最多一个maintenance promise、最多每5秒发起一次，不在200ms循环重复全量扫描；多进程用DB领取有界批次。失败持久退避1秒至60秒，稳定游标公平遍历；只删本次记录且仍无引用的key，沿用对象发布锁。新008/009表必须注册到同一purge依赖图。
 
+- 009为临时导出增加 `registered_object_work`，同一 `object_deletion_queue` 的task_id/work_id恰好一个非空，原永久清理收据保留。临时工作记录不可变writer job/epoch/slot/lease与有界等待，排除有效写入；完成输出延至过期，目录只枚举固定层级和条目，原件与临时工作共用500项业务行变更/100次物理对象删除尝试预算。永久清理等待相关临时工作实际结束；可失效ZIP不加入原件恢复引用图。
+
 ### 2.3 来源与阅读（任务7–10，008）
 
 - `SourceDetails` 以kind=`link|github|arxiv`判别，公共字段为documentId、url、`resolution:self|alias|conflict`、canonicalDocumentId（可空）、fetchJobId（可空）、状态 `link-only|metadata-saved|source-saved|partial-resources|fetch-failed`、errorCode（可空）、warnings和latestAttempt。link无current；github/arxiv的current为下述对应修订或null。`GET /documents/:id/source-details` 纯读。
@@ -105,6 +107,7 @@
 - PDF沿用既有 `GET /api/v1/documents/:id/readers/:versionId/bundle` 返回原ZIP，字节不重建；原PDF用 `GET /api/v1/documents/:id/source?download=true`。当前和历史版本的实际source asset都必须能按所属版本下载。
 - `POST /documents/:id/web-exports` 输入 `{readerVersionId}`，UUID Idempotency-Key；`GET /documents/:id/web-exports/:exportId` 返回状态；`GET .../:exportId/file` 为私有附件。GET不创建任务。
 - `WebExport = {id,packageId,documentId,readerVersionId,status:'queued'|'running'|'completed'|'failed'|'cancelled'|'expired',bytes:number|null,sha256:string|null,expiresAt:string|null,errorCode:string|null}`。packageId与展示标题在接受一次导出操作时固定；新导出可产生新包，不把同Reader的可变资料标题混入同一包身份。
+- 已完成附件读取按当前会话、账号与active本人资料及期限授权，不与产物创建时auth版本/epoch比较；创建时授权只约束入站与异步发布。旧会话、回收站和过期文件仍被拒绝。
 - 新增现有队列kind `export-web`，不可变输入固定source/parse/Reader/catalog/epoch；profile/glossary/requestId为空，唯一请求账本在web_exports。沿用全局2/owner1 slot，不解密Key、不进入翻译finalizer、不改current Reader。文件有效24小时，过期同key只返回旧收据，新生成需新key。
 - `createWebStaticFilePlan(input:WebStaticPlanInput):WebStaticFilePlan`，input为 `{ir:WebReaderIR,translation:WebTranslation|null,index:WebReaderIndex,chunks:readonly WebReaderChunk[],capture:WebCaptureManifest,assets:readonly WebOfflineAsset[],previews?:readonly WebOfflinePreview[],previewImages?:readonly WebOfflinePreviewImage[]}`；`WebOfflinePreview={fileId:string,html:string}` 为严格UTF-8解码的实际归档预览；`WebOfflinePreviewImage={fileId:string,data:Uint8Array}` 为实际登记raster图片。生成器重验role/bytes/hash及既有预算，opaque file sandbox预览使用派生data:image和可信内联样式；缺少输入明确不可用，不以IR冒充快照，不放宽浏览器安全设置。`WebOfflineAsset={id,path,mediaType,bytes,sha256}` 的path是已验证包内路径，不伪装成安装包TrustedAsset。返回WebStaticFilePlan复用StaticFilePlan形状：rendererVersion/rendererSha256、仅运行时/字体的trustedAssets、惰性generatedFiles。`validateWebBundle(input:BundleFileSource,options:BundleOptions):Promise<ValidatedWebBundle>`、`writeWebBundle(input:BundleFileSource,destination:string,options:BundleOptions):Promise<BundleIdentity>` 复用安全路径/ZIP流式机制，独立验证Web合同。
 - Web包保留原capture manifest/文件、IR、真实可空译文、可信完整离线Reader和来源/缺失说明。新manifest固定 `pagelingo-web-document-bundle/1`，带packageId、source/IR/translation/runtime实际hash及完整files；不伪造PDF字段或模型记录。原始HTML/CSS惰性保存。
@@ -255,11 +258,11 @@
 
 **Files:** 新建 `apps/document-service/migrations/009-web-exports.sql`、`apps/document-service/src/web-exports/{repository,service,routes,runner}.ts`、`packages/document-contracts/src/web-exports.ts`、`apps/web/src/features/library/export-panel.tsx`；修改worker dispatcher/lease/reconcile、job合同、purge图、版本下载按钮；测试 `apps/document-service/tests/integration/web-exports.test.ts`、`apps/web/tests/e2e/document-downloads.test.ts`。
 **Interfaces:** 实现2.4路由/DTO。`runWebExportJob(lease,deps):Promise<void>` 绑定当前授权但固定所选Reader，压缩/对象读取在事务外；生成后只有当前doc epoch/lease仍有效才能登记附件。job的kind明确export-web，不走translation finalizer。
-- [ ] **Step 1:** 写 `exports the selected immutable version with no model calls`、`recovers lost create acknowledgement and worker restart`、`rejects a late export after deletion or account change`：当前Reader更新不换选中版本、source-only/partial、期限前后、他人/管理员的GET/HEAD/Range404、无账号401、下载断开/磁盘失败/坏对象、purge时文件最终清理。PDF导出与原ZIP `expect(actualBytes).toEqual(retainedBytes)`。
-- [ ] **Step 2:** 运行 `node scripts/with-test-postgres.mjs -- npm run test:integration --workspace @pagelingo/document-service -- tests/integration/web-exports.test.ts`、`node scripts/with-test-postgres.mjs -- npm run test:e2e --workspace @pagelingo/web -- tests/e2e/document-downloads.test.ts`，确认导出或围栏缺失的RED，保留文件故障证据。
-- [ ] **Step 3:** 接入009和现有2/1槽队列，claim/reconcile以 `kind==='translate'` 判断profile要求，fetch/export不需要Key；finalizer只处理translate。Web导出采用受控隔离worker，120秒总限、768MiB Node heap、256MiB临时ZIP上限，随取消释放本次资源。过期文件进入同一durable清理队列。
-- [ ] **Step 4:** 实现显式POST→有界状态读取→私有附件下载；旧版本有独立原件/包入口，link-only不造空包。UI状态按owner/auth epoch清除，按实际源能力展示PDF与Web动作。运行新DB/site及旧Reader/source/private assets回归，下载名/header沿用现有安全编码，导出内容无站点会话/Key/运行机绝对路径字段。
-- [ ] **Step 5:** 自检并提交 `feat: download original assets and private offline exports`。
+- [x] **Step 1:** 写 `exports the selected immutable version with no model calls`、`recovers lost create acknowledgement and worker restart`、`rejects a late export after deletion or account change`：当前Reader更新不换选中版本、source-only/partial、期限前后、他人/管理员的GET/HEAD/Range404、无账号401、下载断开/磁盘失败/坏对象、purge时文件最终清理。PDF导出与原ZIP `expect(actualBytes).toEqual(retainedBytes)`。
+- [x] **Step 2:** 运行 `node scripts/with-test-postgres.mjs -- npm run test:integration --workspace @pagelingo/document-service -- tests/integration/web-exports.test.ts`、`node scripts/with-test-postgres.mjs -- npm run test:e2e --workspace @pagelingo/web -- tests/e2e/document-downloads.test.ts`，确认导出或围栏缺失的RED，保留文件故障证据。
+- [x] **Step 3:** 接入009和现有2/1槽队列，claim/reconcile以 `kind==='translate'` 判断profile要求，fetch/export不需要Key；finalizer只处理translate。Web导出采用受控隔离worker，120秒总限、768MiB Node heap、256MiB临时ZIP上限，随取消释放本次资源。过期文件进入同一durable清理队列。
+- [x] **Step 4:** 实现显式POST→有界状态读取→私有附件下载；旧版本有独立原件/包入口，link-only不造空包。UI状态按owner/auth epoch清除，按实际源能力展示PDF与Web动作。运行新DB/site及旧Reader/source/private assets回归，下载名/header沿用现有安全编码，导出内容无站点会话/Key/运行机绝对路径字段。
+- [x] **Step 5:** 自检并提交 `feat: download original assets and private offline exports`。
 
 ### Task 14: S3→S4 升级、来源与管理全链路验收
 
@@ -283,7 +286,7 @@
 
 ### 当前执行进度（2026-10-29）
 
-任务0–12已完成并通过独立任务审查与必要的修正复核，交付段A资料组织/生命周期和B来源适配完成，C的离线Reader与完整阅读包校验/写出已完成。当前支持GitHub固定README、arXiv固定版本原件、历史来源与Reader配对、论文目标导入及明确关联收藏；任务13–14继续推进站点私有下载导出与整体回归。
+任务0–13已完成并通过独立任务审查与必要的修正复核，交付段A资料组织/生命周期和B来源适配完成，C的离线Reader、完整阅读包校验/写出与私有下载已完成。当前支持GitHub固定README、arXiv固定版本原件、历史来源与Reader配对、论文目标导入及明确关联收藏；任务14继续推进升级、中断恢复、真实公开材料与整体回归验收。
 
 | 任务 | 结果与提交 |
 | --- | --- |
@@ -300,6 +303,7 @@
 | 10 | 来源/历史界面、插件已知来源入口、发现链接与论文导入重试状态、来源配对验证；`75ed0a4`、`2268119`。 |
 | 11 | 独立可信Web目录、三模式本地阅读、真实无脚本快照、资源失败提示与有界长文；`0119517`。 |
 | 12 | 独立Web完整包、原件/SDK/可信执行文件闭包校验、原子流式写出与普通离线浏览器往返；`c4af15c`。 |
+| 13 | 所选版本私有导出、共享租约/槽与临时工作清理、24小时附件、稳定重试与历史PDF下载；`0192a8b`、`0e19866`。 |
 
 任务4保留309项服务端完整集成快照；最终恢复引用修订通过42项相关回归，预算与维护错误修正通过23项回收站回归、139项单元测试及类型检查/构建。任务5的最终修正通过91项归档单元测试、14项原生浏览器测试及类型检查/构建，验证真实IndexedDB失败回滚与确认后仅本地重试；不冒称物理磁盘耗尽验收。
 
@@ -307,11 +311,15 @@
 
 任务7–10分别保留来源身份/限流、GitHub投影、arXiv跨进程恢复和实际浏览器验证。任务8冻结检查为498项通过；任务9的169项单元测试通过，171项集成初次为168通过、3项旧断言失败，随后3项相关用例及1项强化传输用例修正通过，不记为全量171项重跑。任务10核心API41项、来源单元31项、插件归档单元41项和原生浏览器16项通过；初次站点检查为38/52，PDF原件路由与导入重试修正后42项相关浏览器检查通过。最终专项修正另有4项API、16项浏览器及构建/类型检查通过，保留原失败记录，不累加重叠计数。
 
-任务10使用匿名受控传输实际取得公开GitHub固定提交材料与arXiv固定版本元信息/PDF，记录URL、时间与hash；这只证明材料获取，完整真实来源到界面的验收仍在任务14。一次旧测试硬编码输出覆盖了任务6的一张历史正向截图，原图无法恢复；已保留所见字节、provenance erratum及修正后的独立输出证据，不将新截图冒充原图。M5非法日历日期修正、最终全量检查和输出警告核对仍待任务14。
+任务10使用匿名受控传输实际取得公开GitHub固定提交材料与arXiv固定版本元信息/PDF，记录URL、时间与hash；这只证明材料获取，完整真实来源到界面的验收仍在任务14。历史截图输出复用的范围已扩展核对：任务6有11个路径被后续运行重写，任务5另有7个路径的原始PNG出处无法完整核实。已保留所见字节、hash/mtime、追加更正与独立原始日志/trace；不将新截图冒充原图。站点3处循环已改为独立输出，插件7处路径须在任务14任何根/原生检查前修正。M5非法日历日期修正、最终全量检查和输出警告核对仍待任务14。
 
 任务11通过92项Renderer测试、5项普通file://浏览器测试、PDF静态检查及两个固定旧包验证；初次类型检查中的负向测试类型写法已修正，最终类型检查及1项单元/1项浏览器专项通过。生产/运行时字节在测试修订前后相同，两次无源码变化构建的PDF/Web目录逐字节一致。系统深色首次主题切换与浏览器诊断分类两项Minor须在任务14冻结前修正。完整ZIP闭包与替换文件拒绝由任务12实现，不把未验证脚本的自我检查当作完整性保证。
 
 任务12冻结检查通过109项合同测试、92项Renderer测试、6项普通离线浏览器用例及三个包的类型检查。包测试为180/181，唯一失败是旧S2/S3兼容用例的5秒超时；未改源码的单项复验通过，360份冻结文件哈希一致。该记录保留为超时后专项通过，不写成全量181项重跑，也不认定并发负载已被证明是唯一原因。最终根/站点验收仍在任务14。
+
+任务13冻结结果为服务399/401、站点110/115，原始失败全部保留。迁移/旧预期与实际窄屏布局修正后，60项服务专项通过，跨类型断言补强后单项通过；浏览器专项8/9后仅定位器修正的单项通过。独立审查另发现改密后完成附件被创建auth版本挡住，修正后23项导出集成及构建/类型检查通过，专项复审关闭。以上不宣称最终全量401/115重跑；最终当前代码的完整验收仍由任务14执行。精选当前界面：[桌面导出](../../assets/learning-site-s4/exports/web-export-desktop.png)、[375px导出](../../assets/learning-site-s4/exports/web-export-mobile-375.png)、[深色阅读](../../assets/learning-site-s4/exports/web-reader-mobile-dark.png)。
+
+实施中的接口补齐、验证裁定及其影响另见[实施裁定记录](../../learning-site-s4-decisions.md)，最终分支审查后继续核对。
 
 四份原始S2大样本ZIP在当前环境缺失；新增旧包兼容验证使用仓库固定S2/S3合成包，真实大样本验证沿用既有验收记录，不记作本轮重跑。逐任务失败、修正和验证原始证据保留在本工作区的ignored执行目录。
 
