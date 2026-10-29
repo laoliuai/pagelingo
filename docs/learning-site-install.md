@@ -132,3 +132,15 @@ Compose 转发这两个参数。界面使用认证 `/api/v1/bundle-imports/limit
 ```sh
 npm run test:site:restart -- --bundle /path/bert.zip --bundle /path/attention.zip
 ```
+
+## S4 受控升级验收
+
+S4 使用新增 007–009；上线时先停止旧 API/worker 写进程，再迁移并启动匹配版本。旧包兼容不代表旧二进制可穿越迁移继续写。实际部署属于独立操作；开发验收不操作个人服务。
+
+从仓库根目录构建网站与扩展后，可运行：
+
+```sh
+npm run check:site:s4 -- --samples tests/fixtures/site-s4/samples.json --output /tmp/pagelingo-s4-new-run
+```
+
+输出必须为新目录，父目录须存在。声明需要至少一份经过实际校验的已发布 PDF 0.1.0/0.2.0 包，供 001–006 的有数据基线使用；不能仅把任意文件标成 bundle。所有输入先做类型、路径别名、单文件/总量、实际 hash 和包校验，然后才创建本次独立数据库、卷和进程。此命令不读取 `.env`、环境中的数据库地址或模型 Key；默认不调用模型、不安装 Python。完整格式见[样本声明说明](../tests/fixtures/site-s4/README.md)，实际证据及未验证范围见[S4 验收](learning-site-s4-validation.md)。

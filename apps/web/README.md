@@ -108,3 +108,7 @@ See [capture workflow](../../docs/extension-site-capture.md) and [validation bou
 `/trash` 显示本人回收站，默认保留 30 天。恢复会核对原件与阅读材料，材料缺失时仍留在回收站。永久删除需明确确认，页面轮询只读清理收据，只有收据返回完成才显示“已永久删除”。账号或认证 epoch 变化会清空管理表单、选项、游标及迟到响应。
 
 添加链接、导入新阅读包以及扩展保存可选择集合/标签。选项从 `/api/v1/capture-options?kind=collections|tags&q&cursor&limit` 取得，默认 50、最多 100，仅含当前身份的 id/name；扩展沿用 `preferences:read`，不增加资料读取权限。分类只初始化新资料，重复保存不覆盖已有归类。服务已接受后分类被删除仍保存原件，并在保存说明中提示。扩展仅列最近 50 条本地摘要，更早记录仍保留并由后台分页续传。
+
+## S4 acceptance
+
+`npm run check:site:s4 -- --samples tests/fixtures/site-s4/samples.json --output <new-directory>` runs the declared collection-to-offline/purge lifecycle against owned processes, database and storage. Build the site and extension first. Preflight validates readonly inputs and at least one released PDF upgrade baseline before provisioning. It ignores ambient database/provider configuration, calls no model and requires no Python. See the [sample contract](../../tests/fixtures/site-s4/README.md), [actual validation evidence and boundaries](../../docs/learning-site-s4-validation.md), and [implementation decisions](../../docs/learning-site-s4-decisions.md).

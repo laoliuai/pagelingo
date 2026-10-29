@@ -1,0 +1,1523 @@
+{
+  "schemaVersion": "pagelingo-s4-public-validation/1",
+  "status": "implementation-validated-review-pending",
+  "baseCommit": "7b31efb835eb1d82c74a0b399abc03b696b86d62",
+  "startedAt": "2026-10-29T01:48:22.315Z",
+  "finishedAt": "2026-10-29T01:50:02.529Z",
+  "reviewBoundary": "Task and whole-branch review pending; no merge/push/deploy.",
+  "commands": [
+    {
+      "label": "final-01-npm-ci",
+      "command": [
+        "npm",
+        "ci"
+      ],
+      "startedAt": "2026-10-29T01:11:35.860Z",
+      "finishedAt": "2026-10-29T01:11:44.458Z",
+      "exitCode": 0,
+      "signal": null,
+      "sourceFreeze": "338ebc7c08f9c2b72956e5fd706e721d532ceca5d2d0309e5e2c82a7830507e1",
+      "rawLog": "final-01-npm-ci.log",
+      "rawLogSha256": "025ce7ead89961d970b9d5bd974f4f464f9d327a9886cf2cca37a4acdb3bdafa"
+    },
+    {
+      "label": "final-02-root-check",
+      "command": [
+        "npm",
+        "run",
+        "check"
+      ],
+      "startedAt": "2026-10-29T01:12:42.353Z",
+      "finishedAt": "2026-10-29T01:18:50.775Z",
+      "exitCode": 0,
+      "signal": null,
+      "sourceFreeze": "338ebc7c08f9c2b72956e5fd706e721d532ceca5d2d0309e5e2c82a7830507e1",
+      "rawLog": "final-02-root-check.log",
+      "rawLogSha256": "1751a93f19a79df86c3fe09262dd3cc996442cafbca62bb27aef32c826836d5f"
+    },
+    {
+      "label": "final-03-site-check",
+      "command": [
+        "npm",
+        "run",
+        "check:site"
+      ],
+      "startedAt": "2026-10-29T01:19:02.500Z",
+      "finishedAt": "2026-10-29T01:44:29.949Z",
+      "exitCode": 0,
+      "signal": null,
+      "sourceFreeze": "d36e7cb26b303599e53f19eaf9844eef783d5a9e58ef81458b990fa3c876c702",
+      "rawLog": "final-03-site-check.log",
+      "rawLogSha256": "cd94bab0b46ae61f1a5d6cd27f0887b296b4c49069b85606dd2d0c454bb00f1d"
+    },
+    {
+      "label": "final-04-s4",
+      "command": [
+        "npm",
+        "run",
+        "check:site:s4",
+        "--",
+        "--samples",
+        ".superpowers/sdd/2026-10-28-learning-site-s4/task-14-evidence/declared-public.json",
+        "--output",
+        ".superpowers/sdd/2026-10-28-learning-site-s4/task-14-evidence/final-s4-acceptance"
+      ],
+      "startedAt": "2026-10-29T01:48:20.331Z",
+      "finishedAt": "2026-10-29T01:50:02.583Z",
+      "exitCode": 0,
+      "signal": null,
+      "sourceFreeze": "a3f40aef47deeb3834be985f7f91c8982395fbf7890cc5d3c0e712dce16b1ff0",
+      "rawLog": "final-04-s4.log",
+      "rawLogSha256": "dfb864d0215cdb7b9e7edccc461bd77c4b50e6499ac983588b60e4e7660183ee"
+    },
+    {
+      "label": "final-05-compat",
+      "command": [
+        "node",
+        "scripts/check-s2-compat.mjs",
+        "--input",
+        "packages/document-bundle/tests/fixtures",
+        "--output",
+        ".superpowers/sdd/2026-10-28-learning-site-s4/task-14-evidence/final-compat"
+      ],
+      "startedAt": "2026-10-29T01:50:07.595Z",
+      "finishedAt": "2026-10-29T01:50:08.477Z",
+      "exitCode": 0,
+      "signal": null,
+      "sourceFreeze": "a3f40aef47deeb3834be985f7f91c8982395fbf7890cc5d3c0e712dce16b1ff0",
+      "rawLog": "final-05-compat.log",
+      "rawLogSha256": "5dc2ee7bf43abb4c7560efe5cfdd8a6248ee908cda36326087ea2f6623aee363"
+    },
+    {
+      "label": "final-06-audit",
+      "command": [
+        "npm",
+        "audit",
+        "--json"
+      ],
+      "startedAt": "2026-10-29T01:50:15.662Z",
+      "finishedAt": "2026-10-29T01:50:17.008Z",
+      "exitCode": 0,
+      "signal": null,
+      "sourceFreeze": "a3f40aef47deeb3834be985f7f91c8982395fbf7890cc5d3c0e712dce16b1ff0",
+      "rawLog": "final-06-audit.log",
+      "rawLogSha256": "513c5b7f868316888692cf16ce6cdbbef09cb87de4f931ec58a223ecd9b70c1b"
+    },
+    {
+      "label": "final-07-native-db",
+      "command": [
+        "node",
+        "scripts/with-test-postgres.mjs",
+        "--",
+        "npm",
+        "exec",
+        "--workspace",
+        "@pagelingo/extension",
+        "--",
+        "playwright",
+        "test",
+        "archive-management.test.ts",
+        "archive-source.test.ts",
+        "--grep",
+        "classification choices|collects repo and paper"
+      ],
+      "startedAt": "2026-10-29T01:50:44.645Z",
+      "finishedAt": "2026-10-29T01:53:17.009Z",
+      "exitCode": 0,
+      "signal": null,
+      "sourceFreeze": "a3f40aef47deeb3834be985f7f91c8982395fbf7890cc5d3c0e712dce16b1ff0",
+      "rawLog": "final-07-native-db.log",
+      "rawLogSha256": "9a4d3fd7bbe30ec47ce16e486fdd292250d1f0b70ff2e7f796ede6bd2bf5e4a5"
+    },
+    {
+      "label": "preflight-id-green",
+      "command": [
+        "node",
+        "--test",
+        "tests/site/site-s4-preflight.test.mjs"
+      ],
+      "startedAt": "2026-10-29T01:54:09.945Z",
+      "finishedAt": "2026-10-29T01:54:11.192Z",
+      "exitCode": 0,
+      "signal": null,
+      "sourceFreeze": "fd97556a546e0768ca1232f20154e1697213ab926c23925ba4e2d4f6982955b1",
+      "rawLog": "preflight-id-green.log",
+      "rawLogSha256": "97aaf8c3ca78f77a7598bc57f0f76e8c2e2f3bab1c5bcf17f7da85596873bc8f"
+    },
+    {
+      "label": "final-admission-readonly",
+      "command": [
+        "node",
+        "--input-type=module",
+        "-e",
+        "import assert from \"node:assert/strict\"; import { stat } from \"node:fs/promises\"; import { preflight } from \"./scripts/site-s4-inputs.mjs\"; const output=\".superpowers/sdd/2026-10-28-learning-site-s4/task-14-evidence/read-only-no-output\"; const p=await preflight(\".superpowers/sdd/2026-10-28-learning-site-s4/task-14-evidence/declared-public.json\",output,{requireUpgradeBaseline:true}); assert.equal(p.samples.length,9); assert.equal(await stat(output).catch(()=>null),null); console.log(JSON.stringify({samples:p.samples.map(s=>s.id),upgradeBaselineId:p.upgradeBaselineId,totalBytes:p.totalBytes,noOutput:true}));"
+      ],
+      "startedAt": "2026-10-29T01:54:26.532Z",
+      "finishedAt": "2026-10-29T01:54:27.410Z",
+      "exitCode": 0,
+      "signal": null,
+      "sourceFreeze": "fd97556a546e0768ca1232f20154e1697213ab926c23925ba4e2d4f6982955b1",
+      "rawLog": "final-admission-readonly.log",
+      "rawLogSha256": "dd08d39b01905dc5d59eef9a8eca6b5b6aa41bb93053ab6e443ec30449e1a9a3"
+    },
+    {
+      "label": "preflight-scalar-green",
+      "command": [
+        "node",
+        "--test",
+        "tests/site/site-s4-preflight.test.mjs"
+      ],
+      "startedAt": "2026-10-29T01:56:47.473Z",
+      "finishedAt": "2026-10-29T01:56:48.817Z",
+      "exitCode": 0,
+      "signal": null,
+      "sourceFreeze": "54dcbe513fa8a9835d4bd5736b921644f982d91bd46fa3e5ec57de47240881a4",
+      "rawLog": "preflight-scalar-green.log",
+      "rawLogSha256": "dd533fe1e4d0d85b608fbe0046e68af4bef145e54c77a163b62273b2be891390"
+    },
+    {
+      "label": "final-scalar-admission-readonly",
+      "command": [
+        "node",
+        "--input-type=module",
+        "-e",
+        "import assert from \"node:assert/strict\"; import { stat } from \"node:fs/promises\"; import { preflight } from \"./scripts/site-s4-inputs.mjs\"; const output=\".superpowers/sdd/2026-10-28-learning-site-s4/task-14-evidence/read-only-no-output\"; const p=await preflight(\".superpowers/sdd/2026-10-28-learning-site-s4/task-14-evidence/declared-public.json\",output,{requireUpgradeBaseline:true}); assert.equal(p.samples.length,9); assert.equal(await stat(output).catch(()=>null),null); console.log(JSON.stringify({samples:p.samples.map(s=>s.id),upgradeBaselineId:p.upgradeBaselineId,totalBytes:p.totalBytes,noOutput:true}));"
+      ],
+      "startedAt": "2026-10-29T01:56:57.673Z",
+      "finishedAt": "2026-10-29T01:56:58.555Z",
+      "exitCode": 0,
+      "signal": null,
+      "sourceFreeze": "54dcbe513fa8a9835d4bd5736b921644f982d91bd46fa3e5ec57de47240881a4",
+      "rawLog": "final-scalar-admission-readonly.log",
+      "rawLogSha256": "dd08d39b01905dc5d59eef9a8eca6b5b6aa41bb93053ab6e443ec30449e1a9a3"
+    }
+  ],
+  "counts": {
+    "rootVitest": 1012,
+    "rootNode": 10,
+    "rootBrowserPassed": 69,
+    "rootBrowserSkipped": 2,
+    "siteService": 402,
+    "siteBrowser": 117,
+    "siteNode": 35,
+    "focusedPreflight": 27,
+    "declaredS4": 9,
+    "fixedCompatibility": 2,
+    "focusedNativeDb": 2,
+    "auditVulnerabilities": 0
+  },
+  "sourcePhases": {
+    "initial": "338ebc7c08f9c2b72956e5fd706e721d532ceca5d2d0309e5e2c82a7830507e1",
+    "site": "d36e7cb26b303599e53f19eaf9844eef783d5a9e58ef81458b990fa3c876c702",
+    "acceptance": "a3f40aef47deeb3834be985f7f91c8982395fbf7890cc5d3c0e712dce16b1ff0",
+    "finalCli": "54dcbe513fa8a9835d4bd5736b921644f982d91bd46fa3e5ec57de47240881a4",
+    "idAmendment": {
+      "at": "2026-10-29T01:54:09.921303+00:00",
+      "beforeFreeze": "a3f40aef47deeb3834be985f7f91c8982395fbf7890cc5d3c0e712dce16b1ff0",
+      "afterFreeze": "fd97556a546e0768ca1232f20154e1697213ab926c23925ba4e2d4f6982955b1",
+      "changes": [
+        {
+          "path": "scripts/site-s4-inputs.mjs",
+          "before": "e99d0ff141118928bbaf12df233bf2b7c3127e2caaac79d7d2bda90f7b937b9c",
+          "after": "7e872b556807589c2bcf35f3f586c468585fee9c4e051587356ac57f22e81e87"
+        },
+        {
+          "path": "tests/site/site-s4-preflight.test.mjs",
+          "before": "194388c0689250a49b3bf43fc41913423b2587226179a85c331c6a19b91a4767",
+          "after": "cd88d61b32c6fd32d838d2259c3ba95f90cb96aae5ad9a91599a4e78f4a655b5"
+        }
+      ],
+      "unchangedEntries": 1669,
+      "productRuntimeChanged": false,
+      "runnerChanged": false,
+      "reason": "Self-review: regex coerced absent/null/numeric IDs;3 RED CLI cases then strict string ID check. Valid declaration bytes unchanged; no repeat S4/global sweep."
+    },
+    "scalarAmendment": {
+      "at": "2026-10-29T01:56:47.449202+00:00",
+      "beforeFreeze": "fd97556a546e0768ca1232f20154e1697213ab926c23925ba4e2d4f6982955b1",
+      "afterFreeze": "54dcbe513fa8a9835d4bd5736b921644f982d91bd46fa3e5ec57de47240881a4",
+      "changes": [
+        {
+          "path": "scripts/site-s4-inputs.mjs",
+          "before": "7e872b556807589c2bcf35f3f586c468585fee9c4e051587356ac57f22e81e87",
+          "after": "873f27dc8dcad376b6ac63ef1847ad1581551c207c84c7a10a26905bbe32e3f1"
+        },
+        {
+          "path": "tests/site/site-s4-preflight.test.mjs",
+          "before": "cd88d61b32c6fd32d838d2259c3ba95f90cb96aae5ad9a91599a4e78f4a655b5",
+          "after": "892111ac12a24e8e709272a6775f10c222d0b68061feb332d8ce4aac6ca50200"
+        }
+      ],
+      "unchangedEntries": 1669,
+      "productRuntimeChanged": false,
+      "runnerChanged": false,
+      "reason": "Same-preflight scalar audit: SHA regex and role/Accept property guards coerced single-element arrays;3 RED CLI cases, add string guards. Actual9inputs remain unchanged."
+    },
+    "harnessAmendment": {
+      "at": "2026-10-29T01:15:23.706124+00:00",
+      "path": "tests/site/site-s4-runner.mjs",
+      "before": "25c867675ed95db3be8a88a354d993743d1065b9e5caf4738e1705e703240d49",
+      "after": "98aa9802d16eb7199fb62363c28c057d9c3dc591b533bc370b4de959f16a8806",
+      "reason": "Observed dev arXiv screenshot was a loading state; now wait for actual owner source UI and download link. Preserve original as not UI proof.",
+      "rootCheckImportsHarness": false,
+      "productRuntimeChanged": false
+    },
+    "providerAmendment": {
+      "at": "2026-10-29T01:48:20.308842+00:00",
+      "beforeFreeze": "d36e7cb26b303599e53f19eaf9844eef783d5a9e58ef81458b990fa3c876c702",
+      "afterFreeze": "a3f40aef47deeb3834be985f7f91c8982395fbf7890cc5d3c0e712dce16b1ff0",
+      "changes": [
+        {
+          "path": "scripts/site-s4-inputs.mjs",
+          "before": "3c181e06609040e4aff97da155860b16efcff36c53ca3720631668c2ccbe11c6",
+          "after": "e99d0ff141118928bbaf12df233bf2b7c3127e2caaac79d7d2bda90f7b937b9c"
+        },
+        {
+          "path": "tests/fixtures/site-s4/README.md",
+          "before": "3f6c7fc64923423fb771a459d60c1a0ce0ccae0968dd6c185963f5c3c2517d39",
+          "after": "cc8850335709a850a92146da502138563c56ac765404c1b918bb0568ce11b80f"
+        },
+        {
+          "path": "tests/site/site-s4-preflight.test.mjs",
+          "before": "7a7f695fb7b0f8edb4d764b2153bbf16e5fc72594379cdfa1054984802318df7",
+          "after": "194388c0689250a49b3bf43fc41913423b2587226179a85c331c6a19b91a4767"
+        }
+      ],
+      "unchangedEntries": 1668,
+      "productRuntimeChanged": false,
+      "reason": "GitHub existing provider budgets checked before hashing/output; 3 retained RED cases then 21 focused GREEN including raw/rendered disguised-role cases. Required site check closed before edit."
+    },
+    "runtimeCatalog": {
+      "version": "web-0.3.0",
+      "codeSha256": "d1048b4ad7ed308c5c2658f4959c26ea08ed9c672a55834f37d0007dc9884742"
+    },
+    "selectedFrozenFiles": [
+      {
+        "path": "apps/document-service/migrations/001-accounts.sql",
+        "bytes": 1364,
+        "sha256": "6dd976d3b10fa569d6975fe0a75b9ff948ee7fa2a1560024ce10a8b6a770383e"
+      },
+      {
+        "path": "apps/document-service/migrations/002-providers.sql",
+        "bytes": 1334,
+        "sha256": "7c8347d9283a2af2fa64d4038f528b7ebfd0a91abb51fc5568b1ce6ae9f1a695"
+      },
+      {
+        "path": "apps/document-service/migrations/003-documents.sql",
+        "bytes": 2493,
+        "sha256": "051cad1bfb1f15f62974651f2af83fe2d5330a7920eac0512c5463b4f403c27b"
+      },
+      {
+        "path": "apps/document-service/migrations/004-user-management.sql",
+        "bytes": 774,
+        "sha256": "c662a4f1a4af81e4b1b166f14a27e559574daced85da3dc6137d28108551d288"
+      },
+      {
+        "path": "apps/document-service/migrations/005-reader-bundles.sql",
+        "bytes": 7652,
+        "sha256": "196686c10eadfe98bad1af4b2a964d7632e7ff4baa2db97d91a807a86221efc1"
+      },
+      {
+        "path": "apps/document-service/migrations/006-web-capture.sql",
+        "bytes": 26536,
+        "sha256": "47754df3436eba77c80aa787b626fea67f250a9dbe4e0a41bc408211e34f1b2c"
+      },
+      {
+        "path": "apps/document-service/migrations/007-library-management.sql",
+        "bytes": 13673,
+        "sha256": "de2d4a67b888a7184993cd5d3871df58ffdcaf39330923b298dd72da950c0a73"
+      },
+      {
+        "path": "apps/document-service/migrations/008-source-adapters.sql",
+        "bytes": 15301,
+        "sha256": "70bb2d1d59c1b0e60041271f6ead87b1114fbb05ca2af57e734bf90d91b404de"
+      },
+      {
+        "path": "apps/document-service/migrations/009-web-exports.sql",
+        "bytes": 6303,
+        "sha256": "1977c0b34d6b292eb017c95d5da4efa364bb08f09e1ec5eeb3b2bf01466d0de3"
+      },
+      {
+        "path": "package-lock.json",
+        "bytes": 301063,
+        "sha256": "72a5267b703be7b4e4763132d288919d220bdde688d8d0662736b4dfdca0a436"
+      },
+      {
+        "path": "packages/document-renderer/src/web-static-catalog.ts",
+        "bytes": 19661,
+        "sha256": "c6525ca7ee7551ed19d1f38e8c5f3e58f2eb2444d1093c42911932f934d87e8d"
+      },
+      {
+        "path": "packages/web-capture/src/node.ts",
+        "bytes": 4861,
+        "sha256": "2bab56fd98594046090ec7ca937f426827af5e78b7e6f9e21777d92deb12b6a3"
+      },
+      {
+        "path": "scripts/check-site-s4.mjs",
+        "bytes": 1849,
+        "sha256": "e4696bdf24af6468942831864d9e477b5b9416659247c2e9d765516a6790939c"
+      },
+      {
+        "path": "scripts/site-s4-inputs.mjs",
+        "bytes": 8883,
+        "sha256": "873f27dc8dcad376b6ac63ef1847ad1581551c207c84c7a10a26905bbe32e3f1"
+      },
+      {
+        "path": "tests/site/site-s4-runner.mjs",
+        "bytes": 28210,
+        "sha256": "98aa9802d16eb7199fb62363c28c057d9c3dc591b533bc370b4de959f16a8806"
+      }
+    ]
+  },
+  "declaration": {
+    "sha256": "48ab45f6f197318363896e9093d52f3df079298d3ee400c44a9ff173918a4bc6",
+    "totalBytes": 6185139,
+    "sampleCount": 9,
+    "upgradeBaselineId": "released-s2"
+  },
+  "checks": [
+    "owned 001–006 populated PDF/Web/progress upgraded to 007–009 without original row mutation",
+    "API and PostgreSQL recreated over owned retained volume; prior sessions, private downloads, PDF/Web readers and progress survived",
+    "two independent Chromium processes / two owners / independent API and worker processes; zero model calls"
+  ],
+  "upgrade": {
+    "owner": "15e0df6d-b542-46d3-9be3-56da4f916e22",
+    "pdfId": "e3286889-c08b-46f1-8c36-ffbc7b4870e8",
+    "pdfSource": "b0a285a4-a734-4c92-83a3-48fe48d16fab",
+    "pdfReader": "9966beb7-7039-4b9f-9f38-528d01a583a3",
+    "pdfPosition": {
+      "readerVersionId": "9966beb7-7039-4b9f-9f38-528d01a583a3",
+      "sourceVersionId": "b0a285a4-a734-4c92-83a3-48fe48d16fab",
+      "parseId": "p_47b50b2eea5e8c8777b8d3accd48f2cb3635a4fabe33bd5adcb85d42ce93c993",
+      "blockId": null,
+      "blockOffset": 0.25,
+      "pdfPageIndex": 0,
+      "view": "split",
+      "contentMode": "source"
+    },
+    "pdfSha256": "c1a7003a44fcfd3fb5b94041a84a485249db86efe3fb4de3a47059fd9a0395ad",
+    "archiveSha256": "4bb9c04d33dd57a43e64b21f2921b916fb2c451ced57a73f75cacf9e9712c136",
+    "webId": "a9daaa2e-2084-41db-a2ec-1425100eae68",
+    "webSource": "0880cf71-3cd1-4deb-b861-540eec7ab544",
+    "webReader": "30055ba0-a5cf-4639-bfdd-b39c166b9c66",
+    "webPosition": {
+      "readerVersionId": "30055ba0-a5cf-4639-bfdd-b39c166b9c66",
+      "sourceVersionId": "0880cf71-3cd1-4deb-b861-540eec7ab544",
+      "parseId": "p_d26d3057e8fbbcbc5daca779868a1383f9fa9555d4f8912ad8b7991b45fbcef2",
+      "blockId": "b_00000000000000000000000000000001",
+      "blockOffset": 0.4,
+      "view": "content",
+      "contentMode": "source"
+    },
+    "snapshotSha256": "1d43d640b3a9b2ee75177bc54b67667c0d5b32aa399327c5e9d5c5e223417deb",
+    "originalRowsEqualAfterMigration": true
+  },
+  "interruptions": [
+    {
+      "kind": "export",
+      "pid": 1475190,
+      "boundary": "durable-export-before-publication",
+      "key": "259502de-2467-4030-bb24-8c627daecaf8",
+      "liveWriterProtected": true,
+      "clockAdvance": "expired owned lease/slot/writer grace after SIGKILL"
+    },
+    {
+      "kind": "purge",
+      "pid": 1475251,
+      "boundary": "physical-delete-before-queue-ack",
+      "key": "259502de-2467-4030-bb24-8c627daecaf8",
+      "receiptId": "1ca99ed0-6c16-445b-87d6-294574135943"
+    },
+    {
+      "kind": "acquisition",
+      "pid": 1475868,
+      "boundary": "first-acquisition-committed-before-next-response",
+      "acquired": [
+        {
+          "id": "3207b55a-f4b6-4fca-8388-74ce65986d89",
+          "role": "github-repository",
+          "sha256": "4c540277f84bccbc7a3cd731dd576bf2b7c75612e6e72b3d8c5dc0b397ae9b84",
+          "bytes": "5085"
+        }
+      ]
+    }
+  ],
+  "processes": [
+    {
+      "mode": "backfill",
+      "pid": 1474607,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "api",
+      "pid": 1474594,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "maintenance",
+      "pid": 1475203,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "hold-export",
+      "pid": 1475190,
+      "exit": null,
+      "signal": "SIGKILL"
+    },
+    {
+      "mode": "job",
+      "pid": 1475215,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "hold-purge",
+      "pid": 1475251,
+      "exit": null,
+      "signal": "SIGKILL"
+    },
+    {
+      "mode": "maintenance",
+      "pid": 1475263,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "maintenance",
+      "pid": 1475275,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "maintenance",
+      "pid": 1475287,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "maintenance",
+      "pid": 1475299,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "maintenance",
+      "pid": 1475327,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "maintenance",
+      "pid": 1475339,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "maintenance",
+      "pid": 1475351,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "maintenance",
+      "pid": 1475363,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "maintenance",
+      "pid": 1475375,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "maintenance",
+      "pid": 1475387,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "maintenance",
+      "pid": 1475399,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "maintenance",
+      "pid": 1475411,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "maintenance",
+      "pid": 1475424,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "maintenance",
+      "pid": 1475436,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "maintenance",
+      "pid": 1475448,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "maintenance",
+      "pid": 1475489,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "maintenance",
+      "pid": 1475501,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "maintenance",
+      "pid": 1475513,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "maintenance",
+      "pid": 1475528,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "maintenance",
+      "pid": 1475550,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "maintenance",
+      "pid": 1475579,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "maintenance",
+      "pid": 1475591,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "maintenance",
+      "pid": 1475603,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "maintenance",
+      "pid": 1475615,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "maintenance",
+      "pid": 1475627,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "maintenance",
+      "pid": 1475670,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "maintenance",
+      "pid": 1475682,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "maintenance",
+      "pid": 1475694,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "maintenance",
+      "pid": 1475706,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "job",
+      "pid": 1475738,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "maintenance",
+      "pid": 1475763,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "maintenance",
+      "pid": 1475788,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "job",
+      "pid": 1475800,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "job",
+      "pid": 1475815,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "job",
+      "pid": 1475836,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "job",
+      "pid": 1475851,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "hold-acquisition",
+      "pid": 1475868,
+      "exit": null,
+      "signal": "SIGKILL"
+    },
+    {
+      "mode": "job",
+      "pid": 1475880,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "job",
+      "pid": 1475905,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "maintenance",
+      "pid": 1475930,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "maintenance",
+      "pid": 1475942,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "job",
+      "pid": 1475954,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "job",
+      "pid": 1475969,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "job",
+      "pid": 1476004,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "job",
+      "pid": 1476020,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "job",
+      "pid": 1476037,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "mode": "api",
+      "pid": 1474899,
+      "exit": 0,
+      "signal": null
+    }
+  ],
+  "modelRequests": 0,
+  "samples": [
+    {
+      "id": "declared-article",
+      "kind": "synthetic",
+      "url": "https://example.com/declared-article",
+      "version": "fixture-v1",
+      "capturedAt": "2026-10-29T00:00:00Z",
+      "checkedAt": "2026-10-29T01:48:31.500Z",
+      "inputSha256": "b866cabab44cb90efa6d4356a1492400e2467c1b25f7434e0da766368ba4c7dd",
+      "inputBytes": 382,
+      "scope": "Synthetic article only",
+      "unverified": [
+        "Real site material and semantic translation quality"
+      ],
+      "status": "passed",
+      "documentId": "e9f03c7c-f747-45eb-ab76-99c7a87aeb0b",
+      "readerVersionId": "cc237f5d-6cd5-4c6b-a0f7-1ac727757002",
+      "manifestSha256": "dac94e75d6a5fc972531dfc55e880701ac8d4347a04d8eeae3d362b8b53e98d8",
+      "purge": "1ca99ed0-6c16-445b-87d6-294574135943",
+      "offline": {
+        "outbound": [],
+        "diagnostics": []
+      },
+      "steps": [
+        "collection",
+        "search",
+        "tags",
+        "relation",
+        "private-read",
+        "trash",
+        "restore",
+        "export",
+        "offline",
+        "permanent-purge"
+      ],
+      "captureId": "53ecc755-25b9-4e81-87a0-5619b668fb38",
+      "inputUnchanged": true,
+      "inputs": [
+        {
+          "url": "https://example.com/declared-article",
+          "accept": null,
+          "role": "html",
+          "bytes": 382,
+          "sha256": "b866cabab44cb90efa6d4356a1492400e2467c1b25f7434e0da766368ba4c7dd"
+        }
+      ],
+      "export": {
+        "id": "478f02fd-a1ea-4b24-b4e8-d3dec12288a8",
+        "status": "completed",
+        "sha256": "18060dc6cfd02c989c856c7f63188e475eb7c5b27800a6b03e334be035c1bae9",
+        "bytes": 900914
+      }
+    },
+    {
+      "id": "github-document-subpage",
+      "kind": "synthetic",
+      "url": "https://github.com/octocat/Hello-World/blob/7fd1a60b01f91b314f59955a4e4d4e80d8edf11d/docs/example.md",
+      "version": "synthetic-doc-path-v1",
+      "capturedAt": "2026-10-29T00:00:00Z",
+      "checkedAt": "2026-10-29T01:49:10.902Z",
+      "inputSha256": "b866cabab44cb90efa6d4356a1492400e2467c1b25f7434e0da766368ba4c7dd",
+      "inputBytes": 382,
+      "scope": "Synthetic article on a GitHub document subpage URL; not repository identity",
+      "unverified": [
+        "This body is synthetic, not real GitHub page material"
+      ],
+      "status": "passed",
+      "documentId": "39c55e29-2f5d-4a44-9371-75fee3115008",
+      "readerVersionId": "6c5892b0-a4cf-4b8a-a651-c0c8790b8776",
+      "manifestSha256": "82cbb7952105abdd107e5d695649889393c0e9c1ee8f4d70348e7e34cccd7fb1",
+      "purge": "08387f0c-6749-4c09-a7aa-3f8255d0f72c",
+      "offline": {
+        "outbound": [],
+        "diagnostics": []
+      },
+      "steps": [
+        "collection",
+        "search",
+        "tags",
+        "relation",
+        "private-read",
+        "trash",
+        "restore",
+        "export",
+        "offline",
+        "permanent-purge"
+      ],
+      "captureId": "f512bcd0-5323-40b5-8760-6542e75d316b",
+      "inputUnchanged": true,
+      "inputs": [
+        {
+          "url": "https://github.com/octocat/Hello-World/blob/7fd1a60b01f91b314f59955a4e4d4e80d8edf11d/docs/example.md",
+          "accept": null,
+          "role": "html",
+          "bytes": 382,
+          "sha256": "b866cabab44cb90efa6d4356a1492400e2467c1b25f7434e0da766368ba4c7dd"
+        }
+      ],
+      "export": {
+        "id": "9e5f18dd-b5c8-4afc-87ae-169cc5be4d25",
+        "status": "completed",
+        "sha256": "88d5d8a81ad09e3f7e7dd49663594a630f146be407125067473a142268fdda00",
+        "bytes": 901033
+      }
+    },
+    {
+      "id": "released-s2",
+      "kind": "synthetic",
+      "url": "https://example.com/released-s2",
+      "version": "renderer-0.1.0",
+      "capturedAt": "2026-10-29T00:00:00Z",
+      "checkedAt": "2026-10-29T01:49:17.894Z",
+      "inputSha256": "4bb9c04d33dd57a43e64b21f2921b916fb2c451ced57a73f75cacf9e9712c136",
+      "inputBytes": 904836,
+      "scope": "Released synthetic PDF bundle",
+      "unverified": [
+        "Real site material and semantic translation quality"
+      ],
+      "status": "passed",
+      "packageId": "00000000-0000-4000-8000-000000000003",
+      "manifestSha256": "b08b1d2defbd46f1c8289ad12eaf53a43924c6426147dc6bf06f0750333540eb",
+      "inputUnchanged": true,
+      "inputs": [
+        {
+          "url": "https://example.com/released-s2",
+          "accept": null,
+          "role": "bundle",
+          "bytes": 904836,
+          "sha256": "4bb9c04d33dd57a43e64b21f2921b916fb2c451ced57a73f75cacf9e9712c136"
+        }
+      ]
+    },
+    {
+      "id": "released-s3",
+      "kind": "synthetic",
+      "url": "https://example.com/released-s3",
+      "version": "renderer-0.2.0",
+      "capturedAt": "2026-10-29T00:00:00Z",
+      "checkedAt": "2026-10-29T01:49:18.070Z",
+      "inputSha256": "cc1d55c638db2d789b31403c10e7ff94c2f1afac4f567f9008b2f7c49b4245a3",
+      "inputBytes": 904838,
+      "scope": "Released synthetic PDF bundle",
+      "unverified": [
+        "Real site material and semantic translation quality"
+      ],
+      "status": "passed",
+      "packageId": "00000000-0000-4000-8000-000000000003",
+      "manifestSha256": "f7d19f1d8a6eba4fe90e16f253e4d2acfae1bafb361e6a557878061d95ab0d1f",
+      "inputUnchanged": true,
+      "inputs": [
+        {
+          "url": "https://example.com/released-s3",
+          "accept": null,
+          "role": "bundle",
+          "bytes": 904838,
+          "sha256": "cc1d55c638db2d789b31403c10e7ff94c2f1afac4f567f9008b2f7c49b4245a3"
+        }
+      ]
+    },
+    {
+      "id": "synthetic-paper-v1",
+      "kind": "synthetic",
+      "url": "https://arxiv.org/abs/2401.12345v1",
+      "version": "2401.12345v1",
+      "capturedAt": "2026-10-29T00:00:00Z",
+      "checkedAt": "2026-10-29T01:49:18.225Z",
+      "inputSha256": "8ec5b4d09d8503be103f5859ee5ad6fe38d9980443de10a412b03bc2fd0e11f9",
+      "inputBytes": 369,
+      "scope": "Synthetic paper version and local bundle binding",
+      "unverified": [
+        "Not a public paper"
+      ],
+      "status": "passed",
+      "documentId": "1a918a71-28d3-4caf-a43b-f0deaec4f546",
+      "format": "arxiv",
+      "acquisitions": [
+        {
+          "id": "6bb206dc-2df9-4d4f-8316-c996ba1a62d5",
+          "role": "arxiv-atom",
+          "sha256": "8ec5b4d09d8503be103f5859ee5ad6fe38d9980443de10a412b03bc2fd0e11f9",
+          "bytes": "369"
+        },
+        {
+          "id": "27c63ed4-c266-427d-8e1f-536bcd46caca",
+          "role": "arxiv-pdf",
+          "sha256": "c1a7003a44fcfd3fb5b94041a84a485249db86efe3fb4de3a47059fd9a0395ad",
+          "bytes": "32"
+        }
+      ],
+      "pdfSha256": "c1a7003a44fcfd3fb5b94041a84a485249db86efe3fb4de3a47059fd9a0395ad",
+      "localBundleBinding": {
+        "id": "936a4c43-1f85-4b75-b683-1e9f59f6c28f",
+        "status": "completed",
+        "epoch": 1,
+        "documentId": "1a918a71-28d3-4caf-a43b-f0deaec4f546",
+        "readerVersionId": "e60f1096-a340-45e6-aff3-183ebe6867a4",
+        "createdAt": "2026-10-29T01:49:24.687Z",
+        "updatedAt": "2026-10-29T01:49:25.994Z"
+      },
+      "inputUnchanged": true,
+      "inputs": [
+        {
+          "url": "https://export.arxiv.org/api/query?id_list=2401.12345v1",
+          "accept": "application/atom+xml",
+          "role": "text",
+          "bytes": 369,
+          "sha256": "8ec5b4d09d8503be103f5859ee5ad6fe38d9980443de10a412b03bc2fd0e11f9"
+        },
+        {
+          "url": "https://arxiv.org/pdf/2401.12345v1",
+          "accept": null,
+          "role": "pdf",
+          "bytes": 32,
+          "sha256": "c1a7003a44fcfd3fb5b94041a84a485249db86efe3fb4de3a47059fd9a0395ad"
+        }
+      ]
+    },
+    {
+      "id": "synthetic-paper-v2",
+      "kind": "synthetic",
+      "url": "https://arxiv.org/abs/2401.12345v2",
+      "version": "2401.12345v2",
+      "capturedAt": "2026-10-29T00:00:00Z",
+      "checkedAt": "2026-10-29T01:49:26.134Z",
+      "inputSha256": "d8706289bf8980ae6781667325242edfeb9d75be2651cc664f2d382aa78e1a35",
+      "inputBytes": 369,
+      "scope": "Synthetic paper version and local bundle binding",
+      "unverified": [
+        "Not a public paper"
+      ],
+      "status": "passed",
+      "documentId": "1a918a71-28d3-4caf-a43b-f0deaec4f546",
+      "format": "arxiv",
+      "acquisitions": [
+        {
+          "id": "7a3e2c97-2979-4f83-b12a-d0248057165e",
+          "role": "arxiv-atom",
+          "sha256": "d8706289bf8980ae6781667325242edfeb9d75be2651cc664f2d382aa78e1a35",
+          "bytes": "369"
+        },
+        {
+          "id": "1983a5b9-c445-4680-b436-26fc3d6c1429",
+          "role": "arxiv-pdf",
+          "sha256": "c1a7003a44fcfd3fb5b94041a84a485249db86efe3fb4de3a47059fd9a0395ad",
+          "bytes": "32"
+        }
+      ],
+      "pdfSha256": "c1a7003a44fcfd3fb5b94041a84a485249db86efe3fb4de3a47059fd9a0395ad",
+      "localBundleBinding": {
+        "id": "7d115605-feaa-43e8-a657-8ab257294585",
+        "status": "completed",
+        "epoch": 1,
+        "documentId": "1a918a71-28d3-4caf-a43b-f0deaec4f546",
+        "readerVersionId": "e60f1096-a340-45e6-aff3-183ebe6867a4",
+        "createdAt": "2026-10-29T01:49:32.643Z",
+        "updatedAt": "2026-10-29T01:49:33.900Z"
+      },
+      "inputUnchanged": true,
+      "inputs": [
+        {
+          "url": "https://export.arxiv.org/api/query?id_list=2401.12345v2",
+          "accept": "application/atom+xml",
+          "role": "text",
+          "bytes": 369,
+          "sha256": "d8706289bf8980ae6781667325242edfeb9d75be2651cc664f2d382aa78e1a35"
+        },
+        {
+          "url": "https://arxiv.org/pdf/2401.12345v2",
+          "accept": null,
+          "role": "pdf",
+          "bytes": 32,
+          "sha256": "c1a7003a44fcfd3fb5b94041a84a485249db86efe3fb4de3a47059fd9a0395ad"
+        }
+      ]
+    },
+    {
+      "id": "public-github",
+      "kind": "cached-public",
+      "url": "https://github.com/octocat/Hello-World",
+      "version": "7fd1a60b01f91b314f59955a4e4d4e80d8edf11d",
+      "capturedAt": "2026-10-29T00:54:13.126Z",
+      "checkedAt": "2026-10-29T01:49:34.026Z",
+      "inputSha256": "4c540277f84bccbc7a3cd731dd576bf2b7c75612e6e72b3d8c5dc0b397ae9b84",
+      "inputBytes": 5085,
+      "scope": "Public repository metadata and README at one commit only",
+      "unverified": [
+        "Repository recursion, branches beyond selected commit, issues, discussions"
+      ],
+      "status": "passed",
+      "documentId": "90c2da0a-52d9-44bc-8bbe-d4ed3f85f80e",
+      "format": "github",
+      "acquisitions": [
+        {
+          "id": "4ee9c5ce-ad24-40a9-905d-2f32aedf308e",
+          "role": "github-commit",
+          "sha256": "14c00b5abdbd44acbb58983de2d9364919962364349d2359aece6cb4c8ed6ac6",
+          "bytes": "40"
+        },
+        {
+          "id": "f41d02a4-95fd-4978-afe9-b15678aa9c0c",
+          "role": "github-descriptor",
+          "sha256": "18964a753bd41f691d359bff48cf79b06a54df6ed2e1872f502c569d3e0bf7cd",
+          "bytes": "954"
+        },
+        {
+          "id": "4a52771f-de71-4c0f-b159-fcf349b84789",
+          "role": "github-html",
+          "sha256": "b352b70d0b87b23e1c94de4820d1d95acca251d23f68bf1d454c3860010cee57",
+          "bytes": "130"
+        },
+        {
+          "id": "814af174-9263-4636-98a4-965403dff37f",
+          "role": "github-raw",
+          "sha256": "03ba204e50d126e4674c005e04d82e84c21366780af1f43bd54a37816b6ab340",
+          "bytes": "13"
+        },
+        {
+          "id": "3207b55a-f4b6-4fca-8388-74ce65986d89",
+          "role": "github-repository",
+          "sha256": "4c540277f84bccbc7a3cd731dd576bf2b7c75612e6e72b3d8c5dc0b397ae9b84",
+          "bytes": "5085"
+        }
+      ],
+      "readerVersionId": "a9b74b6e-a837-4e84-901a-5f2e912841a1",
+      "manifestSha256": "bdaa3d58218bab071088c8fe9d1e102a6e2564745cf55f202cc4759ac63d6497",
+      "purge": "86818cb9-a3ed-49d7-aa04-5e611b0c1413",
+      "offline": {
+        "outbound": [],
+        "diagnostics": []
+      },
+      "steps": [
+        "collection",
+        "search",
+        "tags",
+        "relation",
+        "private-read",
+        "trash",
+        "restore",
+        "export",
+        "offline",
+        "permanent-purge"
+      ],
+      "inputUnchanged": true,
+      "inputs": [
+        {
+          "url": "https://api.github.com/repos/octocat/Hello-World",
+          "accept": "application/vnd.github+json",
+          "role": "json",
+          "bytes": 5085,
+          "sha256": "4c540277f84bccbc7a3cd731dd576bf2b7c75612e6e72b3d8c5dc0b397ae9b84"
+        },
+        {
+          "url": "https://api.github.com/repos/octocat/Hello-World/commits/master",
+          "accept": "application/vnd.github.sha",
+          "role": "text",
+          "bytes": 40,
+          "sha256": "14c00b5abdbd44acbb58983de2d9364919962364349d2359aece6cb4c8ed6ac6"
+        },
+        {
+          "url": "https://api.github.com/repos/octocat/Hello-World/readme?ref=7fd1a60b01f91b314f59955a4e4d4e80d8edf11d",
+          "accept": "application/vnd.github+json",
+          "role": "json",
+          "bytes": 954,
+          "sha256": "18964a753bd41f691d359bff48cf79b06a54df6ed2e1872f502c569d3e0bf7cd"
+        },
+        {
+          "url": "https://api.github.com/repos/octocat/Hello-World/readme?ref=7fd1a60b01f91b314f59955a4e4d4e80d8edf11d",
+          "accept": "application/vnd.github.raw+json",
+          "role": "text",
+          "bytes": 13,
+          "sha256": "03ba204e50d126e4674c005e04d82e84c21366780af1f43bd54a37816b6ab340"
+        },
+        {
+          "url": "https://api.github.com/repos/octocat/Hello-World/readme?ref=7fd1a60b01f91b314f59955a4e4d4e80d8edf11d",
+          "accept": "application/vnd.github.html+json",
+          "role": "html",
+          "bytes": 130,
+          "sha256": "b352b70d0b87b23e1c94de4820d1d95acca251d23f68bf1d454c3860010cee57"
+        }
+      ],
+      "export": {
+        "id": "20124762-1dfd-43ad-99fd-8908fde1fd8c",
+        "status": "completed",
+        "sha256": "b8f1807bc9287827b8acc8bf27bfeb7f5524f615461571aea399cfd1d63c662b",
+        "bytes": 899828
+      }
+    },
+    {
+      "id": "public-arxiv-v1",
+      "kind": "cached-public",
+      "url": "https://arxiv.org/abs/1706.03762v1",
+      "version": "1706.03762v1",
+      "capturedAt": "2026-10-29T00:54:16.346Z",
+      "checkedAt": "2026-10-29T01:49:44.554Z",
+      "inputSha256": "6e4c49a39d07ef8ef1b59be844ba8601462247a970c946ab2c2b1cb49f00c5e2",
+      "inputBytes": 2968,
+      "scope": "Fixed public Atom metadata and actual PDF bytes; local inference not performed",
+      "unverified": [
+        "PDF parse quality and real translation"
+      ],
+      "status": "passed",
+      "documentId": "7d1ab91c-5740-4200-9779-62d6e04e737d",
+      "format": "arxiv",
+      "acquisitions": [
+        {
+          "id": "8cea7cae-8c49-46f7-8582-a6ab1b8edb0d",
+          "role": "arxiv-atom",
+          "sha256": "6e4c49a39d07ef8ef1b59be844ba8601462247a970c946ab2c2b1cb49f00c5e2",
+          "bytes": "2968"
+        },
+        {
+          "id": "8464b1a2-b7ac-4ac3-a8de-07022b7ec326",
+          "role": "arxiv-pdf",
+          "sha256": "0a9bff1be3575cf9fe26a4a3d3a9175bc791ecec90de8b9deba4cff75d2b9476",
+          "bytes": "2128686"
+        }
+      ],
+      "pdfSha256": "0a9bff1be3575cf9fe26a4a3d3a9175bc791ecec90de8b9deba4cff75d2b9476",
+      "inputUnchanged": true,
+      "inputs": [
+        {
+          "url": "https://export.arxiv.org/api/query?id_list=1706.03762v1",
+          "accept": "application/atom+xml",
+          "role": "text",
+          "bytes": 2968,
+          "sha256": "6e4c49a39d07ef8ef1b59be844ba8601462247a970c946ab2c2b1cb49f00c5e2"
+        },
+        {
+          "url": "https://arxiv.org/pdf/1706.03762v1",
+          "accept": "application/pdf",
+          "role": "pdf",
+          "bytes": 2128686,
+          "sha256": "0a9bff1be3575cf9fe26a4a3d3a9175bc791ecec90de8b9deba4cff75d2b9476"
+        }
+      ]
+    },
+    {
+      "id": "public-arxiv-v2",
+      "kind": "cached-public",
+      "url": "https://arxiv.org/abs/1706.03762v2",
+      "version": "1706.03762v2",
+      "capturedAt": "2026-10-29T00:54:16.925Z",
+      "checkedAt": "2026-10-29T01:49:51.264Z",
+      "inputSha256": "ba79fd97c7237057e58ee6e03ec44b8fb36cc070d38400efd4cca6d2b2eedfe0",
+      "inputBytes": 2968,
+      "scope": "Fixed public Atom metadata and actual PDF bytes; local inference not performed",
+      "unverified": [
+        "PDF parse quality and real translation"
+      ],
+      "status": "passed",
+      "documentId": "7d1ab91c-5740-4200-9779-62d6e04e737d",
+      "format": "arxiv",
+      "acquisitions": [
+        {
+          "id": "5bdd1123-1b4e-4d9d-a16c-a445d3131b80",
+          "role": "arxiv-atom",
+          "sha256": "ba79fd97c7237057e58ee6e03ec44b8fb36cc070d38400efd4cca6d2b2eedfe0",
+          "bytes": "2968"
+        },
+        {
+          "id": "c0b85238-102a-4c31-b9fe-7adba0d7235f",
+          "role": "arxiv-pdf",
+          "sha256": "803b95695f178d1804b8cf66ab7ae3d7c8b94e044a045cbff8d9b37435ca4dd4",
+          "bytes": "2233055"
+        }
+      ],
+      "pdfSha256": "803b95695f178d1804b8cf66ab7ae3d7c8b94e044a045cbff8d9b37435ca4dd4",
+      "inputUnchanged": true,
+      "inputs": [
+        {
+          "url": "https://export.arxiv.org/api/query?id_list=1706.03762v2",
+          "accept": "application/atom+xml",
+          "role": "text",
+          "bytes": 2968,
+          "sha256": "ba79fd97c7237057e58ee6e03ec44b8fb36cc070d38400efd4cca6d2b2eedfe0"
+        },
+        {
+          "url": "https://arxiv.org/pdf/1706.03762v2",
+          "accept": "application/pdf",
+          "role": "pdf",
+          "bytes": 2233055,
+          "sha256": "803b95695f178d1804b8cf66ab7ae3d7c8b94e044a045cbff8d9b37435ca4dd4"
+        }
+      ]
+    }
+  ],
+  "publicResponses": [
+    {
+      "name": "github-repository.json",
+      "url": "https://api.github.com/repos/octocat/Hello-World",
+      "finalUrl": "https://api.github.com/repos/octocat/Hello-World",
+      "accept": "application/vnd.github+json",
+      "startedAt": "2026-10-29T00:54:12.408Z",
+      "finishedAt": "2026-10-29T00:54:13.126Z",
+      "status": 200,
+      "bytes": 5085,
+      "sha256": "4c540277f84bccbc7a3cd731dd576bf2b7c75612e6e72b3d8c5dc0b397ae9b84"
+    },
+    {
+      "name": "github-commit.txt",
+      "url": "https://api.github.com/repos/octocat/Hello-World/commits/master",
+      "finalUrl": "https://api.github.com/repos/octocat/Hello-World/commits/master",
+      "accept": "application/vnd.github.sha",
+      "startedAt": "2026-10-29T00:54:13.127Z",
+      "finishedAt": "2026-10-29T00:54:13.767Z",
+      "status": 200,
+      "bytes": 40,
+      "sha256": "14c00b5abdbd44acbb58983de2d9364919962364349d2359aece6cb4c8ed6ac6"
+    },
+    {
+      "name": "github-readme.json",
+      "url": "https://api.github.com/repos/octocat/Hello-World/readme?ref=7fd1a60b01f91b314f59955a4e4d4e80d8edf11d",
+      "finalUrl": "https://api.github.com/repos/octocat/Hello-World/readme?ref=7fd1a60b01f91b314f59955a4e4d4e80d8edf11d",
+      "accept": "application/vnd.github+json",
+      "startedAt": "2026-10-29T00:54:13.767Z",
+      "finishedAt": "2026-10-29T00:54:14.434Z",
+      "status": 200,
+      "bytes": 954,
+      "sha256": "18964a753bd41f691d359bff48cf79b06a54df6ed2e1872f502c569d3e0bf7cd"
+    },
+    {
+      "name": "github-readme.raw",
+      "url": "https://api.github.com/repos/octocat/Hello-World/readme?ref=7fd1a60b01f91b314f59955a4e4d4e80d8edf11d",
+      "finalUrl": "https://api.github.com/repos/octocat/Hello-World/readme?ref=7fd1a60b01f91b314f59955a4e4d4e80d8edf11d",
+      "accept": "application/vnd.github.raw+json",
+      "startedAt": "2026-10-29T00:54:14.434Z",
+      "finishedAt": "2026-10-29T00:54:15.042Z",
+      "status": 200,
+      "bytes": 13,
+      "sha256": "03ba204e50d126e4674c005e04d82e84c21366780af1f43bd54a37816b6ab340"
+    },
+    {
+      "name": "github-readme.html",
+      "url": "https://api.github.com/repos/octocat/Hello-World/readme?ref=7fd1a60b01f91b314f59955a4e4d4e80d8edf11d",
+      "finalUrl": "https://api.github.com/repos/octocat/Hello-World/readme?ref=7fd1a60b01f91b314f59955a4e4d4e80d8edf11d",
+      "accept": "application/vnd.github.html+json",
+      "startedAt": "2026-10-29T00:54:15.043Z",
+      "finishedAt": "2026-10-29T00:54:15.711Z",
+      "status": 200,
+      "bytes": 130,
+      "sha256": "b352b70d0b87b23e1c94de4820d1d95acca251d23f68bf1d454c3860010cee57"
+    },
+    {
+      "name": "arxiv-1706.03762v1.atom",
+      "url": "https://export.arxiv.org/api/query?id_list=1706.03762v1",
+      "finalUrl": "https://export.arxiv.org/api/query?id_list=1706.03762v1",
+      "accept": "application/atom+xml",
+      "startedAt": "2026-10-29T00:54:15.712Z",
+      "finishedAt": "2026-10-29T00:54:16.346Z",
+      "status": 200,
+      "bytes": 2968,
+      "sha256": "6e4c49a39d07ef8ef1b59be844ba8601462247a970c946ab2c2b1cb49f00c5e2"
+    },
+    {
+      "name": "arxiv-1706.03762v2.atom",
+      "url": "https://export.arxiv.org/api/query?id_list=1706.03762v2",
+      "finalUrl": "https://export.arxiv.org/api/query?id_list=1706.03762v2",
+      "accept": "application/atom+xml",
+      "startedAt": "2026-10-29T00:54:16.347Z",
+      "finishedAt": "2026-10-29T00:54:16.925Z",
+      "status": 200,
+      "bytes": 2968,
+      "sha256": "ba79fd97c7237057e58ee6e03ec44b8fb36cc070d38400efd4cca6d2b2eedfe0"
+    },
+    {
+      "name": "github-repository.json",
+      "url": "https://api.github.com/repos/octocat/Hello-World",
+      "finalUrl": "https://api.github.com/repos/octocat/Hello-World",
+      "accept": "application/vnd.github+json",
+      "startedAt": "2026-10-29T00:54:12.408Z",
+      "finishedAt": "2026-10-29T00:54:13.126Z",
+      "status": 200,
+      "bytes": 5085,
+      "sha256": "4c540277f84bccbc7a3cd731dd576bf2b7c75612e6e72b3d8c5dc0b397ae9b84"
+    },
+    {
+      "name": "github-commit.txt",
+      "url": "https://api.github.com/repos/octocat/Hello-World/commits/master",
+      "finalUrl": "https://api.github.com/repos/octocat/Hello-World/commits/master",
+      "accept": "application/vnd.github.sha",
+      "startedAt": "2026-10-29T00:54:13.127Z",
+      "finishedAt": "2026-10-29T00:54:13.767Z",
+      "status": 200,
+      "bytes": 40,
+      "sha256": "14c00b5abdbd44acbb58983de2d9364919962364349d2359aece6cb4c8ed6ac6"
+    },
+    {
+      "name": "github-readme.json",
+      "url": "https://api.github.com/repos/octocat/Hello-World/readme?ref=7fd1a60b01f91b314f59955a4e4d4e80d8edf11d",
+      "finalUrl": "https://api.github.com/repos/octocat/Hello-World/readme?ref=7fd1a60b01f91b314f59955a4e4d4e80d8edf11d",
+      "accept": "application/vnd.github+json",
+      "startedAt": "2026-10-29T00:54:13.767Z",
+      "finishedAt": "2026-10-29T00:54:14.434Z",
+      "status": 200,
+      "bytes": 954,
+      "sha256": "18964a753bd41f691d359bff48cf79b06a54df6ed2e1872f502c569d3e0bf7cd"
+    },
+    {
+      "name": "github-readme.raw",
+      "url": "https://api.github.com/repos/octocat/Hello-World/readme?ref=7fd1a60b01f91b314f59955a4e4d4e80d8edf11d",
+      "finalUrl": "https://api.github.com/repos/octocat/Hello-World/readme?ref=7fd1a60b01f91b314f59955a4e4d4e80d8edf11d",
+      "accept": "application/vnd.github.raw+json",
+      "startedAt": "2026-10-29T00:54:14.434Z",
+      "finishedAt": "2026-10-29T00:54:15.042Z",
+      "status": 200,
+      "bytes": 13,
+      "sha256": "03ba204e50d126e4674c005e04d82e84c21366780af1f43bd54a37816b6ab340"
+    },
+    {
+      "name": "github-readme.html",
+      "url": "https://api.github.com/repos/octocat/Hello-World/readme?ref=7fd1a60b01f91b314f59955a4e4d4e80d8edf11d",
+      "finalUrl": "https://api.github.com/repos/octocat/Hello-World/readme?ref=7fd1a60b01f91b314f59955a4e4d4e80d8edf11d",
+      "accept": "application/vnd.github.html+json",
+      "startedAt": "2026-10-29T00:54:15.043Z",
+      "finishedAt": "2026-10-29T00:54:15.711Z",
+      "status": 200,
+      "bytes": 130,
+      "sha256": "b352b70d0b87b23e1c94de4820d1d95acca251d23f68bf1d454c3860010cee57"
+    },
+    {
+      "name": "arxiv-1706.03762v1.atom",
+      "url": "https://export.arxiv.org/api/query?id_list=1706.03762v1",
+      "finalUrl": "https://export.arxiv.org/api/query?id_list=1706.03762v1",
+      "accept": "application/atom+xml",
+      "startedAt": "2026-10-29T00:54:15.712Z",
+      "finishedAt": "2026-10-29T00:54:16.346Z",
+      "status": 200,
+      "bytes": 2968,
+      "sha256": "6e4c49a39d07ef8ef1b59be844ba8601462247a970c946ab2c2b1cb49f00c5e2"
+    },
+    {
+      "name": "arxiv-1706.03762v2.atom",
+      "url": "https://export.arxiv.org/api/query?id_list=1706.03762v2",
+      "finalUrl": "https://export.arxiv.org/api/query?id_list=1706.03762v2",
+      "accept": "application/atom+xml",
+      "startedAt": "2026-10-29T00:54:16.347Z",
+      "finishedAt": "2026-10-29T00:54:16.925Z",
+      "status": 200,
+      "bytes": 2968,
+      "sha256": "ba79fd97c7237057e58ee6e03ec44b8fb36cc070d38400efd4cca6d2b2eedfe0"
+    },
+    {
+      "name": "arxiv-1706.03762v1.pdf",
+      "url": "https://arxiv.org/pdf/1706.03762v1",
+      "finalUrl": "https://arxiv.org/pdf/1706.03762v1",
+      "accept": "application/pdf",
+      "startedAt": "2026-10-29T01:00:48.452Z",
+      "finishedAt": "2026-10-29T01:00:50.022Z",
+      "status": 200,
+      "bytes": 2128686,
+      "sha256": "0a9bff1be3575cf9fe26a4a3d3a9175bc791ecec90de8b9deba4cff75d2b9476"
+    },
+    {
+      "name": "arxiv-1706.03762v2.pdf",
+      "url": "https://arxiv.org/pdf/1706.03762v2",
+      "finalUrl": "https://arxiv.org/pdf/1706.03762v2",
+      "accept": "application/pdf",
+      "startedAt": "2026-10-29T01:00:50.025Z",
+      "finishedAt": "2026-10-29T01:00:51.926Z",
+      "status": 200,
+      "bytes": 2233055,
+      "sha256": "803b95695f178d1804b8cf66ab7ae3d7c8b94e044a045cbff8d9b37435ca4dd4"
+    }
+  ],
+  "publicApplicationMode": "cached-public retained actual bytes replayed through real source queue; not live application HTTP",
+  "compatibility": {
+    "schemaVersion": "pagelingo-s2-compat/1",
+    "status": "passed",
+    "samples": [
+      {
+        "input": "packages/document-bundle/tests/fixtures/s2-final/reader.zip",
+        "status": "passed",
+        "archiveBytes": 904836,
+        "archiveSha256Before": "4bb9c04d33dd57a43e64b21f2921b916fb2c451ced57a73f75cacf9e9712c136",
+        "packageId": "00000000-0000-4000-8000-000000000003",
+        "manifestSha256": "b08b1d2defbd46f1c8289ad12eaf53a43924c6426147dc6bf06f0750333540eb",
+        "renderer": {
+          "version": "0.1.0",
+          "codeSha256": "3bfbbf4ce02a787185643792d617f80cb960261d108ad0ce224b0909ea4d47c3"
+        },
+        "sourceSha256": "c1a7003a44fcfd3fb5b94041a84a485249db86efe3fb4de3a47059fd9a0395ad",
+        "readerIrSha256": "1248b67e6ceaa6572fd021655a6421a8e5e33b4aeaf58d73206da530c9f605ad",
+        "translationSha256": "d196597f072946c520ef70f7364927c59ce4f6cd082475e4d954b24db59ada16",
+        "files": 76,
+        "chunks": 3,
+        "archiveSha256After": "4bb9c04d33dd57a43e64b21f2921b916fb2c451ced57a73f75cacf9e9712c136"
+      },
+      {
+        "input": "packages/document-bundle/tests/fixtures/s3-final/reader.zip",
+        "status": "passed",
+        "archiveBytes": 904838,
+        "archiveSha256Before": "cc1d55c638db2d789b31403c10e7ff94c2f1afac4f567f9008b2f7c49b4245a3",
+        "packageId": "00000000-0000-4000-8000-000000000003",
+        "manifestSha256": "f7d19f1d8a6eba4fe90e16f253e4d2acfae1bafb361e6a557878061d95ab0d1f",
+        "renderer": {
+          "version": "0.2.0",
+          "codeSha256": "f856f4104ebcf8a90528faeb2f5bafc01dc3745468b6f53253ad0e420bcb8a73"
+        },
+        "sourceSha256": "c1a7003a44fcfd3fb5b94041a84a485249db86efe3fb4de3a47059fd9a0395ad",
+        "readerIrSha256": "1248b67e6ceaa6572fd021655a6421a8e5e33b4aeaf58d73206da530c9f605ad",
+        "translationSha256": "d196597f072946c520ef70f7364927c59ce4f6cd082475e4d954b24db59ada16",
+        "files": 76,
+        "chunks": 3,
+        "archiveSha256After": "cc1d55c638db2d789b31403c10e7ff94c2f1afac4f567f9008b2f7c49b4245a3"
+      }
+    ]
+  },
+  "screenshots": [
+    {
+      "file": "github-mobile.png",
+      "source": "final-s4-acceptance/public-github-mobile.png",
+      "bytes": 166225,
+      "sha256": "43ce5e3e848c71b3d782140dd98f5a2987b75491e790d2d849eb0a06d8cf3bbf",
+      "scope": "Actual public GitHub metadata/README identities in private management at375px; reader body still loading, not body-render proof.",
+      "visuallyInspected": true
+    },
+    {
+      "file": "github-offline.png",
+      "source": "final-s4-acceptance/public-github-offline.png",
+      "bytes": 45691,
+      "sha256": "102df82b345c134e7bf9950206918e66c0d6ff35f9185c0cff317e43ac13c10c",
+      "scope": "Actual13-byte Hello World README, validated Web ZIP opened under file://; opaque sanitized preview and zero HTTP requests.",
+      "visuallyInspected": true
+    },
+    {
+      "file": "arxiv-v2-source.png",
+      "source": "final-s4-acceptance/public-arxiv-v2-source.png",
+      "bytes": 258886,
+      "sha256": "177607d52ced2b51589360134763aaa74b3c168e06f40cebb29b885c2020713b",
+      "scope": "Actual1706.03762v2 metadata and private2233055-byte PDF link; viewer still loading, not PDF-render proof.",
+      "visuallyInspected": true
+    },
+    {
+      "file": "offline-mobile-dark.png",
+      "source": "final-03-site-check-browser/site/web-offline-opens-all-Web--db5b6-rom-file-without-the-origin/mobile-dark.png",
+      "bytes": 40938,
+      "sha256": "281647bd44c6c80f7a7858a9603a01df55089316113c707c459eb8847cfdb0ac",
+      "scope": "Synthetic hostile-text offline fixture in dark theme at390px; literal script text remains inert; partial/mock labels retained.",
+      "visuallyInspected": true
+    }
+  ],
+  "boundaries": [
+    "Sources replay only declared retained response bodies; no translation model or Python.",
+    "True authenticated X/Zhihu/WeChat and BYOK semantic quality remain S5.",
+    "Four large original S2 corpus ZIPs unavailable; fixed released synthetic packages only.",
+    "live-public mode is implemented; this final run used cached-public, not a live-public CLI run.",
+    "Public arXiv PDFs not parsed locally; positive package target binding uses synthetic papers and released source PDF.",
+    "GitHub documentation subpage body is synthetic.",
+    "18 historical PNG originals remain uncertified; observed copies unchanged, not restored originals.",
+    "Compressed controls/limit walkers/worker formatting and human-friendly partial/mock labels remain Minor.",
+    "Web ZIP reimport unsupported; only web-projector/1/defaultCaptureLimits supported."
+  ],
+  "historicalObservedIntegrity": {
+    "artifact": "controller-historical-observed-integrity-after-root.json",
+    "sha256": "1371ce7a01b29dbc901d1b629921ebb0019d9783d4a3b967d6383fe76a741485",
+    "scope": "18 observed PNG hashes unchanged after root native run; no original-restoration claim"
+  }
+}
