@@ -1,8 +1,8 @@
 # S4 收藏、来源与私有管理验收
 
-本轮验收覆盖声明输入、001–006→007–009 有数据升级、真实进程中断恢复，以及收藏到离线读取和永久清理的完整链路。任务/整分支审查由后续审查 gate 决定；此文不表示已经合入、推送或部署。
+本轮验收覆盖声明输入、001–006→007–009 有数据升级、真实进程中断恢复，以及收藏到离线读取和永久清理的完整链路。任务0–14及必要修正已通过独立任务审查，整分支审查继续进行；此文不表示已经合入、推送或部署。
 
-实际命令、退出码、来源矩阵、运行时/输入身份及精选截图以[机器可读摘要](assets/learning-site-s4/acceptance/summary.json)为准。实施中已有 36 项裁定见[裁定记录](learning-site-s4-decisions.md)。本任务新增决定：完整验收必须显式声明至少一份实际校验通过、匹配已发布 PDF 0.1.0/0.2.0 目录的包，作为有数据 S3 基线；不以调用方的 `bundle` 标签代替校验。GitHub 同 URL 的 descriptor/raw/HTML 响应由实际 Accept 值区分。
+实际命令、退出码、来源矩阵、运行时/输入身份及精选截图以[机器可读摘要](assets/learning-site-s4/acceptance/summary.json)为准。实施中已有 39 项裁定见[裁定记录](learning-site-s4-decisions.md)。本任务新增决定：完整验收必须显式声明至少一份实际校验通过、匹配已发布 PDF 0.1.0/0.2.0 目录的包，作为有数据 S3 基线；不以调用方的 `bundle` 标签代替校验。GitHub 同 URL 的 descriptor/raw/HTML 响应由实际 Accept 值区分。
 
 ## 可复现入口与边界
 
@@ -23,7 +23,9 @@ GitHub 真材料进入实际获取任务、不可变材料账本、阅读器、�
 
 ## 本轮结果与截图
 
-冻结后按顺序执行 npm ci、root check、site check、声明 S4、固定包兼容与 audit，全部退出 0。root check 为 1012 个 Vitest、10 个 Node、69 个 native 通过，另有 2 个需数据库的 native 跳过；这两个用例另以自有数据库定向补验，独立记录，不改写原轮结果。site check 为 402 个服务、117 个浏览器与 35 个 Node 通过；随后 CLI 限额定向回归 21 个通过；自检又修正非字符串 ID 被正则隐式转换的问题，ID 与 hash/role/Accept 的两批各 3 项 RED 后，最终预检 27 个通过，原 9 项声明在只读预检中仍被接纳且不创建输出。声明 S4 9 项与固定兼容 2 包通过，audit 为 0 漏洞。各阶段 harness/CLI 变更与冻结身份在摘要中分别记录。
+冻结后按顺序执行 npm ci、root check、site check、声明 S4、固定包兼容与 audit，全部退出 0。root check 为 1012 个 Vitest、10 个 Node、69 个 native 通过，另有 2 个需数据库的 native 跳过；这两个用例另以自有数据库定向补验，独立记录，不改写原轮结果。site check 为 402 个服务、117 个浏览器与 35 个 Node 通过；随后 CLI 限额定向回归 21 个通过；自检又修正非字符串 ID 被正则隐式转换的问题，ID 与 hash/role/Accept 的两批各 3 项 RED 后，这一阶段预检 27 个通过，原 9 项声明在只读预检中仍被接纳且不创建输出。声明 S4 9 项与固定兼容 2 包通过，audit 为 0 漏洞。各阶段 harness/CLI 变更与冻结身份在摘要中分别记录。
+
+独立审查发现主响应 Accept/mediaType 类型检查及多仓库恢复断言的两处缺口。修正提交 `3934fba` 经专项复审关闭：21 项带有效已发布包基线的负向用例先 RED，再通过 48 项预检；另一轮实际独立服务验证“已发布包 + 两个不同合成 GitHub 仓库”，先复现第二个仓库的错误断言，再通过 3 项全链路。两份仓库分别对应自己的 job/acquisition，首份保留材料复用、各自 repository 响应只读取一次，模型请求为零。原九项声明另通过只读预检；没有把三项新结果改写成九项重跑。新阶段 hash、RED/GREEN 命令与原有运行记录在摘要中分别保留。
 
 | 截图 | 实际证明范围 |
 | --- | --- |
@@ -40,7 +42,7 @@ GitHub 真材料进入实际获取任务、不可变材料账本、阅读器、�
 
 - acquisition：第一份材料已提交，下一次响应之前 SIGKILL；重启复用同一 acquisition 身份/hash，已保留的 GitHub repository 响应不重取。
 - export：隔离 writer 已写出耐久 ZIP、尚未发布时 SIGKILL；实际共享维护保留当前 writer 的文件，重启后生成合法结果并清理旧尝试。
-- purge：实际物理删除之后、队列确认之前 SIGKILL；共享持久队列和清理收据重启后完成剩余工作，读取入口始终撤销。
+- purge：实际删除旧导出的 registered-work 对象后、队列确认前 SIGKILL；这是永久清理流程中的共享队列工作，重启后完成剩余工作与清理收据，读取入口始终撤销。本轮不声称单独中断了 document_purges 自有对象分支或每个清理子阶段。
 
 故障用例明确记录杀进程后对本次 lease/slot/writer 截止时间的测试时钟推进；没有改变个人服务或生产时间。完整流使用两套独立 Chromium 进程、两个 owner，以及独立 API/worker。普通保存、管理、阅读、恢复、导出和下载的模型调用数为零。
 
@@ -50,6 +52,6 @@ GitHub 真材料进入实际获取任务、不可变材料账本、阅读器、�
 
 截图写入 `testInfo.outputPath`，可用 `PAGELINGO_TEST_OUTPUT_ROOT` 为整轮分配独立目录。历史 7 张 Task5、11 张 Task6 PNG 路径的原始字节无法独立认证；已有观察副本和 errata 保持原样。本轮截图是新证据，不是历史原图恢复。开发阶段发现 arXiv 截图处于加载状态，保留该原件并仅修正验收 harness 的 owner/UI 就绪等待；对应源码 hash 和阶段边界记录在摘要中。
 
-仍开放的 Minor：新管理控件与 `web-validate.ts` limit walker、`registered-work.ts`、`web-exports/runner.ts` 的压缩排版尚可改善；离线 partial/mock 等内部来源词仍可补充更友好的标签，当前保留真实含义。本轮没有为这些排版/文案调整依赖或扩大产品行为。
+仍开放的 Minor：新管理控件与 `web-validate.ts` limit walker、`registered-work.ts`、`web-exports/runner.ts` 及新验收 runner 的压缩排版尚可改善；离线 partial/mock 等内部来源词仍可补充更友好的标签，当前保留真实含义。本轮没有为这些排版/文案调整依赖或扩大产品行为。安装日志保留既有 node-domexception 弃用提示。公开响应摘要已移除累计采集记录造成的 7 项完全重复记录，实际为 9 份独立响应；原始记录不改写。fix1 原始 hash 表的通用 amendment 文案沿用了旧截图修订描述，实际身份以逐文件差异及 digest 为准，公开摘要已标明此限制。
 
 四份原始 S2 大样本 ZIP 缺失，只对现有固定 S2/S3 包验证，不以新包冒充。Web ZIP 不支持重新导入；仅支持可重现的 `web-projector/1/defaultCaptureLimits`，未知历史配置返回不支持，不猜配置或重跑模型。X/知乎/公众号真实登录、真实 BYOK 语义质量、实际部署/停机和真实大样本质量留在 S5。Python/parser、已发布 PDF 目录、001–006、原始固定包及 SDK/P0 语义未改。

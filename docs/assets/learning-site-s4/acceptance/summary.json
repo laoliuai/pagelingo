@@ -1,10 +1,10 @@
 {
   "schemaVersion": "pagelingo-s4-public-validation/1",
-  "status": "implementation-validated-review-pending",
+  "status": "task-reviewed-whole-branch-review-pending",
   "baseCommit": "7b31efb835eb1d82c74a0b399abc03b696b86d62",
   "startedAt": "2026-10-29T01:48:22.315Z",
   "finishedAt": "2026-10-29T01:50:02.529Z",
-  "reviewBoundary": "Task and whole-branch review pending; no merge/push/deploy.",
+  "reviewBoundary": "Task14 including fix1 independently reviewed; whole-branch review pending. No merge/push/deploy.",
   "commands": [
     {
       "label": "final-01-npm-ci",
@@ -204,7 +204,10 @@
     "declaredS4": 9,
     "fixedCompatibility": 2,
     "focusedNativeDb": 2,
-    "auditVulnerabilities": 0
+    "auditVulnerabilities": 0,
+    "fix1FocusedPreflight": 48,
+    "fix1DeclaredSamples": 3,
+    "fix1DistinctGithub": 2
   },
   "sourcePhases": {
     "initial": "338ebc7c08f9c2b72956e5fd706e721d532ceca5d2d0309e5e2c82a7830507e1",
@@ -367,7 +370,8 @@
         "bytes": 28210,
         "sha256": "98aa9802d16eb7199fb62363c28c057d9c3dc591b533bc370b4de959f16a8806"
       }
-    ]
+    ],
+    "currentCliAfterTaskReview": "39a28809ca91c8c5b919738987ef480e5ca2775550fdcecc856f8f91ee7a7916"
   },
   "declaration": {
     "sha256": "48ab45f6f197318363896e9093d52f3df079298d3ee400c44a9ff173918a4bc6",
@@ -426,7 +430,8 @@
       "pid": 1475251,
       "boundary": "physical-delete-before-queue-ack",
       "key": "259502de-2467-4030-bb24-8c627daecaf8",
-      "receiptId": "1ca99ed0-6c16-445b-87d6-294574135943"
+      "receiptId": "1ca99ed0-6c16-445b-87d6-294574135943",
+      "evidenceScope": "Actual registered export-work deletion before queue acknowledgement, participating in permanent purge; not specifically a document_purges-owned object branch interruption."
     },
     {
       "kind": "acquisition",
@@ -1328,83 +1333,6 @@
       "sha256": "ba79fd97c7237057e58ee6e03ec44b8fb36cc070d38400efd4cca6d2b2eedfe0"
     },
     {
-      "name": "github-repository.json",
-      "url": "https://api.github.com/repos/octocat/Hello-World",
-      "finalUrl": "https://api.github.com/repos/octocat/Hello-World",
-      "accept": "application/vnd.github+json",
-      "startedAt": "2026-10-29T00:54:12.408Z",
-      "finishedAt": "2026-10-29T00:54:13.126Z",
-      "status": 200,
-      "bytes": 5085,
-      "sha256": "4c540277f84bccbc7a3cd731dd576bf2b7c75612e6e72b3d8c5dc0b397ae9b84"
-    },
-    {
-      "name": "github-commit.txt",
-      "url": "https://api.github.com/repos/octocat/Hello-World/commits/master",
-      "finalUrl": "https://api.github.com/repos/octocat/Hello-World/commits/master",
-      "accept": "application/vnd.github.sha",
-      "startedAt": "2026-10-29T00:54:13.127Z",
-      "finishedAt": "2026-10-29T00:54:13.767Z",
-      "status": 200,
-      "bytes": 40,
-      "sha256": "14c00b5abdbd44acbb58983de2d9364919962364349d2359aece6cb4c8ed6ac6"
-    },
-    {
-      "name": "github-readme.json",
-      "url": "https://api.github.com/repos/octocat/Hello-World/readme?ref=7fd1a60b01f91b314f59955a4e4d4e80d8edf11d",
-      "finalUrl": "https://api.github.com/repos/octocat/Hello-World/readme?ref=7fd1a60b01f91b314f59955a4e4d4e80d8edf11d",
-      "accept": "application/vnd.github+json",
-      "startedAt": "2026-10-29T00:54:13.767Z",
-      "finishedAt": "2026-10-29T00:54:14.434Z",
-      "status": 200,
-      "bytes": 954,
-      "sha256": "18964a753bd41f691d359bff48cf79b06a54df6ed2e1872f502c569d3e0bf7cd"
-    },
-    {
-      "name": "github-readme.raw",
-      "url": "https://api.github.com/repos/octocat/Hello-World/readme?ref=7fd1a60b01f91b314f59955a4e4d4e80d8edf11d",
-      "finalUrl": "https://api.github.com/repos/octocat/Hello-World/readme?ref=7fd1a60b01f91b314f59955a4e4d4e80d8edf11d",
-      "accept": "application/vnd.github.raw+json",
-      "startedAt": "2026-10-29T00:54:14.434Z",
-      "finishedAt": "2026-10-29T00:54:15.042Z",
-      "status": 200,
-      "bytes": 13,
-      "sha256": "03ba204e50d126e4674c005e04d82e84c21366780af1f43bd54a37816b6ab340"
-    },
-    {
-      "name": "github-readme.html",
-      "url": "https://api.github.com/repos/octocat/Hello-World/readme?ref=7fd1a60b01f91b314f59955a4e4d4e80d8edf11d",
-      "finalUrl": "https://api.github.com/repos/octocat/Hello-World/readme?ref=7fd1a60b01f91b314f59955a4e4d4e80d8edf11d",
-      "accept": "application/vnd.github.html+json",
-      "startedAt": "2026-10-29T00:54:15.043Z",
-      "finishedAt": "2026-10-29T00:54:15.711Z",
-      "status": 200,
-      "bytes": 130,
-      "sha256": "b352b70d0b87b23e1c94de4820d1d95acca251d23f68bf1d454c3860010cee57"
-    },
-    {
-      "name": "arxiv-1706.03762v1.atom",
-      "url": "https://export.arxiv.org/api/query?id_list=1706.03762v1",
-      "finalUrl": "https://export.arxiv.org/api/query?id_list=1706.03762v1",
-      "accept": "application/atom+xml",
-      "startedAt": "2026-10-29T00:54:15.712Z",
-      "finishedAt": "2026-10-29T00:54:16.346Z",
-      "status": 200,
-      "bytes": 2968,
-      "sha256": "6e4c49a39d07ef8ef1b59be844ba8601462247a970c946ab2c2b1cb49f00c5e2"
-    },
-    {
-      "name": "arxiv-1706.03762v2.atom",
-      "url": "https://export.arxiv.org/api/query?id_list=1706.03762v2",
-      "finalUrl": "https://export.arxiv.org/api/query?id_list=1706.03762v2",
-      "accept": "application/atom+xml",
-      "startedAt": "2026-10-29T00:54:16.347Z",
-      "finishedAt": "2026-10-29T00:54:16.925Z",
-      "status": 200,
-      "bytes": 2968,
-      "sha256": "ba79fd97c7237057e58ee6e03ec44b8fb36cc070d38400efd4cca6d2b2eedfe0"
-    },
-    {
       "name": "arxiv-1706.03762v1.pdf",
       "url": "https://arxiv.org/pdf/1706.03762v1",
       "finalUrl": "https://arxiv.org/pdf/1706.03762v1",
@@ -1513,11 +1441,353 @@
     "GitHub documentation subpage body is synthetic.",
     "18 historical PNG originals remain uncertified; observed copies unchanged, not restored originals.",
     "Compressed controls/limit walkers/worker formatting and human-friendly partial/mock labels remain Minor.",
-    "Web ZIP reimport unsupported; only web-projector/1/defaultCaptureLimits supported."
+    "Web ZIP reimport unsupported; only web-projector/1/defaultCaptureLimits supported.",
+    "Task14 fix1 is a new CLI/harness-only phase: 48 preflight and 3 declared samples. The original nine-sample application run and global checks retain their original identities; generic fix-map amendment labels are stale, exact per-file hashes are authoritative."
   ],
   "historicalObservedIntegrity": {
     "artifact": "controller-historical-observed-integrity-after-root.json",
     "sha256": "1371ce7a01b29dbc901d1b629921ebb0019d9783d4a3b967d6383fe76a741485",
     "scope": "18 observed PNG hashes unchanged after root native run; no original-restoration claim"
+  },
+  "publicResponseCuration": {
+    "originalEntries": 16,
+    "uniqueResponses": 9,
+    "removedExactDuplicates": 7,
+    "reason": "pdf-responses.json is cumulative and contains the seven earlier responses also listed in responses.json; no raw record was rewritten.",
+    "identity": [
+      "url",
+      "accept",
+      "startedAt",
+      "finishedAt",
+      "sha256"
+    ],
+    "rawRecords": [
+      "public/responses.json",
+      "public/pdf-responses.json"
+    ]
+  },
+  "task14Fix1": {
+    "fixBase": "ee0ddda24dad12214d628cc93e651e5becc7aebf",
+    "commit": "3934fbac075e217f9768e8be867882e82c9a556b",
+    "review": "Both Important findings addressed by independent scoped review; whole-branch review remains pending.",
+    "commands": [
+      {
+        "label": "fix1-i1-red",
+        "command": [
+          "node",
+          "--test",
+          "--test-name-pattern",
+          "primary|optional resource Accept",
+          "tests/site/site-s4-preflight.test.mjs"
+        ],
+        "startedAt": "2026-10-29T02:19:19.579Z",
+        "finishedAt": "2026-10-29T02:19:27.716Z",
+        "exitCode": 1,
+        "signal": null,
+        "sourceFreeze": "54dcbe513fa8a9835d4bd5736b921644f982d91bd46fa3e5ec57de47240881a4",
+        "rawLog": "fix1-i1-red.log",
+        "rawLogSha256": "5c9d9fa8e5f32707192143039daca6d1962d4f555c41f58aff71a6731831990b"
+      },
+      {
+        "label": "fix1-i1-green",
+        "command": [
+          "node",
+          "--test",
+          "tests/site/site-s4-preflight.test.mjs"
+        ],
+        "startedAt": "2026-10-29T02:20:29.019Z",
+        "finishedAt": "2026-10-29T02:20:35.485Z",
+        "exitCode": 0,
+        "signal": null,
+        "sourceFreeze": "445cb2fa4f8504adc5a577cd92fee1173ad2a9073e92cde28537cface2249495",
+        "rawLog": "fix1-i1-green.log",
+        "rawLogSha256": "52e3045e34267f4efe16acf31ab1f16933314373a6d1a73f923356ba64a44d3f"
+      },
+      {
+        "label": "fix1-i2-red",
+        "command": [
+          "node",
+          "--test",
+          "tests/site/site-s4-multiple-github.test.mjs"
+        ],
+        "startedAt": "2026-10-29T02:23:32.910Z",
+        "finishedAt": "2026-10-29T02:24:30.896Z",
+        "exitCode": 1,
+        "signal": null,
+        "sourceFreeze": "b4bfb59f4327daf3b1ca861d49aa0d5293621531a10bc678acd354c05c3476e7",
+        "rawLog": "fix1-i2-red.log",
+        "rawLogSha256": "50cf99c9884b122ac4131904c80124c65ae5701082b4cd2f49bb18c9e93f8566"
+      },
+      {
+        "label": "fix1-i2-green",
+        "command": [
+          "node",
+          "--test",
+          "tests/site/site-s4-multiple-github.test.mjs"
+        ],
+        "startedAt": "2026-10-29T02:25:30.884Z",
+        "finishedAt": "2026-10-29T02:26:35.990Z",
+        "exitCode": 0,
+        "signal": null,
+        "sourceFreeze": "39a28809ca91c8c5b919738987ef480e5ca2775550fdcecc856f8f91ee7a7916",
+        "rawLog": "fix1-i2-green.log",
+        "rawLogSha256": "4b18b26fa32edfccd337e1929f55b001bc08c9a8f7f9f7f2e6c31d75489dbb87"
+      },
+      {
+        "label": "fix1-valid-nine-admission",
+        "command": [
+          "node",
+          "--input-type=module",
+          "-e",
+          "import assert from \"node:assert/strict\"; import { stat } from \"node:fs/promises\"; import { preflight } from \"./scripts/site-s4-inputs.mjs\"; const output=\".superpowers/sdd/2026-10-28-learning-site-s4/task-14-evidence/fix1-readonly-no-output\"; const p=await preflight(\".superpowers/sdd/2026-10-28-learning-site-s4/task-14-evidence/declared-public.json\",output,{requireUpgradeBaseline:true}); assert.equal(p.samples.length,9); assert.equal(await stat(output).catch(()=>null),null); console.log(JSON.stringify({samples:p.samples.map(s=>s.id),upgradeBaselineId:p.upgradeBaselineId,totalBytes:p.totalBytes,noOutput:true}));"
+        ],
+        "startedAt": "2026-10-29T02:27:19.644Z",
+        "finishedAt": "2026-10-29T02:27:20.568Z",
+        "exitCode": 0,
+        "signal": null,
+        "sourceFreeze": "39a28809ca91c8c5b919738987ef480e5ca2775550fdcecc856f8f91ee7a7916",
+        "rawLog": "fix1-valid-nine-admission.log",
+        "rawLogSha256": "dd08d39b01905dc5d59eef9a8eca6b5b6aa41bb93053ab6e443ec30449e1a9a3"
+      }
+    ],
+    "primaryMetadata": {
+      "baselineBackedRedCases": 21,
+      "greenPreflightTests": 48,
+      "formats": [
+        "html",
+        "github",
+        "arxiv",
+        "bundle"
+      ],
+      "rejectBeforeOutputAndServices": true
+    },
+    "multipleGithub": {
+      "declaredSamples": 3,
+      "githubSamples": 2,
+      "mode": "synthetic",
+      "originalRunPreserved": true,
+      "greenReport": {
+        "path": ".superpowers/sdd/2026-10-28-learning-site-s4/task-14-evidence/fix1-i2-green-browser/s4-multiple-github-QtZhY7/acceptance/report.json",
+        "sha256": "1c8c7d602715943da991b9b75cf874f8e517eb3aa9c6af6399e7adf57038e129",
+        "status": "passed",
+        "error": null,
+        "cleanupError": null,
+        "samples": [
+          {
+            "id": "released-s2",
+            "status": "passed",
+            "inputUnchanged": true
+          },
+          {
+            "id": "github-one",
+            "status": "passed",
+            "jobId": "0b3ec6a5-55e2-45ea-9bc3-caf0fc1d77b4",
+            "documentId": "2e21ce17-f3bb-442e-a82e-c57e310af811",
+            "repositoryReadCount": 1,
+            "reusedAcquisitionIds": [
+              "7291a688-ca81-46cc-b1d6-a9ec1f70dfb2"
+            ],
+            "inputUnchanged": true
+          },
+          {
+            "id": "github-two",
+            "status": "passed",
+            "jobId": "a2f468de-0d17-478b-a454-22498a47878f",
+            "documentId": "1acc70aa-1448-4b24-a58f-0b22e2b9779b",
+            "repositoryReadCount": 1,
+            "reusedAcquisitionIds": [],
+            "inputUnchanged": true
+          }
+        ],
+        "interruptions": [
+          {
+            "kind": "acquisition",
+            "sampleId": "github-one",
+            "jobId": "0b3ec6a5-55e2-45ea-9bc3-caf0fc1d77b4",
+            "pid": 1482166,
+            "boundary": "first-acquisition-committed-before-next-response",
+            "acquired": [
+              {
+                "id": "7291a688-ca81-46cc-b1d6-a9ec1f70dfb2",
+                "role": "github-repository",
+                "sha256": "6533da8d39ad65c558a6d102f2ce523f58dd5867daff5ff9ee3098998472fb34",
+                "bytes": "226"
+              }
+            ]
+          },
+          {
+            "kind": "export",
+            "pid": 1482207,
+            "boundary": "durable-export-before-publication",
+            "key": "ec51d7e7-86a1-4490-b5a0-b395f9f3db18",
+            "liveWriterProtected": true,
+            "clockAdvance": "expired owned lease/slot/writer grace after SIGKILL"
+          },
+          {
+            "kind": "purge",
+            "pid": 1482259,
+            "boundary": "physical-delete-before-queue-ack",
+            "key": "ec51d7e7-86a1-4490-b5a0-b395f9f3db18",
+            "receiptId": "e1c7d870-5872-498d-8339-ab88ed885811"
+          }
+        ],
+        "modelRequests": 0
+      },
+      "redReport": {
+        "path": ".superpowers/sdd/2026-10-28-learning-site-s4/task-14-evidence/fix1-i2-red-browser/s4-multiple-github-M3jHJq/acceptance/report.json",
+        "sha256": "222da1752492f72522471b0df81496f4f869cf65fafbbbbd5b7df54cadbe503f",
+        "status": "failed",
+        "error": "AssertionError [ERR_ASSERTION]: false == true\n    at file:///home/liujia/workspace/pagelingo/.worktrees/learning-site-s4/tests/site/site-s4-runner.mjs:196:57\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)",
+        "cleanupError": null,
+        "samples": [
+          {
+            "id": "released-s2",
+            "status": "passed",
+            "inputUnchanged": true
+          },
+          {
+            "id": "github-one",
+            "status": "passed",
+            "documentId": "1dc49979-f7b8-4cce-9c31-a077d38d2d86",
+            "inputUnchanged": true
+          },
+          {
+            "id": "github-two",
+            "status": "running",
+            "documentId": "8cac00f1-f858-4548-9b98-07f675233f1c"
+          }
+        ],
+        "interruptions": [
+          {
+            "kind": "acquisition",
+            "pid": 1480576,
+            "boundary": "first-acquisition-committed-before-next-response",
+            "acquired": [
+              {
+                "id": "6197bffc-95d7-4d72-bab5-84cb350dc3ec",
+                "role": "github-repository",
+                "sha256": "6533da8d39ad65c558a6d102f2ce523f58dd5867daff5ff9ee3098998472fb34",
+                "bytes": "226"
+              }
+            ]
+          },
+          {
+            "kind": "export",
+            "pid": 1480617,
+            "boundary": "durable-export-before-publication",
+            "key": "68a61f3b-744a-4a70-96a8-ec937df16406",
+            "liveWriterProtected": true,
+            "clockAdvance": "expired owned lease/slot/writer grace after SIGKILL"
+          },
+          {
+            "kind": "purge",
+            "pid": 1480669,
+            "boundary": "physical-delete-before-queue-ack",
+            "key": "68a61f3b-744a-4a70-96a8-ec937df16406",
+            "receiptId": "57dcf141-402f-41b1-9ca1-bdd3d4a8fe84"
+          }
+        ],
+        "modelRequests": 0
+      }
+    },
+    "originalNineReadonlyAdmission": {
+      "samples": 9,
+      "releasedBaselineValidated": true,
+      "outputCreated": false
+    },
+    "phaseIdentity": {
+      "originalFinalCli": "54dcbe513fa8a9835d4bd5736b921644f982d91bd46fa3e5ec57de47240881a4",
+      "fix1": "39a28809ca91c8c5b919738987ef480e5ca2775550fdcecc856f8f91ee7a7916",
+      "filesChecked": 1683,
+      "unchangedOriginalFiles": 1667,
+      "changed": [
+        {
+          "path": "scripts/site-s4-inputs.mjs",
+          "before": "873f27dc8dcad376b6ac63ef1847ad1581551c207c84c7a10a26905bbe32e3f1",
+          "after": "39d607c90cadf50edd35d39e7266c7f20adb521058821814e8581949995d9bbd"
+        },
+        {
+          "path": "tests/fixtures/site-s4/README.md",
+          "before": "cc8850335709a850a92146da502138563c56ac765404c1b918bb0568ce11b80f",
+          "after": "30bcc7e266ecdcaa595113a29ce77c68510e22a50dd876c7f98faa176b0d0b72"
+        },
+        {
+          "path": "tests/site/site-s4-preflight.test.mjs",
+          "before": "892111ac12a24e8e709272a6775f10c222d0b68061feb332d8ce4aac6ca50200",
+          "after": "6403f3d7cdd961d4e12d00d5645dcf4aac1b183062b4e27972c1537be440b61b"
+        },
+        {
+          "path": "tests/site/site-s4-runner.mjs",
+          "before": "98aa9802d16eb7199fb62363c28c057d9c3dc591b533bc370b4de959f16a8806",
+          "after": "918113ef366cd591f5fc69ba827359489745d885683cb8d4b45b56232d9d5474"
+        }
+      ],
+      "added": [
+        {
+          "path": "tests/fixtures/site-s4/multiple-github/one-commit.txt",
+          "bytes": 40,
+          "sha256": "468d019ea81224aeca7ee270b11959d8a187f6f0b6a3febff1c34dc1d66c8d85"
+        },
+        {
+          "path": "tests/fixtures/site-s4/multiple-github/one-descriptor.json",
+          "bytes": 100,
+          "sha256": "bc5815f67d9d11736a4fbc99426ef00105b3670de957328a5592c852327a8e17"
+        },
+        {
+          "path": "tests/fixtures/site-s4/multiple-github/one-readme.html",
+          "bytes": 93,
+          "sha256": "3c33a0e4d1b94c5a80742b36bcdc135e5920b600cd15ea96b27363e10552cb87"
+        },
+        {
+          "path": "tests/fixtures/site-s4/multiple-github/one-readme.raw",
+          "bytes": 35,
+          "sha256": "a6a341b27762b602e88374599787fd2470d405000ac72820fe7a62287501a70e"
+        },
+        {
+          "path": "tests/fixtures/site-s4/multiple-github/one-repository.json",
+          "bytes": 226,
+          "sha256": "6533da8d39ad65c558a6d102f2ce523f58dd5867daff5ff9ee3098998472fb34"
+        },
+        {
+          "path": "tests/fixtures/site-s4/multiple-github/samples.json",
+          "bytes": 5452,
+          "sha256": "dddc40e447d2b5a9dc7db5bdca8bfe21efabd8fab0c108b0fa32570b62bc7115"
+        },
+        {
+          "path": "tests/fixtures/site-s4/multiple-github/two-commit.txt",
+          "bytes": 40,
+          "sha256": "79396ef8980b554cb66116d8c775a13c499189f5681b6d3a2efd2df8990afc55"
+        },
+        {
+          "path": "tests/fixtures/site-s4/multiple-github/two-descriptor.json",
+          "bytes": 100,
+          "sha256": "0583772d3a4824793f76fe7e475ca103f5629dfa5a09bfa50a3143119a0d1faa"
+        },
+        {
+          "path": "tests/fixtures/site-s4/multiple-github/two-readme.html",
+          "bytes": 93,
+          "sha256": "6aebfe3febaa6e9237a4b6a9c1947d9b234d700f2efd87dee23eff78b3ded2bd"
+        },
+        {
+          "path": "tests/fixtures/site-s4/multiple-github/two-readme.raw",
+          "bytes": 35,
+          "sha256": "1fbeb6687a9a99a82b581e38d67cfaa4b65df664582e728e42e760913e9dbd0f"
+        },
+        {
+          "path": "tests/fixtures/site-s4/multiple-github/two-repository.json",
+          "bytes": 226,
+          "sha256": "a34b1f1310c51b3128b43124791e0a3f2ac91ee785d7cef71e9c48022695d715"
+        },
+        {
+          "path": "tests/site/site-s4-multiple-github.test.mjs",
+          "bytes": 2962,
+          "sha256": "74ea9f5b6c2455b37efb76537283fa049ff669c7e3b7583209baacc8664b02df"
+        }
+      ],
+      "productRuntimeChanged": false,
+      "original11SuccessfulRawLogHashesUnchanged": true,
+      "rawMapLabelQualification": "The generic amendment label in the fix1 maps was copied from the earlier screenshot-readiness map. The exact per-file deltas and digests, not that stale description, identify primary metadata validation and per-job acquisition assertions."
+    },
+    "noGlobalResweep": true
   }
 }
