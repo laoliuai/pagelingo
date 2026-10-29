@@ -123,6 +123,49 @@ it('keeps state GET pure and blocks other owners, administrators, anonymous and 
   await t.db.pool.query("UPDATE web_exports SET expires_at=clock_timestamp()-interval '1 second' WHERE id=$1",[created.json().id]);
   for(const method of ['GET','HEAD'] as const) expect((await t.app.inject({url,method,headers:{...t.headers,range:'bytes=0-9'}})).statusCode).toBe(404);
 });
+it('serves completed export bytes to the same owner after password revocation and a new session', async () => {
+  const { login } = await import('../helpers/session.js');
+  const t = await fixture(), created = await t.create();
+  expect(created.statusCode).toBe(201);
+  await runWebJob((await claimWebJob('retained-download-worker', t.db))!, {
+    db: t.db, store: t.store, config: t.config, signal: new AbortController().signal,
+  });
+  const stateUrl = `${t.url}/${created.json().id}`, url = `${stateUrl}/file`;
+  const original = await t.request(url);
+  expect(original.statusCode).toBe(200);
+  expect((await t.request('/api/v1/auth/password', 'POST', {
+    currentPassword: 'correct password 123456', newPassword: 'replacement password 123456',
+  })).statusCode).toBe(200);
+  const session = await login(t.app, 'admin', 'replacement password 123456');
+  expect(session.user.id).toBe(t.actor.userId);
+  const headers = { cookie: session.cookie, origin: t.config.publicOrigin, 'x-csrf-token': session.csrfToken };
+  expect((await t.db.pool.query('SELECT auth_version FROM users WHERE id=$1', [t.actor.userId])).rows[0].auth_version).toBe(2);
+  expect((await t.db.pool.query('SELECT auth_version FROM web_exports WHERE id=$1', [created.json().id])).rows[0].auth_version).toBe(1);
+  expect((await t.request(stateUrl)).statusCode).toBe(401);
+  expect((await t.app.inject({ url: stateUrl, headers })).json()).toMatchObject({ status: 'completed' });
+  for (const method of ['GET', 'HEAD'] as const) for (const range of [undefined, 'bytes=0-9']) {
+    const rangeHeader = range ? { range } : {};
+    expect((await t.app.inject({ url, method, headers: { ...t.headers, ...rangeHeader } })).statusCode).toBe(401);
+    const response = await t.app.inject({ url, method, headers: { ...headers, ...rangeHeader } });
+    expect(response.statusCode, response.body).toBe(range ? 206 : 200);
+    expect(response.headers['content-length']).toBe(String(range ? 10 : original.rawPayload.length));
+    expect(response.rawPayload).toEqual(method === 'HEAD' ? Buffer.alloc(0) : range ? original.rawPayload.subarray(0, 10) : original.rawPayload);
+  }
+  const documentUrl = `/api/v1/documents/${t.saved.documentId}`;
+  expect((await t.app.inject({ url: `${documentUrl}/trash`, method: 'POST', headers, payload: { expectedEpoch: 1 } })).statusCode).toBe(200);
+  for (const method of ['GET', 'HEAD'] as const) for (const range of [undefined, 'bytes=0-9']) {
+    expect((await t.app.inject({ url, method, headers: { ...headers, ...(range ? { range } : {}) } })).statusCode).toBe(404);
+  }
+  expect((await t.app.inject({ url: `${documentUrl}/restore`, method: 'POST', headers, payload: { expectedEpoch: 2 } })).statusCode).toBe(200);
+  const restored = await t.app.inject({ url, headers });
+  expect(restored.statusCode).toBe(200);
+  expect(restored.rawPayload).toEqual(original.rawPayload);
+  await t.db.pool.query("UPDATE web_exports SET expires_at=clock_timestamp()-interval '1 second' WHERE id=$1", [created.json().id]);
+  expect((await t.app.inject({ url: stateUrl, headers })).json()).toMatchObject({ status: 'expired' });
+  for (const method of ['GET', 'HEAD'] as const) for (const range of [undefined, 'bytes=0-9']) {
+    expect((await t.app.inject({ url, method, headers: { ...headers, ...(range ? { range } : {}) } })).statusCode).toBe(404);
+  }
+});
 it('returns original PDF and historical bundle bytes without rebuilding',async()=>{
   const {readerTestApp,headers}=await import('../helpers/readers.js'); const t=await readerTestApp(closes); const f=await t.ingest();
   const zip=await t.app.inject({url:`${f.base}/readers/${f.version}/bundle`,headers:headers(t.alice)});

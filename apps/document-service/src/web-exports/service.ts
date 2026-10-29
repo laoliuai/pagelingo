@@ -51,7 +51,7 @@ export function createWebExportsService({ db }: { db: Database }) {
       return db.transaction(async client => {
         await authorized(client,actor,document);
         const row = await findExport(client,actor.userId,document,id);
-        if (!row || row.status !== 'completed' || row.auth_version !== actor.authVersion || !row.object_key || !row.bytes || !row.sha256) throw webNotFound();
+        if (!row || row.status !== 'completed' || !row.object_key || !row.bytes || !row.sha256) throw webNotFound();
         return { object_key: row.object_key, bytes: row.bytes, sha256: row.sha256, title: row.title };
       });
     },
