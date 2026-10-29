@@ -1,4 +1,3 @@
-import { fileURLToPath } from 'node:url';
 import { inspectImageResource, sha256 } from '@pagelingo/web-capture';
 import { createServer, type Server } from 'node:http';
 import { createHash, randomUUID } from 'node:crypto';
@@ -86,7 +85,7 @@ test('new owner cannot inspect or deliver queued archives; same-owner reconnect 
     await expect.poll(async () => (await rpc(control, { type: 'archive:status' })).value.items[0]?.state).toBe('completed'); expect(site.count()).toBe(1);
   } finally { await new Promise<void>(resolve => site.server.close(() => resolve())); }
 });
-test('connection and capture UI keep server confirmation and resource consent visible', async ({ control, context, page, extensionId }) => {
+test('connection and capture UI keep server confirmation and resource consent visible', async ({ control, context, page, extensionId }, testInfo) => {
   const site = faultSite(); const origin = await listen(site.server);
   try {
     await expect(control.getByRole('heading', { name: '资料站点' })).toBeVisible();
@@ -99,13 +98,13 @@ test('connection and capture UI keep server confirmation and resource consent vi
     const popup = await context.newPage(); await popup.setViewportSize({ width: 360, height: 600 }); await page.bringToFront(); await popup.goto(`chrome-extension://${extensionId}/src/popup/index.html`);
     await expect(popup.getByText('等待资源授权')).toBeVisible();
     await expect(popup.getByText('原文已保存', { exact: true })).toHaveCount(0);
-    await popup.locator('.popup').screenshot({ path: fileURLToPath(new URL('../../../../.superpowers/sdd/2026-10-28-learning-site-s4/task-5-evidence/popup.png', import.meta.url)) });
-    await control.screenshot({ path: fileURLToPath(new URL('../../../../.superpowers/sdd/2026-10-28-learning-site-s4/task-5-evidence/options.png', import.meta.url)), fullPage: true });
-    await popup.screenshot({ path: fileURLToPath(new URL('../../../../.superpowers/sdd/2026-10-28-learning-site-s4/task-5-evidence/popup-viewport.png', import.meta.url)) });
+    await popup.locator('.popup').screenshot({ path: testInfo.outputPath('popup.png') });
+    await control.screenshot({ path: testInfo.outputPath('options.png'), fullPage: true });
+    await popup.screenshot({ path: testInfo.outputPath('popup-viewport.png') });
     await popup.emulateMedia({ colorScheme: 'dark' });
-    await popup.screenshot({ path: fileURLToPath(new URL('../../../../.superpowers/sdd/2026-10-28-learning-site-s4/task-5-evidence/popup-dark.png', import.meta.url)) });
+    await popup.screenshot({ path: testInfo.outputPath('popup-dark.png') });
     await control.setViewportSize({ width: 390, height: 844 });
-    await control.getByRole('region', { name: '资料站点连接' }).screenshot({ path: fileURLToPath(new URL('../../../../.superpowers/sdd/2026-10-28-learning-site-s4/task-5-evidence/options-mobile.png', import.meta.url)) });
+    await control.getByRole('region', { name: '资料站点连接' }).screenshot({ path: testInfo.outputPath('options-mobile.png') });
     expect(await control.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await popup.evaluate(() => { chrome.permissions.request = async () => false; });
     await popup.getByRole('button', { name: '授权资源并保存' }).click();
@@ -114,7 +113,7 @@ test('connection and capture UI keep server confirmation and resource consent vi
     await expect(popup.getByText('等待重试')).toBeVisible();
     site.release(); await rpc(control, { type: 'archive:retry', id: saved.value.id });
     await expect(popup.getByText('原文已保存，部分资源缺失')).toBeVisible();
-    await popup.screenshot({ path: fileURLToPath(new URL('../../../../.superpowers/sdd/2026-10-28-learning-site-s4/task-5-evidence/native-remove-visible.png', import.meta.url)) });
+    await popup.screenshot({ path: testInfo.outputPath('native-remove-visible.png') });
     await popup.getByRole('button', { name: '移除本地记录' }).click();
     await expect(popup.locator('.archive-item')).toHaveCount(0); expect(site.count()).toBe(1);
   } finally { await new Promise<void>(resolve => site.server.close(() => resolve())); }
@@ -202,7 +201,7 @@ for (const failure of ['payload', 'file'] as const) test(`native confirmed compa
   expect(result.rejected).toBe(true); expect(result.atomic).toBe(true); expect(result.preservedBytes).toEqual([7,8,9]); expect(result.denied).toBe(false); expect(result.wrongGeneration).toBe(false); expect(result.compacted).toBe(true); expect(result.receipt).toEqual(result.originalReceipt); expect(result.payloadGone).toBe(true); expect(result.filesGone).toBe(0); expect(result.notCompacted).toBe(false); expect(result.stillPresent).toBe(1); expect(result.removed).toBe(true);
 });
 
-test('native long-URL PNG/two-CSS capture passes real IPC and persists the downgraded draft', async ({ control, page }) => {
+test('native long-URL PNG/two-CSS capture passes real IPC and persists the downgraded draft', async ({ control, page }, testInfo) => {
   const site = faultSite(); const origin = await listen(site.server);
   try {
     await pair(control, origin); await page.goto('http://127.0.0.1:4317/archive-source.html');
@@ -236,7 +235,7 @@ test('native long-URL PNG/two-CSS capture passes real IPC and persists the downg
       return { bytes: new TextEncoder().encode(JSON.stringify({ type: 'capture:deliver', grant: entry.grant, payload: { ok: true, value: entry.draft } })).byteLength, html: entry.draft.snapshot.html, css: entry.draft.pendingResources.filter((r: any) => r.role === 'css').map((r: any) => ({ missing: r.missingReason ?? null, text: 'text' in r })), warnings: entry.warnings };
     }, saved.value.id);
     expect(stored.bytes).toBeLessThanOrEqual(16 * 1024 * 1024); expect(stored.html).toContain('Own boundary original source'); expect(stored.css).toHaveLength(2); expect(stored.css.some((r: any) => r.missing === 'too-large')).toBe(true);
-    await control.screenshot({ path: fileURLToPath(new URL('../../../../.superpowers/sdd/2026-10-28-learning-site-s4/task-5-evidence/native-boundary.png', import.meta.url)) });
+    await control.screenshot({ path: testInfo.outputPath('native-boundary.png') });
   } finally { await new Promise<void>(resolve => site.server.close(() => resolve())); }
 });
 

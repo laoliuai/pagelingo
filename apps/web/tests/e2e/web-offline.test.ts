@@ -2,21 +2,20 @@ import { test, expect, type Page } from '@playwright/test';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { join } from 'node:path';
+import { collectOfflineDiagnostics } from '../helpers/offline-diagnostics';
 import { writeOfflineFixture } from '../../../../packages/document-renderer/tests/web-static-fixtures';
 
 async function blockNetwork(page: Page) {
-  const outbound: string[] = []; const diagnostics: string[] = [];
+  const outbound: string[] = []; const observed = collectOfflineDiagnostics(page);
   page.on('request', request => { if (/^https?:/.test(request.url())) outbound.push(request.url()); });
-  page.on('console', message => diagnostics.push(message.type() + ': ' + message.text()));
-  page.on('pageerror', error => diagnostics.push('pageerror: ' + error.message));
   await page.route(/^https?:/, route => route.abort());
   await page.addInitScript(() => { (window as unknown as { pwned: number }).pwned = 0; });
-  return { outbound, diagnostics };
+  return { outbound, ...observed };
 }
 
 test('opens all Web reading modes from file without the origin', async ({ page }, info) => {
   const root = info.outputPath('offline'); await mkdir(root, { recursive: true });
-  await writeOfflineFixture(root); const { outbound, diagnostics } = await blockNetwork(page);
+  await writeOfflineFixture(root); const { outbound, diagnostics, unexpected } = await blockNetwork(page);
   await page.goto(pathToFileURL(join(root, 'render/index.html')).href);
   await expect(page.locator('[data-web-chunk]')).toHaveCount(1);
   for (const name of ['原文', '译文', '双语']) { await page.getByRole('button', { name, exact: true }).click(); await expect(page.locator('#content')).toContainText(name === '原文' ? 'Original English paragraph.' : '译文段落。'); }
@@ -36,7 +35,8 @@ test('opens all Web reading modes from file without the origin', async ({ page }
   await page.getByRole('button', { name: '切换主题', exact: true }).click(); await page.screenshot({ path: info.outputPath('desktop-dark.png') });
   await page.setViewportSize({ width: 390, height: 844 }); await page.screenshot({ path: info.outputPath('mobile-dark.png') });
   expect(outbound).toEqual([]); expect(await page.evaluate(() => (window as unknown as { pwned: number }).pwned)).toBe(0);
-  await writeFile(info.outputPath('browser-diagnostics.txt'), diagnostics.join('\n'));
+  await writeFile(info.outputPath('browser-diagnostics.json'), JSON.stringify(diagnostics, null, 2));
+  expect(unexpected()).toEqual([]);
 });
 
 test('keeps long documents within three mounted chunks', async ({ page }, info) => {
@@ -90,4 +90,36 @@ test('reports absent archived preview bytes while source-only reading remains us
   await page.getByRole('button', { name: '译文', exact: true }).click();
   await expect(page.locator('#content')).toContainText('待翻译，保留原文'); await expect(page.locator('#content')).toContainText('Original English paragraph.');
   expect(outbound).toEqual([]);
+});
+
+test('first theme toggle switches system dark to light, then back to dark', async ({ page }, info) => {
+  const root = info.outputPath('offline'); await mkdir(root, { recursive: true });
+  await writeOfflineFixture(root, 2, false);
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.goto(pathToFileURL(join(root, 'render/index.html')).href);
+  await expect(page.locator('[data-web-chunk]')).toHaveCount(1);
+  const background = () => page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor);
+  const dark = await background();
+  await page.getByRole('button', { name: '切换主题', exact: true }).click();
+  await expect.poll(background).not.toBe(dark);
+  await page.getByRole('button', { name: '切换主题', exact: true }).click();
+  await expect.poll(background).toBe(dark);
+});
+
+test('offline diagnostics distinguish opaque sandbox refusal from unexpected browser failures', async ({ page }, info) => {
+  const root = info.outputPath('diagnostics'); await mkdir(root, { recursive: true });
+  await mkdir(join(root, 'render/previews'), { recursive: true });
+  await writeFile(join(root, 'render/previews/p_1.html'), '<script>window.ran = true;</script>');
+  await writeFile(join(root, 'render/index.html'), '<iframe sandbox src="previews/p_1.html"></iframe>');
+  const { collectOfflineDiagnostics } = await import('../helpers/offline-diagnostics');
+  const observed = collectOfflineDiagnostics(page);
+  await page.goto(pathToFileURL(join(root, 'render/index.html')).href);
+  await expect.poll(() => observed.diagnostics.length).toBeGreaterThan(0);
+  expect(observed.unexpected()).toEqual([]);
+  expect(observed.diagnostics[0].classification).toBe('expected-sandbox');
+  expect(await page.frameLocator('iframe').locator('body').evaluate(() => (window as unknown as { ran?: boolean }).ran)).toBeUndefined();
+  await page.evaluate(() => { console.error('Unexpected offline failure'); setTimeout(() => { throw new Error('Unexpected page failure'); }, 0); });
+  await expect.poll(() => observed.unexpected().length).toBe(2);
+  expect(observed.unexpected().map(item => item.kind).sort()).toEqual(['console:error', 'pageerror']);
+  await writeFile(info.outputPath('diagnostics.json'), JSON.stringify(observed.diagnostics, null, 2));
 });

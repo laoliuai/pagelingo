@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { collectOfflineDiagnostics } from '../helpers/offline-diagnostics';
 import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -17,9 +18,8 @@ test('opens the validated streamed Web ZIP offline with real archived preview an
     const chunks = []; for await (const chunk of entry.content) chunks.push(chunk);
     const destination = join(unpacked, entry.path); await mkdir(dirname(destination), { recursive: true }); await writeFile(destination, Buffer.concat(chunks));
   }
-  const outbound: string[] = [], errors: string[] = [];
+  const outbound: string[] = []; const observed = collectOfflineDiagnostics(page);
   page.on('request', request => { if (/^https?:/.test(request.url())) outbound.push(request.url()); });
-  page.on('pageerror', error => errors.push(error.message));
   await page.route(/^https?:/, route => route.abort());
   await page.goto(pathToFileURL(join(unpacked, 'render/index.html')).href);
   await expect(page.locator('#content')).toContainText('Original paragraph.');
@@ -33,9 +33,9 @@ test('opens the validated streamed Web ZIP offline with real archived preview an
   expect(await page.locator('iframe').getAttribute('sandbox')).toBe('');
   expect(await frame.locator('script,form,iframe').count()).toBe(0);
   await expect.poll(() => frame.locator('img').first().evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(7);
-  expect(outbound).toEqual([]); expect(errors).toEqual([]);
+  expect(outbound).toEqual([]); expect(observed.unexpected()).toEqual([]);
   expect([...fixture.files].map(([path, body]) => [path, hash(body)])).toEqual(before);
   expect(hash(await readFile(join(unpacked, 'manifest.json')))).toBe(identity.manifestSha256);
   await page.screenshot({ path: info.outputPath('validated-preview.png') });
-  await writeFile(info.outputPath('identities.json'), JSON.stringify({ ...identity, archiveSha256: hash(await readFile(archivePath)), inputs: before, outbound, errors }, null, 2));
+  await writeFile(info.outputPath('identities.json'), JSON.stringify({ ...identity, archiveSha256: hash(await readFile(archivePath)), inputs: before, outbound, diagnostics: observed.diagnostics }, null, 2));
 });

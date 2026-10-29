@@ -71,7 +71,11 @@
   document.querySelectorAll('[data-mode]').forEach(button => button.addEventListener('click', () => { mode = button.dataset.mode; if (current) render(current); }));
   byId('previous').onclick = () => navigate(active - 1); byId('next').onclick = () => navigate(active + 1);
   byId('go').onclick = () => navigate(Number(byId('chunk-number').value) - 1); byId('close-preview').onclick = closePreview;
-  byId('theme').onclick = () => { document.documentElement.dataset.theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; };
+  byId('theme').onclick = () => {
+    const root = document.documentElement;
+    const effective = root.dataset.theme ?? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    root.dataset.theme = effective === 'dark' ? 'light' : 'dark';
+  };
   content.addEventListener('click', event => {
     const anchor = event.target.closest('a'); if (!anchor) return;
     if (anchor.dataset.blockLink) { event.preventDefault(); const id = anchor.dataset.blockLink; navigate(index.chunks.findIndex(c => c.id === index.blockLocations[id]?.chunkId), id); }

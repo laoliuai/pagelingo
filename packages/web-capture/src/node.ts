@@ -50,7 +50,10 @@ export function extractPublicArticleWithMetadata(html: string, url: string, limi
     const snapshot = sanitizeNodeSnapshot({ html: serialize(extracted), url, scope: safe.scope }, limits);
     const bounded = (value: string | null | undefined) => value?.trim().slice(0, 2000) || null;
     const time = bounded(article.publishedTime);
-    const publishedAt = time && /^\d{4}-\d{2}-\d{2}(?:T|$)/.test(time) && Number.isFinite(Date.parse(time)) ? new Date(time).toISOString() : null;
+    const calendar = time?.match(/^(\d{4})-(\d{2})-(\d{2})(?:T|$)/);
+    const calendarDate = calendar ? new Date(`${calendar[1]}-${calendar[2]}-${calendar[3]}T00:00:00Z`) : null;
+    const validCalendar = calendarDate && Number.isFinite(calendarDate.getTime()) && calendarDate.toISOString().slice(0, 10) === time!.slice(0, 10);
+    const publishedAt = validCalendar && Number.isFinite(Date.parse(time!)) ? new Date(time!).toISOString() : null;
     return { snapshot: { ...snapshot, warnings: [...new Set([...safe.warnings, ...snapshot.warnings])] }, metadata: { title: bounded(article.title), author: bounded(article.byline), publishedAt } };
   } finally { dom.window.close(); }
 }

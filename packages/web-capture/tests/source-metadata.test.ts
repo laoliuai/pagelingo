@@ -18,3 +18,13 @@ it('does not infer a missing author or date and bounds extracted metadata', asyn
   expect(value.metadata?.title?.length).toBeLessThanOrEqual(2000); expect(value.metadata?.author?.length).toBe(2000); expect(value.metadata?.publishedAt).toBeNull();
   expect((await extract('<title>Article evidence</title>')).metadata).toEqual({ title: 'Article evidence', author: null, publishedAt: null });
 });
+it.each([
+  ['2026-02-31T12:00:00Z', null],
+  ['2025-02-29', null],
+  ['2026-04-31T23:30:00-04:00', null],
+  ['2024-02-29', '2024-02-29T00:00:00.000Z'],
+  ['2024-02-29T23:30:00-04:00', '2024-03-01T03:30:00.000Z'],
+])('preserves calendar validity before timezone conversion: %s', async (date, expected) => {
+  const value = await extract(`<meta property="article:published_time" content="${date}">`);
+  expect(value.metadata?.publishedAt).toBe(expected);
+});
