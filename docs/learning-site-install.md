@@ -1,6 +1,8 @@
-# 私有学习站 S3 安装
+# 私有学习站安装
 
-S3 在 S2 的 PDF 阅读包、版本与进度基础上增加网页归档、扩展配对和独立网页翻译 worker。PDF 解析和本地阅读包工作流保持独立；服务器不安装 Python、模型或 PDF CLI。网页先保存原文，只有明确开启偏好或手动开始且配置有效时才运行模型任务。操作见[扩展收藏指南](extension-site-capture.md)，验证范围见 [S3 验证记录](learning-site-s3-validation.md) 和 [S2 验证记录](learning-site-s2-validation.md)。
+要放到服务器长期使用，直接看[服务器部署](#服务器部署)；以下先说明本机预览和开发。
+
+站点在 PDF 阅读包、版本与进度基础上提供网页归档、扩展配对和独立网页翻译 worker。PDF 解析和本地阅读包工作流保持独立；服务器不安装 Python、模型或 PDF CLI。网页先保存原文，只有明确开启偏好或手动开始且配置有效时才运行模型任务。操作见[扩展收藏指南](extension-site-capture.md)，验证范围见 [S3 验证记录](learning-site-s3-validation.md) 和 [S2 验证记录](learning-site-s2-validation.md)。
 
 需要 Node.js 24.13.0（`.nvmrc`）、npm 和 Docker Compose。默认 `npm run dev` / `build` 仍是浏览器扩展；网站使用带 `site` 的命令。安装不需要 Python、模型权重或真实模型请求。
 
@@ -44,7 +46,7 @@ site_compose exec app node apps/document-service/dist/cli/bootstrap-admin.js --u
 
 管理员密码在终端遮蔽输入，要求 12–128 个 Unicode 码点；用户名为 3–32 个小写字母、数字、下划线或短横线且以字母开头。仅可初始化第一个管理员。自动化使用 `exec -T` 与 `--password-stdin`，通过秘密管理工具的 stdin 传入密码，不放进参数或命令历史。
 
-访问 <http://127.0.0.1:4320>。Compose 明确使用 `local` 模式：HTTP、非 Secure 本机会话 cookie，app 仅绑定主机 loopback；数据库没有主机映射。不要将这份预览配置直接公开到互联网。真正的 production 配置必须使用 HTTPS origin，服务会强制检查；公网 TLS、备份恢复演练属于 S5。
+访问 <http://127.0.0.1:4320>。Compose 明确使用 `local` 模式：HTTP、非 Secure 本机会话 cookie，app 仅绑定主机 loopback；数据库没有主机映射。不要将这份预览配置直接公开到互联网，公网使用见[服务器部署](#服务器部署)。
 
 数据库卷为 `pagelingo-site_database`（容器 `/var/lib/postgresql/data`），原件卷为 `pagelingo-site_objects`（容器 `/data/objects`）。API 启动执行迁移；S2 保留 001–005，S3 增量应用 006。worker 等待 API 健康后启动，并校验数据库版本。API 与 worker 必须共享数据库、原件卷和运行时 keyring，原件不可变写入。镜像不包含主密钥、测试服务或测试账号，运行时以非 root 用户运行；网站的拆分 JS、worker、CMap、字体、WASM 及许可证整体打包。
 
@@ -55,6 +57,61 @@ site_compose down                 # 移除本项目容器和网络，保留卷
 ```
 
 `down --volumes` 会删除该项目全部数据库和原件，仅在明确要清空自己的预览数据时使用。数据库、原件卷和 keyring 都需要保存；单独保留数据库无法恢复 PDF，单独保留卷无法恢复权限。S3 升级 / 重启验收不是完整灾备演练。
+
+## 服务器部署
+
+需要一台装有 Docker Compose（2.24 或以上）的服务器、一个解析到它的域名，并开放 80、443 端口。Caddy 自动申请和续期 HTTPS 证书，是唯一对外的入口；应用和数据库只在 Compose 内部网络。
+
+```bash
+npm ci
+npm run site:init -- --domain notes.example.com   # 生成 .env.production.local（数据库密码、域名、主密钥）
+site_prod() {
+  docker compose --project-name pagelingo-site --env-file .env.production.local \
+    -f deploy/compose.site.yml -f deploy/compose.prod.yml "$@"
+}
+site_prod up -d --build --wait
+site_prod exec app node apps/document-service/dist/cli/bootstrap-admin.js --username myadmin
+```
+
+**立刻把 `.env.production.local` 另存到密码管理器。** 它不进 Git，也不进备份；丢失后，已保存的模型 API Key 无法解密（重新填写即可恢复使用，资料不受影响）。
+
+服务器内存小于 4 GiB 时不要在上面构建，改为在本机构建后传过去：
+
+```bash
+docker compose -f deploy/compose.site.yml -f deploy/compose.prod.yml --env-file .env.production.local build app
+docker save pagelingo-site:latest | ssh 服务器 docker load
+ssh 服务器 'cd pagelingo && docker compose ... up -d --no-build --wait'
+```
+
+登录后在“设置”里填写模型地址和 Key。建议同时导入 [`merged-tech.en-zh.json`](glossaries/merged-tech.en-zh.json)：术语表默认是空的，导入后专业术语译法才稳定。
+
+验证整套生产配置（独立项目，不碰现有数据，跑完自动清理）：`npm run test:site:backup`。
+
+### 机器上有代理工具时
+
+如果服务所在机器的 DNS 由 Clash、Mihomo 等代理工具的 fake-ip 模式接管（典型表现是域名解析成 `198.18.x.x`），抓取网页、GitHub、arXiv 和调用模型都会被出站安全策略拦截，任务显示 fake-ip 相关错误，worker 日志也会提示。确认后在运行配置里加上 `PAGELINGO_ALLOW_FAKE_IP=1` 并重启。开启后只放行 DNS 返回的这个网段，TLS 仍校验真实域名，内网地址继续拒绝。普通云服务器不需要这个开关。
+
+### 备份与恢复
+
+```bash
+npm run site:backup -- --output /backups/pagelingo-$(date +%F)      # 默认 .env.production.local 和项目 pagelingo-site
+npm run site:restore -- --from /backups/pagelingo-2026-11-01 --env-file .env.production.local
+```
+
+- 备份期间会短暂停止 API 和 worker，保证数据库与文件一致，结束后自动恢复。
+- 产物是 `database.dump`、`objects.tar` 和 `manifest.json`。里面有你的全部资料、密码哈希和加密后的 API Key，放到异地前请自行加密。**主密钥不在备份里**，`manifest.json` 只记录它的指纹。
+- 恢复只接受空环境：已有数据时拒绝执行，文件校验不通过或主密钥不匹配也会在改动任何东西之前拒绝。恢复后逐个读取所有文件核对 SHA-256，并试解密所有 API Key，有问题就报错退出。
+- 定期备份用系统 cron 即可，例如 `0 4 * * * cd /srv/pagelingo && npm run site:backup -- --output /backups/pagelingo-$(date +\%F)`。保留多少份、传到哪里由你决定。
+
+随时可以单独核对现有数据：`site_prod exec app node apps/document-service/dist/cli/verify-restore.js`。
+
+### 升级
+
+```bash
+git pull
+site_prod stop app worker       # 新旧版本不能同时写数据库
+site_prod up -d --build --wait  # API 启动时自动迁移
+```
 
 ## 开发模式
 
@@ -97,7 +154,8 @@ npm run dev:site
 1. 登录管理员账号，在用户管理中创建普通账号；禁用和重置密码会撤销目标账号旧会话。管理员不能读取其他人的资料。
 2. 普通账号在设置中保存自己的 HTTPS API 根地址、模型及 Key。读取仅回显脱敏状态；保存不调用模型。“测试连接”需要明确确认，会请求用户配置的远端服务。
 3. 资料库上传 PDF，默认上限 256 MiB。保存后先读原件；在同一条目导入本地正式 ZIP 后进入对照阅读。导入也可从资料库新建条目。相同账号 / 同包身份幂等，PDF 身份不一致会拒绝。部分译文、未译、模拟译文和解析警告分别显示；完整下载得到原已验证 ZIP。
-4. 退出登录清理当前页面的私有缓存和 PDF worker。修改密码后需重新登录。当前不提供删除原件；PDF 译文来自已导入的阅读包，网页译文可由独立 worker 生成，实际阅读交互后保存进度。
+4. 退出登录清理当前页面的私有缓存和 PDF worker。修改密码后需重新登录。删除的资料先进回收站，30 天后或手动永久清理。PDF 译文来自已导入的阅读包，网页译文可由独立 worker 生成，实际阅读交互后保存进度。
+5. 添加 arXiv 链接后，站点保存固定版本的 PDF；如果 arXiv 提供该版本的 HTML，会同时生成一条关联的文章，可直接翻译和中英对照阅读，公式保留 LaTeX 原文。两条资料彼此独立，在“管理资料”的关联资料中互相可见。
 
 ```bash
 node --test tests/site/*.test.mjs

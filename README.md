@@ -14,13 +14,11 @@
 
 0.3.0 的导入、覆盖、术语保护和缓存验证见 [个人术语验收记录](docs/glossary-validation.md)。
 
-扩展位于 `apps/extension`。私有学习站 **S1 / 0.1.0** 已实现登录、管理员开通账号、个人模型配置、本人 PDF 保存与原件阅读，以及本机 Compose 持久卷与重启验收。安装见 [学习站安装指南](docs/learning-site-install.md)，真实测试数量、截图与限制见 [S1 验证记录](docs/learning-site-s1-validation.md)。网站入口为 `npm run dev:site` / `build:site`，默认扩展入口保持不变。
+扩展位于 `apps/extension`。私有学习站（`apps/web` + `apps/document-service`）已实现账号、个人模型配置、网页 / PDF / GitHub / arXiv 收藏、后台网页翻译、原文 / 译文 / 对照阅读、集合标签搜索、回收站、离线导出，以及 HTTPS 部署和备份恢复。安装和部署见 [学习站安装指南](docs/learning-site-install.md)，当前状态和未验证范围见 [S5 记录](docs/learning-site-s5.md)。网站入口为 `npm run dev:site` / `build:site`，默认扩展入口保持不变。产品范围见 [V1 设计](docs/superpowers/specs/2026-10-26-personal-learning-site-design.md)。
 
-个人学习站 V1 设计已于 2026-10-27 获批，见 [设计稿](docs/superpowers/specs/2026-10-26-personal-learning-site-design.md)。S1 只交付原件阅读；完整译文包导入、译文 HTML / 原 PDF 对照阅读属于 S2，插件收藏、后台任务、站内助手与公网部署依后续阶段交付。
+PDF P0 已完成两本书及三篇论文的首轮真实评测；Python 候选适配、来源映射与离线布局检查已实现，见 [实测报告](benchmarks/pdf/first-run-report.md)。正式质量 corpus / 选型仍待完成。此前 PDF 阶段按单用户、可部署服务器的应用设计：本机与服务器共用 PostgreSQL，原件 / 解析 IR / 图表采用独立对象存储接口，首版使用持久化磁盘目录。数据库迁移、任务恢复、后端对话、Compose 部署与备份恢复纳入交付计划，详见 [存储与部署设计](docs/pdf-spec.md#84-storage)；账号、原件持久化、任务恢复与备份恢复已实现，后端对话仍待后续阶段。
 
-PDF P0 已完成两本书及三篇论文的首轮真实评测；Python 候选适配、来源映射与离线布局检查已实现，见 [实测报告](benchmarks/pdf/first-run-report.md)。正式质量 corpus / 选型仍待完成。此前 PDF 阶段按单用户、可部署服务器的应用设计：本机与服务器共用 PostgreSQL，原件 / 解析 IR / 图表采用独立对象存储接口，首版使用持久化磁盘目录。数据库迁移、任务恢复、后端对话、Compose 部署与备份恢复纳入交付计划，详见 [存储与部署设计](docs/pdf-spec.md#84-storage)；S1 已实现账号、原件持久化和本机 Compose，任务恢复、后端对话与完整备份恢复仍待后续阶段。
-
-后续解析优先阅读效果，继续评测 standard / advanced；允许当前机器处理、服务器校验导入后阅读，保存 IR / 译文与完整静态 HTML 资源。现有 raw 已可导出[离线原文预览](benchmarks/pdf/tools/README.md)：每次加载一个 PDF 页，公式预排版，图 / 表主体保留原 PDF 高清区域图，避免长书整页负担及重建表格失真。S1 已提供 PDF 原件 Reader，完整译文 Reader / 翻译包 / 导入服务仍待 S2 实现，见 [处理与产物设计](docs/pdf-processing.md)。
+后续解析优先阅读效果，继续评测 standard / advanced；允许当前机器处理、服务器校验导入后阅读，保存 IR / 译文与完整静态 HTML 资源。现有 raw 已可导出[离线原文预览](benchmarks/pdf/tools/README.md)：每次加载一个 PDF 页，公式预排版，图 / 表主体保留原 PDF 高清区域图，避免长书整页负担及重建表格失真。本地处理流程见 [本地 PDF 离线阅读包](docs/pdf-reader-workflow.md)，设计见 [处理与产物设计](docs/pdf-processing.md)。
 
 ## 本地运行
 
@@ -130,10 +128,15 @@ packages/translation-core/   独立 SDK 及无 DOM 的 Node 测试
 packages/assistant-core/     通用阅读助手 SDK、上下文与 Pi runtime
 tests/package/              SDK 独立打包、类型检查与消费验证
 examples/                   Node 文档 JSON 示例
-apps/web/                   规划：PDF / LaTeX 阅读网站
-apps/document-service/      规划：TypeScript 文档 API / worker，直接调用 SDK
-services/document-parser/   P0 已实现：解析适配、来源映射、离线检查；语义重建待实现
-packages/document-contracts/ P0 评测 schema；正式 Reader IR、来源与任务协议待冻结
+apps/web/                   私有学习站前端
+apps/document-service/      文档 API / worker，直接调用 SDK
+apps/pdf-cli/               本地 PDF 处理、翻译与阅读包导出
+services/document-parser/   Python 解析适配、来源映射、离线检查
+packages/document-contracts/ Reader IR、采集、任务与阅读包协议
+packages/document-bundle/   阅读包校验与导出
+packages/document-renderer/ 共享阅读渲染与离线运行时
+packages/web-capture/       网页清洗、投影与归档
+deploy/                     Compose 与 Caddy 部署配置
 benchmarks/pdf/             P0 输入 / 模型锁、真实运行与质量评测
 evals/                      规划：共享翻译质量评测
 ```
