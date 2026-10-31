@@ -297,3 +297,16 @@ it.each([false, true])('rejects fresh capture admission for a trashed match, tar
   const result = await t.app.inject({ method: 'POST', url: '/api/v1/captures', headers: { ...t.headers, 'idempotency-key': value.manifest.captureId }, payload: { manifest: value.manifest, translationIntent: 'none', ...(targeted ? { targetDocumentId: saved.documentId } : {}) } });
   expect(result.statusCode).toBe(409); expect(result.json().error.code).toBe('DOCUMENT_IN_TRASH');
 });
+it('allows saving a link again while its old document is being permanently deleted', async () => {
+  const t = await jobFixture(); cleanup.push(t.close); const saved = await t.save();
+  const url = (await t.db.pool.query('SELECT source_url FROM documents WHERE id=$1', [saved.documentId])).rows[0].source_url;
+  expect((await t.request(`/api/v1/documents/${saved.documentId}/trash`, 'POST', { expectedEpoch: 1 })).statusCode).toBe(200);
+  const link = () => t.app.inject({ method: 'POST', url: '/api/v1/documents/links', headers: { ...t.headers, 'idempotency-key': randomUUID() }, payload: { url, translationIntent: 'none' } });
+  const inTrash = await link();
+  expect(inTrash.statusCode).toBe(409);
+  expect(inTrash.json().error.code).toBe('DOCUMENT_IN_TRASH');
+  expect((await t.app.inject({ method: 'DELETE', url: `/api/v1/trash/${saved.documentId}`, headers: t.headers })).statusCode).toBeLessThan(300);
+  const again = await link();
+  expect(again.statusCode).toBe(201);
+  expect(again.json().documentId).not.toBe(saved.documentId);
+});

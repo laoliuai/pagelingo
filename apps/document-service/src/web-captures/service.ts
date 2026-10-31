@@ -67,7 +67,8 @@ export function createWebCapturesService({ db, store, config, onPublication }: {
         const hints = await assertSaveHintsOwned(client,owner(p),value);
         const requestHash = createHash('sha256').update(canonicalManifestBytes({ ...value,...hints })).digest('hex');
         const duplicateId = value.targetDocumentId ?? (await client.query<{ id: string }>(
-          'SELECT id FROM documents WHERE owner_id=$1 AND source_url=$2 AND kind=$3 ORDER BY created_at,id LIMIT 1',
+          // A document being permanently deleted can no longer be restored, so it does not block saving the page again.
+          'SELECT id FROM documents d WHERE owner_id=$1 AND source_url=$2 AND kind=$3 AND NOT EXISTS (SELECT 1 FROM document_purges p WHERE p.owner_id=d.owner_id AND p.document_id=d.id) ORDER BY created_at,id LIMIT 1',
           [owner(p), normalizeCaptureUrl(value.manifest.source.url), value.manifest.source.kind === 'x-post' ? 'x-post' : 'article'],
         )).rows[0]?.id;
         if (duplicateId) { await lockDocument(client, owner(p), duplicateId); await assertDuplicateSaveActive(client, owner(p), duplicateId); }

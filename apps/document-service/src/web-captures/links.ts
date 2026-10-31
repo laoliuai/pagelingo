@@ -44,7 +44,7 @@ export function createDocumentLinksService({ db }: { db: Database }) {
         const classification = classifyDocumentLink(value.url, value.kind);
         const authorized = { ...value,...await assertSaveHintsOwned(client, ownerId, value) };
         const requestHash = createHash('sha256').update(canonicalManifestBytes(authorized)).digest('hex');
-        let document = (await client.query<{ id: string; kind: string }>("SELECT id,kind FROM documents WHERE owner_id=$1 AND source_url=$2 AND kind=$3 ORDER BY created_at,id LIMIT 1", [ownerId, value.url, classification.kind])).rows[0];
+        let document = (await client.query<{ id: string; kind: string }>("SELECT id,kind FROM documents d WHERE owner_id=$1 AND source_url=$2 AND kind=$3 AND NOT EXISTS (SELECT 1 FROM document_purges p WHERE p.owner_id=d.owner_id AND p.document_id=d.id) ORDER BY created_at,id LIMIT 1", [ownerId, value.url, classification.kind])).rows[0];
         const existingDocument = !!document;
         if (!document) {
           document = { id: randomUUID(), kind: classification.kind };

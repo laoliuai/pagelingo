@@ -243,12 +243,13 @@ it('revokes an already-started bundle stream after its first emitted chunk durin
     release(); await expect(reader.read()).rejects.toThrow();
   } finally { release?.(); spy.mockRestore(); }
 });
-it('retires and removes an untargeted capture admitted after soft delete but before purge', async () => {
+it('retires and removes an untargeted capture admitted before the purge', async () => {
   const t=await jobFixture(); cleanup.push(t.close); const saved=await t.save();
-  await t.request(`/api/v1/documents/${saved.documentId}/trash`,'POST',{ expectedEpoch:1 });
+  // A fresh save of a trashed URL is refused, so a pending capture can only predate the soft delete.
   const { capture }=await import('../helpers/web-capture.js'); const value=capture();
   const created=await t.app.inject({ method:'POST',url:'/api/v1/captures',headers:{ ...t.headers,'idempotency-key':value.manifest.captureId },payload:{ manifest:value.manifest,translationIntent:'none' } });
   expect(created.statusCode).toBe(201);
+  await t.request(`/api/v1/documents/${saved.documentId}/trash`,'POST',{ expectedEpoch:1 });
   const other=(await t.db.pool.query(`INSERT INTO documents(owner_id,kind,title,source_url) SELECT owner_id,'article','unrelated',source_url FROM documents WHERE id=$1 RETURNING id`,[saved.documentId])).rows[0].id;
   const targeted=capture();
   const otherCapture=await t.app.inject({ method:'POST',url:'/api/v1/captures',headers:{ ...t.headers,'idempotency-key':targeted.manifest.captureId },payload:{ manifest:targeted.manifest,translationIntent:'none',targetDocumentId:other } }); expect(otherCapture.statusCode).toBe(201);
