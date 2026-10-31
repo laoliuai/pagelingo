@@ -1,4 +1,12 @@
-.web-reader .web-reading-body { height: 68vh; min-height: 340px; }
+/* The pane fills the window once scrolled to, so reading never happens through a small slot. */
+.web-reader .web-reading-body { height: calc(100dvh - 24px); min-height: 340px; }
+.web-reader .reader-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; }
+.web-reader .reader-heading > .reader-status, .web-reader .reader-heading > .reader-controls { flex-basis: 100%; }
+.web-reader .reader-heading > details[open], .web-reader .reader-heading > .web-jobs:has(details[open]) { flex-basis: 100%; }
+/* A figure stays readable next to the text it illustrates instead of filling several screens. */
+.web-reader .reader-block img { max-height: 75vh; width: auto; }
+.web-reader[data-focused] .web-reading-body { position: fixed; inset: 0; z-index: 40; height: 100dvh; background: var(--reader); }
+.web-reader .reader-focus-exit { position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 41; }
 .web-reader .reader-source { color: var(--secondary); }
 .web-reader .reader-translation { border-left: 2px solid var(--accent); padding-left: 14px; }
 .web-reader .reader-status { font-size: 12px; overflow-wrap: anywhere; }
@@ -7,7 +15,7 @@
 .web-reader .reader-content td, .web-reader .reader-content th { border: 1px solid var(--border); padding: 8px; min-width: 120px; }
 .web-reader .reader-content [role='status'] { font-size: 12px; }
 @media (max-width: 767px) {
-  .web-reader .web-reading-body { height: 55vh; min-height: 300px; }
+  .web-reader .web-reading-body { min-height: 300px; }
   .web-reader .reader-heading { font-size: 12px; }
   .document-info .muted { overflow-wrap: anywhere; }
 }
