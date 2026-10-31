@@ -5,3 +5,9 @@
 样本记录来源 / 领域、输入上下文、生效术语、模型与生成配置、SDK 策略版本、输出和人工判定。检查术语、否定、限定、数字 / 单位、比较关系、引用和跨句指代。
 
 保护标记、API 协议和渲染测试留在各包；解析准确性评测留在 `benchmarks/pdf`。Mock 成功、结构校验或编译通过不能代替翻译质量。包含私人文档的评测内容和模型响应不默认提交或自动发送到服务端。
+
+## 运行
+
+`npm run eval:translation -- --output data/evals/<新目录>` 用 `.env.local` 里的 `PAGELINGO_LLM_*` 翻译 [20 个针对性样本](translation/cases.json)，覆盖否定、限定、数字单位、比较方向、指代、术语、保护对象和文本内指令。它会真实计费并把样本发给你的模型服务，只在手动运行时执行。输出含机械检查结果和原文译文对照表，后者需要人工通读。
+
+`--glossary docs/glossaries/merged-tech.en-zh.json` 可比较有无术语表的差异，`--profile academic` 用论文语体，`--mock` 只验证脚本本身（回显原文，不请求模型）。
