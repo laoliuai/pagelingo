@@ -4,6 +4,7 @@ import { validateWebTranslation, type ValidatedWebTranslation } from './web-tran
 import { jsonBytes } from './chunking.js';
 import { planWebTables } from './web-tables.js';
 import { naturalText } from './semantic-html.js';
+import { mathRenderCost, maxRenderedBytes, maxRenderedElements } from './math.js';
 export interface WebReaderBuild { index: WebReaderIndex; chunks: WebReaderChunk[] }
 export interface WebImportedReaderBuild { build: WebReaderBuild; translation: WebImportedTranslation | null; rejectedBlockIds: string[] }
 
@@ -118,7 +119,28 @@ function planWebReader(input: WebReaderIR, translation?: WebTranslation | null, 
     tables.normalize(chunk, primarySet, semantic);
     return chunk;
   };
-  const fits = (chunk: WebReaderChunk): boolean => chunk.blocks.length <= 128 && jsonBytes(chunk) <= (chunk.blocks.length === 1 ? 512 * 1024 : 256 * 1024);
+  // Rendering has a per-chunk budget and formulas past it fall back to raw TeX. Bilingual mode renders each formula twice.
+  const mathBudget = { elements: (maxRenderedElements - 4096) / 2 - 1024, bytes: (maxRenderedBytes - 512 * 1024) / 2 };
+  const costs = new Map<string, { bytes: number; elements: number }>();
+  const costOf = (latex: string, display: boolean) => {
+    const key = `${display ? 'd' : 'i'}${latex}`;
+    let cost = costs.get(key);
+    if (!cost) { cost = mathRenderCost(latex, display); costs.set(key, cost); }
+    return cost;
+  };
+  const mathFits = (chunk: WebReaderChunk): boolean => {
+    let elements = 0, bytes = 0;
+    const add = (cost: { bytes: number; elements: number }) => { elements += cost.elements; bytes += cost.bytes; };
+    for (const { source } of chunk.blocks) {
+      if (source.type === 'math') add(source.ast ? { elements: source.ast.nodes.length, bytes: jsonBytes(source.ast) } : costOf(source.latex!, source.displayMode));
+      if (source.type !== 'text') continue;
+      for (const binding of source.bindings) if (binding.kind === 'protected' && binding.object.type === 'math') add(costOf(binding.object.latex, false));
+      for (const { ast } of source.safeMath) add({ elements: ast.nodes.length, bytes: jsonBytes(ast) });
+    }
+    return elements <= mathBudget.elements && bytes <= mathBudget.bytes;
+  };
+  const fits = (chunk: WebReaderChunk): boolean => chunk.blocks.length <= 128 && jsonBytes(chunk) <= (chunk.blocks.length === 1 ? 512 * 1024 : 256 * 1024)
+    && (chunk.blocks.length === 1 || mathFits(chunk));
   let primary: string[] = [], chunk: WebReaderChunk | undefined;
   const append = (unit: string[]): void => {
     let candidate: WebReaderChunk | undefined;

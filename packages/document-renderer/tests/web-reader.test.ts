@@ -295,3 +295,30 @@ it('encodes a wide uncovered interval with bounded sparse layout cells', () => {
   const gaps = chunk.nodes.filter(n => !sourceIds.has(n.id)); expect(gaps).toHaveLength(3); expect(gaps.every(n => n.children.length === 0)).toBe(true);
   expect(webReaderChunkSchema.safeParse(chunk).success).toBe(true); expect(chunk.contextBlockIds).toEqual([ir.blocks[3].id]);
 });
+it('splits math-heavy text so every formula renders instead of falling back to raw TeX', () => {
+  const latex = '\\sum_{i=1}^{n} \\frac{x_i^2}{\\sqrt{y_i + 1}} + \\int_0^1 f(t)\\,dt';
+  const ir = webBook(120);
+  for (const block of ir.blocks) {
+    if (block.type !== 'text') throw Error('fixture');
+    block.value.content = [{ type: 'text', text: 'Given ' }, { type: 'protected', id: 'i_1', kind: 'math', source: latex }, { type: 'text', text: ' holds.' }];
+    block.bindings = [{ id: 'i_1', kind: 'protected', object: { type: 'math', latex } }];
+  }
+  const build = buildWebReader(ir, webSnapshot(ir, true));
+  expect(build.chunks.length).toBeGreaterThan(1);
+  for (const chunk of build.chunks) {
+    const html = renderWebChunk(chunk, options);
+    expect(html).not.toContain('math-fallback');
+    expect(html).toContain('katex');
+  }
+});
+it('renders the text commands papers use inside formulas', () => {
+  const ir = webBook(1);
+  const block = ir.blocks[0];
+  if (block.type !== 'text') throw Error('fixture');
+  const latex = '\\textsc{BERT} + \\mbox{layers}';
+  block.value.content = [{ type: 'protected', id: 'i_1', kind: 'math', source: latex }, { type: 'text', text: ' holds.' }];
+  block.bindings = [{ id: 'i_1', kind: 'protected', object: { type: 'math', latex } }];
+  const html = renderWebChunk(buildWebReader(ir, webSnapshot(ir, true)).chunks[0], options);
+  expect(html).not.toContain('math-fallback');
+  expect(html).toContain('BERT');
+});

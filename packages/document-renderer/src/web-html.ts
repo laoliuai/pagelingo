@@ -13,9 +13,11 @@ export function renderWebChunk(input: WebReaderChunk, options: WebRenderOptions)
   const assets = new Set(chunk.assets.map(a => a.id)); check(assets.size === chunk.assets.length, 'Duplicate asset');
   const warnings: string[] = [];
   let bytes = 0, elements = 0;
+  // Formulas in the current block; the finished block's HTML, which contains them, is what gets counted.
+  let blockBytes = 0, blockElements = 0;
   const math = (latex: string, display: boolean): string => {
-    const html = renderMath(latex, display, warnings, { bytes: Math.max(0, maxRenderedBytes - bytes - 512 * 1024), elements: Math.max(0, maxRenderedElements - elements - 4096) });
-    bytes += htmlBytes(html); elements += elementCount(html); return html;
+    const html = renderMath(latex, display, warnings, { bytes: Math.max(0, maxRenderedBytes - bytes - blockBytes - 512 * 1024), elements: Math.max(0, maxRenderedElements - elements - blockElements - 4096) });
+    blockBytes += htmlBytes(html); blockElements += elementCount(html); return html;
   };
   const asset = (id: string, alt: string): string => {
     check(assets.has(id), 'Missing chunk asset'); const url = options.resolveAsset(id); check(safeAssetUrl(url), 'Unsafe asset URL');
@@ -69,7 +71,7 @@ export function renderWebChunk(input: WebReaderChunk, options: WebRenderOptions)
     };
     const tag = value.kind === 'heading' ? `h${source.headingLevel ?? headingLevels.get(source.id) ?? 2}` : value.kind === 'quote' ? 'blockquote' : 'p';
     let inner = inlines(value.content); check(used.size === originals.size, 'Missing translated protected/format object');
-    if (htmlBytes(inner) > maxRenderedBytes - bytes - 65536 || elementCount(inner) > maxRenderedElements - elements - 128) {
+    if (htmlBytes(inner) > maxRenderedBytes - bytes - blockBytes - 65536 || elementCount(inner) > maxRenderedElements - elements - blockElements - 128) {
       warnings.push('文本格式超出显示预算，已保留可读文本。'); inner = esc(naturalText(value.content));
     }
     return `<${tag}>${inner}</${tag}>`;
@@ -83,7 +85,8 @@ export function renderWebChunk(input: WebReaderChunk, options: WebRenderOptions)
     if (b.type === 'text') {
       const source = () => text(entry, b.value, `${instanceId}-source`);
       const translated = () => text(entry, entry.translation!, `${instanceId}-translation`);
-      const reason = entry.sourceOnlyReason ? `<span class="source-only">${labels[entry.sourceOnlyReason]}</span>` : '';
+      // Numbers, formulas and text already in Chinese were never meant to change, so saying so is only noise.
+      const reason = entry.sourceOnlyReason && entry.sourceOnlyReason !== 'language-not-required' ? `<span class="source-only">${labels[entry.sourceOnlyReason]}</span>` : '';
       if (options.mode === 'source') html = source();
       else if (options.mode === 'translation') html = entry.translation ? translated() : reason + source();
       else html = entry.translation ? `<div class="reader-source">${source()}</div><div class="reader-translation">${translated()}</div>` : reason + source();
@@ -92,7 +95,7 @@ export function renderWebChunk(input: WebReaderChunk, options: WebRenderOptions)
     else if (b.type === 'image') html = `<figure data-image-role="${b.role}">${asset(b.assetId, b.alt)}</figure>`;
     else html = b.ast ? renderSafeMath(b.ast, `${instanceId}-formula`) : math(b.latex!, b.displayMode);
     const result = `<div class="${contextCopy ? 'reader-context' : 'reader-block'}" id="${instanceId}"${contextCopy ? '' : ` data-block-id="${b.id}" data-source-node="${esc(b.sourceRefs[0].nodeId)}"`}>${html}</div>`;
-    bytes += htmlBytes(result); elements += elementCount(result); return result;
+    bytes += htmlBytes(result); elements += elementCount(result); blockBytes = 0; blockElements = 0; return result;
   };
   const visited = new Set<string>(), rendered: string[] = [];
   const cellId = (id: string): string => `${chunk.id}-${id}`;
