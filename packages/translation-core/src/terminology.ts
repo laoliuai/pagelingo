@@ -1,5 +1,6 @@
 import { glossaryKey, mergeGlossaryEntries, type GlossaryEntry } from './glossary.js';
 import type { AppliedGlossaryEntry, TranslationInput } from './types.js';
+import { tightenTerminology } from './protection.js';
 import { SLOT_PATTERN } from './validator.js';
 
 const leftWord = /[\p{L}\p{N}_]$/u;
@@ -88,7 +89,7 @@ export function restoreGlossaryText(input: TranslationInput, text: string): stri
   const terms = new Set(input.terminologyTokens ?? []);
   if (!terms.size) return text;
   const slots = new Map(input.slots.map(slot => [slot.token, slot]));
-  return text.replace(SLOT_PATTERN, token => {
+  return tightenTerminology(input, text).replace(SLOT_PATTERN, token => {
     const slot = slots.get(token);
     return terms.has(token) && slot?.kind === 'atom' && slot.inline.type === 'text' ? slot.inline.text : token;
   });

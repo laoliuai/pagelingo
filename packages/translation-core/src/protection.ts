@@ -62,10 +62,41 @@ export function encodeBlock(value: TranslationBlock): TranslationInput {
   };
 }
 
+const WIDE_CHARACTER = /[\p{Script=Han}\u3000-\u303f\uff00-\uffef]/u;
+/**
+ * Models space locked glossary tokens as if they were code, which leaves gaps inside Chinese text once a
+ * Chinese term is restored. Spaces stay when either side is Latin, where they are normal typography.
+ */
+export function tightenTerminology(input: TranslationInput, text: string): string {
+  const terms = new Set(input.terminologyTokens ?? []);
+  if (!terms.size) return text;
+  const values = new Map(input.slots.flatMap(slot => slot.kind === 'atom' && slot.inline.type === 'text' && terms.has(slot.token) ? [[slot.token, slot.inline.text] as const] : []));
+  const wide = (character?: string) => !!character && WIDE_CHARACTER.test(character);
+  let output = ''; let cursor = 0; let previousEnd: string | undefined;
+  for (const match of [...text.matchAll(SLOT_PATTERN), null]) {
+    const between = text.slice(cursor, match ? match.index : text.length);
+    const value = match ? values.get(match[0]) : undefined;
+    const body = between.trim();
+    // Only a term's neighbours change: spacing next to code, formulas and formatting markers is left alone.
+    const trimStart = previousEnd !== undefined && wide(previousEnd) && (body ? wide(body[0]) : wide(value?.[0]));
+    const trimEnd = value !== undefined && wide(value[0]) && (body ? wide(body.at(-1)) : wide(previousEnd));
+    let piece = between;
+    if (trimStart) piece = piece.replace(/^[ \t\u00a0]+/, '');
+    if (trimEnd) piece = piece.replace(/[ \t\u00a0]+$/, '');
+    output += piece;
+    if (!match) break;
+    output += match[0];
+    previousEnd = value?.at(-1);
+    cursor = match.index + match[0].length;
+  }
+  return output;
+}
+
 /** Restores data only. The consuming adapter decides how to render or escape it. */
-export function decodeTranslation(input: TranslationInput, text: string): InlineContent[] {
-  const errors = validateStructure(input, text);
+export function decodeTranslation(input: TranslationInput, rawText: string): InlineContent[] {
+  const errors = validateStructure(input, rawText);
   if (errors.length) throw new Error(errors.join(' '));
+  const text = tightenTerminology(input, rawText);
   const slots = new Map(input.slots.map((slot) => [slot.token, slot]));
   const result: InlineContent[] = [];
   const stack: InlineContent[][] = [result];

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import * as sdk from '@pagelingo/translation-core';
 import type { GlossaryEntry, GenerationRequest, TranslationDocument } from '@pagelingo/translation-core';
+import { applyGlossary, restoreGlossaryText } from '../src/terminology.js';
 
 const term = (source: string, target: string, domain: GlossaryEntry['domain'] = 'all'): GlossaryEntry =>
   ({ source, target, policy: 'translate', domain });
@@ -164,5 +165,36 @@ describe('glossary application shared by page and document adapters', () => {
     expect(affected.length).toBeGreaterThan(0);
     expect(affected.every(input => input.glossary?.some(entry => entry.source === 'neural network'))).toBe(true);
     expect(requested.filter(input => !/neural|network/.test(input.protectedText)).every(input => !input.glossary?.length)).toBe(true);
+  });
+});
+
+describe('spacing around restored glossary terms', () => {
+  const restored = (source: string, entries: GlossaryEntry[], translated: (token: string[]) => string) => {
+    const input = applyGlossary(sdk.encodeBlock({ id: 'b', kind: 'paragraph', content: [{ type: 'text', text: source }] }), entries, 'all');
+    const tokens = input.terminologyTokens ?? [];
+    const text = translated(tokens);
+    return { input, text, decoded: sdk.decodeTranslation(input, text), restored: restoreGlossaryText(input, text) };
+  };
+  const zh = [term('encoder', '编码器'), term('decoder', '解码器')];
+  it('closes gaps the model leaves around Chinese terms', () => {
+    const { decoded, restored: text } = restored('encoder and decoder', zh, ([a, b]) => `在 ${a} 和 ${b} 之间`);
+    expect(decoded).toEqual([{ type: 'text', text: '在编码器和解码器之间' }]);
+    expect(text).toBe('在编码器和解码器之间');
+  });
+  it('closes the gap between two adjacent Chinese terms', () => {
+    const { decoded } = restored('encoder decoder', zh, ([a, b]) => `${a} ${b}`);
+    expect(decoded).toEqual([{ type: 'text', text: '编码器解码器' }]);
+  });
+  it('keeps normal spacing beside Latin words and terms kept in English', () => {
+    expect(restored('encoder', zh, ([a]) => `the ${a} works`).decoded).toEqual([{ type: 'text', text: 'the 编码器 works' }]);
+    const kept: GlossaryEntry[] = [{ source: 'accuracy', target: 'accuracy', policy: 'keep', domain: 'all' }];
+    expect(restored('accuracy', kept, ([a]) => `提高 ${a} 指标`).decoded).toEqual([{ type: 'text', text: '提高 accuracy 指标' }]);
+  });
+  it('leaves spacing beside code and formulas alone', () => {
+    const input = applyGlossary(sdk.encodeBlock({ id: 'b', kind: 'paragraph', content: [{ type: 'text', text: 'encoder ' }, { type: 'protected', id: 'c', kind: 'code', source: 'run()' }] }), zh, 'all');
+    const code = input.slots.find(slot => slot.kind === 'atom' && slot.inline.type === 'protected')!.token;
+    const content = sdk.decodeTranslation(input, `调用 ${code} 的 ${input.terminologyTokens![0]}`);
+    expect(content[0]).toEqual({ type: 'text', text: '调用 ' });
+    expect(content[2]).toEqual({ type: 'text', text: ' 的编码器' });
   });
 });
