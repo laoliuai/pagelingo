@@ -62,7 +62,7 @@ export async function runWebJob(lease: JobLease, deps: WebJobDependencies): Prom
       budget: context.budget, state, cache: createOwnerCache(lease.ownerId,lease,deps.db),
       dependencies: { profileRevision: lease.profileRevision, glossaryRevision: lease.glossaryRevision },
     } });
-    for await (const batch of engine.translate(context.document, { targetLanguage: 'zh', profile: 'technical', glossary: context.glossary, signal })) {
+    for await (const batch of engine.translate(context.document, { targetLanguage: 'zh', profile: context.profile, glossary: context.glossary, signal })) {
       if (!batch.completed) continue;
       const milestone = Math.min(3,Math.floor(batch.completed/batch.total*4));
       if (milestone > context.job.publication_milestone) {

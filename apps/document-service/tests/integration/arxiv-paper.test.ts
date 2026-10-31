@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { afterEach, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { bootstrapAdmin } from '../../src/cli/bootstrap-admin.js';
 import { createServiceTestApp } from '../helpers/app.js';
 import { login } from '../helpers/session.js';
@@ -252,4 +252,80 @@ it('resolves Reader metadata only from owned registered paper bindings, includin
   await t.app.inject({ method: 'POST', url: '/api/v1/admin/users', headers: t.headers, payload: { username: 'other-reader', password: 'correct password 123456' } });
   const foreign = await login(t.app, 'other-reader', 'correct password 123456');
   expect((await t.app.inject({ url: `/api/v1/documents/${saved.documentId}/source-details?readerVersionId=${imported.readerVersionId}`, headers: { cookie: foreign.cookie } })).statusCode).toBe(404);
+});
+describe('HTML reading version of a fixed paper', () => {
+  const html = `<html><head><title>[2401.12345] site title</title></head><body><nav>Site navigation</nav>
+    <article class="ltx_document"><h1 class="ltx_title ltx_title_document">Paper version 1</h1>
+    <div class="ltx_authors"><span class="ltx_personname">Alice</span> <span class="ltx_personname">Bob</span></div>
+    <section><p>Earlier work <cite>[<a href="#bib1">1</a>]</cite> studied <math><annotation encoding="application/x-tex">x^2</annotation></math> in depth, which this paper extends with new evidence.</p></section>
+    <table class="ltx_equation"><tr><td><math><annotation encoding="application/x-tex">E=mc^2</annotation></math></td><td>(1)</td></tr></table>
+    </article></body></html>`;
+  const fetcher = (status = 200) => (async (_url: string | URL | Request, init?: RequestInit) => init?.method === 'HEAD'
+    ? new Response(null, { status, headers: { 'content-type': 'text/html' } })
+    : new Response(html, { status, headers: { 'content-type': 'text/html' } })) as typeof fetch;
+  async function runJob(t: Awaited<ReturnType<typeof setup>>, jobId: string, captureFetch: typeof fetch) {
+    await t.db.pool.query("UPDATE external_request_limits SET next_request_at='-infinity'");
+    await t.db.pool.query('UPDATE web_jobs SET next_request_at=clock_timestamp() WHERE id=$1', [jobId]);
+    const lease = await t.db.transaction(c => startWebJobLease(c, { ownerId: t.ownerId, jobId, slotId: 1, leaseOwner: randomUUID() }));
+    // A job that already finished offers no lease; its retained material can complete it in one run.
+    if (lease) await runWebJob(lease, { db: t.db, store: t.store, config: t.config, signal: new AbortController().signal, sourceTransport: arxivTransport(), captureFetch });
+  }
+  const articles = async (t: Awaited<ReturnType<typeof setup>>) => (await t.db.pool.query("SELECT id,source_url,title,requested_web_job_id,deleted_at FROM documents WHERE kind='article' ORDER BY created_at")).rows;
+  async function savedPaper(t: Awaited<ReturnType<typeof setup>>, captureFetch: typeof fetch) {
+    const saved = await t.save();
+    await runJob(t, saved.jobId, captureFetch);
+    await runJob(t, saved.jobId, captureFetch);
+    expect((await t.db.pool.query('SELECT status FROM web_jobs WHERE id=$1', [saved.jobId])).rows[0].status).toBe('completed');
+    return saved;
+  }
+  it('saves the fixed HTML version as an article linked to the paper, without any model request', async () => {
+    const t = await setup();
+    const saved = await savedPaper(t, fetcher());
+    const [reading] = await articles(t);
+    expect(reading).toMatchObject({ source_url: 'https://arxiv.org/html/2401.12345v1', title: 'Paper version 1' });
+    expect((await t.db.pool.query('SELECT from_document_id,to_document_id,kind FROM document_relations')).rows).toEqual([{ from_document_id: reading.id, to_document_id: saved.documentId, kind: 'related' }]);
+    await runJob(t, reading.requested_web_job_id, fetcher());
+    const summary = await t.summary(reading.id);
+    expect(summary).toMatchObject({ kind: 'article', saveStatus: 'original-saved', reader: { translationStatus: 'pending' } });
+    const version = summary.reader.versionId;
+    const descriptor = (await t.app.inject({ url: `/api/v1/documents/${reading.id}/web-reader?versionId=${version}`, headers: t.headers })).json();
+    const manifest = (await t.app.inject({ url: `/api/v1/documents/${reading.id}/web-snapshots/${descriptor.source.sourceVersionId}/manifest`, headers: t.headers })).json();
+    expect(manifest.metadata).toMatchObject({ title: 'Paper version 1', author: 'Alice, Bob' });
+    const original = (await t.app.inject({ url: `/api/v1/documents/${reading.id}/web-snapshots/${descriptor.source.sourceVersionId}/files/${manifest.htmlFileId}`, headers: t.headers })).body;
+    expect(original).toContain('Earlier work');
+    expect(original).toContain('[<a');
+    expect(original).toContain('x^2');
+    expect(original).not.toContain('Site navigation');
+    expect(await t.summary(saved.documentId)).toMatchObject({ kind: 'paper', source: { bytes: pdf.length } });
+  });
+  it.each([
+    ['arXiv has no HTML version', fetcher(404)],
+    ['the check fails', (async () => { throw new Error('offline'); }) as typeof fetch],
+  ])('keeps the saved paper and adds nothing when %s', async (_name, captureFetch) => {
+    const t = await setup();
+    await savedPaper(t, captureFetch);
+    expect(await articles(t)).toEqual([]);
+  });
+  it('does not duplicate the reading version when the same paper version is fetched again', async () => {
+    const t = await setup();
+    const saved = await savedPaper(t, fetcher());
+    const again = await t.refresh(saved.documentId, '2401.12345v1');
+    await runJob(t, again, fetcher());
+    await runJob(t, again, fetcher());
+    expect((await t.db.pool.query('SELECT status FROM web_jobs WHERE id=$1', [again])).rows[0].status).toBe('completed');
+    expect(await articles(t)).toHaveLength(1);
+  });
+  it('leaves a reading version the owner deleted in the trash', async () => {
+    const t = await setup();
+    const saved = await savedPaper(t, fetcher());
+    const [reading] = await articles(t);
+    expect((await t.app.inject({ method: 'POST', url: `/api/v1/documents/${reading.id}/trash`, headers: t.headers, payload: { expectedEpoch: 1 } })).statusCode).toBe(200);
+    const again = await t.refresh(saved.documentId, '2401.12345v1');
+    await runJob(t, again, fetcher());
+    await runJob(t, again, fetcher());
+    expect((await t.db.pool.query('SELECT status FROM web_jobs WHERE id=$1', [again])).rows[0].status).toBe('completed');
+    const after = await articles(t);
+    expect(after).toHaveLength(1);
+    expect(after[0].deleted_at).not.toBeNull();
+  });
 });

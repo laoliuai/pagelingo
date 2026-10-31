@@ -15,6 +15,7 @@ import { OrganizationPanel } from './organization-panel';
 import { SourceDetails } from './source-details';
 import { DiscoveredLinksProvider } from './discovered-links';
 import { PdfSource } from './pdf-source';
+import { PaperReadingLink } from './paper-reading-link';
 const ReaderPage = lazy(() => import('../reader/reader-page').then(module => ({ default: module.ReaderPage })));
 const WebReaderPage = lazy(() => import('../web-reader/web-reader-page').then(module => ({ default: module.WebReaderPage })));
 export function DocumentPage() {
@@ -85,6 +86,7 @@ function DocumentScope() {
       <PageHeader title={document.title}
         description={openedVersion ? 'PDF 阅读版本 · 原件按所选阅读包固定' : 'PDF 原件 · 原文已保存 · 等待本地处理'}
         action={document.kind === 'pdf' ? <BundleImportDialog targetDocument={document} onImported={() => {}} /> : undefined} />
+      {document.kind === 'paper' && <PaperReadingLink documentId={document.id} />}
       {!openedVersion && <a href={`/api/v1/documents/${document.id}/source?download=true`} download>下载 PDF 原件</a>}
       {openedVersion ? <Suspense fallback={<p role="status">正在加载阅读器…</p>}>
         <ReaderPage documentId={document.id} versionId={openedVersion} onVersionSelect={versionId => void selectPdfVersion(versionId)} />

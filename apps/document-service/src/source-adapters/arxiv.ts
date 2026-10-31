@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { ServiceError } from '../errors.js';
+import { isFakeIpRejection } from '../network/address-policy.js';
 import { validatePdf } from '../documents/pdf-validation.js';
 import { assertJobLeaseCurrent, type JobLease } from '../web-jobs/repository.js';
 import { finishWebJob } from '../web-jobs/lease.js';
@@ -10,6 +11,7 @@ import { parseArxivAtom } from './arxiv-atom.js';
 import { publishArxivMetadata, publishArxivPdf } from './arxiv-publication.js';
 import { withArxivRequest } from './rate-limit.js';
 import { createSourceTransport } from './network.js';
+import { admitPaperReading, paperReadingAvailable, paperReadingUrl } from './paper-reading.js';
 import type { SourceFetchDependencies, SourceReference } from './types.js';
 const MiB = 1024 * 1024;
 function checkStatus(status: number): void {
@@ -21,7 +23,7 @@ export async function runArxivFetchJob(lease: JobLease, deps: SourceFetchDepende
   if (deps.sourceTransport && deps.config.mode !== 'test') throw new Error('Source transport injection requires test mode');
   if (deps.config.mode === 'test' && !deps.sourceTransport) throw new Error('Test source jobs require explicit source transport');
   const transport = deps.sourceTransport ?? createSourceTransport(); const { db, signal } = deps;
-  const request = await db.transaction(async client => { await assertJobLeaseCurrent(client, lease); return (await client.query<{ reference: SourceReference }>('SELECT reference FROM source_requests WHERE owner_id=$1 AND job_id=$2', [lease.ownerId, lease.jobId])).rows[0]; });
+  const request = await db.transaction(async client => { await assertJobLeaseCurrent(client, lease); return (await client.query<{ reference: SourceReference; translation_intent: 'auto' | 'none' }>('SELECT reference,translation_intent FROM source_requests WHERE owner_id=$1 AND job_id=$2', [lease.ownerId, lease.jobId])).rows[0]; });
   if (request?.reference.provider !== 'arxiv') throw new Error('arXiv request required');
   const reference = request.reference;
   try {
@@ -64,11 +66,16 @@ export async function runArxivFetchJob(lease: JobLease, deps: SourceFetchDepende
     for await (const chunk of validatePdf(deps.store.read(pdf.objectKey), deps.config.maxPdfBytes)) { signal.throwIfAborted(); bytes += chunk.byteLength; hash.update(chunk); }
     if (bytes !== pdf.bytes || hash.digest('hex') !== pdf.sha256) throw new ServiceError(400, 'SOURCE_HASH_MISMATCH', 'Stored source changed');
     await publishArxivPdf(lease, deps, revisionId, pdf);
-    await db.transaction(c => assertSourcePublication(c, lease));
+    const readingUrl = paperReadingUrl(value.baseId, value.version);
+    const hasReading = await paperReadingAvailable(readingUrl, deps);
+    await db.transaction(async client => {
+      await assertSourcePublication(client, lease);
+      if (hasReading) await admitPaperReading(client, lease, { url: readingUrl, title: value.title, translationIntent: request.translation_intent });
+    });
     await finishWebJob(lease, db, 'completed');
   } catch (error) {
     signal.throwIfAborted();
     await db.transaction(c => assertSourcePublication(c, lease));
-    await finishWebJob(lease, db, 'failed', error instanceof ServiceError ? error.code : 'ARXIV_SOURCE_UNAVAILABLE');
+    await finishWebJob(lease, db, 'failed', error instanceof ServiceError ? error.code : isFakeIpRejection(error) ? 'OUTBOUND_FAKE_IP' : 'ARXIV_SOURCE_UNAVAILABLE');
   }
 }

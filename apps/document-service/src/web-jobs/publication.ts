@@ -3,7 +3,7 @@ import type { PoolClient } from 'pg';
 import { defaultCaptureLimits, providerSettingsSchema, glossaryRevisionSchema, webReaderIrSchema, type WebModelTranslation } from '@pagelingo/document-contracts';
 import { buildWebReader, toWebTranslationDocument, validateWebTranslation } from '@pagelingo/document-renderer';
 import { canonicalManifestBytes } from '@pagelingo/web-capture';
-import { CheckpointConflictError, contentHash, planUnits, PROMPT_VERSION, PROTECTION_VERSION, type TranslationCheckpoint } from '@pagelingo/translation-core';
+import { CheckpointConflictError, contentHash, planUnits, PROMPT_VERSION, PROTECTION_VERSION, type TranslationCheckpoint, type TranslationProfile } from '@pagelingo/translation-core';
 import type { Database } from '../db/database.js';
 import type { ObjectStore } from '../storage/object-store.js';
 import { lockObjectPublication } from '../documents/repository.js';
@@ -44,13 +44,16 @@ export async function loadPublication(jobId: string, ownerId: string, deps: Publ
     ...(loaded.job.request_id ? { requestId: loaded.job.request_id } : {}),
   };
   if (createHash('sha256').update(canonicalManifestBytes(identity)).digest('hex') !== loaded.job.input_sha256) throw publicationConflict();
-  const selection = loaded.job.selection_block_ids ?? ir.blocks.filter(b => b.type === 'text').map(b => b.id);
+  // Numbers, formulas and text already in Chinese cost money to send and can only be damaged by a model.
+  const selection = loaded.job.selection_block_ids ?? ir.blocks.filter(b => b.type === 'text' && b.language.language !== 'zh' && b.language.reason !== 'no-language').map(b => b.id);
   const sourceLanguage = loaded.job.source_language ?? ir.metadata.language.sourceLanguage;
   const document = toWebTranslationDocument(ir, selection, sourceLanguage ?? undefined);
   const { maxInputTokens, maxOutputTokens, contextWindowTokens } = loaded.settings;
   const budget = { maxInputTokens, maxOutputTokens, contextWindowTokens, maxBatchBlocks: 4 };
-  const plan = planUnits(document, 'zh', 'technical', budget, { glossary: loaded.glossary });
-  return { ...loaded, ir, document, selection, sourceLanguage, budget, plan };
+  // Research papers keep the precision and register of academic writing; everything else reads as technical prose.
+  const profile: TranslationProfile = /^https?:\/\/(?:www\.)?arxiv\.org\//i.test(loaded.source.url) ? 'academic' : 'technical';
+  const plan = planUnits(document, 'zh', profile, budget, { glossary: loaded.glossary });
+  return { ...loaded, ir, document, selection, sourceLanguage, budget, profile, plan };
 }
 export type PublicationContext = Awaited<ReturnType<typeof loadPublication>>;
 
@@ -83,7 +86,7 @@ export async function checkpointTranslation(context: PublicationContext, checkpo
     schemaVersion: 'web-reader-translation/1', id: randomUUID(), jobId: job.id,
     sourceSha256: ir.source.manifestSha256, parseId: ir.parse.id, readerIrSha256: context.parse.ir_sha256,
     sdkVersion: '0.4.0', promptVersion: PROMPT_VERSION, protectionVersion: PROTECTION_VERSION,
-    sourceLanguage: context.sourceLanguage, targetLanguage: 'zh', profile: 'technical', budget,
+    sourceLanguage: context.sourceLanguage, targetLanguage: 'zh', profile: context.profile, budget,
     glossary, glossaryDomain: 'machine-learning', glossarySha256: await contentHash(glossary), selectionBlockIds: selection,
     provider: { model: context.settings.model, endpointFingerprint: createHash('sha256').update(new URL(context.settings.baseUrl).href).digest('hex') },
     generationKind: translated ? generationKind : 'none', metrics, blocks, units, status,
