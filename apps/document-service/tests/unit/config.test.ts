@@ -24,6 +24,13 @@ describe('runtime configuration', () => {
   it.each(['http://example.com', 'https://user:pass@example.com', 'https://example.com/path', 'https://example.com/?q=x'])('rejects unsafe production origin %s', origin => {
     expect(() => readConfig({ ...env(), PAGELINGO_SITE_MODE: 'production', PAGELINGO_SITE_ORIGIN: origin })).toThrow(/origin/i);
   });
+  it('trusts no proxy unless a hop count is configured', () => {
+    expect(readConfig(env()).trustProxyHops).toBeUndefined();
+    expect(readConfig({ ...env(), PAGELINGO_TRUST_PROXY_HOPS: '1' }).trustProxyHops).toBe(1);
+  });
+  it.each(['0', '-1', '9', 'true', '1.5'])('rejects proxy hop count %j', value => {
+    expect(() => readConfig({ ...env(), PAGELINGO_TRUST_PROXY_HOPS: value })).toThrow(/PROXY/);
+  });
   it('accepts a production HTTPS origin', () => {
     expect(readConfig({ ...env(), PAGELINGO_SITE_MODE: 'production', PAGELINGO_SITE_ORIGIN: 'https://example.com' }).publicOrigin).toBe('https://example.com');
   });

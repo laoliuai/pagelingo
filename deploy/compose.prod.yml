@@ -1,0 +1,37 @@
+# Production overlay: docker compose -f deploy/compose.site.yml -f deploy/compose.prod.yml ...
+# Caddy is the only public listener. The app and PostgreSQL stay on the private Compose network.
+services:
+  app:
+    image: ${PAGELINGO_IMAGE:-pagelingo-site:latest}
+    environment:
+      PAGELINGO_SITE_MODE: production
+      PAGELINGO_SITE_ORIGIN: ${PAGELINGO_SITE_ORIGIN:-https://${PAGELINGO_DOMAIN:?Set PAGELINGO_DOMAIN in the runtime env file}}
+      PAGELINGO_TRUST_PROXY_HOPS: '1'
+    ports: !reset []
+  worker:
+    image: ${PAGELINGO_IMAGE:-pagelingo-site:latest}
+    environment:
+      PAGELINGO_SITE_MODE: production
+      PAGELINGO_SITE_ORIGIN: ${PAGELINGO_SITE_ORIGIN:-https://${PAGELINGO_DOMAIN:?Set PAGELINGO_DOMAIN in the runtime env file}}
+  caddy:
+    image: caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d
+    environment:
+      PAGELINGO_DOMAIN: ${PAGELINGO_DOMAIN:?Set PAGELINGO_DOMAIN in the runtime env file}
+      # Docker can inject a client proxy into every container; traffic to the app must stay on this network.
+      NO_PROXY: app
+      no_proxy: app
+    ports:
+      - '${PAGELINGO_HTTP_BIND:-80}:80'
+      - '${PAGELINGO_HTTPS_BIND:-443}:443'
+      - '${PAGELINGO_HTTPS_BIND:-443}:443/udp'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped
+volumes:
+  caddy_data:
+  caddy_config:

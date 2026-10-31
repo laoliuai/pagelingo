@@ -200,3 +200,21 @@ describe('private site authentication', () => {
   });
 
 });
+describe('client address behind a reverse proxy', () => {
+  const attempt = async (env: NodeJS.ProcessEnv) => {
+    const test = await createServiceTestApp({ env }); cleanup.push(test.close);
+    const response = await test.app.inject({
+      method: 'POST', url: '/api/v1/auth/login', remoteAddress: '172.18.0.5',
+      headers: { origin, 'content-type': 'application/json', 'x-forwarded-for': '6.6.6.6, 203.0.113.9' },
+      payload: { username: 'nobody', password: 'wrong password 123456' },
+    });
+    expect(response.statusCode).toBe(401);
+    return (await test.db.pool.query("SELECT DISTINCT host(ip) AS ip FROM auth_attempts WHERE username='nobody'")).rows.map(row => row.ip);
+  };
+  it('uses the address the proxy saw, ignoring what the visitor claimed earlier in the header', async () => {
+    expect(await attempt({ PAGELINGO_TRUST_PROXY_HOPS: '1' })).toEqual(['203.0.113.9']);
+  });
+  it('ignores forwarded headers when no proxy is configured', async () => {
+    expect(await attempt({})).toEqual(['172.18.0.5']);
+  });
+});

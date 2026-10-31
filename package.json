@@ -61,7 +61,13 @@
     "test:web-capture": "npm run build:web-capture && npm run test --workspace @pagelingo/web-capture",
     "test:web-capture:browser": "npm run build:web-capture && npm run test:browser --workspace @pagelingo/web-capture",
     "check:web-capture": "node scripts/check-web-capture.mjs",
-    "check:site:s4": "node scripts/check-site-s4.mjs"
+    "check:site:s4": "node scripts/check-site-s4.mjs",
+    "site:init": "node scripts/site-init-env.mjs",
+    "site:backup": "node scripts/site-backup.mjs",
+    "site:restore": "node scripts/site-restore.mjs",
+    "test:site:backup": "node scripts/check-site-backup.mjs",
+    "check:site:real": "node scripts/check-site-real.mjs",
+    "eval:translation": "npm run build:sdk && node scripts/eval-translation.mjs"
   },
   "engines": {
     "node": ">=24.0.0"

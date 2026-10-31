@@ -15,6 +15,8 @@ export interface RuntimeConfig {
   maxPdfBytes: number;
   bundleLimits: BundleLimits;
   captureLimits: CaptureLimits;
+  /** Reverse proxies in front of the service; their forwarded client address becomes the request IP. */
+  trustProxyHops?: number;
 }
 
 export function readConfig(env: NodeJS.ProcessEnv): RuntimeConfig {
@@ -66,6 +68,7 @@ export function readConfig(env: NodeJS.ProcessEnv): RuntimeConfig {
     keyring: { activeKeyId, keys: Object.freeze(keys) },
     captureLimits: captureLimitsSchema.parse({ ...defaultCaptureLimits, ...JSON.parse(env.PAGELINGO_CAPTURE_LIMITS_JSON ?? '{}') }),
     maxPdfBytes, bundleLimits: readBundleLimits(env.PAGELINGO_BUNDLE_LIMITS_JSON, maxPdfBytes),
+    ...(env.PAGELINGO_TRUST_PROXY_HOPS === undefined ? {} : { trustProxyHops: integer('PAGELINGO_TRUST_PROXY_HOPS', 1, 8) }),
   };
   // A config can be passed accidentally to structured logging; expose no fields.
   Object.defineProperty(config, 'toJSON', { value: () => '[RuntimeConfig redacted]' });

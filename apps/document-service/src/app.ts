@@ -37,7 +37,9 @@ export interface AppOptions {
 export async function createApp({ db, config, outboundFetch }: AppOptions): Promise<FastifyInstance> {
   if (outboundFetch && config.mode !== 'test') throw new Error('Outbound fetch injection requires test mode');
   const providerFetch = outboundFetch ?? createOutboundFetch({ timeoutMs: 10_000, maxResponseBytes: 1024 * 1024 });
-  const app = Fastify({ logger: false });
+  // Behind a proxy every visitor shares its address, which would make one person's failed logins lock out everyone.
+  const { trustProxyHops } = config;
+  const app = Fastify({ logger: false, ...(trustProxyHops ? { trustProxy: (_address: string, hop: number) => hop < trustProxyHops } : {}) });
   app.decorate('authContext', { db, config });
   await app.register(cookie);
   await app.register(multipart);

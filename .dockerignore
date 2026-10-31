@@ -27,3 +27,4 @@ docs
 **/*.safetensors
 **/*.pt
 **/*.pth
+.worktrees

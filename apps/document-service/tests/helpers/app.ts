@@ -6,7 +6,7 @@ import { readConfig } from '../../src/config.js';
 import { migrateDatabase } from '../../src/db/migrate.js';
 import { createTestDatabase } from './database.js';
 
-export async function createServiceTestApp(options: { outboundFetch?: typeof fetch } = {}) {
+export async function createServiceTestApp(options: { outboundFetch?: typeof fetch; env?: NodeJS.ProcessEnv } = {}) {
   const test = await createTestDatabase();
   let dataDir: string | undefined;
   try {
@@ -16,6 +16,7 @@ export async function createServiceTestApp(options: { outboundFetch?: typeof fet
       PAGELINGO_SITE_MODE: 'test', PAGELINGO_SITE_ORIGIN: 'http://127.0.0.1:5174',
       PAGELINGO_DATA_DIR: dataDir, DATABASE_URL: process.env.PAGELINGO_TEST_DATABASE_URL,
       PAGELINGO_MASTER_KEY_ID: 'test', PAGELINGO_MASTER_KEYS_JSON: JSON.stringify({ test: Buffer.alloc(32, 9).toString('base64') }),
+      ...options.env,
     });
     await migrateDatabase(test.db);
     const outboundFetch: typeof fetch = options.outboundFetch ?? (async () => { throw new Error('Unexpected outbound request in service test'); });
