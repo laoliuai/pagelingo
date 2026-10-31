@@ -5,6 +5,7 @@ import { sanitizeStyle } from './styles.js';
 export type Element = T.Element;
 export type Node = T.Node;
 export type Parent = T.ParentNode;
+export type ChildNode = T.ChildNode;
 export const utf8 = (value: string): Uint8Array<ArrayBuffer> => new TextEncoder().encode(value);
 export const byteLength = (value: string): number => utf8(value).length;
 export const limitsFor = (limits?: CaptureLimits): CaptureLimits => captureLimitsSchema.parse(limits ?? defaultCaptureLimits);
@@ -34,8 +35,17 @@ export function parseBounded(html: string, limits: CaptureLimits): T.DocumentFra
     ...defaultTreeAdapter,
     createElement(...args: Parameters<typeof defaultTreeAdapter.createElement>) { allocate(); return defaultTreeAdapter.createElement(...args); },
     createCommentNode(...args: Parameters<typeof defaultTreeAdapter.createCommentNode>) { allocate(); return defaultTreeAdapter.createCommentNode(...args); },
-    insertText(...args: Parameters<typeof defaultTreeAdapter.insertText>) { allocate(); defaultTreeAdapter.insertText(...args); },
-    insertTextBefore(...args: Parameters<typeof defaultTreeAdapter.insertTextBefore>) { allocate(); defaultTreeAdapter.insertTextBefore(...args); },
+    // parse5 reports every word and space separately and merges them into one node; only a new node is an allocation.
+    insertText(...args: Parameters<typeof defaultTreeAdapter.insertText>) {
+      const last = args[0].childNodes.at(-1);
+      if (!last || !isText(last)) allocate();
+      defaultTreeAdapter.insertText(...args);
+    },
+    insertTextBefore(...args: Parameters<typeof defaultTreeAdapter.insertTextBefore>) {
+      const previous = args[0].childNodes[args[0].childNodes.indexOf(args[2]) - 1];
+      if (!previous || !isText(previous)) allocate();
+      defaultTreeAdapter.insertTextBefore(...args);
+    },
     appendChild(...args: Parameters<typeof defaultTreeAdapter.appendChild>) { depth(args[0]); defaultTreeAdapter.appendChild(...args); },
     insertBefore(...args: Parameters<typeof defaultTreeAdapter.insertBefore>) { depth(args[0]); defaultTreeAdapter.insertBefore(...args); },
   };
@@ -50,6 +60,16 @@ export function textOf(node: Node): string {
   return 'childNodes' in node ? node.childNodes.map(textOf).join('') : '';
 }
 export function detach(node: Element): void { defaultTreeAdapter.detachNode(node); }
+/** Replaces an element with its children, which stay in document order and keep passing through sanitization. */
+export function unwrap(node: Element, before: ChildNode[] = [], after: ChildNode[] = []): void {
+  const parent = node.parentNode;
+  if (!parent) return;
+  const replacement = [...before, ...node.childNodes, ...after];
+  for (const child of replacement) child.parentNode = parent;
+  parent.childNodes.splice(parent.childNodes.indexOf(node), 1, ...replacement);
+  node.childNodes = [];
+  node.parentNode = null;
+}
 export function readSnapshot(snapshot: SanitizedSnapshot, limits: CaptureLimits): T.DocumentFragment {
   const root = parseBounded(snapshot.html, limits);
   const resourceIds = new Set(snapshot.resources.map(resource => resource.id));

@@ -1,4 +1,4 @@
-import { detectWebLanguage, naturalText, webCaptureManifestSchema, sanitizedSnapshotSchema, webReaderAssetSchema, type CaptureLimits, type CaptureResource, type ReaderBinding, type SanitizedSnapshot, type WebCaptureManifest, type WebReaderAsset, type WebReaderBlock, type WebReaderIR } from '@pagelingo/document-contracts';
+import { detectWebLanguage, naturalText, readerBindingSchema, webCaptureManifestSchema, sanitizedSnapshotSchema, webReaderAssetSchema, type CaptureLimits, type CaptureResource, type ReaderBinding, type SanitizedSnapshot, type WebCaptureManifest, type WebReaderAsset, type WebReaderBlock, type WebReaderIR } from '@pagelingo/document-contracts';
 import { encodeBlock, type BlockKind, type FormatKind, type InlineContent, type TranslationBlock } from '@pagelingo/translation-core';
 import { canonicalJson, sha256 } from './fingerprint.js';
 import { mathAst } from './safe-math.js';
@@ -93,7 +93,8 @@ function projectSnapshotContent(snapshot: SanitizedSnapshot, resources: readonly
       }
       const children = node.childNodes.flatMap(inline); const format = formats.get(node.tagName);
       if (format === 'link') {
-        const href = attr(node, 'href'); if (!href) return children;
+        // A page's unusable link (for example href="mailto:") loses the link, never the words or the page.
+        const href = attr(node, 'href'); if (!href || !readerBindingSchema.safeParse({ kind: 'link', id, href }).success) return children;
         bindings.push({ id, kind: 'link', href });
       } else if (format) bindings.push({ id, kind: 'style', emphasis: format });
       else return children;

@@ -1,27 +1,75 @@
 import { snapshotInputSchema, sanitizedSnapshotSchema, pendingCaptureResourceSchema, type CaptureLimits, type PendingCaptureResource, type SanitizedSnapshot, type SnapshotInput } from '@pagelingo/document-contracts';
 import { normalizeCaptureUrl, normalizeCaptureResourceUrl } from './fingerprint.js';
 import { sanitizeMath } from './safe-math.js';
-import { htmlTags, forbidden, containerTags, structuralTags } from './policy.js';
+import { htmlTags, forbidden, containerTags, structuralTags, renamedTags, droppedTags, embeddedContentTags, literalTextTags, decorativeSvgTags } from './policy.js';
 import { sanitizeStyle } from './styles.js';
-import { attr, byteLength, check, detach, elements, isElement, isText, limitsFor, parseBounded, serialize, setAttr, textOf, type Element, type Parent, type Node } from './tree.js';
+import { attr, byteLength, check, detach, elements, isElement, isText, limitsFor, parseBounded, serialize, setAttr, textOf, unwrap, type ChildNode, type Element, type Parent, type Node } from './tree.js';
 
 /** The runtime entry supplies DOMPurify; the root entry never imports a DOM. */
-export interface SnapshotEnvironment { sanitizeHtml(html: string): string; limits?: CaptureLimits; resources?: readonly PendingCaptureResource[] }
+export interface SnapshotEnvironment {
+  sanitizeHtml(html: string): string; limits?: CaptureLimits; resources?: readonly PendingCaptureResource[];
+  /** The input is an entire page before article extraction, so its hidden menus and embeds say nothing about the article. */
+  wholePage?: boolean;
+}
 const generalAttrs = new Set(['title', 'alt', 'lang', 'dir', 'colspan', 'rowspan', 'scope', 'start']);
+const XHTML = 'http://www.w3.org/1999/xhtml' as Element['namespaceURI'];
+const textNode = (value: string, parentNode: Parent): ChildNode => ({ nodeName: '#text', value, parentNode });
+// Opening and closing rules follow Pandoc, so prices such as "$5 and $10" and "US$5-US$10" stay text.
+const inlineDollarMath = /(?<![\\$\w])\$(?![\s$])((?:\\.|[^$\\])+?)(?<!\s)\$(?![\d$])/g;
+/** Pages that render formulas in the browser ship raw TeX. Only those pages have dollar delimiters to interpret. */
+function loadsMathEngine(root: Parent): boolean {
+  return elements(root).some(node => (node.tagName === 'script' || node.tagName === 'link')
+    && /mathjax|katex/i.test(`${attr(node, 'src') ?? ''} ${attr(node, 'href') ?? ''} ${node.tagName === 'script' ? textOf(node) : ''}`));
+}
+/** Rewrites each $...$ to the math/tex form the sanitizer already turns into a protected formula. */
+function markDollarMath(root: Parent, limits: CaptureLimits): void {
+  const pending: Parent[] = [root];
+  while (pending.length) {
+    const parent = pending.pop()!; const children: ChildNode[] = []; let changed = false;
+    for (const child of parent.childNodes) {
+      if (isElement(child) && !literalTextTags.has(child.tagName)) pending.push(child);
+      if (!isText(child) || !child.value.includes('$')) { children.push(child); continue; }
+      let cursor = 0;
+      for (const match of child.value.matchAll(inlineDollarMath)) {
+        if (byteLength(match[1]!) > limits.maxMathBytes) continue;
+        if (match.index > cursor) children.push(textNode(child.value.slice(cursor, match.index), parent));
+        const script: Element = { tagName: 'script', nodeName: 'script', namespaceURI: XHTML, attrs: [{ name: 'type', value: 'math/tex' }], childNodes: [], parentNode: parent };
+        script.childNodes = [textNode(match[1]!, script)];
+        children.push(script); cursor = match.index + match[0].length; changed = true;
+      }
+      if (cursor < child.value.length) children.push(cursor ? textNode(child.value.slice(cursor), parent) : child);
+    }
+    if (changed) parent.childNodes = children;
+  }
+}
+const embeddedImage = /^image\/(?:svg\+xml|png|jpeg|gif|webp)$/i;
+const texAnnotation = (math: Element) => elements(math).find(child => child.tagName === 'annotation' && attr(child, 'encoding') === 'application/x-tex' && textOf(child).trim());
+/** Lazy-loading pages keep the real address beside a placeholder, or only in srcset. */
+function imageSource(attrs: Element['attrs']): string | undefined {
+  const value = (name: string) => attrs.find(item => item.name === name)?.value.trim() || undefined;
+  const src = value('src');
+  if (src && !src.startsWith('data:')) return src;
+  const srcset = value('data-srcset') ?? value('srcset');
+  return value('data-src') ?? value('data-original') ?? value('data-lazy-src') ?? srcset?.split(/,\s+/).at(-1)?.trim().split(/\s+/)[0] ?? src;
+}
 export function sanitizeSnapshot(value: SnapshotInput, environment: SnapshotEnvironment): SanitizedSnapshot {
   const limits = limitsFor(environment.limits);
   // Budget the raw string before any schema duplication or DOM parser work.
   check(byteLength(value.html) <= limits.maxHtmlBytes, 'HTML byte budget exceeded');
   const input = snapshotInputSchema.parse(value);
   const root = parseBounded(input.html, limits);
+  if (loadsMathEngine(root)) markDollarMath(root, limits);
   const warnings = new Set(input.scope.warnings); const warn = (message: string) => { warnings.add(message); };
+  // Warnings explain what changed. Only a loss the reader would notice makes the capture incomplete.
+  let incomplete = false; const loss = (message: string) => { warn(message); incomplete = true; };
   check((environment.resources?.length ?? 0) <= limits.maxFiles, 'Replay resource budget exceeded');
   const registry = new Map((environment.resources ?? []).map(resource => { const parsed = pendingCaptureResourceSchema.parse(resource); return [parsed.id, parsed] as const; }));
   check(registry.size === (environment.resources?.length ?? 0), 'Duplicate replay resource ID');
   const resources: PendingCaptureResource[] = []; const resourceUrls = new Map<string, string>(); const origins = new Set<string>();
-  const mathMembers = new Set<Element>(); let mathIndex = 0;
+  // Descendants of a formula or a removed element need no separate decision.
+  const settled = new Set<Element>(); let mathIndex = 0;
   for (const node of elements(root)) {
-    if (!node.parentNode || mathMembers.has(node)) continue;
+    if (!node.parentNode || settled.has(node)) continue;
     // The extension hides this wrapper in translation-only mode. Its children
     // are the original source, so unwrap it before ordinary hidden-state removal.
     if (node.tagName === 'span' && node.namespaceURI === 'http://www.w3.org/1999/xhtml'
@@ -41,25 +89,59 @@ export function sanitizeSnapshot(value: SnapshotInput, environment: SnapshotEnvi
       const annotation: Element = { tagName: 'annotation', nodeName: 'annotation', namespaceURI: node.namespaceURI, attrs: [{ name: 'encoding', value: 'application/x-tex' }], childNodes: [], parentNode: node };
       annotation.childNodes = [{ nodeName: '#text', value: latex, parentNode: annotation }]; node.childNodes = [annotation];
     }
-    const tag = node.tagName;
-    if (forbidden.has(tag) || attr(node, 'hidden') !== undefined || attr(node, 'aria-hidden') === 'true' || attr(node, 'data-pl-owned') !== undefined || /(?:^|;)\s*(?:display\s*:\s*none|visibility\s*:\s*hidden)\s*(?:!important\s*)?(?:;|$)/i.test(attr(node, 'style') ?? '')) {
-      if (!['script', 'style', 'meta', 'base', 'link', 'noscript'].includes(tag) && attr(node, 'data-pl-owned') === undefined) warn(`Omitted unavailable or interactive content: ${tag}`);
+    // LaTeXML publishes figures as <object type="image/svg+xml">: an image, not an embedded document.
+    const embeddedSource = ['object', 'embed'].includes(node.tagName) && embeddedImage.test(attr(node, 'type') ?? '') ? attr(node, node.tagName === 'object' ? 'data' : 'src') : undefined;
+    if (embeddedSource) {
+      for (const member of elements(node)) settled.add(member);
+      const alt = attr(node, 'alt');
+      node.tagName = 'img'; node.nodeName = 'img'; node.childNodes = [];
+      node.attrs = [{ name: 'src', value: embeddedSource }, ...(alt ? [{ name: 'alt', value: alt }] : [])];
+    }
+    let tag = node.tagName;
+    const hiddenByPage = attr(node, 'hidden') !== undefined || /(?:^|;)\s*(?:display\s*:\s*none|visibility\s*:\s*hidden)\s*(?:!important\s*)?(?:;|$)/i.test(attr(node, 'style') ?? '');
+    const concealed = hiddenByPage || attr(node, 'aria-hidden') === 'true' || attr(node, 'data-pl-owned') !== undefined;
+    if (forbidden.has(tag) || concealed) {
+      if (!['script', 'style', 'meta', 'base', 'link', 'noscript'].includes(tag) && attr(node, 'data-pl-owned') === undefined) {
+        const hiddenReading = hiddenByPage && (!!textOf(node).trim() || elements(node).some(member => member.tagName === 'img'));
+        (!environment.wholePage && (hiddenReading || embeddedContentTags.has(tag) && !concealed) ? loss : warn)(`Omitted unavailable or interactive content: ${tag}`);
+      }
+      for (const member of elements(node)) settled.add(member);
       detach(node); continue;
     }
     if (tag === 'svg' || tag === 'math') {
-      for (const member of elements(node)) mathMembers.add(member);
+      for (const member of elements(node)) settled.add(member);
       const anchor = attr(node, 'data-pl-node');
       if (anchor && attr(node, 'id') === `pl_${anchor}`) node.attrs = node.attrs.filter(item => item.name !== 'id');
       node.attrs = node.attrs.filter(item => item.name !== 'data-pl-node');
-      if (!sanitizeMath(node, `pl_math${++mathIndex}`, limits, warn)) {
+      if (tag === 'svg') for (const member of elements(node)) if (decorativeSvgTags.has(member.tagName)) detach(member);
+      const prefix = `pl_math${++mathIndex}`; let notes: string[] = [];
+      let safe = sanitizeMath(node, prefix, limits, message => notes.push(message));
+      const tex = !safe && tag === 'math' ? texAnnotation(node) : undefined;
+      if (tex) {
+        // The author's TeX is the authority: keep it when the rendered MathML uses elements outside the allow-list.
+        node.attrs = []; node.childNodes = [tex]; tex.parentNode = node; tex.attrs = [{ name: 'encoding', value: 'application/x-tex' }];
+        notes = []; safe = sanitizeMath(node, prefix, limits, message => notes.push(message));
+      }
+      notes.forEach(warn);
+      if (!safe) {
+        incomplete = true;
         // Keep readable evidence, never retain active unknown foreign markup.
-        const label = '[Unsupported formula: see original source]';
+        const label = `[Unsupported ${tag === 'svg' ? 'figure' : 'formula'}: see original source]`;
         node.tagName = 'span'; node.nodeName = 'span'; node.namespaceURI = 'http://www.w3.org/1999/xhtml' as Element['namespaceURI']; node.attrs = [];
         node.childNodes = [{ nodeName: '#text', value: label, parentNode: node }];
       }
       continue;
     }
-    if (node.namespaceURI !== 'http://www.w3.org/1999/xhtml' || !htmlTags.has(tag)) { warn(`Unsupported source element: ${tag}`); detach(node); continue; }
+    if (node.namespaceURI !== XHTML || droppedTags.has(tag)) { for (const member of elements(node)) settled.add(member); detach(node); continue; }
+    if (!htmlTags.has(tag)) {
+      const renamed = renamedTags.get(tag);
+      if (!renamed) {
+        const quote = tag === 'q' && node.parentNode;
+        unwrap(node, quote ? [textNode('“', quote)] : [], quote ? [textNode('”', quote)] : []);
+        continue;
+      }
+      node.tagName = renamed; node.nodeName = renamed; tag = renamed;
+    }
     const original = [...node.attrs]; node.attrs = [];
     if (tag === 'span' && original.some(item => item.name === 'data-pl-run' && item.value === '1')) setAttr(node, 'data-pl-run', '1');
     const sourceId = original.find(item => item.name === 'id')?.value;
@@ -83,7 +165,7 @@ export function sanitizeSnapshot(value: SnapshotInput, environment: SnapshotEnvi
     if (tag === 'img') {
       const placeholder = original.find(a => a.name === 'data-pl-resource')?.value;
       const registered = placeholder ? registry.get(placeholder) : undefined;
-      const raw = original.find(a => a.name === 'src')?.value ?? registered?.url;
+      const raw = imageSource(original) ?? registered?.url;
       try {
         check(raw, 'not-loaded'); const url = normalizeCaptureResourceUrl(new URL(raw, input.url).href, input.url);
         if (!url.startsWith('data:')) origins.add(new URL(url).origin); check(origins.size <= limits.maxResourceOrigins, 'Resource origin budget exceeded');
@@ -94,7 +176,7 @@ export function sanitizeSnapshot(value: SnapshotInput, environment: SnapshotEnvi
         setAttr(node, 'data-pl-resource', id);
       } catch (error) {
         if (error instanceof Error && /budget/.test(error.message)) throw error;
-        warn(`Image unavailable: ${raw ? 'unsupported or invalid URL' : 'not-loaded'}`);
+        loss(`Image unavailable: ${raw ? 'unsupported or invalid URL' : 'not-loaded'}`);
       }
     }
   }
@@ -145,7 +227,7 @@ export function sanitizeSnapshot(value: SnapshotInput, environment: SnapshotEnvi
     if (id) { check(attr(node, 'id') === `pl_${id}` && !seenNodeIds.has(id), 'Final sanitizer changed node anchors'); nodeIds.push(id); seenNodeIds.add(id); }
     const resource = attr(node, 'data-pl-resource'); if (resource) { check(resources.some(r => r.id === resource), 'Unregistered snapshot resource'); used.add(resource); }
   }
-  const complete = input.scope.completeWithinScope && warnings.size === input.scope.warnings.length;
+  const complete = input.scope.completeWithinScope && !incomplete;
   return sanitizedSnapshotSchema.parse({ html: serialize(final), sourceUrl: normalizeCaptureUrl(input.url),
     scope: { ...input.scope, rootNodeId: nodeIds[0] ?? input.scope.rootNodeId, completeWithinScope: complete, warnings: [...warnings] },
     nodeIds, resources: resources.filter(resource => used.has(resource.id)), warnings: [...warnings],
