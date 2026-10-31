@@ -42,7 +42,7 @@ export function createCaptureFetch(options: PinnedOptions): typeof fetch {
         } finally { void reader?.cancel().catch(() => {}); await agent.destroy(); }
       }
       throw new Error('Too many redirects');
-    } catch { throw new Error('Capture transport failed'); }
+    } catch (cause) { throw new Error('Capture transport failed', { cause }); }
     finally { clearTimeout(timer); request.signal.removeEventListener('abort', abort); controller.abort(); }
   };
 }

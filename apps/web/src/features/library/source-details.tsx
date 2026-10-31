@@ -52,7 +52,7 @@ export function SourceDetails({ document, readerVersionId, revisionId, historica
       <p>{statuses[data.status]} · <a href={data.url} target="_blank" rel="noopener noreferrer">来源网站</a></p>
       {data.resolution !== 'self' && <p role="status">{data.resolution === 'alias' ? '这份链接已有保存的资料。' : '此来源已有资料；本条目的标题、备注与分类保持独立，请自行核对。'}{data.canonicalDocumentId && <Link to={`/library/${data.canonicalDocumentId}`}>查看本人已保存资料</Link>}</p>}
       {data.warnings.length > 0 && <ul>{data.warnings.map((warning, index) => <li key={index}>{warningText(warning)}</li>)}</ul>}
-      {data.latestAttempt && <div aria-label="最近来源请求"><h4>最近来源请求</h4><p>{jobStatuses[data.latestAttempt.status] ?? '处理中'} · {data.latestAttempt.requestedRef ?? '默认版本'}{data.latestAttempt.errorCode && ' · 未取得新来源，已保存材料仍可使用。'}</p></div>}
+      {data.latestAttempt && <div aria-label="最近来源请求"><h4>最近来源请求</h4><p>{jobStatuses[data.latestAttempt.status] ?? '处理中'} · {data.latestAttempt.requestedRef ?? '默认版本'}{data.latestAttempt.errorCode && (data.latestAttempt.errorCode === 'OUTBOUND_FAKE_IP' ? ' · 服务器的 DNS 返回了代理工具的 fake-ip 地址，请求被拦截。请设置 PAGELINGO_ALLOW_FAKE_IP=1 后重启服务。' : ' · 未取得新来源，已保存材料仍可使用。')}</p></div>}
     </>}
     {materials.map(revision => <section key={revision.id} aria-label={retainedRevision?.id === revision.id ? '待确认的论文导入' : '来源版本材料'}>
       {retainedRevision?.id === revision.id && <p>本次导入继续使用已选择的固定论文原件；来源更新或阅读版本切换不会改变此导入目标。</p>}

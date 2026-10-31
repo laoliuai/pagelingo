@@ -5,6 +5,12 @@ import { useSession } from '../../app/session';
 import { apiRequest, apiSessionSignal, errorMessage } from '../../shared/api-client';
 import { Button } from '../../shared/ui/button';
 const statusLabels: Record<WebJob['status'], string> = { queued: '排队中', running: '进行中', 'paused-config': '等待配置确认', partial: '部分完成', completed: '已完成', failed: '失败', cancelled: '已取消' };
+const jobErrors: Record<string, string> = {
+  PROFILE_CHANGED: '模型配置已变化。请确认当前配置并明确开始新一轮翻译，旧结果仍可阅读。',
+  FETCH_BROWSER_REQUIRED: '这个页面需要登录或浏览器环境才能读取。链接已保存，可用浏览器扩展保存正文。',
+  FETCH_CAPTURE_UNAVAILABLE: '未能读取这个网页。链接已保存，可以稍后重试，或用浏览器扩展保存正文。',
+  OUTBOUND_FAKE_IP: '服务器的 DNS 返回了代理工具的 fake-ip 地址，请求被安全策略拦截。请在运行配置中设置 PAGELINGO_ALLOW_FAKE_IP=1 后重启服务。',
+};
 export function WebJobStatus({ documentId, descriptor, selection = [], selectionMode = false, onSelectionMode, onPublished }: { documentId: string; descriptor?: WebReaderDescriptor; selection?: string[]; selectionMode?: boolean; onSelectionMode?: (value: boolean) => void; onPublished?: (id: string) => void }) {
   const { user } = useSession(); const cache = useQueryClient(); const [language, setLanguage] = useState(''); const [pending, setPending] = useState(false), [error, setError] = useState('');
   const [followUntil, setFollowUntil] = useState(0), [chosen, setChosen] = useState<string>();
@@ -81,7 +87,7 @@ export function WebJobStatus({ documentId, descriptor, selection = [], selection
     {canRetryStart && <Button disabled={pending} onClick={() => void act('retry-start')}>重试本次开始</Button>}
     {job.data && ['cancelled','failed','partial','paused-config'].includes(job.data.status) && <Button disabled={pending} onClick={() => void act('retry')}>按原配置重试</Button>}
     <Button onClick={() => { setFollowUntil(Date.now() + 15000); void list.refetch(); if (id) void job.refetch(); }}>刷新任务与成果</Button>
-    {(error || job.data?.errorCode || list.error || job.error) && <p role="alert">{error || (job.data?.errorCode === 'PROFILE_CHANGED' ? '模型配置已变化。请确认当前配置并明确开始新一轮翻译，旧结果仍可阅读。' : job.data?.errorCode) || errorMessage(list.error ?? job.error)}</p>}
+    {(error || job.data?.errorCode || list.error || job.error) && <p role="alert">{error || (job.data?.errorCode && (jobErrors[job.data.errorCode] ?? job.data.errorCode)) || errorMessage(list.error ?? job.error)}</p>}
     {!!job.data?.warnings.length && <details><summary>任务警告</summary><ul>{job.data.warnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul></details>}
     {job.data?.status === 'cancelled' && <p>任务已取消；已确认的部分译文可能稍后发布。可刷新成果，当前阅读版本保持不变。</p>}
   </details>;

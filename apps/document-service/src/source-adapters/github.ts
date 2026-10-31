@@ -3,6 +3,7 @@ import { unlink } from 'node:fs/promises';
 import type { WebCaptureManifest } from '@pagelingo/document-contracts';
 import { z } from 'zod';
 import { ServiceError } from '../errors.js';
+import { isFakeIpRejection } from '../network/address-policy.js';
 import { assertJobLeaseCurrent, releaseWebJobSlot, type JobLease } from '../web-jobs/repository.js';
 import { finishWebJob } from '../web-jobs/lease.js';
 import { receiveCaptureFile, stagingPath } from '../web-captures/staging.js';
@@ -121,7 +122,7 @@ export async function runGithubFetchJob(lease: JobLease, deps: SourceFetchDepend
     await complete(result.readerVersionId);
   } catch (error) {
     signal.throwIfAborted();
-    const code = error instanceof ServiceError ? error.code : error instanceof z.ZodError ? 'GITHUB_INVALID_METADATA' : 'GITHUB_SOURCE_UNAVAILABLE';
+    const code = error instanceof ServiceError ? error.code : error instanceof z.ZodError ? 'GITHUB_INVALID_METADATA' : isFakeIpRejection(error) ? 'OUTBOUND_FAKE_IP' : 'GITHUB_SOURCE_UNAVAILABLE';
     await db.transaction(async client => {
       await assertJobLeaseCurrent(client, lease);
       // If identity exists, publication failure records still obey the provider retirement fence.
