@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { afterEach, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { bootstrapAdmin } from '../../src/cli/bootstrap-admin.js';
 import { createServiceTestApp } from '../helpers/app.js';
 import { login } from '../helpers/session.js';
@@ -61,7 +61,7 @@ it('runs real worker extraction under a lease and retains raw bytes independentl
   const result = (await t.app.inject({ url: `/api/v1/documents/${saved.documentId}/web-reader`, headers: t.headers })).json();
   expect(result.versionId).toBe(job.reader_version_id); expect(result.translationStatus).toBe('pending');
   const manifest = (await t.app.inject({ url: `/api/v1/documents/${saved.documentId}/web-snapshots/${result.source.sourceVersionId}/manifest`, headers: t.headers })).json();
-  expect(manifest.resources).toEqual(expect.arrayContaining([expect.objectContaining({ role: 'image', status: 'missing', reason: 'unavailable' })]));
+  expect(manifest.resources).toEqual(expect.arrayContaining([expect.objectContaining({ role: 'image', status: 'missing', reason: 'unsupported' })]));
   const cleaned = await t.app.inject({ url: `/api/v1/documents/${saved.documentId}/web-snapshots/${result.source.sourceVersionId}/files/html`, headers: t.headers });
   expect(cleaned.body).toContain('original public article'); expect(cleaned.body).not.toContain('SECRET_SCRIPT');
   const original = await t.app.inject({ url: `/api/v1/documents/${saved.documentId}/web-snapshots/${result.source.sourceVersionId}/files/uploaded:${acquisition.raw_asset_id}`, headers: t.headers });
@@ -178,4 +178,74 @@ it('checks the lease again after real worker/render staging before publishing', 
   await expect(runFetchJob(lease, { db: t.db, store, config: t.config, signal: new AbortController().signal, captureFetch: async () => new Response('<article><h1>Original article</h1>' + '<p>This public article gives a detailed explanation with many useful sentences. The content is available, but the worker loses its lease before publication is allowed.</p>'.repeat(5) + '</article>', { headers: { 'content-type': 'text/html' } }) })).rejects.toThrow('lease is no longer current');
   expect(puts).toBeGreaterThan(2); expect((await t.db.pool.query('SELECT id FROM source_versions')).rows).toHaveLength(0);
   expect((await t.db.pool.query('SELECT raw_asset_id FROM web_fetch_acquisitions')).rows).toHaveLength(1);
+});
+describe('images of a saved public article', () => {
+  // A valid 1x1 PNG.
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64');
+  const body = (figures: string) => Buffer.from('<html><head><title>Figures</title></head><body><article><h1>Figures</h1>' + '<p>This public article explains a useful subject in several detailed sentences, so that article extraction keeps every paragraph of it.</p>'.repeat(6) + `<p>${figures}</p></article></body></html>`);
+  async function save(figures: string, images: Record<string, Response | (() => Response)>) {
+    const { runFetchJob } = await import('../../src/web-captures/fetch-runner.js');
+    const { startWebJobLease } = await import('../../src/web-jobs/repository.js');
+    const { createLocalObjectStore } = await import('../../src/storage/local-object-store.js');
+    const t = await setup(); const saved = (await t.save()).json();
+    const requests: Array<{ url: string; userAgent: string | null }> = [];
+    const captureFetch = (async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      requests.push({ url, userAgent: new Headers(init?.headers).get('user-agent') });
+      if (url.startsWith('https://public.example/article')) return new Response(body(figures), { headers: { 'content-type': 'text/html' } });
+      const image = images[url]; if (!image) return new Response('missing', { status: 404 });
+      return typeof image === 'function' ? image() : image;
+    }) as typeof fetch;
+    const lease = await t.db.transaction(c => startWebJobLease(c, { ownerId: t.session.user.id, jobId: saved.jobId, slotId: 1, leaseOwner: 'test-worker' }));
+    const store = createLocalObjectStore(t.config.dataDir);
+    await runFetchJob(lease!, { db: t.db, config: t.config, store, signal: new AbortController().signal, captureFetch });
+    const job = (await t.db.pool.query('SELECT status,error_code FROM web_jobs WHERE id=$1', [saved.jobId])).rows[0];
+    const document = (await t.app.inject({ url: `/api/v1/documents/${saved.documentId}`, headers: t.headers })).json();
+    const reader = (await t.app.inject({ url: `/api/v1/documents/${saved.documentId}/web-reader`, headers: t.headers })).json();
+    const manifest = (await t.app.inject({ url: `/api/v1/documents/${saved.documentId}/web-snapshots/${document.source.sourceVersionId}/manifest`, headers: t.headers })).json();
+    return { t, saved, job, document, reader, manifest, requests };
+  }
+  it('saves actual image bytes and identifies itself to the site', async () => {
+    const r = await save('<img src="/a.png" alt="a">', { 'https://public.example/a.png': new Response(png, { headers: { 'content-type': 'application/octet-stream' } }) });
+    expect(r.job).toEqual({ status: 'completed', error_code: null });
+    expect(r.document.saveStatus).toBe('original-saved');
+    expect(r.manifest.resources).toEqual([expect.objectContaining({ url: 'https://public.example/a.png', status: 'available' })]);
+    const file = r.manifest.files.find((item: { role: string }) => item.role === 'image');
+    expect(file).toMatchObject({ mediaType: 'image/png', bytes: png.length });
+    const stored = await r.t.app.inject({ url: `/api/v1/documents/${r.saved.documentId}/web-snapshots/${r.document.source.sourceVersionId}/files/${file.id}`, headers: r.t.headers });
+    expect(stored.rawPayload.equals(png)).toBe(true);
+    expect(r.requests.every(request => request.userAgent?.includes('PageLingo'))).toBe(true);
+  });
+  it('renders an SVG figure to a verified PNG', async () => {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="20"><path d="M0 0L10 20"/></svg>';
+    const r = await save('<img src="/figure.svg" alt="figure">', { 'https://public.example/figure.svg': new Response(svg, { headers: { 'content-type': 'image/svg+xml' } }) });
+    expect(r.document.saveStatus).toBe('original-saved');
+    expect(r.manifest.files.find((item: { role: string }) => item.role === 'image')).toMatchObject({ mediaType: 'image/png' });
+  });
+  it.each([
+    ['an outside image reference', '<svg xmlns="http://www.w3.org/2000/svg" width="9" height="9"><image href="file:///etc/hostname" width="9" height="9"/></svg>'],
+    ['a DOCTYPE', '<!DOCTYPE svg [<!ENTITY a "b">]><svg xmlns="http://www.w3.org/2000/svg" width="9" height="9"></svg>'],
+    ['malformed XML', '<svg xmlns="http://www.w3.org/2000/svg"><path></svg>'],
+  ])('refuses to render an SVG with %s and keeps the article', async (_name, svg) => {
+    const r = await save('<img src="/figure.svg">', { 'https://public.example/figure.svg': new Response(svg) });
+    expect(r.job.status).toBe('completed');
+    expect(r.document.saveStatus).toBe('partial-resources');
+    expect(r.manifest.resources[0]).toMatchObject({ status: 'missing' });
+  });
+  it('records why images are missing without losing the article or the other images', async () => {
+    const r = await save('<img src="/gone.png"><img src="/page.png"><img src="/huge.png"><img src="/a.png">', {
+      'https://public.example/page.png': new Response('<html>not an image</html>'),
+      'https://public.example/huge.png': () => { throw new Error('Response too large'); },
+      'https://public.example/a.png': new Response(png),
+    });
+    expect(r.job.status).toBe('completed');
+    expect(r.document.saveStatus).toBe('partial-resources');
+    expect(r.manifest.resources.map((item: { status: string; reason?: string }) => item.reason ?? item.status)).toEqual(['unavailable', 'unsupported', 'unavailable', 'available']);
+    expect(r.reader.warnings ?? []).toEqual(expect.any(Array));
+  });
+  it('decodes images embedded in the page without a request', async () => {
+    const r = await save(`<img src="data:image/png;base64,${png.toString('base64')}">`, {});
+    expect(r.document.saveStatus).toBe('original-saved');
+    expect(r.requests).toHaveLength(1);
+  });
 });

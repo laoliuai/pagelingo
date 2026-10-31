@@ -38,6 +38,8 @@ COPY --from=build /app/apps/document-service/package.json ./apps/document-servic
 COPY --from=build /app/apps/document-service/dist ./apps/document-service/dist
 COPY --from=build /app/apps/document-service/migrations ./apps/document-service/migrations
 COPY --from=build /app/apps/web/dist ./apps/web/dist
+# Text inside saved SVG figures needs a font when it is rendered to PNG.
+RUN apt-get update && apt-get install -y --no-install-recommends fonts-dejavu-core && rm -rf /var/lib/apt/lists/*
 RUN mkdir -p /data/objects && chown -R node:node /data
 USER node
 EXPOSE 4320

@@ -11,12 +11,14 @@ import type { ObjectStore } from '../storage/object-store.js';
 import { lockObjectPublication } from '../documents/repository.js';
 import { assertJobLeaseCurrent, releaseWebJobSlot, type JobLease } from '../web-jobs/repository.js';
 import { insertWebAsset, registerWebSourceFile } from '../web-readers/repository.js';
+import { isFakeIpRejection } from '../network/address-policy.js';
 import { createCaptureFetch } from '../network/capture-fetch.js';
 import { classifyDocumentLink } from './links.js';
 import { findWebCapture, insertWebCapture, type WebCaptureRow } from './repository.js';
 import { receiveCaptureFile, stagingPath } from './staging.js';
 import { validateCaptureInWorker } from './worker-client.js';
 import { publishCapture, type CaptureAsset } from './publication.js';
+import { CAPTURE_USER_AGENT, capturePublicImages } from './public-resources.js';
 import type { CapturePublicationHook } from './service.js';
 interface Acquisition { ingestion_id: string; raw_asset_id: string; raw_sha256: string; raw_bytes: string; final_url: string; object_key: string }
 export interface FetchRunnerDependencies {
@@ -47,7 +49,7 @@ export async function runFetchJob(lease: JobLease, dependencies: FetchRunnerDepe
     if (!acquisition) {
       if (classifyDocumentLink(lease.url).reason) throw new ServiceError(400, 'FETCH_BROWSER_REQUIRED', 'Public page requires browser capture');
       await check();
-      const response = await captureFetch(lease.url, { method: 'GET', signal, headers: { accept: 'text/html,application/xhtml+xml' } });
+      const response = await captureFetch(lease.url, { method: 'GET', signal, headers: { accept: 'text/html,application/xhtml+xml', 'user-agent': CAPTURE_USER_AGENT } });
       const finalUrl = response.url || lease.url;
       if (classifyDocumentLink(finalUrl).reason) { await response.body?.cancel(); throw new ServiceError(400, 'FETCH_BROWSER_REQUIRED', 'Public page requires browser capture'); }
       if (!response.ok || !/^text\/html(?:;|$)|^application\/xhtml\+xml(?:;|$)/i.test(response.headers.get('content-type') ?? '')) {
@@ -95,7 +97,25 @@ export async function runFetchJob(lease: JobLease, dependencies: FetchRunnerDepe
     const rawFile = row.manifest.files.find(file => file.id === row.manifest.htmlFileId)!;
     await receiveCaptureFile(config.dataDir, temporary, store.read(acquisition.object_key), rawFile, signal);
     await check();
-    const prepared = await validateCaptureInWorker({ manifest: row.manifest, files: [{ id: rawFile.id, path: stagingPath(config.dataDir, temporary) }], limits: config.captureLimits, publicArticle: { finalUrl: acquisition.final_url } }, signal);
+    let prepared = await validateCaptureInWorker({ manifest: row.manifest, files: [{ id: rawFile.id, path: stagingPath(config.dataDir, temporary) }], limits: config.captureLimits, publicArticle: { finalUrl: acquisition.final_url } }, signal);
+    const fetchImage = dependencies.captureFetch ?? createCaptureFetch({ timeoutMs: config.captureLimits.requestTimeoutMs, maxResponseBytes: config.captureLimits.maxResourceBytes });
+    if (await capturePublicImages(prepared, { fetchImage, limits: config.captureLimits, signal })) {
+      await check();
+      // Previews and the IR depend on which images are now available, so the capture is validated again from its cleaned bytes.
+      prepared.manifest.files = prepared.manifest.files.filter(file => file.role !== 'preview');
+      prepared.manifest.snapshots = { previews: [], nodeLocations: {} };
+      const staged: string[] = [];
+      try {
+        const files = [];
+        for (const descriptor of prepared.manifest.files) {
+          const key = randomUUID(); staged.push(key);
+          const bytes = prepared.files.find(file => file.id === descriptor.id)!.bytes;
+          await receiveCaptureFile(config.dataDir, key, (async function* () { yield bytes; })(), descriptor, signal);
+          files.push({ id: descriptor.id, path: stagingPath(config.dataDir, key) });
+        }
+        prepared = await validateCaptureInWorker({ manifest: prepared.manifest, files, limits: config.captureLimits }, signal);
+      } finally { for (const key of staged) await unlink(stagingPath(config.dataDir, key)).catch(() => {}); }
+    }
     const assets: CaptureAsset[] = [];
     async function stage(kind: CaptureAsset['kind'], mediaType: string, bytes: Uint8Array, localId?: string) {
       signal.throwIfAborted(); const key = randomUUID(); const value = await store.putImmutable(key, (async function* () { yield bytes; })(), Math.max(config.captureLimits.maxTotalBytes, config.captureLimits.maxIrBytes));
@@ -125,7 +145,7 @@ export async function runFetchJob(lease: JobLease, dependencies: FetchRunnerDepe
   } catch (error) {
     // Stale/revoked workers cannot finalize even a failure. Task 11 reconciles those leases.
     signal.throwIfAborted();
-    const errorCode = error instanceof ServiceError && error.code === 'FETCH_BROWSER_REQUIRED' ? error.code : 'FETCH_CAPTURE_UNAVAILABLE';
+    const errorCode = error instanceof ServiceError && error.code === 'FETCH_BROWSER_REQUIRED' ? error.code : isFakeIpRejection(error) ? 'OUTBOUND_FAKE_IP' : 'FETCH_CAPTURE_UNAVAILABLE';
     await db.transaction(async client => {
       await assertJobLeaseCurrent(client, lease); signal.throwIfAborted();
       await client.query("UPDATE web_captures SET status='failed',error_code=$3,updated_at=clock_timestamp() WHERE owner_id=$1 AND fetch_job_id=$2 AND status<>'completed'", [lease.ownerId, lease.jobId, errorCode]);
