@@ -87,6 +87,54 @@ ssh 服务器 'cd pagelingo && docker compose ... up -d --no-build --wait'
 
 验证整套生产配置（独立项目，不碰现有数据，跑完自动清理）：`npm run test:site:backup`。
 
+### 80/443 已被其他站点占用
+
+一台服务器的 80/443 只能由一个程序监听。如果上面已有 nginx 等反向代理，不要启动 Caddy，改由现有代理按域名转发给 PageLingo。下面以容器里的 nginx 为例：
+
+```bash
+docker network create pagelingo_edge              # 只有代理和 app 在这个网络上，app 碰不到代理后面的其他服务
+docker network connect pagelingo_edge <代理容器>   # 代理容器被重建后要重新执行
+site_prod() {
+  docker compose --project-name pagelingo-site --env-file .env.production.local \
+    -f deploy/compose.site.yml -f deploy/compose.prod.yml -f deploy/compose.shared-proxy.yml "$@"
+}
+site_prod up -d --build --wait
+```
+
+先为域名配好 80 端口的 ACME 路径并申请证书，再加上这段站点配置：
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name read.example.com;
+    ssl_certificate /etc/letsencrypt/live/read.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/read.example.com/privkey.pem;
+
+    client_max_body_size 300m;
+
+    location / {
+        resolver 127.0.0.11 valid=10s;
+        set $pagelingo http://pagelingo-app:4320;
+        proxy_pass $pagelingo;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_request_buffering off;
+        proxy_buffering off;
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+    }
+}
+```
+
+- **`resolver` 和 `set` 不能省。** 写成固定的 `proxy_pass http://pagelingo-app:4320` 时，只要 PageLingo 没在运行，nginx 就无法启动，同一个 nginx 上的其他站点也会一起停掉。
+- **`client_max_body_size` 不能省。** nginx 默认只接受 1 MiB，PDF 和阅读包会上传失败。
+- **只能有一层代理。** 应用信任紧邻的一跳（`PAGELINGO_TRUST_PROXY_HOPS=1`），所以这里用 `$remote_addr` 覆盖客户端自带的 `X-Forwarded-For`。
+- **确认配置真的生效。** 如果代理配置是单文件挂载，而宿主机上的文件在容器启动后被编辑器或部署工具整体替换过，容器仍在读已删除的旧文件，`nginx -t` 和重载都会成功但新站点不存在。可用 `docker exec <代理容器> nginx -T | grep server_name` 核对，最终以 `openssl s_client -servername <域名>` 拿到的证书为准。重启容器能恢复挂载。
+- **内存上限。** 默认 app 700m、worker 900m、数据库 400m，避免大任务挤占同机服务。保存 GPT-3 全文（4317 块、74 张图）时实测峰值约 195、577、110 MiB。需要调整时在运行配置里设 `PAGELINGO_APP_MEMORY`、`PAGELINGO_WORKER_MEMORY`、`PAGELINGO_DB_MEMORY`。
+
 ### 机器上有代理工具时
 
 如果服务所在机器的 DNS 由 Clash、Mihomo 等代理工具的 fake-ip 模式接管（典型表现是域名解析成 `198.18.x.x`），抓取网页、GitHub、arXiv 和调用模型都会被出站安全策略拦截，任务显示 fake-ip 相关错误，worker 日志也会提示。确认后在运行配置里加上 `PAGELINGO_ALLOW_FAKE_IP=1` 并重启。开启后只放行 DNS 返回的这个网段，TLS 仍校验真实域名，内网地址继续拒绝。普通云服务器不需要这个开关。

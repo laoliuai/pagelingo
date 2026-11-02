@@ -1,0 +1,21 @@
+# Overlay for a server whose ports 80/443 already belong to another reverse proxy:
+#   docker compose -f deploy/compose.site.yml -f deploy/compose.prod.yml -f deploy/compose.shared-proxy.yml ...
+# Caddy stays off. The app joins only a dedicated network that the proxy is also attached to, so it cannot reach
+# the proxy's other upstreams. Memory limits keep a heavy capture from starving other services on the server.
+services:
+  db:
+    mem_limit: ${PAGELINGO_DB_MEMORY:-400m}
+  app:
+    mem_limit: ${PAGELINGO_APP_MEMORY:-700m}
+    networks:
+      default:
+      edge:
+        aliases: [pagelingo-app]
+  worker:
+    mem_limit: ${PAGELINGO_WORKER_MEMORY:-900m}
+  caddy:
+    profiles: [bundled-proxy]
+networks:
+  edge:
+    name: pagelingo_edge
+    external: true
