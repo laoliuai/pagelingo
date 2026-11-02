@@ -1,6 +1,42 @@
 .personal-settings-panel {
   margin-top: 24px;
 }
+.glossary-import {
+  margin: 16px 0 20px;
+}
+.glossary-import input[type='file'] {
+  height: auto;
+  padding: 8px 12px;
+}
+.glossary-import details {
+  margin: 12px 0;
+}
+.glossary-import textarea {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--page);
+  padding: 8px 12px;
+  font: inherit;
+  color: inherit;
+  resize: vertical;
+}
+.glossary-preview {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+  margin-top: 12px;
+}
+.glossary-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
 .glossary-entries {
   display: grid;
   gap: 1rem;

@@ -8,7 +8,9 @@ import { Button } from '../../shared/ui/button';
 import { Input } from '../../shared/ui/input';
 import { Field } from '../../shared/ui/field';
 import { Feedback } from '../../shared/ui/toast';
+import { GlossaryImport } from './glossary-import';
 import './glossary-panel.css';
+const PAGE_SIZE = 50;
 function GlossaryForm({ value }: { value: GlossaryRevision }) {
   const { user } = useSession();
   const client = useQueryClient();
@@ -17,7 +19,23 @@ function GlossaryForm({ value }: { value: GlossaryRevision }) {
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState(false);
+  const [query, setQuery] = useState('');
+  const [page, setPage] = useState(0);
+  // Keeps the row being edited on screen when the edit stops it matching the search.
+  const [editing, setEditing] = useState<number>();
+  const needle = query.trim().toLowerCase();
+  const visible = entries.flatMap((entry, index) =>
+    index === editing || `${entry.source} ${entry.target}`.toLowerCase().includes(needle) ? [{ entry, index }] : [],
+  );
+  const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount - 1);
+  function showAll(nextPage: number) {
+    setQuery('');
+    setEditing(undefined);
+    setPage(nextPage);
+  }
   function change(index: number, patch: Partial<GlossaryEntry>) {
+    setEditing(index);
     setEntries((previous) => previous.map((entry, i) => (i === index ? { ...entry, ...patch } : entry)));
   }
   async function submit(event: FormEvent) {
@@ -27,8 +45,14 @@ function GlossaryForm({ value }: { value: GlossaryRevision }) {
     try {
       const parsed = glossaryUpdateSchema.safeParse({ expectedRevision: revision, entries });
       if (!parsed.success) {
+        const invalid = parsed.error.issues[0]?.path[1];
+        const row = typeof invalid === 'number' ? invalid : undefined;
+        // The bad row may be on another page or hidden by the search.
+        if (row !== undefined) showAll(Math.floor(row / PAGE_SIZE));
         setError(true);
-        setMessage('请填写有效术语。固定翻译需填写译词，原词最多 120 字、译词最多 240 字。');
+        setMessage(
+          `${row === undefined ? '' : `第 ${row + 1} 条：`}请填写有效术语。固定翻译需填写译词，原词最多 120 字、译词最多 240 字。`,
+        );
         return;
       }
       const saved = await apiRequest<GlossaryRevision>('/api/v1/settings/glossary', {
@@ -51,9 +75,37 @@ function GlossaryForm({ value }: { value: GlossaryRevision }) {
     <form onSubmit={submit}>
       <fieldset disabled={pending}>
         <p>此术语表仅属于当前账号。相同原词与领域以最后一条为准，已开始的任务保留原术语版本。</p>
+        <GlossaryImport
+          entries={entries}
+          onImported={(merged, summary) => {
+            setEntries(merged);
+            showAll(0);
+            setError(false);
+            setMessage(summary);
+          }}
+        />
+        {entries.length > 0 && (
+          <Field label="搜索术语">
+            <Input
+              type="search"
+              placeholder="搜索原词或译词"
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setEditing(undefined);
+                setPage(0);
+              }}
+              // Enter in a form field would otherwise save the whole glossary.
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') e.preventDefault();
+              }}
+            />
+          </Field>
+        )}
         {entries.length === 0 && <p className="muted">尚未添加个人术语。</p>}
-        <div className="glossary-entries">
-          {entries.map((entry, index) => (
+        {entries.length > 0 && visible.length === 0 && <p className="muted">没有匹配的术语。</p>}
+        <div className="glossary-entries" key={currentPage}>
+          {visible.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE).map(({ entry, index }) => (
             <div className="glossary-entry" key={index}>
               <Field label={`原词 ${index + 1}`}>
                 <Input
@@ -95,24 +147,41 @@ function GlossaryForm({ value }: { value: GlossaryRevision }) {
               <Button
                 type="button"
                 aria-label={`删除术语 ${index + 1}`}
-                onClick={() => setEntries((previous) => previous.filter((_, i) => i !== index))}
+                onClick={() => {
+                  setEditing(undefined);
+                  setEntries((previous) => previous.filter((_, i) => i !== index));
+                }}
               >
                 删除
               </Button>
             </div>
           ))}
         </div>
+        {pageCount > 1 && (
+          <div className="glossary-pager">
+            <Button type="button" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>
+              上一页
+            </Button>
+            <span className="muted">
+              第 {currentPage + 1} / {pageCount} 页
+            </span>
+            <Button type="button" disabled={currentPage + 1 === pageCount} onClick={() => setPage(currentPage + 1)}>
+              下一页
+            </Button>
+          </div>
+        )}
         <p className="muted">
-          {entries.length} / {MAX_GLOSSARY_ENTRIES} 条
+          {entries.length} / {MAX_GLOSSARY_ENTRIES} 条{needle ? `，匹配 ${visible.length} 条` : ''}
         </p>
         <Feedback message={message} error={error} />
         <div className="form-actions">
           <Button
             type="button"
             disabled={entries.length >= MAX_GLOSSARY_ENTRIES}
-            onClick={() =>
-              setEntries((previous) => [...previous, { source: '', target: '', policy: 'translate', domain: 'all' }])
-            }
+            onClick={() => {
+              showAll(Math.floor(entries.length / PAGE_SIZE));
+              setEntries((previous) => [...previous, { source: '', target: '', policy: 'translate', domain: 'all' }]);
+            }}
           >
             添加术语
           </Button>

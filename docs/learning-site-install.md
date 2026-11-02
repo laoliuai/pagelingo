@@ -83,7 +83,7 @@ docker save pagelingo-site:latest | ssh 服务器 docker load
 ssh 服务器 'cd pagelingo && docker compose ... up -d --no-build --wait'
 ```
 
-登录后在“设置”里填写模型地址和 Key。建议同时导入 [`merged-tech.en-zh.json`](glossaries/merged-tech.en-zh.json)：术语表默认是空的，导入后专业术语译法才稳定。
+登录后在“设置”里填写模型地址和 Key。建议同时导入 [`merged-tech.en-zh.json`](glossaries/merged-tech.en-zh.json)：术语表默认是空的，导入后专业术语译法才稳定。“个人术语表”支持 JSON、CSV、TSV 文件和表格粘贴，先预览新增和覆盖数量，确认合并后点“保存术语表”生效。
 
 验证整套生产配置（独立项目，不碰现有数据，跑完自动清理）：`npm run test:site:backup`。
 
