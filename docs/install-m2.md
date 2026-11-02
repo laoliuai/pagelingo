@@ -1,6 +1,6 @@
-# 插件 0.4.5 安装与浏览器测试
+# 插件 0.5.0 安装与浏览器测试
 
-产物：`apps/extension/dist/`，或 `releases/pagelingo-0.4.5.zip`。ZIP 解压后直接得到含 `manifest.json` 的目录，不需要启动网站或后台服务。翻译 SDK 为 0.4.0，助手 SDK 为 0.2.0；新版将词表容量提高到 5,000 条 / 8 MiB，并附带 2,799 条融合词表，保留之前的背景高亮、颜色、下划线、提示框占位保护和阅读助手功能。
+产物：`apps/extension/dist/`，或 `releases/pagelingo-0.5.0.zip`。ZIP 解压后直接得到含 `manifest.json` 的目录，翻译功能不需要启动网站或后台服务；同步到资料站点的配对方法见[扩展收藏指南](extension-site-capture.md)。旧的 `pagelingo-0.4.5.zip` 不含站点同步。翻译 SDK 为 0.4.0，助手 SDK 为 0.2.0；词表容量为 5,000 条 / 8 MiB，并附带 2,799 条融合词表，保留之前的背景高亮、颜色、下划线、提示框占位保护和阅读助手功能。
 
 1. Chrome 打开 `chrome://extensions`；Edge 打开 `edge://extensions`。
 2. 开启开发者模式，点击“加载已解压的扩展程序”，选择 dist 或 ZIP 解压目录。
