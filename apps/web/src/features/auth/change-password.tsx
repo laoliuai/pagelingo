@@ -37,7 +37,7 @@ export function ChangePassword() {
   return (
     <section className="form-panel account-panel">
       <h2>账户安全</h2>
-      <p>修改密码将注销所有设备，请重新登录。新密码需为 12–128 个字符。</p>
+      <p>修改密码将注销所有设备，请重新登录。新密码需为 6–128 个字符。</p>
       <form onSubmit={submit}>
         <Field label="当前密码">
           <Input

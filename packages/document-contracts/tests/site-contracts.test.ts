@@ -66,9 +66,10 @@ describe('public auth contracts', () => {
     for (const username of ['ab', '1abc', ' abc', 'a'.repeat(33)]) {
       expect(createUserRequestSchema.safeParse({ username, password }).success).toBe(false);
     }
-    for (const invalid of ['😀'.repeat(11), 'a'.repeat(129)]) {
+    for (const invalid of ['😀'.repeat(5), 'a'.repeat(129)]) {
       expect(createUserRequestSchema.safeParse({ username: 'reader', password: invalid }).success).toBe(false);
     }
+    expect(createUserRequestSchema.safeParse({ username: 'reader', password: '😀'.repeat(6) }).success).toBe(true);
     expect(createUserRequestSchema.safeParse({ username: 'reader', password: '😀'.repeat(128) }).success).toBe(true);
     expect(createUserRequestSchema.safeParse({ username: 'reader', password, role: 'admin' }).success).toBe(false);
   });

@@ -5,8 +5,8 @@ export const usernameSchema = z.string().toLowerCase().pipe(z.string().regex(/^[
 /** Count Unicode code points without trimming or truncating the supplied password. */
 export const passwordSchema = z.string().refine((value) => {
   const length = Array.from(value).length;
-  return length >= 12 && length <= 128;
-}, 'Password must contain 12–128 Unicode code points.');
+  return length >= 6 && length <= 128;
+}, 'Password must contain 6–128 Unicode code points.');
 
 export const publicUserSchema = z.strictObject({
   id: z.uuid(),

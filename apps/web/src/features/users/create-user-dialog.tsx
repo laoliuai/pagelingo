@@ -37,7 +37,7 @@ export function CreateUserDialog({ onCreated }: { onCreated: () => Promise<unkno
   return (
     <Modal
       title="创建用户"
-      description="开通独立账号。用户名为 3–32 位小写字母、数字、下划线或短横线，并以字母开头。密码为 12–128 个字符。"
+      description="开通独立账号。用户名为 3–32 位小写字母、数字、下划线或短横线，并以字母开头。密码为 6–128 个字符。"
       open={open}
       onOpenChange={changeOpen}
       trigger={<Button primary>创建用户</Button>}

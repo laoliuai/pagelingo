@@ -101,7 +101,7 @@ export function errorMessage(error: unknown): string {
     if (error.status === 429) return '请求过于频繁，请稍后重试。';
     if (error.code === 'PROVIDER_INCOMPLETE') return '请先填写模型地址、名称与 API Key。';
     if (error.status === 403) return '没有执行此操作的权限。';
-    if (error.status === 400) return '请检查输入格式。密码需为 12–128 个字符。';
+    if (error.status === 400) return '请检查输入格式。密码需为 6–128 个字符。';
   }
   return '操作失败，请稍后重试。';
 }

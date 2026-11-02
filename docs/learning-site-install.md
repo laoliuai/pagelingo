@@ -44,7 +44,7 @@ site_compose up -d --build --wait
 site_compose exec app node apps/document-service/dist/cli/bootstrap-admin.js --username myadmin
 ```
 
-管理员密码在终端遮蔽输入，要求 12–128 个 Unicode 码点；用户名为 3–32 个小写字母、数字、下划线或短横线且以字母开头。仅可初始化第一个管理员。自动化使用 `exec -T` 与 `--password-stdin`，通过秘密管理工具的 stdin 传入密码，不放进参数或命令历史。
+管理员密码在终端遮蔽输入，要求 6–128 个 Unicode 码点；用户名为 3–32 个小写字母、数字、下划线或短横线且以字母开头。仅可初始化第一个管理员。自动化使用 `exec -T` 与 `--password-stdin`，通过秘密管理工具的 stdin 传入密码，不放进参数或命令历史。
 
 访问 <http://127.0.0.1:4320>。Compose 明确使用 `local` 模式：HTTP、非 Secure 本机会话 cookie，app 仅绑定主机 loopback；数据库没有主机映射。不要将这份预览配置直接公开到互联网，公网使用见[服务器部署](#服务器部署)。
 
